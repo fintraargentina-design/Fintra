@@ -1,0 +1,2785 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 0%;
+    --foreground: 120 100% 50%;
+    --card: 0 0% 0%;
+    --card-foreground: 120 100% 50%;
+    --popover: 0 0% 0%;
+    --popover-foreground: 120 100% 50%;
+    --primary: 120 100% 50%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 120 20% 10%;
+    --secondary-foreground: 120 100% 80%;
+    --muted: 120 20% 5%;
+    --muted-foreground: 120 50% 60%;
+    --accent: 120 50% 15%;
+    --accent-foreground: 120 100% 80%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 120 50% 20%;
+    --input: 120 50% 20%;
+    --ring: 120 100% 50%;
+    --radius: 0.5rem;
+  }
+  
+  /* Variables para tema claro */
+  .light {
+    --background: 0 0% 96%; /* Blanco no tan blanco */
+    --foreground: 0 0% 15%; /* Casi negro para texto */
+    --card: 0 0% 98%;
+    --card-foreground: 0 0% 15%;
+    --popover: 0 0% 98%;
+    --popover-foreground: 0 0% 15%;
+    --primary: 120 100% 35%; /* Verde más oscuro para contraste */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 120 20% 90%;
+    --secondary-foreground: 0 0% 15%;
+    --muted: 120 10% 92%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 120 30% 85%;
+    --accent-foreground: 0 0% 15%;
+    --destructive: 0 84% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 120 20% 85%;
+    --input: 120 20% 85%;
+    --ring: 120 100% 35%;
+  }
+  
+  /* Degradado violeta sutil para el background oscuro */
+  body {
+    background: linear-gradient(135deg, 
+      #0a0a0a 0%, 
+      #1a0a1a 25%, 
+      #2a1a2a 50%, 
+      #1a0a1a 75%, 
+      #0a0a0a 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    transition: background 0.3s ease;
+  }
+  
+  /* Background para tema claro */
+  .light body {
+    background: linear-gradient(135deg, 
+      #f8f9fa 0%, 
+      #f5f3ff 25%, 
+      #f3f4f6 50%, 
+      #f5f3ff 75%, 
+      #f8f9fa 100%);
+    background-attachment: fixed;
+  }
+}
+
+@layer utilities {
+  .grid-cols-20 {
+    grid-template-columns: repeat(20, minmax(0, 1fr));
+  }
+  .grid-rows-20 {
+    grid-template-rows: repeat(20, minmax(0, 1fr));
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.light ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(34, 197, 94, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 197, 94, 0.7);
+}
+
+.light ::-webkit-scrollbar-thumb {
+  background: rgba(34, 197, 94, 0.6);
+}
+
+.light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 197, 94, 0.8);
+}
+
+/* Terminal cursor animation */
+@keyframes blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.terminal-cursor::after {
+  content: "█";
+  animation: blink 1s infinite;
+  color: #22c55e;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+@keyframes scroll {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-scroll {
+  animation: scroll 30s linear infinite;
+}
+
+.animate-scroll:hover {
+  animation-play-state: paused;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
+
+.light .terminal-cursor::after {
+  color: #16a34a;
+}
