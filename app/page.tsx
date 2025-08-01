@@ -150,6 +150,26 @@ export default function StockTerminal() {
       console.log('Redirigir a login/signup');
     }
   };
+
+    const isMarketOpen = () => {
+    const now = new Date();
+    const nyTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+    const day = nyTime.getDay(); // 0 = Domingo, 6 = Sábado
+    const hour = nyTime.getHours();
+    const minute = nyTime.getMinutes();
+    const timeInMinutes = hour * 60 + minute;
+    
+    // Mercado cerrado los fines de semana
+    if (day === 0 || day === 6) {
+      return false;
+    }
+    
+    // Horario del mercado: 9:30 AM - 4:00 PM EST/EDT
+    const marketOpen = 9 * 60 + 30; // 9:30 AM
+    const marketClose = 16 * 60; // 4:00 PM
+    
+    return timeInMinutes >= marketOpen && timeInMinutes < marketClose;
+  };
   
   // Verificar estado de autenticación al cargar
   useEffect(() => {
@@ -184,18 +204,22 @@ export default function StockTerminal() {
         </div>
         
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2" style={{color: '#4ade80'}}>
-            <span className="text-sm font-mono">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-400">
               {new Date().toLocaleDateString('es-ES', { 
                 day: '2-digit', 
                 month: '2-digit', 
                 year: '2-digit' 
               })} - 
             </span>
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-4 h-4" fill="yellow" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
             </svg>
-            <span className="text-sm font-mono">
+            <span className={`text-sm font-mono ${
+              isMarketOpen() 
+                ? 'text-green-400' 
+                : 'text-red-400'
+            }`}>
               {new Date().toLocaleTimeString('es-ES', { 
                 hour12: false,
                 hour: '2-digit', 
@@ -207,7 +231,7 @@ export default function StockTerminal() {
                 hour: '2-digit', 
                 minute: '2-digit', 
                 second: '2-digit' 
-              })}
+              })} {isMarketOpen() ? '🟢' : '🔴'}
             </span>
           </div>
           <Button
@@ -236,7 +260,7 @@ export default function StockTerminal() {
         {/* Barra de Busqueda */}
         <div className="flex justify-between items-center space-x-4 mb-6">
           <div className="flex space-x-4">
-            <div className="w-1/1 relative">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-green-400" />
               <Input
                 type="text"
