@@ -7,6 +7,21 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Interfaces para los datos estructurados
+// Agregar interface para dividendos
+export interface DividendData {
+  dividendYield?: number;
+  dividendPerShare?: number;
+  frequency?: string;
+  payoutRatio?: number;
+  fcfPayoutRatio?: number;
+  growth5Y?: number;
+  ultimoPago?: {
+    date?: string;
+    amount?: number;
+  };
+}
+
+// Actualizar StockBasicData interface
 export interface StockBasicData {
   symbol: string
   name: string
@@ -28,30 +43,10 @@ export interface StockBasicData {
   description?: string
   competitive_advantage?: string
   business_complexity?: string
+  dividendos?: DividendData  // Agregar esta línea
 }
 
-export interface StockAnalysisData {
-  peRatio: number
-  eps: number
-  dividendYield: number
-  week52High: number
-  week52Low: number
-  recommendation: string
-  targetPrice: number
-  analystRating: string
-}
-
-export interface StockPerformanceData {
-  day1: number
-  week1: number
-  month1: number
-  month3: number
-  month6: number
-  year1: number
-  ytd: number
-}
-
-// Función principal para obtener todos los datos de una acción
+// Actualizar la consulta en getCompleteStockData
 export async function getCompleteStockData(symbol: string) {
   try {
     const [datosResult, analisisResult] = await Promise.all([
@@ -79,7 +74,8 @@ export async function getCompleteStockData(symbol: string) {
           datos->>'website' as website,
           datos->>'description' as description,
           datos->>'moat' as competitive_advantage,
-          datos->>'isEasy' as business_complexity
+          datos->>'isEasy' as business_complexity,
+          datos->'dividendos' as dividendos_data
         `)
         .eq('symbol', symbol.toUpperCase())
         .order('fecha_de_creacion', { ascending: false })
@@ -135,7 +131,8 @@ export async function getCompleteStockData(symbol: string) {
       website: datosResult.data.website || undefined,
       description: datosResult.data.description || undefined,
       competitive_advantage: datosResult.data.competitive_advantage || undefined,
-      business_complexity: datosResult.data.business_complexity || undefined
+      business_complexity: datosResult.data.business_complexity || undefined,
+      dividendos: datosResult.data.dividendos_data || undefined  // Agregar esta línea
     } : null
 
     const analysisData: StockAnalysisData | null = analisisResult.data ? {
@@ -217,5 +214,53 @@ export async function getSpecificStockFields(symbol: string, fields: string[]) {
   } catch (error) {
     console.error('Error in getSpecificStockFields:', error)
     return null
+  }
+}
+
+// Función para registrar una búsqueda
+export async function registerStockSearch(symbol: string) {
+  try {
+    // Primero verificar si ya existe el símbolo
+    const { data: existingData, error: selectError } = await supabase
+      .from('busquedas_acciones')
+      .select('symbol, busquedas')
+      .eq('symbol', symbol.toUpperCase())
+      .single();
+
+    if (selectError && selectError.code !== 'PGRST116') {
+      // Error diferente a "no encontrado"
+      console.error('Error checking existing search:', selectError);
+      return;
+    }
+
+    if (existingData) {
+      // Actualizar contador existente
+      const { error: updateError } = await supabase
+        .from('busquedas_acciones')
+        .update({ 
+          busquedas: existingData.busquedas + 1,
+          ultima_busqueda: new Date().toISOString()
+        })
+        .eq('symbol', symbol.toUpperCase());
+
+      if (updateError) {
+        console.error('Error updating search count:', updateError);
+      }
+    } else {
+      // Crear nuevo registro
+      const { error: insertError } = await supabase
+        .from('busquedas_acciones')
+        .insert({
+          symbol: symbol.toUpperCase(),
+          busquedas: 1,
+          ultima_busqueda: new Date().toISOString()
+        });
+
+      if (insertError) {
+        console.error('Error inserting new search:', insertError);
+      }
+    }
+  } catch (error) {
+    console.error('Error in registerStockSearch:', error);
   }
 }

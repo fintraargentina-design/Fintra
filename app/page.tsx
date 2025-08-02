@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { searchStockData } from '@/lib/stockQueries';
-import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,29 +13,14 @@ import InformeTab from '@/components/tabs/InformeTab';
 import EstimacionTab from '@/components/tabs/EstimacionTab';
 import NoticiasTab from '@/components/tabs/NoticiasTab';
 import TwitsTab from '@/components/tabs/TwitsTab';
+import TopSearchedStocks from '@/components/TopSearchedStocks';
+import { supabase, registerStockSearch } from '@/lib/supabase';
+import RadarChart from "@/components/charts/RadarChart";
 
-// Datos de ejemplo
-const fallbackStockData = {
-  symbol: 'AAPL',
-  company_name: 'Apple Inc.',
-  current_price: 150.25,
-  market_cap: 2500000000000,
-  pe_ratio: 25.5,
-  volume: 45000000
-};
-
-const popularStocks = [
-  { symbol: 'AAPL', name: 'Apple Inc.', price: 150.25, change: 2.5 },
-  { symbol: 'GOOGL', name: 'Alphabet Inc.', price: 2750.80, change: -1.2 },
-  { symbol: 'MSFT', name: 'Microsoft Corp.', price: 310.50, change: 1.8 },
-  { symbol: 'TSLA', name: 'Tesla Inc.', price: 850.25, change: 3.2 },
-  { symbol: 'AMZN', name: 'Amazon.com Inc.', price: 3200.75, change: -0.5 },
-  { symbol: 'NVDA', name: 'NVIDIA Corp.', price: 220.30, change: 4.1 }
-];
 
 export default function StockTerminal() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStock, setSelectedStock] = useState(fallbackStockData);
+  const [selectedStock, setSelectedStock] = useState('AAPL');
   const [stockBasicData, setStockBasicData] = useState(null);
   const [stockAnalysis, setStockAnalysis] = useState(null);
   const [stockPerformance, setStockPerformance] = useState(null);
@@ -48,19 +32,26 @@ export default function StockTerminal() {
   const [user, setUser] = useState(null);
 
   // Función para buscar datos de una acción
+  // Importar la nueva función
+  
+  
+  // Modificar la función buscarDatosAccion
   const buscarDatosAccion = async (symbol) => {
     setIsLoading(true);
     setError('');
     
     try {
+      // Registrar la búsqueda
+      await registerStockSearch(symbol);
+      
       const result = await searchStockData(symbol);
       
       if (result.success) {
-        setStockBasicData(result.basicData || fallbackStockData);
+        setStockBasicData(result.basicData);
         setStockAnalysis(result.analysisData);
         setStockPerformance(result.performanceData);
-        setStockReport(result.reportData); // Nuevo
-        setSelectedStock(result.basicData || fallbackStockData);
+        setStockReport(result.reportData);
+        setSelectedStock(result.basicData);
       } else {
         setError(result.error || 'Error al buscar datos');
         setStockBasicData(fallbackStockData);
@@ -102,9 +93,13 @@ export default function StockTerminal() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'datos':
-        return <DatosTab stockAnalysis={stockAnalysis} stockPerformance={stockPerformance} stockBasicData={stockBasicData} />;
+        return <DatosTab stockAnalysis={stockAnalysis} stockPerformance={stockPerformance} stockBasicData={stockBasicData} stockReport={stockReport} />;
       case 'chart':
-        return <ChartTab selectedStock={selectedStock} />;
+        return <ChartTab 
+          selectedStock={selectedStock} 
+          stockBasicData={stockBasicData}
+          stockAnalysis={stockAnalysis}
+        />;
       case 'informe':
         return <InformeTab stockReport={stockReport} />;
       case 'estimacion':
@@ -171,6 +166,12 @@ export default function StockTerminal() {
     return timeInMinutes >= marketOpen && timeInMinutes < marketClose;
   };
   
+  // Función para manejar click en acciones más buscadas 
+    const handleTopStockClick = (symbol: string) => {
+      setSearchTerm(symbol);
+      buscarDatosAccion(symbol);
+    };
+
   // Verificar estado de autenticación al cargar
   useEffect(() => {
     const getSession = async () => {
@@ -195,12 +196,12 @@ export default function StockTerminal() {
       isDarkMode 
         ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-black text-green-400' 
         : 'bg-gradient-to-br from-gray-100 via-white to-gray-50 text-gray-800'
-    }`}>
+      }`}>
       {/* Header */}
       <div className="flex justify-between items-center p-6 border-b border-green-400/20">
         <div className="flex items-center space-x-4">
           <Terminal className="w-8 h-8 text-green-400" />
-          <h1 className="text-2xl font-bold text-green-400">FINTRA TERMINAL</h1>
+          <h1 className="text-2xl font-bold text-green-400">FINTRA - IA Bursátil</h1>
         </div>
         
         <div className="flex items-center space-x-4">
@@ -212,7 +213,7 @@ export default function StockTerminal() {
                 year: '2-digit' 
               })} - 
             </span>
-            <svg className="w-4 h-4" fill="yellow" viewBox="0 0 20 20">
+            <svg className="w-4 h-4" fill="gray" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
             </svg>
             <span className={`text-sm font-mono ${
@@ -231,14 +232,14 @@ export default function StockTerminal() {
                 hour: '2-digit', 
                 minute: '2-digit', 
                 second: '2-digit' 
-              })} {isMarketOpen() ? '🟢' : '🔴'}
+              })} {isMarketOpen() ? '🟢 Open Market' : '🔴 Close Market'}
             </span>
           </div>
           <Button
             onClick={toggleTheme}
             variant="ghost"
             size="sm"
-            className="text-green-400 hover:bg-green-400/10"
+            className="text-gray-400 hover:bg-green-400/10"
           >
             {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </Button>
@@ -247,7 +248,7 @@ export default function StockTerminal() {
             onClick={handleAuth}
             variant="ghost"
             size="sm"
-            className="text-green-400 hover:bg-green-400/10"
+            className="text-gray-400 hover:bg-green-400/10"
           >
             {user ? 'Logout' : 'Login'}
           </Button>
@@ -293,7 +294,7 @@ export default function StockTerminal() {
             {error}
           </div>
         )}
-      
+
         {/* Información de la acción seleccionada */}
         {selectedStock && (
           <div className="flex gap-6">
@@ -351,77 +352,56 @@ export default function StockTerminal() {
               
               
               
-              {/* Nuevo div - Acciones más buscadas */}
-              <div className="mb-6">
-                <Card className="bg-gray-900/50 border-green-400/20">
-                  <CardHeader>
-                    <CardTitle className="text-green-400">
-                      Acciones más buscadas
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {popularStocks.map((stock, index) => (
-                        <div 
-                          key={stock.symbol}
-                          className="flex items-center justify-between p-2 rounded hover:bg-green-400/10 cursor-pointer transition-all duration-200"
-                          onClick={() => {
-                            setSearchTerm(stock.symbol);
-                            buscarDatosAccion(stock.symbol);
-                          }}
-                        >
-                          <div className="flex items-center space-x-3">
-                            <div className="text-sm font-bold text-gray-300">{stock.symbol}</div>
-                            <div className="text-sm font-semibold text-green-400">${stock.price}</div>
-                          </div>
-                          <div className={`text-sm ${
-                            stock.change >= 0 ? 'text-green-400' : 'text-red-400'
-                          }`}>
-                            {formatPercentage(stock.change)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+              {/* Reemplazar el div de acciones populares con el nuevo componente */}
+              <div>
+                <TopSearchedStocks onStockClick={handleTopStockClick} />
               </div>
             </div>
             
             {/* Contenedor para nav y contenido de tabs */}
             <div className="w-3/4 flex flex-col">
             {/* Nuevo div con conclusión semáforo */}
-              <div className="mb-6">
-                <Card className="bg-gray-900/50 border-green-400/20">
-                  <CardHeader>
-                    <CardTitle className="text-green-400">
-                      Conclusión rápida (estilo semáforo)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-start space-x-3">
-                        <span className="text-2xl">🟢</span>
-                        <div className="text-sm text-gray-300 leading-relaxed">
-                          <strong className="text-green-400">Sí, parece una buena acción.</strong> Entiendo el negocio, tiene ventaja competitiva, gana plata, crece y no está cara.
+              <div className="mb-6 flex">
+                <div>
+                  <Card className="w-4/5 bg-gray-900/50 border-green-400/20 gap-6">
+                    <CardHeader>
+                      <CardTitle className="text-green-400">
+                        Conclusión rápida (estilo semáforo)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-start space-x-3">
+                          <span className="text-2xl">🟢</span>
+                          <div className="text-sm text-gray-300 leading-relaxed">
+                            <strong className="text-green-400">Sí, parece una buena acción.</strong> Entiendo el negocio, tiene ventaja competitiva, gana plata, crece y no está cara.
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-start space-x-3">
+                          <span className="text-2xl">🟡</span>
+                          <div className="text-sm text-gray-300 leading-relaxed">
+                            <strong className="text-yellow-400">Podría ser, pero investigá más.</strong> Hay dudas en crecimiento o precio.
+                          </div>
+                        </div>
+                        
+                        <div className="flex space-x-3">
+                          <span className="text-2xl">🔴</span>
+                          <div className="text-sm text-gray-300 leading-relaxed">
+                            <strong className="text-red-400">No es buena ahora.</strong> No la entiendo, no gana plata o está demasiado cara.
+                          </div>
                         </div>
                       </div>
-                      
-                      <div className="flex items-start space-x-3">
-                        <span className="text-2xl">🟡</span>
-                        <div className="text-sm text-gray-300 leading-relaxed">
-                          <strong className="text-yellow-400">Podría ser, pero investigá más.</strong> Hay dudas en crecimiento o precio.
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start space-x-3">
-                        <span className="text-2xl">🔴</span>
-                        <div className="text-sm text-gray-300 leading-relaxed">
-                          <strong className="text-red-400">No es buena ahora.</strong> No la entiendo, no gana plata o está demasiado cara.
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </div>
+                {/* Radar Chart al lado de la conclusión */}
+                <div className="w-90 flex items-start gap-6">
+                  <RadarChart 
+                    stockBasicData={stockBasicData}
+                    stockAnalysis={stockAnalysis}
+                  />
+                </div>
               </div>
               {/* Navegación de tabs */}
               <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} />

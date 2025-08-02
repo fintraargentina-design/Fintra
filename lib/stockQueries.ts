@@ -16,6 +16,34 @@ export interface StockData {
   description?: string;
   competitive_advantage?: string;
   business_complexity?: string;
+  
+  // Agregar el objeto datos completo
+  datos?: any;
+  dividendos?: any;  // Agregar esta línea
+  
+  // Campos de valoración específicos
+  valoracion_pe?: string;
+  valoracion_peg?: string;
+  valoracion_pbv?: string;
+  valoracion_implied_growth?: string;
+  dividend_yield?: string;
+  
+  // Campos fundamentales existentes
+  roe?: number;
+  roic?: number;
+  net_margin?: number;
+  gross_margin?: number;
+  debt_equity?: number;
+  free_cash_flow?: number;
+  current_ratio?: number;
+  equity_cagr_5y?: number;
+  revenue_cagr_5y?: number;
+  interest_coverage?: number;
+  net_income_cagr_5y?: number;
+  book_value_per_share?: number;
+  shares_outstanding?: number;
+  quick_ratio?: number;
+  
   [key: string]: any;
 }
 
@@ -76,9 +104,13 @@ export async function searchStockData(symbol: string) {
       .select('*')
       .eq('symbol', symbol.toUpperCase())
       .single();
-
-    if (analysisError && analysisError.code !== 'PGRST116') {
-      console.error('Error en análisis:', analysisError);
+    
+    if (analysisError?.code && analysisError.code !== 'PGRST116') {
+    console.error('Error en análisis:', analysisError);
+    }
+    
+    if (analysisError && !analysisError.code) {
+    console.warn('analysisError presente pero sin código de error:', analysisError);
     }
 
     // Buscar rendimiento
@@ -88,8 +120,21 @@ export async function searchStockData(symbol: string) {
       .eq('symbol', symbol.toUpperCase())
       .single();
 
-    if (performanceError && performanceError.code !== 'PGRST116') {
-      console.error('Error en rendimiento:', performanceError);
+    if (
+    performanceError &&
+    typeof performanceError === 'object' &&
+    'code' in performanceError &&
+    performanceError.code !== 'PGRST116'
+    ) {
+    console.error('Error en rendimiento:', performanceError);
+    }
+
+    if (
+    performanceError &&
+    typeof performanceError === 'object' &&
+    'message' in performanceError
+    ) {
+    console.warn('performanceError con mensaje:', performanceError.message);
     }
 
     // Buscar informe de analisis_accion
@@ -138,7 +183,19 @@ export async function searchStockData(symbol: string) {
           description: parsedData.description,
           competitive_advantage: parsedData.moat,
           business_complexity: parsedData.isEasy,
-          // Agregar datos fundamentales
+          
+          // Agregar datos de valoración específicos
+          datos: parsedData, // Mantener el objeto completo para acceso directo
+          
+          // Agregar datos de performance específicos desde desempeno.performance
+          performance_1m: parsedData.desempeno?.performance?.['1M'] ? parseFloat(parsedData.desempeno.performance['1M']) : null,
+          performance_3m: parsedData.desempeno?.performance?.['3M'] ? parseFloat(parsedData.desempeno.performance['3M']) : null,
+          performance_ytd: parsedData.desempeno?.performance?.['YTD'] ? parseFloat(parsedData.desempeno.performance['YTD']) : null,
+          performance_1y: parsedData.desempeno?.performance?.['1Y'] ? parseFloat(parsedData.desempeno.performance['1Y']) : null,
+          performance_3y: parsedData.desempeno?.performance?.['3Y'] ? parseFloat(parsedData.desempeno.performance['3Y']) : null,
+          performance_5y: parsedData.desempeno?.performance?.['5Y'] ? parseFloat(parsedData.desempeno.performance['5Y']) : null,
+          
+          // Datos fundamentales existentes
           roe: parsedData.fundamentales?.roe,
           roic: parsedData.fundamentales?.roic,
           net_margin: parsedData.fundamentales?.netMargin,
@@ -152,7 +209,14 @@ export async function searchStockData(symbol: string) {
           net_income_cagr_5y: parsedData.fundamentales?.netIncomeCAGR_5Y,
           book_value_per_share: parsedData.fundamentales?.bookValuePerShare,
           shares_outstanding: parsedData.fundamentales?.sharesOutstanding,
-          quick_ratio: parsedData.fundamentales?.quick_ratio
+          quick_ratio: parsedData.fundamentales?.quick_ratio,
+          
+          // Datos de valoración específicos para fácil acceso
+          valoracion_pe: parsedData.valoracion?.pe,
+          valoracion_peg: parsedData.valoracion?.peg,
+          valoracion_pbv: parsedData.valoracion?.pbv,
+          valoracion_implied_growth: parsedData.valoracion?.impliedGrowth,
+          dividend_yield: parsedData.dividendos?.dividendYield
         };
       } catch (parseError) {
         console.error('Error al parsear datos:', parseError);
@@ -202,11 +266,12 @@ export async function searchStockData(symbol: string) {
 }
 
 // Función para buscar solo datos básicos
+// Actualizar getBasicStockData para incluir dividendos
 export async function getBasicStockData(symbol: string): Promise<StockData | null> {
   try {
     const { data, error } = await supabase
       .from('datos_accion')
-      .select('*')
+      .select('*, datos->\'dividendos\' as dividendos_extracted')
       .eq('symbol', symbol.toUpperCase())
       .order('fecha_de_creacion', { ascending: false })
       .limit(1)
@@ -217,7 +282,12 @@ export async function getBasicStockData(symbol: string): Promise<StockData | nul
       return null;
     }
 
-    return data;
+    // Extraer dividendos del JSON
+    const parsedData = data.datos;
+    return {
+      ...data,
+      dividendos: parsedData?.dividendos || null
+    };
   } catch (error) {
     console.error('Error en getBasicStockData:', error);
     return null;

@@ -4,10 +4,11 @@ import { useState } from "react";
 
 interface FundamentalCardProps {
   stockBasicData: any;
-  stockAnalysis?: any;
+  stockAnalysis: any;
+  stockReport?: any;
 }
 
-// Función para determinar el color del indicador
+// Función para obtener color del indicador
 const getIndicatorColor = (indicator: string, value: number | string) => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
   
@@ -17,32 +18,24 @@ const getIndicatorColor = (indicator: string, value: number | string) => {
       if (numValue >= 10) return 'text-yellow-400';
       return 'text-red-400';
     case 'ROIC':
-      if (numValue >= 15) return 'text-green-400';
-      if (numValue >= 10) return 'text-yellow-400';
-      return 'text-red-400';
-    case 'Margen bruto':
-      if (numValue >= 40) return 'text-green-400';
-      if (numValue >= 25) return 'text-yellow-400';
-      return 'text-red-400';
-    case 'Margen neto':
-      if (numValue >= 15) return 'text-green-400';
+      if (numValue >= 12) return 'text-green-400';
       if (numValue >= 8) return 'text-yellow-400';
       return 'text-red-400';
+    case 'Margen bruto':
+    case 'Margen neto':
+      if (numValue >= 20) return 'text-green-400';
+      if (numValue >= 10) return 'text-yellow-400';
+      return 'text-red-400';
     case 'Deuda/Capital':
-      if (numValue <= 0.4) return 'text-green-400';
-      if (numValue <= 0.7) return 'text-yellow-400';
+      if (numValue <= 0.3) return 'text-green-400';
+      if (numValue <= 0.6) return 'text-yellow-400';
       return 'text-red-400';
     case 'Current Ratio':
-      if (numValue >= 1.5) return 'text-green-400';
-      if (numValue >= 1.0) return 'text-yellow-400';
-      return 'text-red-400';
-    case 'CAGR ingresos':
-    case 'CAGR beneficios':
-      if (numValue >= 10) return 'text-green-400';
-      if (numValue >= 5) return 'text-yellow-400';
+      if (numValue >= 2) return 'text-green-400';
+      if (numValue >= 1.2) return 'text-yellow-400';
       return 'text-red-400';
     default:
-      return 'text-green-400';
+      return 'text-gray-300';
   }
 };
 
@@ -52,39 +45,26 @@ const getIndicatorComment = (indicator: string, value: number | string) => {
   
   switch (indicator) {
     case 'ROE':
-      if (numValue >= 15) return 'Excelente (supera 15%)';
+      if (numValue >= 15) return 'Excelente';
       if (numValue >= 10) return 'Bueno';
-      return 'Débil';
+      return 'Bajo';
     case 'ROIC':
-      if (numValue >= 15) return 'Alta eficiencia';
-      if (numValue >= 10) return 'Eficiencia moderada';
-      return 'Baja eficiencia';
+      if (numValue >= 12) return 'Excelente';
+      if (numValue >= 8) return 'Bueno';
+      return 'Bajo';
     case 'Margen bruto':
-      if (numValue >= 40) return 'Muy saludable';
-      if (numValue >= 25) return 'Aceptable';
-      return 'Preocupante';
     case 'Margen neto':
-      if (numValue >= 15) return 'Rentable';
-      if (numValue >= 8) return 'Moderado';
+      if (numValue >= 20) return 'Alto';
+      if (numValue >= 10) return 'Moderado';
       return 'Bajo';
     case 'Deuda/Capital':
-      if (numValue <= 0.4) return 'Conservadora';
-      if (numValue <= 0.7) return 'Moderada';
-      return 'Alta';
+      if (numValue <= 0.3) return 'Conservador';
+      if (numValue <= 0.6) return 'Moderado';
+      return 'Alto riesgo';
     case 'Current Ratio':
-      if (numValue >= 1.5) return 'Buena liquidez';
-      if (numValue >= 1.0) return 'Liquidez justa';
-      return 'Liquidez baja';
-    case 'Free Cash Flow':
-      return 'Genera caja';
-    case 'CAGR ingresos':
-      if (numValue >= 10) return 'Crecimiento constante';
-      if (numValue >= 5) return 'Crecimiento moderado';
-      return 'Crecimiento lento';
-    case 'CAGR beneficios':
-      if (numValue >= 10) return 'Bien sustentado';
-      if (numValue >= 5) return 'Crecimiento moderado';
-      return 'Crecimiento débil';
+      if (numValue >= 2) return 'Sólido';
+      if (numValue >= 1.2) return 'Aceptable';
+      return 'Riesgo';
     default:
       return '';
   }
@@ -114,7 +94,7 @@ const IndicatorRow = ({ label, value, unit = '', comment }: {
   );
 };
 
-export default function FundamentalCard({ stockBasicData, stockAnalysis }: FundamentalCardProps) {
+export default function FundamentalCard({ stockBasicData, stockAnalysis, stockReport }: FundamentalCardProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -177,7 +157,7 @@ export default function FundamentalCard({ stockBasicData, stockAnalysis }: Funda
         </DialogHeader>
 
         {/* 1. RESUMEN EJECUTIVO */}
-        <div className="mt-4 p-4 bg-gray-800/60 rounded-lg border border-green-500/20">
+        <div className="bg-gradient-to-r from-green-900/20 to-blue-900/20 border border-green-500/30 rounded-lg p-4 mb-6">
           <h3 className="text-green-400 text-lg font-semibold mb-2">Resumen Ejecutivo</h3>
           <p className="text-gray-200 text-sm leading-relaxed">
             {stockAnalysis?.resumen_fundamental || 
@@ -264,11 +244,12 @@ export default function FundamentalCard({ stockBasicData, stockAnalysis }: Funda
         </div>
 
         {/* 3. INTERPRETACIÓN AUTOMÁTICA (IA) */}
-        <div className="mt-6 p-4 bg-blue-900/20 rounded-lg border border-blue-500/20">
+        <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-500/30 rounded-lg p-4">
           <h3 className="text-blue-400 text-lg font-semibold mb-2">Interpretación Automática (IA)</h3>
           <p className="text-gray-200 text-sm leading-relaxed italic">
-            {stockAnalysis?.interpretacion_ia || 
-             "La empresa genera retornos muy altos sobre su capital y mantiene márgenes operativos consistentes. Su nivel de endeudamiento es bajo, lo cual le otorga resiliencia."}
+            <p className="text-gray-300 leading-relaxed">
+              {stockReport?.analisisFundamental?.["Conclusión para inversores"] || "No hay datos suficientes"}
+            </p>
           </p>
         </div>
 
