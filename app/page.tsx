@@ -27,7 +27,7 @@ import TopSearchedStocksDropdown from '@/components/TopSearchedStocksDropdown';
 import { getConclusionColors } from '@/lib/conclusionColors';
 import ConclusionRapidaCard from '@/components/cards/ConclusionRapidaCard';
 import OverviewCard from '@/components/cards/OverviewCard';
-
+import EstimacionCard from '@/components/cards/EstimacionCard';
 
 export default function StockTerminal() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -121,7 +121,7 @@ export default function StockTerminal() {
       case 'informe':
         return <InformeTab stockReport={stockReport} />;
       case 'estimacion':
-        return <EstimacionTab />;
+        return <EstimacionCard selectedStock={selectedStock} />
       case 'noticias':
         return <NoticiasTab />;
       case 'twits':
@@ -344,6 +344,7 @@ export default function StockTerminal() {
     </div>
   );
 }
+
 
 
 
