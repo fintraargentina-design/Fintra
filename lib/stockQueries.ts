@@ -19,7 +19,8 @@ export interface StockData {
   
   // Agregar el objeto datos completo
   datos?: any;
-  dividendos?: any;  // Agregar esta línea
+  dividendos?: any;
+  valoracion?: any;  // Agregar esta línea
   
   // Campos de valoración específicos
   valoracion_pe?: string;
@@ -104,15 +105,31 @@ export async function searchStockData(symbol: string) {
       .select('*')
       .eq('symbol', symbol.toUpperCase())
       .single();
-    
+
     if (analysisError?.code && analysisError.code !== 'PGRST116') {
-    console.error('Error en análisis:', analysisError);
-    }
-    
-    if (analysisError && !analysisError.code) {
-    console.warn('analysisError presente pero sin código de error:', analysisError);
+      console.error('Error en análisis:', {
+        message: analysisError.message || 'Sin mensaje',
+        details: analysisError.details || 'Sin detalles',
+        hint: analysisError.hint || 'Sin hint',
+        code: analysisError.code || 'Sin código',
+        fullError: analysisError
+      });
     }
 
+    if (analysisError && !analysisError.code) {
+      console.warn('analysisError sin código:', {
+        error: analysisError,
+        type: typeof analysisError,
+        keys: Object.keys(analysisError || {}),
+        stringified: JSON.stringify(analysisError)
+      });
+    }
+
+    // Si no hay datos de análisis, crear un objeto por defecto
+    if (!analysisData && analysisError?.code === 'PGRST116') {
+      console.info(`No se encontraron datos de análisis para ${symbol}`);
+    }
+    
     // Buscar rendimiento
     const { data: performanceData, error: performanceError } = await supabase
       .from('stock_performance')
@@ -120,13 +137,28 @@ export async function searchStockData(symbol: string) {
       .eq('symbol', symbol.toUpperCase())
       .single();
 
-    if (
-    performanceError &&
-    typeof performanceError === 'object' &&
-    'code' in performanceError &&
-    performanceError.code !== 'PGRST116'
-    ) {
-    console.error('Error en rendimiento:', performanceError);
+    // Mejorar el manejo de errores de performance
+    if (performanceError) {
+      console.log('performanceError object:', {
+        error: performanceError,
+        type: typeof performanceError,
+        keys: Object.keys(performanceError || {}),
+        stringified: JSON.stringify(performanceError)
+      });
+      
+      if (
+        typeof performanceError === 'object' &&
+        'code' in performanceError &&
+        performanceError.code !== 'PGRST116'
+      ) {
+        console.error('Error en rendimiento:', {
+          message: performanceError.message || 'Sin mensaje',
+          details: performanceError.details || 'Sin detalles',
+          hint: performanceError.hint || 'Sin sugerencia',
+          code: performanceError.code || 'Sin código',
+          fullError: performanceError
+        });
+      }
     }
 
     if (
@@ -266,12 +298,12 @@ export async function searchStockData(symbol: string) {
 }
 
 // Función para buscar solo datos básicos
-// Actualizar getBasicStockData para incluir dividendos
+
 export async function getBasicStockData(symbol: string): Promise<StockData | null> {
   try {
     const { data, error } = await supabase
       .from('datos_accion')
-      .select('*, datos->\'dividendos\' as dividendos_extracted')
+      .select('*, datos->dividendos as dividendos_extracted, datos->valoracion as valoracion_extracted')
       .eq('symbol', symbol.toUpperCase())
       .order('fecha_de_creacion', { ascending: false })
       .limit(1)
@@ -282,11 +314,18 @@ export async function getBasicStockData(symbol: string): Promise<StockData | nul
       return null;
     }
 
-    // Extraer dividendos del JSON
-    const parsedData = data.datos;
+    // Verificar que data existe y no es un error
+    if (!data) {
+      console.warn('No se encontraron datos para el símbolo:', symbol);
+      return null;
+    }
+
+    // Extraer dividendos y valoracion del JSON de forma segura
+    const parsedData = data.datos || {};
     return {
       ...data,
-      dividendos: parsedData?.dividendos || null
+      dividendos: parsedData?.dividendos || data.dividendos_extracted || null,
+      valoracion: parsedData?.valoracion || data.valoracion_extracted || null
     };
   } catch (error) {
     console.error('Error en getBasicStockData:', error);
@@ -308,6 +347,15 @@ export async function getStockAnalysisData(symbol: string): Promise<StockAnalysi
       return null;
     }
 
+    // Después de la consulta de análisis, agregar:
+    console.log('Resultado de análisis:', {
+      symbol: symbol.toUpperCase(),
+      hasData: !!analysisData,
+      hasError: !!analysisError,
+      errorType: typeof analysisError,
+      errorCode: analysisError?.code,
+      dataKeys: analysisData ? Object.keys(analysisData) : 'No data'
+    });
     return data;
   } catch (error) {
     console.error('Error en getStockAnalysisData:', error);
@@ -332,6 +380,38 @@ export async function getStockPerformanceData(symbol: string): Promise<StockPerf
     return data;
   } catch (error) {
     console.error('Error en getStockPerformanceData:', error);
+    return null;
+  }
+}
+
+// Agregar nueva interface después de las existentes
+export interface StockConclusion {
+  symbol: string;
+  conclusion?: any;
+  [key: string]: any;
+}
+
+// Agregar nueva función al final del archivo
+export async function getStockConclusionData(symbol: string): Promise<StockConclusion | null> {
+  try {
+    const { data, error } = await supabase
+      .from('conclusion_rapida')
+      .select('*')
+      .eq('symbol', symbol.toUpperCase())
+      .order('fecha_de_creacion', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) {
+      if (error.code !== 'PGRST116') {
+        console.error('Error al obtener conclusión rápida:', error);
+      }
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error en getStockConclusionData:', error);
     return null;
   }
 }

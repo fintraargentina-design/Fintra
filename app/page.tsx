@@ -1,11 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { searchStockData } from '@/lib/stockQueries';
+import { searchStockData, getStockConclusionData } from '@/lib/stockQueries';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { BarChart3, DollarSign, TrendingUp, TrendingDown, Activity, Search, Terminal, Sun, Moon } from 'lucide-react';
+import { BarChart3, DollarSign, TrendingUp, TrendingDown, Activity, Search, Terminal, Sun, Moon, ChevronDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import NavigationBar from '@/components/layout/NavigationBar';
 import DatosTab from '@/components/tabs/DatosTab';
 import ChartTab from '@/components/tabs/ChartTab';
@@ -14,8 +20,13 @@ import EstimacionTab from '@/components/tabs/EstimacionTab';
 import NoticiasTab from '@/components/tabs/NoticiasTab';
 import TwitsTab from '@/components/tabs/TwitsTab';
 import TopSearchedStocks from '@/components/TopSearchedStocks';
+import MarketClock from '@/components/MarketClock';
 import { supabase, registerStockSearch } from '@/lib/supabase';
 import RadarChart from "@/components/charts/RadarChart";
+import TopSearchedStocksDropdown from '@/components/TopSearchedStocksDropdown';
+import { getConclusionColors } from '@/lib/conclusionColors';
+import ConclusionRapidaCard from '@/components/cards/ConclusionRapidaCard';
+import OverviewCard from '@/components/cards/OverviewCard';
 
 
 export default function StockTerminal() {
@@ -24,19 +35,21 @@ export default function StockTerminal() {
   const [stockBasicData, setStockBasicData] = useState(null);
   const [stockAnalysis, setStockAnalysis] = useState(null);
   const [stockPerformance, setStockPerformance] = useState(null);
-  const [stockReport, setStockReport] = useState(null); // Nuevo estado
+  const [stockReport, setStockReport] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('datos');
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [user, setUser] = useState(null);
+  const [stockConclusion, setStockConclusion] = useState(null);
 
-  // Función para buscar datos de una acción
-  // Importar la nueva función
-  
-  
+  // Función para alternar el tema
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
   // Modificar la función buscarDatosAccion
-  const buscarDatosAccion = async (symbol) => {
+  const buscarDatosAccion = async (symbol: string) => {
     setIsLoading(true);
     setError('');
     
@@ -52,6 +65,10 @@ export default function StockTerminal() {
         setStockPerformance(result.performanceData);
         setStockReport(result.reportData);
         setSelectedStock(result.basicData);
+        
+        // Agregar obtención de conclusión 
+        const conclusionData = await getStockConclusionData(symbol); 
+        setStockConclusion(conclusionData);
       } else {
         setError(result.error || 'Error al buscar datos');
         setStockBasicData(fallbackStockData);
@@ -66,6 +83,7 @@ export default function StockTerminal() {
       setIsLoading(false);
     }
   };
+  
 
   // Manejar búsqueda con Enter
   const handleKeyDown = (e) => {
@@ -111,22 +129,6 @@ export default function StockTerminal() {
       default:
         return <DatosTab stockAnalysis={stockAnalysis} stockPerformance={stockPerformance} stockBasicData={stockBasicData} />;
     }
-  };
-
-  // Efecto para aplicar el tema
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.remove('light');
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
-    }
-  }, [isDarkMode]);
-
-  // Función para cambiar tema
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
   };
 
   // Función para manejar autenticación
@@ -205,36 +207,7 @@ export default function StockTerminal() {
         </div>
         
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-400">
-              {new Date().toLocaleDateString('es-ES', { 
-                day: '2-digit', 
-                month: '2-digit', 
-                year: '2-digit' 
-              })} - 
-            </span>
-            <svg className="w-4 h-4" fill="gray" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-            </svg>
-            <span className={`text-sm font-mono ${
-              isMarketOpen() 
-                ? 'text-green-400' 
-                : 'text-red-400'
-            }`}>
-              {new Date().toLocaleTimeString('es-ES', { 
-                hour12: false,
-                hour: '2-digit', 
-                minute: '2-digit', 
-                second: '2-digit' 
-              })}, NY {new Date().toLocaleTimeString('en-US', { 
-                timeZone: 'America/New_York',
-                hour12: false,
-                hour: '2-digit', 
-                minute: '2-digit', 
-                second: '2-digit' 
-              })} {isMarketOpen() ? '🟢 Open Market' : '🔴 Close Market'}
-            </span>
-          </div>
+          <MarketClock className="my-custom-class" />
           <Button
             onClick={toggleTheme}
             variant="ghost"
@@ -255,7 +228,7 @@ export default function StockTerminal() {
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="p-6" style={{marginLeft: "10%", marginRight: "10%"}}>
         
        
         {/* Barra de Busqueda */}
@@ -279,6 +252,22 @@ export default function StockTerminal() {
             >
               {isLoading ? 'Buscando...' : 'Buscar'}
             </Button>
+            
+            {/* Dropdown de acciones más buscadas */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline"
+                  className="bg-green-400/20 text-green-400 border border-green-400/30 hover:bg-green-400/30"
+                >
+                  Más buscadas
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="bg-gray-900 border-green-400/30">
+                <TopSearchedStocksDropdown onStockClick={handleTopStockClick} />
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           {/* Botón Analizadores alineado a la derecha */}
           <Button 
@@ -297,105 +286,20 @@ export default function StockTerminal() {
 
         {/* Información de la acción seleccionada */}
         {selectedStock && (
-          <div className="flex gap-6">
-            <div className="w-1/4 flex flex-col gap-6">
-              <div className="mb-6">
-                <Card className="bg-gray-900/50 border-green-400/20">
-                  <CardHeader>
-                    <CardTitle className="text-green-400 flex items-center justify-between">
-                      <span>{selectedStock.symbol} - {selectedStock.company_name || selectedStock.name}</span>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-2xl font-bold">${selectedStock.current_price || selectedStock.price}</span>
-                        {selectedStock.change !== undefined && (
-                          <span className={`text-sm ${
-                            selectedStock.change >= 0 ? 'text-green-400' : 'text-red-400'
-                          }`}>
-                            {formatPercentage(selectedStock.change)}
-                          </span>
-                        )}
-                      </div>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {/* Dividir en exactamente dos columnas principales */}
-                    <div className="flex gap-6">
-                      {/* COLUMNA DERECHA - Información adicional */}
-                      <div>
-                        <div className="space-y-4">                    
-                          {/* Descripción del negocio */}
-                          <div>
-                            <div className="text-sm text-gray-300 leading-relaxed">
-                              {selectedStock.description || 'N/A'}
-                            </div>
-                          </div>
-                          {/* Sitio web */}
-                          <div>
-                            {selectedStock.website ? (
-                              <a 
-                                href={selectedStock.website} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-sm text-green-400 hover:text-green-300 underline"
-                              >
-                                {selectedStock.website}
-                              </a>
-                            ) : (
-                              <div className="text-sm text-green-400">N/A</div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-              
-              
-              
-              {/* Reemplazar el div de acciones populares con el nuevo componente */}
-              <div>
-                <TopSearchedStocks onStockClick={handleTopStockClick} />
-              </div>
-            </div>
-            
-            {/* Contenedor para nav y contenido de tabs */}
-            <div className="w-3/4 flex flex-col">
-            {/* Nuevo div con conclusión semáforo */}
-              <div className="mb-6 flex">
-                <div>
-                  <Card className="w-4/5 bg-gray-900/50 border-green-400/20 gap-6">
-                    <CardHeader>
-                      <CardTitle className="text-green-400">
-                        Conclusión rápida (estilo semáforo)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex items-start space-x-3">
-                          <span className="text-2xl">🟢</span>
-                          <div className="text-sm text-gray-300 leading-relaxed">
-                            <strong className="text-green-400">Sí, parece una buena acción.</strong> Entiendo el negocio, tiene ventaja competitiva, gana plata, crece y no está cara.
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-start space-x-3">
-                          <span className="text-2xl">🟡</span>
-                          <div className="text-sm text-gray-300 leading-relaxed">
-                            <strong className="text-yellow-400">Podría ser, pero investigá más.</strong> Hay dudas en crecimiento o precio.
-                          </div>
-                        </div>
-                        
-                        <div className="flex space-x-3">
-                          <span className="text-2xl">🔴</span>
-                          <div className="text-sm text-gray-300 leading-relaxed">
-                            <strong className="text-red-400">No es buena ahora.</strong> No la entiendo, no gana plata o está demasiado cara.
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+          <div className="flex gap-6 items-stretch"> {/* Agregado items-stretch */}
+            <div className="w-2/5 flex flex-col gap-6">
+              {/* COLUMNA DERECHA - Información adicional */}
+              <div className="flex-1"> {/* Agregado flex-1 */}
+                <div className="space-y-4 h-full"> {/* Agregado h-full */}                   
+                  <OverviewCard 
+                    stockBasicData={stockBasicData}
+                    stockAnalysis={stockAnalysis}
+                    selectedStock={selectedStock}
+                  />
                 </div>
-                {/* Radar Chart al lado de la conclusión */}
+              </div>
+              
+              {/* Radar Chart al lado de la conclusión */}
                 <div className="w-90 flex items-start gap-6">
                   <RadarChart 
                     stockBasicData={stockBasicData}
@@ -403,6 +307,16 @@ export default function StockTerminal() {
                   />
                 </div>
               </div>
+              
+            {/* Contenedor para nav y contenido de tabs */}
+            <div className="w-3/5 flex flex-col">
+            {/* Nuevo div con conclusión semáforo */}
+              <div className="mb-6 flex flex-1"> {/* Agregado flex-1 */}
+                <div className="w-full"> {/* Agregado w-full */}
+                  <ConclusionRapidaCard stockConclusion={stockConclusion} />
+                </div>
+              </div>
+                
               {/* Navegación de tabs */}
               <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} />
               
@@ -430,3 +344,6 @@ export default function StockTerminal() {
     </div>
   );
 }
+
+
+

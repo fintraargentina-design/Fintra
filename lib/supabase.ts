@@ -43,7 +43,8 @@ export interface StockBasicData {
   description?: string
   competitive_advantage?: string
   business_complexity?: string
-  dividendos?: DividendData  // Agregar esta línea
+  dividendos?: DividendData
+  valoracion?: any
 }
 
 // Actualizar la consulta en getCompleteStockData
@@ -75,7 +76,8 @@ export async function getCompleteStockData(symbol: string) {
           datos->>'description' as description,
           datos->>'moat' as competitive_advantage,
           datos->>'isEasy' as business_complexity,
-          datos->'dividendos' as dividendos_data
+          datos->'dividendos' as dividendos_data,
+          datos->'valoracion' as valoracion_data
         `)
         .eq('symbol', symbol.toUpperCase())
         .order('fecha_de_creacion', { ascending: false })
@@ -132,7 +134,8 @@ export async function getCompleteStockData(symbol: string) {
       description: datosResult.data.description || undefined,
       competitive_advantage: datosResult.data.competitive_advantage || undefined,
       business_complexity: datosResult.data.business_complexity || undefined,
-      dividendos: datosResult.data.dividendos_data || undefined  // Agregar esta línea
+      dividendos: datosResult.data.dividendos_data || undefined,
+      valoracion: datosResult.data.valoracion_data || undefined  // Agregar esta línea
     } : null
 
     const analysisData: StockAnalysisData | null = analisisResult.data ? {

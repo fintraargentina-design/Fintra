@@ -8,6 +8,7 @@ export interface RadarDimensions {
   margen: number;
   valoracion: number;
   riesgoVolatilidad: number;
+  dividendos: number;
 }
 
 export interface StockFinancialData {
@@ -145,20 +146,51 @@ export function calcularPuntajes(data: StockFinancialData): RadarDimensions {
 }
 
 /**
- * Calcula todas las dimensiones del radar para una acción
+ * Obtiene datos del radar chart desde la tabla radar_analisis de Supabase
  */
-export async function calculateRadarDimensions(symbol: string): Promise<RadarDimensions | null> {
-  const financialData = await getStockFinancialData(symbol);
-  
-  if (!financialData) {
+export async function getRadarDataFromSupabase(symbol: string): Promise<RadarDimensions | null> {
+  try {
+    const { data, error } = await supabase
+      .from('radar_analisis')
+      .select('radarData')
+      .eq('symbol', symbol.toUpperCase())
+      .single();
+
+    if (error || !data || !data.radarData) {
+      console.error('Error fetching radar data:', error);
+      return null;
+    }
+
+    const radarData = data.radarData;
+    
+    console.log('Datos del radar obtenidos desde Supabase:', radarData);
+
+    return {
+      rentabilidad: radarData["Rentabilidad"] || 0,
+      crecimiento: radarData["Crecimiento"] || 0,
+      solidezFinanciera: radarData["Solidez Financiera"] || 0,
+      generacionCaja: radarData["Generación de Caja"] || 0,
+      margen: radarData["Margen"] || 0,
+      valoracion: radarData["Valoración"] || 0,
+      riesgoVolatilidad: radarData["Riesgo / Volatilidad"] || 0,
+      dividendos: radarData["Dividendos"] || 0
+    };
+  } catch (error) {
+    console.error('Error in getRadarDataFromSupabase:', error);
     return null;
   }
-
-  return calcularPuntajes(financialData);
 }
 
 /**
- * Convierte las dimensiones a formato para Chart.js radar (siguiendo el ejemplo)
+ * Calcula todas las dimensiones del radar para una acción
+ * Ahora obtiene los datos directamente de Supabase
+ */
+export async function calculateRadarDimensions(symbol: string): Promise<RadarDimensions | null> {
+  return await getRadarDataFromSupabase(symbol);
+}
+
+/**
+ * Convierte las dimensiones a formato para Chart.js radar
  */
 export function formatRadarData(dimensions: RadarDimensions, stockName?: string, stockSymbol?: string) {
   return {
@@ -169,7 +201,8 @@ export function formatRadarData(dimensions: RadarDimensions, stockName?: string,
       "Generación de Caja",
       "Margen",
       "Valoración",
-      "Riesgo / Volatilidad"
+      "Riesgo / Volatilidad",
+      "Dividendos"
     ],
     datasets: [{
       label: stockName || stockSymbol || 'Stock',
@@ -180,7 +213,8 @@ export function formatRadarData(dimensions: RadarDimensions, stockName?: string,
         dimensions.generacionCaja,
         dimensions.margen,
         dimensions.valoracion,
-        dimensions.riesgoVolatilidad
+        dimensions.riesgoVolatilidad,
+        dimensions.dividendos
       ],
       fill: true,
       backgroundColor: "rgba(75,192,192,0.2)",
@@ -192,16 +226,14 @@ export function formatRadarData(dimensions: RadarDimensions, stockName?: string,
 }
 
 /**
- * Función principal que replica exactamente el ejemplo JavaScript
+ * Función principal que obtiene los datos desde Supabase y los formatea
  */
 export async function calcularPuntajesCompleto(symbol: string) {
-  const financialData = await getStockFinancialData(symbol);
+  const radarData = await getRadarDataFromSupabase(symbol);
   
-  if (!financialData) {
+  if (!radarData) {
     return null;
   }
 
-  const dimensions = calcularPuntajes(financialData);
-  
-  return formatRadarData(dimensions, undefined, symbol);
+  return formatRadarData(radarData, undefined, symbol);
 }

@@ -116,7 +116,7 @@ export default function TopSearchedStocks({ onStockClick }: TopSearchedStocksPro
       <CardHeader>
         <CardTitle className="text-green-400 flex items-center gap-2">
           <TrendingUp className="w-5 h-5" />
-          Top 10 Acciones Más Buscadas
+           Más Buscadas
         </CardTitle>
       </CardHeader>
       <CardContent>

@@ -230,12 +230,12 @@ export default function FundamentalCard({ stockBasicData, stockAnalysis, stockRe
                 />
                 <IndicatorRow 
                   label="CAGR ingresos" 
-                  value={stockBasicData?.revenue_growth_5y} 
+                  value={stockBasicData?.valoracion?.revenueCAGR?.value || stockBasicData?.revenue_growth_5y} 
                   unit="%" 
                 />
                 <IndicatorRow 
                   label="CAGR beneficios" 
-                  value={stockBasicData?.earnings_growth_5y} 
+                  value={stockBasicData?.valoracion?.netIncomeCAGR?.value || stockBasicData?.earnings_growth_5y} 
                   unit="%" 
                 />
               </tbody>

@@ -191,6 +191,13 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockR
   const performanceData = stockBasicData?.datos?.desempeno?.performance || {};
   const desempenoData = stockBasicData?.datos?.desempeno || {};
   
+  // Función helper para convertir valores a números
+  const parsePerformanceValue = (value: any): number | null => {
+    if (value === null || value === undefined || value === '') return null;
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? null : parsed;
+  };
+  
   // Calcular métricas de riesgo
   const beta = parseFloat(desempenoData.beta || '0');
   const low52w = parseFloat(desempenoData.low52w || '0');
@@ -198,6 +205,10 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockR
   
   // Calcular máxima caída 1 año
   const maxDrawdown = high52w > 0 ? ((low52w - high52w) / high52w * 100) : null;
+  
+  // Convertir valores de performance a números
+  const performance1Y = parsePerformanceValue(performanceData["1Y"]);
+  const performance5Y = parsePerformanceValue(performanceData["5Y"]);
   
   console.log('Performance data from desempeno.performance:', performanceData);
   console.log('Desempeno data:', desempenoData);
@@ -221,15 +232,15 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockR
                 <div className="flex justify-between">
                   <span className="text-gray-400">Beta:</span>
                   <span className="font-mono text-blue-400">
-                    {stockPerformance?.beta ? stockPerformance.beta.toFixed(2) : 'N/A'}
+                    {beta ? beta.toFixed(2) : 'N/A'}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Rendimiento 1 año:</span>
                   <span className={`font-mono ${
-                    stockPerformance?.year_return >= 0 ? 'text-green-400' : 'text-red-400'
+                    performance1Y !== null && performance1Y >= 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
-                    {stockPerformance?.year_return ? `${stockPerformance.year_return > 0 ? '+' : ''}${stockPerformance.year_return.toFixed(2)}%` : 'N/A'}
+                    {performance1Y !== null ? `${performance1Y > 0 ? '+' : ''}${performance1Y.toFixed(2)}%` : 'N/A'}
                   </span>
                 </div>
               </div>
@@ -237,9 +248,9 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockR
                 <div className="flex justify-between">
                   <span className="text-gray-400">Rendimiento 5 años:</span>
                   <span className={`font-mono ${
-                    stockPerformance?.five_year_return >= 0 ? 'text-green-400' : 'text-red-400'
+                    performance5Y !== null && performance5Y >= 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
-                    {stockPerformance?.five_year_return ? `${stockPerformance.five_year_return > 0 ? '+' : ''}${stockPerformance.five_year_return.toFixed(2)}%` : 'N/A'}
+                    {performance5Y !== null ? `${performance5Y > 0 ? '+' : ''}${performance5Y.toFixed(2)}%` : 'N/A'}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -248,12 +259,6 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockR
                     {stockPerformance?.week_52_low && stockPerformance?.week_52_high 
                       ? `$${stockPerformance.week_52_low.toFixed(2)} / $${stockPerformance.week_52_high.toFixed(2)}` 
                       : 'N/A'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Máximo histórico:</span>
-                  <span className="font-mono text-purple-400">
-                    {stockPerformance?.all_time_high ? `$${stockPerformance.all_time_high.toFixed(2)}` : 'N/A'}
                   </span>
                 </div>
               </div>

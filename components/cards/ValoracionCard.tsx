@@ -119,7 +119,7 @@ export default function ValoracionCard({ stockAnalysis, stockBasicData, stockRep
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Card className="bg-gray-900/50 border-green-500/30 hover:border-green-400/50 transition-all duration-300 cursor-pointer group">
+        <Card className="bg-gray-900/50 border-green-500/30 cursor-pointer transition-all duration-300 hover:border-[#00FF00] hover:shadow-lg hover:shadow-[#00FF00]/20">
           <CardHeader className="pb-3">
             <CardTitle className="text-green-400 text-lg group-hover:text-green-300 transition-colors">
               Valoración
