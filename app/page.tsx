@@ -286,11 +286,11 @@ export default function StockTerminal() {
 
         {/* Información de la acción seleccionada */}
         {selectedStock && (
-          <div className="flex gap-6 items-stretch"> {/* Agregado items-stretch */}
+          <div className="flex gap-6"> 
             <div className="w-2/5 flex flex-col gap-6">
               {/* COLUMNA DERECHA - Información adicional */}
-              <div className="flex-1"> {/* Agregado flex-1 */}
-                <div className="space-y-4 h-full"> {/* Agregado h-full */}                   
+              <div> 
+                <div className="space-y-4">                   
                   <OverviewCard 
                     stockBasicData={stockBasicData}
                     stockAnalysis={stockAnalysis}
