@@ -162,9 +162,14 @@ const RadarChart: React.FC<RadarChartProps> = ({ stockBasicData, stockAnalysis }
   }
 
   return (
-    <div className="w-full h-full flex flex-col">
-      <div className="flex-1 relative">
-        <canvas ref={canvasRef} className="w-full h-full" width="400" height="300" style={{ marginRight: '40px', marginLeft: '40px' }}></canvas>
+    <div className="w-full h-full flex items-center justify-center">
+      <div className="relative">
+        <canvas 
+          ref={canvasRef} 
+          className="block" 
+          width="400" 
+          height="300"
+        ></canvas>
       </div>
     </div>
   );

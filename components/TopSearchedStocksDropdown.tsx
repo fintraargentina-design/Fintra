@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { TrendingUp } from 'lucide-react';
 
 interface SearchedStock {
@@ -51,28 +50,26 @@ export default function TopSearchedStocksDropdown({ onStockClick }: TopSearchedS
 
   if (loading) {
     return (
-      <DropdownMenuItem disabled>
+      <div className="px-3 py-2 text-green-400 text-sm">
         Cargando...
-      </DropdownMenuItem>
+      </div>
     );
   }
 
   return (
     <>
       {topStocks.map((stock, index) => (
-        <DropdownMenuItem
+        <button
           key={stock.symbol}
           onClick={() => handleStockClick(stock.symbol)}
-          className="text-green-400 hover:bg-green-400/10 cursor-pointer"
+          className="px-3 py-2 text-green-400 hover:bg-green-400/10 cursor-pointer rounded transition-colors duration-200 flex items-center space-x-1"
         >
-          <div className="flex items-center justify-between w-full">
-            <span className="font-medium">{stock.symbol}</span>
-            <div className="flex items-center space-x-1">
-              <TrendingUp className="w-3 h-3" />
-              <span className="text-xs text-gray-400">{stock.busquedas}</span>
-            </div>
+          <span className="font-medium">{stock.symbol}</span>
+          <div className="flex items-center space-x-1">
+            <TrendingUp className="w-3 h-3" />
+            <span className="text-xs text-gray-400">{stock.busquedas}</span>
           </div>
-        </DropdownMenuItem>
+        </button>
       ))}
     </>
   );

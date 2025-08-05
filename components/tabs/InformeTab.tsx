@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface InformeTabProps {
   stockReport: any;
@@ -7,6 +7,7 @@ interface InformeTabProps {
 
 export default function InformeTab({ stockReport }: InformeTabProps) {
   const [activeSection, setActiveSection] = useState('analisisFundamental');
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const sections = [
     { key: 'analisisFundamental', label: 'Análisis Fundamental' },
@@ -15,6 +16,17 @@ export default function InformeTab({ stockReport }: InformeTabProps) {
     { key: 'analisisDividendos', label: 'Análisis Dividendos' },
     { key: 'analisisDesempeno', label: 'Análisis Desempeño' }
   ];
+
+  // Reiniciar scroll cuando cambie la sección activa
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [activeSection]);
+
+  const handleSectionChange = (sectionKey: string) => {
+    setActiveSection(sectionKey);
+  };
 
   const renderContent = () => {
     if (!stockReport || !stockReport[activeSection]) {
@@ -58,7 +70,7 @@ export default function InformeTab({ stockReport }: InformeTabProps) {
               {sections.map((section) => (
                 <button
                   key={section.key}
-                  onClick={() => setActiveSection(section.key)}
+                  onClick={() => handleSectionChange(section.key)}
                   className={`w-full text-left px-4 py-3 transition-all duration-200 ${
                     activeSection === section.key
                       ? 'bg-green-500/20 text-green-400 border-r-2 border-green-500'
@@ -81,7 +93,10 @@ export default function InformeTab({ stockReport }: InformeTabProps) {
               {sections.find(s => s.key === activeSection)?.label || 'Informe'}
             </CardTitle>
           </CardHeader>
-          <CardContent className="max-h-96 overflow-y-auto">
+          <CardContent 
+            ref={scrollContainerRef}
+            className="max-h-96 overflow-y-auto"
+          >
             {renderContent()}
           </CardContent>
         </Card>

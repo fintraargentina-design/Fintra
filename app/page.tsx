@@ -5,7 +5,7 @@ import { searchStockData, getStockConclusionData } from '@/lib/stockQueries';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { BarChart3, DollarSign, TrendingUp, TrendingDown, Activity, Search, Terminal, Sun, Moon, ChevronDown } from 'lucide-react';
+import { BarChart3, DollarSign, TrendingUp, TrendingDown, Activity, Search, Terminal, Sun, Moon, ChevronDown, ChevronRight } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -228,7 +228,7 @@ export default function StockTerminal() {
         </div>
       </div>
 
-      <div className="p-6" style={{marginLeft: "10%", marginRight: "10%"}}>
+      <div className="p-6" style={{marginLeft: "15%", marginRight: "15%"}}>
         
        
         {/* Barra de Busqueda */}
@@ -261,11 +261,16 @@ export default function StockTerminal() {
                   className="bg-green-400/20 text-green-400 border border-green-400/30 hover:bg-green-400/30"
                 >
                   Más buscadas
-                  <ChevronDown className="ml-2 h-4 w-4" />
+                  <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-gray-900 border-green-400/30">
-                <TopSearchedStocksDropdown onStockClick={handleTopStockClick} />
+              <DropdownMenuContent 
+                side="right"
+                className="bg-gray-900 border-green-400/30 p-2"
+              >
+                <div className="flex space-x-2">
+                  <TopSearchedStocksDropdown onStockClick={handleTopStockClick} />
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -286,10 +291,11 @@ export default function StockTerminal() {
 
         {/* Información de la acción seleccionada */}
         {selectedStock && (
-          <div className="flex gap-6"> 
-            <div className="w-2/5 flex flex-col gap-6">
-              {/* COLUMNA DERECHA - Información adicional */}
-              <div> 
+          <>
+            {/* Contenedor de columnas */}
+            <div className="flex gap-6"> 
+              {/* COLUMNA IZQUIERDA */}
+              <div className="w-2/5 flex flex-col gap-6">
                 <div className="space-y-4">                   
                   <OverviewCard 
                     stockBasicData={stockBasicData}
@@ -297,36 +303,35 @@ export default function StockTerminal() {
                     selectedStock={selectedStock}
                   />
                 </div>
+                
+                <div className="mb-6 flex">
+                  <div className="w-full">
+                    <ConclusionRapidaCard stockConclusion={stockConclusion} />
+                  </div>
+                </div>
               </div>
               
-              {/* Radar Chart al lado de la conclusión */}
-                <div className="w-90 flex items-start gap-6">
+              {/* COLUMNA DERECHA */}
+              <div className="w-3/5 flex flex-col items-center justify-center">
+                <div className="w-full flex items-center justify-center gap-6">
                   <RadarChart 
                     stockBasicData={stockBasicData}
                     stockAnalysis={stockAnalysis}
                   />
                 </div>
               </div>
-              
-            {/* Contenedor para nav y contenido de tabs */}
-            <div className="w-3/5 flex flex-col">
-            {/* Nuevo div con conclusión semáforo */}
-              <div className="mb-6 flex flex-1"> {/* Agregado flex-1 */}
-                <div className="w-full"> {/* Agregado w-full */}
-                  <ConclusionRapidaCard stockConclusion={stockConclusion} />
-                </div>
-              </div>
-                
-              {/* Navegación de tabs */}
+            </div>
+
+            {/* Tabs fuera de las columnas */}
+            <div className="w-full mt-6">
               <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} />
-              
-              {/* Contenido de tabs */}
               <div className="mt-6">
                 {renderTabContent()}
               </div>
             </div>
-          </div>
+          </>
         )}
+
 
         {/* Si no hay stock seleccionado, mostrar nav y contenido normalmente */}
         {!selectedStock && (
