@@ -6,7 +6,7 @@ const tabs = [
   { id: 'informe', label: 'Informe' },
   { id: 'datos', label: 'Datos', icon: BarChart3 },
   { id: 'noticias', label: 'Noticias' },
-  { id: 'twits', label: 'Twits' },
+  //{ id: 'twits', label: 'Twits' },
   { id: 'chart', label: 'Charts', icon: TrendingUp }
 ]
 

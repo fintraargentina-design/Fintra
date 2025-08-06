@@ -18,7 +18,7 @@ export default function ChartTab({ selectedStock, stockBasicData, stockAnalysis 
         </CardHeader>
         <CardContent>
           <div className="flex gap-6">
-            <div className="flex flex-col h-96 w-1/2 items-center justify-center">
+            <div className="flex flex-col h-[600px] w-full items-center justify-center">
                   <RadarChart 
                     stockBasicData={stockBasicData || selectedStock}
                     stockAnalysis={stockAnalysis}

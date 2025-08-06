@@ -42,6 +42,41 @@ export default function StockTerminal() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [user, setUser] = useState(null);
   const [stockConclusion, setStockConclusion] = useState(null);
+  // Agregar estos estados para el reloj
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // Agregar useEffect para el reloj
+  useEffect(() => {
+    setIsClient(true);
+    setCurrentTime(new Date());
+    
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Función para verificar si el mercado está abierto
+  const isMarketOpen = () => {
+    if (!currentTime) return false;
+    
+    const nyTime = new Date(currentTime.toLocaleString("en-US", {timeZone: "America/New_York"}));
+    const day = nyTime.getDay();
+    const hour = nyTime.getHours();
+    const minute = nyTime.getMinutes();
+    const timeInMinutes = hour * 60 + minute;
+    
+    if (day === 0 || day === 6) {
+      return false;
+    }
+    
+    const marketOpen = 9 * 60 + 30;
+    const marketClose = 16 * 60;
+    
+    return timeInMinutes >= marketOpen && timeInMinutes < marketClose;
+  };
 
   // Función para alternar el tema
   const toggleTheme = () => {
@@ -147,31 +182,11 @@ export default function StockTerminal() {
     }
   };
 
-    const isMarketOpen = () => {
-    const now = new Date();
-    const nyTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
-    const day = nyTime.getDay(); // 0 = Domingo, 6 = Sábado
-    const hour = nyTime.getHours();
-    const minute = nyTime.getMinutes();
-    const timeInMinutes = hour * 60 + minute;
-    
-    // Mercado cerrado los fines de semana
-    if (day === 0 || day === 6) {
-      return false;
-    }
-    
-    // Horario del mercado: 9:30 AM - 4:00 PM EST/EDT
-    const marketOpen = 9 * 60 + 30; // 9:30 AM
-    const marketClose = 16 * 60; // 4:00 PM
-    
-    return timeInMinutes >= marketOpen && timeInMinutes < marketClose;
-  };
-  
   // Función para manejar click en acciones más buscadas 
-    const handleTopStockClick = (symbol: string) => {
-      setSearchTerm(symbol);
-      buscarDatosAccion(symbol);
-    };
+  const handleTopStockClick = (symbol: string) => {
+    setSearchTerm(symbol);
+    buscarDatosAccion(symbol);
+  };
 
   // Verificar estado de autenticación al cargar
   useEffect(() => {
@@ -198,41 +213,118 @@ export default function StockTerminal() {
         ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-black text-green-400' 
         : 'bg-gradient-to-br from-gray-100 via-white to-gray-50 text-gray-800'
       }`}>
-      {/* Header */}
-      <div className="flex justify-between items-center p-6 border-b border-green-400/20">
-        <div className="flex items-center space-x-4">
-          <Terminal className="w-8 h-8 text-green-400" />
-          <h1 className="text-2xl font-bold text-green-400">FINTRA - IA Bursátil</h1>
-        </div>
-        
-        <div className="flex items-center space-x-4">
-          <MarketClock className="my-custom-class" />
-          <Button
-            onClick={toggleTheme}
-            variant="ghost"
-            size="sm"
-            className="text-gray-400 hover:bg-green-400/10"
-          >
-            {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </Button>
+      
+      {/* Layout principal con sidebar y contenido */}
+      <div className="flex min-h-screen">
+        {/* Header/Sidebar a la izquierda */}
+        <div className="w-80 flex flex-col p-6 border-r border-green-400/20 bg-black/20">
+          {/* Logo y título */}
+          <div className="flex items-center space-x-3 mb-8 pb-4 border-b border-green-400/20">
+            <Terminal className="w-8 h-8 text-green-400" />
+            <h1 className="text-xl font-bold text-green-400">FINTRA</h1>
+          </div>
           
-          <Button
-            onClick={handleAuth}
-            variant="ghost"
-            size="sm"
-            className="text-gray-400 hover:bg-green-400/10"
-          >
-            {user ? 'Logout' : 'Login'}
-          </Button>
-        </div>
-      </div>
+          {/* Menú vertical organizado */}
+          <div className="flex flex-col space-y-6">
+            {/* Información de tiempo */}
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                
+                <span className={`font-mono text-sm ${isMarketOpen() ? 'text-green-400' : 'text-red-400'}`}>
+                  {currentTime ? currentTime.toLocaleTimeString('es-ES', { 
+                    hour12: false,
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                  }) : '--:--:--'}
+                </span>
+                <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                </svg>
+              </div>
 
-      <div className="p-6" style={{marginLeft: "15%", marginRight: "15%"}}>
-        
-       
+              <div className="flex items-center space-x-3">
+                
+                <span className={`font-mono text-sm ${isMarketOpen() ? 'text-green-400' : 'text-red-400'}`}>
+                  {currentTime ? currentTime.toLocaleTimeString('en-US', { 
+                    timeZone: 'America/New_York',
+                    hour12: false,
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                  }) : '--:--:--'}
+                </span>
+                <span className="text-green-400 font-semibold">NY</span>
+              </div>
+
+              
+              <div className="flex items-center space-x-3">
+                {/* <span className="text-lg">
+                  {isMarketOpen() ? '🟢' : '🔴'}
+                </span> */}
+                <span className={`text-sm font-medium ${
+                  isMarketOpen() ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {isMarketOpen() ? 'Market Open' : 'Market Close'}
+                </span>
+              </div>
+            </div>
+            
+            {/* Separador */}
+            <div className="border-t border-green-400/20"></div>
+            
+            {/* Controles */}
+            <div className="space-y-3">
+              <Button
+                onClick={toggleTheme}
+                variant="ghost"
+                size="sm"
+                className="w-full text-gray-300 hover:bg-green-400/10 hover:text-green-400 justify-start transition-colors"
+              >
+                {isDarkMode ? <Sun className="w-4 h-4 mr-3" /> : <Moon className="w-4 h-4 mr-3" />}
+                {isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}
+              </Button>
+              
+              <Button
+                onClick={handleAuth}
+                variant="ghost"
+                size="sm"
+                className="w-full text-gray-300 hover:bg-green-400/10 hover:text-green-400 justify-start transition-colors"
+              >
+                <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                {user ? 'Logout' : 'Login'}
+              </Button>
+            </div>
+            
+            {/* Separador */}
+            <div className="border-t border-green-400/20"></div>
+            
+            {/* Fecha */}
+            <div className="flex items-center space-x-3 text-gray-400">
+              <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              <span className="text-sm font-mono">
+                {currentTime ? currentTime.toLocaleDateString('es-ES', { 
+                  day: '2-digit', 
+                  month: '2-digit', 
+                  year: '2-digit' 
+                }) : '--/--/--'}
+              </span>
+            </div>
+          </div>
+        </div>
+      
+      {/* Contenido principal a la derecha */}
+      <div className="flex-1 p-6">
         {/* Barra de Busqueda */}
         <div className="flex justify-between items-center space-x-4 mb-6">
-          <div className="flex space-x-4">
+          <div className="flex space-x-4 items-center">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-green-400" />
               <Input
@@ -252,26 +344,13 @@ export default function StockTerminal() {
               {isLoading ? 'Buscando...' : 'Buscar'}
             </Button>
             
-            {/* Dropdown de acciones más buscadas */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="outline"
-                  className="bg-green-400/20 text-green-400 border border-green-400/30 hover:bg-green-400/30"
-                >
-                  Más buscadas
-                  <ChevronRight className="ml-2 h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent 
-                side="right"
-                className="bg-gray-900 border-green-400/30 p-2"
-              >
-                <div className="flex space-x-2">
-                  <TopSearchedStocksDropdown onStockClick={handleTopStockClick} />
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Acciones más buscadas como componente fijo */}
+            <div className="flex items-center space-x-2 bg-black/30 border border-green-400/20 rounded-md px-3 py-2">
+              <span className="text-green-400 text-sm font-medium">Más buscadas:</span>
+              <div className="flex space-x-1">
+                <TopSearchedStocksDropdown onStockClick={handleTopStockClick} />
+              </div>
+            </div>
           </div>
           {/* Botón Analizadores alineado a la derecha */}
           <Button 
@@ -346,9 +425,6 @@ export default function StockTerminal() {
         )}
       </div>
     </div>
+  </div>
   );
 }
-
-
-
-

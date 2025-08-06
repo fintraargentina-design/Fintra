@@ -167,8 +167,8 @@ const RadarChart: React.FC<RadarChartProps> = ({ stockBasicData, stockAnalysis }
         <canvas 
           ref={canvasRef} 
           className="block" 
-          width="400" 
-          height="300"
+          width="600" 
+          height="400"
         ></canvas>
       </div>
     </div>
