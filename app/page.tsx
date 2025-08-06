@@ -57,7 +57,8 @@ export default function StockTerminal() {
       // Registrar la búsqueda
       await registerStockSearch(symbol);
       
-      const result = await searchStockData(symbol);
+      // Pasar activeTab a searchStockData
+      const result = await searchStockData(symbol, activeTab);
       
       if (result.success) {
         setStockBasicData(result.basicData);
@@ -66,19 +67,17 @@ export default function StockTerminal() {
         setStockReport(result.reportData);
         setSelectedStock(result.basicData);
         
-        // Agregar obtención de conclusión 
-        const conclusionData = await getStockConclusionData(symbol); 
-        setStockConclusion(conclusionData);
+        // Solo obtener conclusión si no es pestaña noticias
+        if (activeTab !== 'noticias') {
+          const conclusionData = await getStockConclusionData(symbol);
+          setStockConclusion(conclusionData);
+        }
       } else {
         setError(result.error || 'Error al buscar datos');
-        setStockBasicData(fallbackStockData);
-        setSelectedStock(fallbackStockData);
       }
-    } catch (err) {
-      console.error('Error al buscar datos:', err);
-      setError(`Error: ${err.message}`);
-      setStockBasicData(fallbackStockData);
-      setSelectedStock(fallbackStockData);
+    } catch (error) {
+      console.error('Error en búsqueda:', error);
+      setError('Error al buscar datos de la acción');
     } finally {
       setIsLoading(false);
     }
@@ -123,7 +122,7 @@ export default function StockTerminal() {
       case 'estimacion':
         return <EstimacionCard selectedStock={selectedStock} />
       case 'noticias':
-        return <NoticiasTab />;
+        return <NoticiasTab symbol={selectedStock?.symbol || 'AAPL'} /> // ✅ Solo pasar el símbolo
       case 'twits':
         return <TwitsTab />;
       default:
