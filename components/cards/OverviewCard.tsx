@@ -32,10 +32,10 @@ export default function OverviewCard({ stockBasicData, stockAnalysis, selectedSt
   const overviewData = {
     marketCap: stockBasicData?.market_cap || stockAnalysis?.market_cap,
     peRatio: stockBasicData?.valoracion_pe || stockBasicData?.pe_ratio,
-    dividendYield: stockAnalysis?.dividend_yield,
-    beta: stockBasicData?.beta || stockAnalysis?.beta,
-    eps: stockBasicData?.eps || stockAnalysis?.eps,
-    revenue: stockBasicData?.revenue || stockAnalysis?.revenue,
+    dividendYield: Number(stockBasicData?.dividend_yield || stockBasicData?.datos?.dividendos?.dividendYield),
+    beta: stockBasicData?.datos?.desempeno?.beta || stockAnalysis?.datos?.desempeno?.beta,
+    eps: Number(stockBasicData?.datos?.valoracion?.eps || stockAnalysis?.datos?.valoracion?.eps),
+    revenue: stockBasicData?.datos?.valoresHistoricos?.revenue?.[0]?.value || stockAnalysis?.datos?.valoresHistoricos?.revenue?.[0]?.value,
     employees: stockBasicData?.employees || stockAnalysis?.employees,
     founded: stockBasicData?.founded || stockAnalysis?.founded,
     sector: stockBasicData?.sector || stockAnalysis?.sector,
@@ -78,7 +78,7 @@ export default function OverviewCard({ stockBasicData, stockAnalysis, selectedSt
                 <div className="flex justify-between">
                     <span className="text-gray-400">Div. Yield:</span>
                     <span className="text-green-400 font-mono">
-                    {overviewData.dividendYield ? `${overviewData.dividendYield.toFixed(2)}%` : 'N/A'}
+                      {overviewData.dividendYield ? `${(overviewData.dividendYield * 100).toFixed(2)}%` : 'N/A'}
                     </span>
                 </div>
                 <div className="flex justify-between">
@@ -142,7 +142,7 @@ export default function OverviewCard({ stockBasicData, stockAnalysis, selectedSt
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Sitio web:</span>
+                  <span className="text-gray-400">Sitio web:</span> 
                   <span className="text-green-400">
                     {selectedStock?.website ? (
                       <a 
@@ -151,7 +151,7 @@ export default function OverviewCard({ stockBasicData, stockAnalysis, selectedSt
                         rel="noopener noreferrer"
                         className="hover:text-green-300 underline"
                       >
-                        Ver sitio
+                        {selectedStock.website.replace(/^https?:\/\//, '')}
                       </a>
                     ) : 'N/A'}
                   </span>
@@ -235,7 +235,7 @@ export default function OverviewCard({ stockBasicData, stockAnalysis, selectedSt
                   <div className="flex justify-between">
                     <span className="text-gray-400">Dividend Yield:</span>
                     <span className="text-green-400 font-mono">
-                      {overviewData.dividendYield ? `${overviewData.dividendYield.toFixed(2)}%` : 'N/A'}
+                      {overviewData.dividendYield ? `${(overviewData.dividendYield * 100).toFixed(2)}%` : 'N/A'}
                     </span>
                   </div>
                   <div className="flex justify-between">

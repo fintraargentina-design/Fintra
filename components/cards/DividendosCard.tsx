@@ -12,7 +12,9 @@ export default function DividendosCard({ stockAnalysis, stockBasicData, stockRep
   const [isOpen, setIsOpen] = useState(false);
   
   // Extraer datos de dividendos
-  const dividendos = stockBasicData?.dividendos || {};
+  const dividendos = stockBasicData?.datos?.dividendos || {};
+  const dividendYieldRaw = stockBasicData?.dividend_yield ?? stockBasicData?.datos?.dividendos?.dividendYield;
+  const dividendYield = dividendYieldRaw !== undefined && dividendYieldRaw !== null ? Number(dividendYieldRaw) : null;
   
   // Función para formatear valores
   const formatValue = (field: string, value: any) => {
@@ -20,7 +22,8 @@ export default function DividendosCard({ stockAnalysis, stockBasicData, stockRep
     
     switch (field) {
       case 'dividendYield':
-        return `${Number(value).toFixed(1)}%`;
+        const yieldValue = Number(value) * 100;
+        return `${yieldValue.toFixed(2)}%`;
       case 'dividendPerShare':
         return `$${Number(value).toFixed(2)}`;
       case 'frequency':
@@ -137,10 +140,8 @@ export default function DividendosCard({ stockAnalysis, stockBasicData, stockRep
     return (
       <tr className="border-b border-gray-700/50">
         <td className="py-3 px-4 text-gray-300">{label}</td>
-        <td className="py-3 px-4">
-          <span className={`font-mono font-semibold ${colorClass}`}>
-            {value}
-          </span>
+        <td className={`py-3 px-4 font-mono text-lg ${colorClass}`}>
+          {value}
         </td>
         <td className="py-3 px-4">
           <div className="flex items-center gap-2">
@@ -167,13 +168,13 @@ export default function DividendosCard({ stockAnalysis, stockBasicData, stockRep
                 <div className="flex justify-between">
                   <span className="text-gray-400">Dividend Yield:</span>
                   <span className="text-green-400 font-mono">
-                    {stockAnalysis?.dividend_yield ? `${stockAnalysis.dividend_yield.toFixed(2)}%` : 'N/A'}
+                    {dividendYield !== null ? `${(dividendYield * 100).toFixed(2)}%` : 'N/A'}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Dividendo por acción (12M):</span>
+                  <span className="text-gray-400">Dividendo anual por acción:</span>
                   <span className="text-blue-400 font-mono">
-                    {stockAnalysis?.dividend_per_share_12m ? `$${stockAnalysis.dividend_per_share_12m.toFixed(2)}` : 'N/A'}
+                    {dividendos.dividendPerShare !== null ? `${dividendos.dividendPerShare}` : 'N/A'}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -181,7 +182,7 @@ export default function DividendosCard({ stockAnalysis, stockBasicData, stockRep
                   <span className={`font-mono ${
                     stockAnalysis?.dividend_growth_5y >= 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
-                    {stockAnalysis?.dividend_growth_5y ? `${stockAnalysis.dividend_growth_5y > 0 ? '+' : ''}${stockAnalysis.dividend_growth_5y.toFixed(2)}%` : 'N/A'}
+                    {dividendos.growth5Y !== null ? `${dividendos.growth5Y }` : 'N/A'}
                   </span>
                 </div>
               </div>
@@ -189,20 +190,20 @@ export default function DividendosCard({ stockAnalysis, stockBasicData, stockRep
                 <div className="flex justify-between">
                   <span className="text-gray-400">Payout Ratio:</span>
                   <span className="text-yellow-400 font-mono">
-                    {stockAnalysis?.payout_ratio ? `${stockAnalysis.payout_ratio.toFixed(2)}%` : 'N/A'}
+                    {dividendos.payoutRatio !== null ? `${dividendos.payoutRatio }` : 'N/A'}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Frecuencia de pago:</span>
                   <span className="text-purple-400 font-mono">
-                    {stockAnalysis?.dividend_frequency || 'N/A'}
+                    {dividendos.frequency !== null ? `${dividendos.frequency}` : 'N/A'}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Último pago:</span>
                   <span className="text-cyan-400 font-mono text-sm">
-                    {stockAnalysis?.last_dividend_date && stockAnalysis?.last_dividend_amount 
-                      ? `${stockAnalysis.last_dividend_date} - $${stockAnalysis.last_dividend_amount.toFixed(2)}` 
+                    {dividendos?.ultimoPago?.date && dividendos?.ultimoPago?.amount
+                      ? `${dividendos.ultimoPago.date} - $${Number(dividendos.ultimoPago.amount).toFixed(2)}`
                       : 'N/A'}
                   </span>
                 </div>
@@ -221,8 +222,8 @@ export default function DividendosCard({ stockAnalysis, stockBasicData, stockRep
           <h3 className="text-green-400 text-lg font-semibold mb-2 flex items-center gap-2">
             Resumen Ejecutivo
           </h3>
-          <p className="text-gray-300 leading-relaxed">
-            La empresa distribuye dividendos estables con bajo payout, lo que sugiere un modelo financiero saludable y sostenible.
+          <p className="text-gray-200 text-sm leading-relaxed">
+            {stockBasicData?.datos?.dividendos?.["Resumen Ejecutivo"] || "N/A"}
           </p>
         </div>
 
@@ -260,7 +261,7 @@ export default function DividendosCard({ stockAnalysis, stockBasicData, stockRep
               <tbody>
                 <DividendRow 
                   label="Dividend Yield" 
-                  value={formatValue('dividendYield', dividendos.dividendYield)} 
+                  value={formatValue('dividendYield', dividendYield)} 
                   metric="dividend_yield" 
                   icon="💵" 
                 />

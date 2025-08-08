@@ -34,6 +34,18 @@ const getIndicatorColor = (indicator: string, value: number | string) => {
       if (numValue >= 2) return 'text-green-400';
       if (numValue >= 1.2) return 'text-yellow-400';
       return 'text-red-400';
+    // Nuevos casos para CAGR
+    case 'CAGR ingresos':
+    case 'CAGR beneficios':
+      if (numValue >= 15) return 'text-green-400';
+      if (numValue >= 5) return 'text-yellow-400';
+      return 'text-red-400';
+    // Nuevo caso para Free Cash Flow
+    case 'Free Cash Flow':
+      if (numValue >= 1000) return 'text-green-400'; // >= $1B
+      if (numValue >= 100) return 'text-yellow-400';  // >= $100M
+      if (numValue > 0) return 'text-blue-400';       // Positivo pero bajo
+      return 'text-red-400';                          // Negativo
     default:
       return 'text-gray-300';
   }
@@ -65,6 +77,18 @@ const getIndicatorComment = (indicator: string, value: number | string) => {
       if (numValue >= 2) return 'Sólido';
       if (numValue >= 1.2) return 'Aceptable';
       return 'Riesgo';
+    // Nuevos casos para CAGR
+    case 'CAGR ingresos':
+    case 'CAGR beneficios':
+      if (numValue >= 15) return 'Crecimiento alto';
+      if (numValue >= 5) return 'Crecimiento moderado';
+      return 'Crecimiento bajo';
+    // Nuevo caso para Free Cash Flow
+    case 'Free Cash Flow':
+      if (numValue >= 1000) return 'Excelente generación';
+      if (numValue >= 100) return 'Buena generación';
+      if (numValue > 0) return 'Generación positiva';
+      return 'Flujo negativo';
     default:
       return '';
   }
@@ -160,8 +184,7 @@ export default function FundamentalCard({ stockBasicData, stockAnalysis, stockRe
         <div className="bg-gradient-to-r from-green-900/20 to-blue-900/20 border border-green-500/30 rounded-lg p-4 mb-6">
           <h3 className="text-green-400 text-lg font-semibold mb-2">Resumen Ejecutivo</h3>
           <p className="text-gray-200 text-sm leading-relaxed">
-            {stockAnalysis?.resumen_fundamental || 
-             "Empresa altamente rentable, con márgenes sólidos y crecimiento sostenido. Baja deuda. Buen punto de entrada si se mantiene el precio."}
+            {stockBasicData?.datos?.["Resumen Ejecutivo"] || "N/A"}
           </p>
         </div>
 
@@ -230,12 +253,13 @@ export default function FundamentalCard({ stockBasicData, stockAnalysis, stockRe
                 />
                 <IndicatorRow 
                   label="CAGR ingresos" 
-                  value={stockBasicData?.valoracion?.revenueCAGR?.value || stockBasicData?.revenue_growth_5y} 
+                  value={stockBasicData?.datos?.valoracion?.revenueCAGR?.value || stockBasicData?.datos?.valoracion?.revenueCAGR?.value} 
+
                   unit="%" 
                 />
                 <IndicatorRow 
                   label="CAGR beneficios" 
-                  value={stockBasicData?.valoracion?.netIncomeCAGR?.value || stockBasicData?.earnings_growth_5y} 
+                  value={stockBasicData?.datos?.valoracion?.netIncomeCAGR?.value || stockBasicData?.datos?.valoracion?.netIncomeCAGR?.value} 
                   unit="%" 
                 />
               </tbody>
@@ -254,14 +278,14 @@ export default function FundamentalCard({ stockBasicData, stockAnalysis, stockRe
         </div>
 
         {/* ACCIONES OPCIONALES */}
-        <div className="mt-6 flex justify-end gap-4 pt-4 border-t border-gray-700/50">
+        {/* <div className="mt-6 flex justify-end gap-4 pt-4 border-t border-gray-700/50">
           <button className="text-sm text-green-300 hover:underline transition-colors">
             Ver análisis completo
           </button>
           <button className="text-sm text-green-300 hover:underline transition-colors">
             Comparar con competidores
           </button>
-        </div>
+        </div> */}
       </DialogContent>
     </Dialog>
   );

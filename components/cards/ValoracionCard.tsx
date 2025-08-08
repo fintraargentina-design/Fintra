@@ -177,8 +177,7 @@ export default function ValoracionCard({ stockAnalysis, stockBasicData, stockRep
         <div className="bg-gradient-to-r from-green-900/20 to-blue-900/20 border border-green-500/30 rounded-lg p-4 mb-6">
           <h3 className="text-green-400 text-lg font-semibold mb-2">Resumen Ejecutivo</h3>
           <p className="text-gray-200 text-sm leading-relaxed">
-            {stockAnalysis?.resumen_valoracion || 
-             "La acción parece subvaluada en relación a sus ganancias y flujo de caja, con múltiplos atractivos frente a su promedio histórico y sector."}
+            {stockBasicData?.datos?.valoracion?.["Resumen Ejecutivo"] || "N/A"}
           </p>
         </div>
 
@@ -249,7 +248,7 @@ export default function ValoracionCard({ stockAnalysis, stockBasicData, stockRep
           </p>
         </div>
 
-        {/* ACCIONES OPCIONALES */}
+       {/*  {/* ACCIONES OPCIONALES *
         <div className="mt-6 flex justify-end gap-4 pt-4 border-t border-gray-700/50">
           <button className="text-sm text-green-300 hover:underline transition-colors">
             Ver análisis completo
@@ -257,7 +256,7 @@ export default function ValoracionCard({ stockAnalysis, stockBasicData, stockRep
           <button className="text-sm text-green-300 hover:underline transition-colors">
             Comparar con competidores
           </button>
-        </div>
+        </div> */}
       </DialogContent>
     </Dialog>
   );

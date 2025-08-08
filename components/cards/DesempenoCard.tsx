@@ -189,7 +189,21 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockR
 
   // Extraer datos de performance desde stockBasicData.datos.desempeno.performance
   const performanceData = stockBasicData?.datos?.desempeno?.performance || {};
-  const desempenoData = stockBasicData?.datos?.desempeno || {};
+  const parseDesempenoDataToNumbers = (data: Record<string, any>) => {
+    const parsed: Record<string, number | string | null> = {};
+
+    for (const [key, value] of Object.entries(data)) {
+      const parsedValue = parseFloat(value);
+      parsed[key] = !isNaN(parsedValue) ? parsedValue : value;
+    }
+
+    return parsed;
+  };
+
+  // Uso:
+  const rawDesempenoData = stockBasicData?.datos?.desempeno || {};
+  const desempenoData = parseDesempenoDataToNumbers(rawDesempenoData);
+
   
   // Función helper para convertir valores a números
   const parsePerformanceValue = (value: any): number | null => {
@@ -199,12 +213,14 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockR
   };
   
   // Calcular métricas de riesgo
-  const beta = parseFloat(desempenoData.beta || '0');
-  const low52w = parseFloat(desempenoData.low52w || '0');
-  const high52w = parseFloat(desempenoData.high52w || '0');
-  
-  // Calcular máxima caída 1 año
-  const maxDrawdown = high52w > 0 ? ((low52w - high52w) / high52w * 100) : null;
+  const beta = typeof desempenoData.beta === 'number' ? desempenoData.beta : null;
+  const low52w = typeof desempenoData.low52w === 'number' ? desempenoData.low52w : null;
+  const high52w = typeof desempenoData.high52w === 'number' ? desempenoData.high52w : null;
+
+  const maxDrawdown = (low52w !== null && high52w !== null && high52w > 0)
+    ? ((low52w - high52w) / high52w * 100)
+    : null;
+
   
   // Convertir valores de performance a números
   const performance1Y = parsePerformanceValue(performanceData["1Y"]);
@@ -256,9 +272,9 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockR
                 <div className="flex justify-between">
                   <span className="text-gray-400">52 sem. mín/máx:</span>
                   <span className="font-mono text-yellow-400">
-                    {stockPerformance?.week_52_low && stockPerformance?.week_52_high 
-                      ? `$${stockPerformance.week_52_low.toFixed(2)} / $${stockPerformance.week_52_high.toFixed(2)}` 
-                      : 'N/A'}
+                    {!isNaN(parseFloat(low52w)) && !isNaN(parseFloat(high52w))
+                    ? `$${parseFloat(low52w).toFixed(2)} / $${parseFloat(high52w).toFixed(2)}`
+                    : 'N/A'}
                   </span>
                 </div>
               </div>
@@ -276,8 +292,7 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockR
         <div className="bg-gradient-to-r from-green-900/20 to-blue-900/20 border border-green-500/30 rounded-lg p-4 mb-6">
           <h3 className="text-green-400 text-lg font-semibold mb-2">Resumen Ejecutivo</h3>
           <p className="text-gray-200 text-sm leading-relaxed">
-            {stockPerformance?.resumen_desempeno || 
-             "La acción ha mostrado un rendimiento superior al mercado en el último año, con una tendencia positiva sostenida y baja volatilidad relativa."}
+            {stockBasicData?.datos?.desempeno?.["Resumen Ejecutivo"] || "N/A"}
           </p>
         </div>
 
@@ -383,14 +398,14 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockR
         </div>
 
         {/* ACCIONES OPCIONALES */}
-        <div className="mt-6 flex justify-end gap-4 pt-4 border-t border-gray-700/50">
+        {/* <div className="mt-6 flex justify-end gap-4 pt-4 border-t border-gray-700/50">
           <button className="text-sm text-green-300 hover:underline transition-colors">
             Ver análisis completo
           </button>
           <button className="text-sm text-green-300 hover:underline transition-colors">
             Comparar con índices
           </button>
-        </div>
+        </div> */}
       </DialogContent>
     </Dialog>
   );

@@ -22,7 +22,7 @@ export const getConclusionColors = (conclusion: string): ConclusionColors => {
       lowerConclusion.includes('positivo') ||
       lowerConclusion.includes('🟢')) {
     return { 
-      textColor: 'text-green-600', 
+      textColor: 'text-green-400', 
       bgColor: 'bg-green-100',
       borderColor: 'border-green-400/20'
     };
@@ -35,7 +35,7 @@ export const getConclusionColors = (conclusion: string): ConclusionColors => {
       lowerConclusion.includes('precaución') ||
       lowerConclusion.includes('🟡')) {
     return { 
-      textColor: 'text-yellow-600', 
+      textColor: 'text-yellow-400', 
       bgColor: 'bg-yellow-100',
       borderColor: 'border-yellow-400/20'
     };
@@ -48,7 +48,7 @@ export const getConclusionColors = (conclusion: string): ConclusionColors => {
       lowerConclusion.includes('negativo') ||
       lowerConclusion.includes('🔴')) {
     return { 
-      textColor: 'text-red-600', 
+      textColor: 'text-red-400', 
       bgColor: 'bg-red-100',
       borderColor: 'border-red-400/20'
     };
