@@ -193,6 +193,26 @@ export async function calculateRadarDimensions(symbol: string): Promise<RadarDim
  * Convierte las dimensiones a formato para Chart.js radar
  */
 export function formatRadarData(dimensions: RadarDimensions, stockName?: string, stockSymbol?: string) {
+  // Crear arrays de colores basados en valores negativos/positivos
+  const dataValues = [
+    dimensions.rentabilidad,
+    dimensions.crecimiento,
+    dimensions.solidezFinanciera,
+    dimensions.generacionCaja,
+    dimensions.margen,
+    dimensions.valoracion,
+    dimensions.riesgoVolatilidad,
+    dimensions.dividendos
+  ];
+
+  const pointColors = dataValues.map(value => 
+    value < 0 ? "rgba(255, 99, 99, 0.8)" : "rgba(75, 192, 192, 1)"
+  );
+
+  const borderColors = dataValues.map(value => 
+    value < 0 ? "rgba(255, 99, 99, 1)" : "rgba(75, 192, 192, 1)"
+  );
+
   return {
     labels: [
       "Rentabilidad",
@@ -206,21 +226,14 @@ export function formatRadarData(dimensions: RadarDimensions, stockName?: string,
     ],
     datasets: [{
       label: stockName || stockSymbol || 'Stock',
-      data: [
-        dimensions.rentabilidad,
-        dimensions.crecimiento,
-        dimensions.solidezFinanciera,
-        dimensions.generacionCaja,
-        dimensions.margen,
-        dimensions.valoracion,
-        dimensions.riesgoVolatilidad,
-        dimensions.dividendos
-      ],
+      data: dataValues,
       fill: true,
       backgroundColor: "rgba(75,192,192,0.2)",
       borderColor: "rgba(75,192,192,1)",
-      pointBackgroundColor: "rgba(75,192,192,1)",
-      pointBorderColor: "#fff"
+      pointBackgroundColor: pointColors,
+      pointBorderColor: borderColors,
+      pointRadius: 6,
+      pointHoverRadius: 8
     }]
   };
 }

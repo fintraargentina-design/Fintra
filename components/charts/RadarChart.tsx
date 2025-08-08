@@ -41,15 +41,15 @@ const RadarChart: React.FC<RadarChartProps> = ({ stockBasicData, stockAnalysis }
       if (dimensions) {
         setRadarData(dimensions);
       } else {
-        // Usar datos por defecto si no se pueden calcular
+        // Cambiar los valores por defecto de 50 a 0
         setRadarData({
-          rentabilidad: 50,
-          crecimiento: 50,
-          solidezFinanciera: 50,
-          generacionCaja: 50,
-          margen: 50,
-          valoracion: 50,
-          riesgoVolatilidad: 50
+          rentabilidad: 0,
+          crecimiento: 0,
+          solidezFinanciera: 0,
+          generacionCaja: 0,
+          margen: 0,
+          valoracion: 0,
+          riesgoVolatilidad: 0
         });
       }
     } catch (error) {
@@ -110,11 +110,11 @@ const RadarChart: React.FC<RadarChartProps> = ({ stockBasicData, stockAnalysis }
             scales: {
               r: {
                 beginAtZero: true,
-                min: 0,
+                min: -100,
                 max: 100,
                 ticks: {
-                  display: false, // Esto oculta los números
-                  stepSize: 20
+                  display: false,
+                  stepSize: 25
                 },
                 pointLabels: {
                   color: 'rgba(255, 255, 255, 0.9)',
@@ -124,10 +124,10 @@ const RadarChart: React.FC<RadarChartProps> = ({ stockBasicData, stockAnalysis }
                   }
                 },
                 grid: {
-                  color: 'rgba(255, 255, 255, 0.2)'
+                  color: 'rgba(255, 255, 255, 0.1)'
                 },
                 angleLines: {
-                  color: 'rgba(255, 255, 255, 0.2)'
+                  color: 'rgba(255, 255, 255, 0.1)'
                 }
               }
             }
@@ -168,7 +168,7 @@ const RadarChart: React.FC<RadarChartProps> = ({ stockBasicData, stockAnalysis }
           ref={canvasRef} 
           className="block" 
           width="600" 
-          height="400"
+          height="350"
         ></canvas>
       </div>
     </div>

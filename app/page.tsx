@@ -38,7 +38,7 @@ export default function StockTerminal() {
   const [stockReport, setStockReport] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('datos');
+  const [activeTab, setActiveTab] = useState('estimacion');
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [user, setUser] = useState(null);
   const [stockConclusion, setStockConclusion] = useState(null);
