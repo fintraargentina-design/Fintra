@@ -177,7 +177,7 @@ export default function ValoracionCard({ stockAnalysis, stockBasicData, stockRep
         <div className="bg-gradient-to-r from-green-900/20 to-blue-900/20 border border-green-500/30 rounded-lg p-4 mb-6">
           <h3 className="text-green-400 text-lg font-semibold mb-2">Resumen Ejecutivo</h3>
           <p className="text-gray-200 text-sm leading-relaxed">
-            {stockBasicData?.datos?.valoracion?.["Resumen Ejecutivo"] || "N/A"}
+            {stockReport?.analisisValoracion?.["Resumen Ejecutivo"] || "N/A"}
           </p>
         </div>
 

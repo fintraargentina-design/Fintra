@@ -179,22 +179,6 @@ export async function getCompleteStockData(symbol: string) {
   }
 }
 
-// Funciones específicas para diferentes secciones de la UI
-export async function getStockBasicInfo(symbol: string): Promise<StockBasicData | null> {
-  const result = await getCompleteStockData(symbol)
-  return result.basicData
-}
-
-export async function getStockAnalysis(symbol: string): Promise<StockAnalysisData | null> {
-  const result = await getCompleteStockData(symbol)
-  return result.analysisData
-}
-
-export async function getStockPerformance(symbol: string): Promise<StockPerformanceData | null> {
-  const result = await getCompleteStockData(symbol)
-  return result.performanceData
-}
-
 // Función para obtener solo campos específicos (más eficiente)
 export async function getSpecificStockFields(symbol: string, fields: string[]) {
   try {
@@ -301,42 +285,47 @@ export type StockProyeccionRow = {
 };
 
 interface StockProyeccionData {
-  kpi: string;
-  fuente: string;
-  moneda: string;
   symbol: string;
   empresa: string;
-  base_year: number;
   proyecciones: {
     eps: {
-      "1Y": number;
-      "3Y": number;
-      "5Y": number;
+      "1Y": { base: number; conservador: number; optimista: number };
+      "3Y": { base: number; conservador: number; optimista: number };
+      "5Y": { base: number; conservador: number; optimista: number };
     };
     ingresos: {
-      "1Y": number;
-      "3Y": number;
-      "5Y": number;
+      "1Y": { base: number; conservador: number; optimista: number };
+      "3Y": { base: number; conservador: number; optimista: number };
+      "5Y": { base: number; conservador: number; optimista: number };
     };
     netIncome: {
-      "1Y": number;
-      "3Y": number;
-      "5Y": number;
+      "1Y": { base: number; conservador: number; optimista: number };
+      "3Y": { base: number; conservador: number; optimista: number };
+      "5Y": { base: number; conservador: number; optimista: number };
     };
   };
-  tasas_revenue: {
-    "1Y": number;
-    "3Y": number;
-    "5Y": number;
-  };
-  revenue_actual: number;
-  cagr_revenue_5y: number;
-  fechaDeCreacion: string;
   valoracion_futura: {
-    precio_objetivo_12m: number; // Direct value, not an object
-    metodos_valoracion: string[];
+    precio_objetivo_12m: { base: number; conservador: number; optimista: number } | number;
+    metodo: string;
+    estado_actual: string;
   };
-  resumen_explicativo: string;
+  inferencia_historica: {
+    fair_value_actual: number;
+    precio_actual: number;
+    upside_potencial: string;
+  };
+  drivers_crecimiento: {
+    principales: string[];
+    riesgos: string[];
+  };
+  resumen_llm: string;
+  comparacion_analistas: {
+    consenso_precio_objetivo: number;
+    opinion_promedio: string;
+    cantidad_analistas: number;
+  };
+  rating_futuro_ia: number;
+  riesgo: string;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────

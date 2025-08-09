@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { getStockAnalysisData } from "@/lib/stockQueries";
 import { useState } from "react";
 
 interface FundamentalCardProps {
@@ -282,7 +283,7 @@ export default function FundamentalCard({ stockBasicData, stockAnalysis, stockRe
         <div className="bg-gradient-to-r from-green-900/20 to-blue-900/20 border border-green-500/30 rounded-lg p-4 mb-6">
           <h3 className="text-green-400 text-lg font-semibold mb-2">Resumen Ejecutivo</h3>
           <p className="text-gray-200 text-sm leading-relaxed">
-            {stockBasicData?.datos?.["Resumen Ejecutivo"] || "N/A"}
+            {stockReport?.analisisFundamental?.["Resumen Ejecutivo"] || "N/A"}
           </p>
         </div>
 

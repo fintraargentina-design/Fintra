@@ -273,11 +273,33 @@ export async function searchStockData(symbol: string) {
         
         processedReport = {
           symbol: reportData.symbol,
-          analisisFundamental: parsedReport.analisisFundamental,
-          analisisCualitativo: parsedReport.analisisCualitativo,
-          analisisValoracion: parsedReport.analisisValoracion,
-          analisisDividendos: parsedReport.analisisDividendos,
-          analisisDesempeno: parsedReport.analisisDesempeno
+          analisisFundamental: {
+            // Preservar propiedades del nivel superior
+            ...parsedReport.analisisFundamental,
+            // Sobrescribir con el contenido anidado si existe
+            ...(parsedReport.analisisFundamental?.analisisFundamental || {})
+          },
+          analisisCualitativo: {
+            ...parsedReport.analisisCualitativo,
+          },
+          analisisValoracion: {
+            // Preservar propiedades del nivel superior
+            ...parsedReport.analisisValoracion,
+            // Sobrescribir con el contenido anidado si existe
+            ...(parsedReport.analisisValoracion?.analisisValoracion || {})
+          },
+          analisisDividendos: {
+            // Preservar propiedades del nivel superior
+            ...parsedReport.analisisDividendos,
+            // Sobrescribir con el contenido anidado si existe
+            ...(parsedReport.analisisDividendos?.analisisDividendos || {})
+          },
+          analisisDesempeno: {
+            // Preservar propiedades del nivel superior
+            ...parsedReport.analisisDesempeno,
+            // Sobrescribir con el contenido anidado si existe
+            ...(parsedReport.analisisDesempeno?.analisisDesempeno || {})
+          }
         };
       } catch (parseError) {
         console.error('Error al parsear informe:', parseError);

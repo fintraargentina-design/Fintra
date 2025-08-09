@@ -1,14 +1,16 @@
 // components/EstimacionCard.tsx
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, AlertTriangle, Star, Target } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
 import { getStockProyecciones, StockProyeccionData } from "@/lib/stockQueries";
 
 interface EstimacionCardProps {
   selectedStock?: { symbol?: string; name?: string; price?: number } | null;
 }
+
+type NivelRiesgo = "verde" | "amarillo" | "rojo";
 
 /* =========================
    Helpers y subcomponentes
@@ -96,8 +98,12 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
-function RiskSemaphore({ level }: { level: "verde" | "amarillo" | "rojo" }) {
-  const map = { verde: "bg-green-500", amarillo: "bg-yellow-500", rojo: "bg-red-500" };
+function RiskSemaphore({ level }: { level: NivelRiesgo }) {
+  const map: Record<NivelRiesgo, string> = {
+    verde: "bg-green-500",
+    amarillo: "bg-yellow-500",
+    rojo: "bg-red-500",
+  };
   return (
     <div className="flex flex-col items-center gap-2">
       <div className={`w-8 h-8 rounded-full ${map[level]}`} />
@@ -134,16 +140,29 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
         setProyeccionData(data);
       } catch (error) {
         console.error("Error fetching proyecciones:", error);
+        setProyeccionData(null);
       } finally {
         setLoading(false);
       }
     };
-
     fetchProyecciones();
   }, [selectedStock?.symbol]);
 
-  const estimacionData = proyeccionData
-    ? {
+  const estimacionData = useMemo(() => {
+    if (proyeccionData) {
+      // Corregir el acceso a drivers_crecimiento
+      const drivers = proyeccionData.drivers_crecimiento?.principales || ["Próximamente"];
+      const riesgos = proyeccionData.drivers_crecimiento?.riesgos || ["Próximamente"];
+  
+      // Corregir el acceso a precio_objetivo_12m
+      const precioObjetivo = proyeccionData.valoracion_futura?.precio_objetivo_12m;
+      const precio12m = typeof precioObjetivo === 'object' && precioObjetivo !== null
+        ? precioObjetivo
+        : typeof precioObjetivo === 'number' && precioObjetivo > 0
+          ? { base: precioObjetivo, conservador: precioObjetivo * 0.9, optimista: precioObjetivo * 1.1 }
+          : { base: 0, conservador: 0, optimista: 0 };
+  
+      const result = {
         symbol: proyeccionData.symbol || selectedStock?.symbol || "N/A",
         empresa: proyeccionData.empresa || selectedStock?.name || "Próximamente",
         proyecciones: {
@@ -164,200 +183,198 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
           },
         },
         valoracion_futura: {
-          precio_objetivo_12m: proyeccionData.valoracion_futura?.precio_objetivo_12m 
-            ? { 
-                base: proyeccionData.valoracion_futura.precio_objetivo_12m, 
-                conservador: proyeccionData.valoracion_futura.precio_objetivo_12m * 0.9, 
-                optimista: proyeccionData.valoracion_futura.precio_objetivo_12m * 1.1 
-              }
-            : { base: 0, conservador: 0, optimista: 0 },
+          precio_objetivo_12m: precio12m,
           metodo: proyeccionData.valoracion_futura?.metodo || "Próximamente",
-          estado_actual: "Próximamente", // No existe en el JSON real
+          estado_actual: proyeccionData.valoracion_futura?.estado_actual || "Próximamente",
         },
         inferencia_historica: {
-          fair_value_actual: proyeccionData.valoracion_futura?.fair_value_hoy || 0,
+          fair_value_actual: proyeccionData.inferencia_historica?.fair_value_actual || 0,
           precio_actual: selectedStock?.price || 0,
-          upside_estimado: 0, // Calcular basado en fair_value vs precio_actual
+          upside_estimado: 0, // lo calculamos abajo
           tendencia: "Próximamente",
         },
-        drivers_crecimiento: ["Próximamente"], // No existe en el JSON real
-        riesgos_limitantes: ["Próximamente"], // No existe en el JSON real
-        resumen_llm: proyeccionData.resumen_explicativo || "Análisis próximamente disponible",
+        drivers_crecimiento: drivers,
+        riesgos_limitantes: riesgos,
+        resumen_llm: proyeccionData.resumen_llm || "Análisis próximamente disponible",
         comparacion_analistas: {
-          precio_objetivo_promedio: 0, // No existe en el JSON real
-          opinion_promedio: "Próximamente",
-          numero_analistas: 0,
+          precio_objetivo_promedio: proyeccionData.comparacion_analistas?.consenso_precio_objetivo || 0,
+          opinion_promedio: proyeccionData.comparacion_analistas?.opinion_promedio || "Próximamente",
+          numero_analistas: proyeccionData.comparacion_analistas?.cantidad_analistas || 0,
         },
-        rating_ai_futuro: 0, // No existe en el JSON real
-        nivel_riesgo: "amarillo", // No existe en el JSON real
-      }
-    : {
-        symbol: selectedStock?.symbol || "N/A",
-        empresa: selectedStock?.name || "Próximamente",
-        proyecciones: {
-          ingresos: {
-            "1Y": { base: 0, conservador: 0, optimista: 0 },
-            "3Y": { base: 0, conservador: 0, optimista: 0 },
-            "5Y": { base: 0, conservador: 0, optimista: 0 },
-          },
-          netIncome: {
-            "1Y": { base: 0, conservador: 0, optimista: 0 },
-            "3Y": { base: 0, conservador: 0, optimista: 0 },
-            "5Y": { base: 0, conservador: 0, optimista: 0 },
-          },
-          eps: {
-            "1Y": { base: 0, conservador: 0, optimista: 0 },
-            "3Y": { base: 0, conservador: 0, optimista: 0 },
-            "5Y": { base: 0, conservador: 0, optimista: 0 },
-          },
-        },
-        valoracion_futura: {
-          precio_objetivo_12m: { base: 0, conservador: 0, optimista: 0 },
-          metodo: "Próximamente",
-          estado_actual: "Próximamente",
-        },
-        inferencia_historica: {
-          fair_value_actual: 0,
-          precio_actual: selectedStock?.price || 0,
-          upside_estimado: 0,
-          tendencia: "Próximamente",
-        },
-        drivers_crecimiento: ["Próximamente"],
-        riesgos_limitantes: ["Próximamente"],
-        resumen_llm: "Análisis próximamente disponible",
-        comparacion_analistas: {
-          precio_objetivo_promedio: 0,
-          opinion_promedio: "Próximamente",
-          numero_analistas: 0,
-        },
-        rating_ai_futuro: 0,
-        nivel_riesgo: "amarillo",
+        rating_ai_futuro: proyeccionData.rating_futuro_ia || 0,
+        nivel_riesgo: (proyeccionData.riesgo as NivelRiesgo) || "amarillo",
       };
+  
+      // Calcular upside estimado
+      const { fair_value_actual, precio_actual } = result.inferencia_historica;
+      if (fair_value_actual > 0 && precio_actual > 0) {
+        result.inferencia_historica.upside_estimado = Math.round(((fair_value_actual - precio_actual) / precio_actual) * 100);
+      }
+  
+      return result;
+    }
 
+    // Branch sin datos
+    return {
+      symbol: selectedStock?.symbol || "N/A",
+      empresa: selectedStock?.name || "Próximamente",
+      proyecciones: {
+        ingresos: {
+          "1Y": { base: 0, conservador: 0, optimista: 0 },
+          "3Y": { base: 0, conservador: 0, optimista: 0 },
+          "5Y": { base: 0, conservador: 0, optimista: 0 },
+        },
+        netIncome: {
+          "1Y": { base: 0, conservador: 0, optimista: 0 },
+          "3Y": { base: 0, conservador: 0, optimista: 0 },
+          "5Y": { base: 0, conservador: 0, optimista: 0 },
+        },
+        eps: {
+          "1Y": { base: 0, conservador: 0, optimista: 0 },
+          "3Y": { base: 0, conservador: 0, optimista: 0 },
+          "5Y": { base: 0, conservador: 0, optimista: 0 },
+        },
+      },
+      valoracion_futura: {
+        precio_objetivo_12m: { base: 0, conservador: 0, optimista: 0 },
+        metodo: "Próximamente",
+        estado_actual: "Próximamente",
+      },
+      inferencia_historica: {
+        fair_value_actual: 0,
+        precio_actual: selectedStock?.price || 0,
+        upside_estimado: 0,
+        tendencia: "Próximamente",
+      },
+      drivers_crecimiento: ["Próximamente"],
+      riesgos_limitantes: ["Próximamente"],
+      resumen_llm: "Análisis próximamente disponible",
+      comparacion_analistas: { precio_objetivo_promedio: 0, opinion_promedio: "Próximamente", numero_analistas: 0 },
+      rating_ai_futuro: 0,
+      nivel_riesgo: "amarillo" as NivelRiesgo,
+    };
+  }, [proyeccionData, selectedStock?.name, selectedStock?.price, selectedStock?.symbol]);
+
+  // Charts
   useEffect(() => {
     if (!isOpen || typeof window === "undefined") return;
-    import("chart.js/auto").then((Chart) => {
-      // Linea: Ingresos
-      if (chartRef1.current) {
-        chartInstance1.current?.destroy();
-        chartInstance1.current = new Chart.default(chartRef1.current.getContext("2d")!, {
-          type: "line",
-          data: {
-            labels: ["1Y", "3Y", "5Y"],
-            datasets: [
-              {
-                label: "Conservador",
-                data: [
-                  (estimacionData.proyecciones.ingresos["1Y"]?.conservador ?? 0) / 1e9,
-                  (estimacionData.proyecciones.ingresos["3Y"]?.conservador ?? 0) / 1e9,
-                  (estimacionData.proyecciones.ingresos["5Y"]?.conservador ?? 0) / 1e9,
-                ],
-                borderColor: "rgb(239, 68, 68)",
-                backgroundColor: "rgba(239, 68, 68, 0.1)",
-                tension: 0.4,
-              },
-              {
-                label: "Base",
-                data: [
-                  (estimacionData.proyecciones.ingresos["1Y"]?.base ?? 0) / 1e9,
-                  (estimacionData.proyecciones.ingresos["3Y"]?.base ?? 0) / 1e9,
-                  (estimacionData.proyecciones.ingresos["5Y"]?.base ?? 0) / 1e9,
-                ],
-                borderColor: "rgb(34, 197, 94)",
-                backgroundColor: "rgba(34, 197, 94, 0.1)",
-                tension: 0.4,
-              },
-              {
-                label: "Optimista",
-                data: [
-                  (estimacionData.proyecciones.ingresos["1Y"]?.optimista ?? 0) / 1e9,
-                  (estimacionData.proyecciones.ingresos["3Y"]?.optimista ?? 0) / 1e9,
-                  (estimacionData.proyecciones.ingresos["5Y"]?.optimista ?? 0) / 1e9,
-                ],
-                borderColor: "rgb(59, 130, 246)",
-                backgroundColor: "rgba(59, 130, 246, 0.1)",
-                tension: 0.4,
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            plugins: {
-              title: { display: true, text: "Proyección de Ingresos (Billions)", color: "white" },
-              legend: { labels: { color: "white" } },
-            },
-            scales: {
-              y: {
-                ticks: { color: "white", callback: (v: any) => `$${v}B` },
-                grid: { color: "rgba(255,255,255,0.1)" },
-              },
-              x: { ticks: { color: "white" }, grid: { color: "rgba(255,255,255,0.1)" } },
-            },
-          },
-        });
-      }
 
-      // Barras: EPS (placeholder si no hay datos válidos)
-      if (chartRef2.current) {
-        chartInstance2.current?.destroy();
-        const y1 = estimacionData.proyecciones.eps["1Y"];
-        const y5 = estimacionData.proyecciones.eps["5Y"];
-        chartInstance2.current = new Chart.default(chartRef2.current.getContext("2d")!, {
-          type: "bar",
-          data: {
-            labels: ["1Y (Cons.)", "1Y (Base)", "1Y (Opt.)", "5Y (Cons.)", "5Y (Base)", "5Y (Opt.)"],
-            datasets: [
-              {
-                label: "EPS",
-                data: [
-                  y1?.conservador ?? 0,
-                  y1?.base ?? 0,
-                  y1?.optimista ?? 0,
-                  y5?.conservador ?? 0,
-                  y5?.base ?? 0,
-                  y5?.optimista ?? 0,
-                ],
-                backgroundColor: "rgba(34, 197, 94, 0.8)",
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            plugins: { title: { display: true, text: "Proyección de EPS", color: "white" }, legend: { labels: { color: "white" } } },
-            scales: {
-              y: { beginAtZero: true, ticks: { color: "white", callback: (v: any) => `$${v}` }, grid: { color: "rgba(255,255,255,0.1)" } },
-              x: { ticks: { color: "white" }, grid: { color: "rgba(255,255,255,0.1)" } },
+    import("chart.js/auto").then((mod) => {
+      const Chart = mod.default;
+
+      const ctx1 = chartRef1.current?.getContext("2d");
+      const ctx2 = chartRef2.current?.getContext("2d");
+      const ctx3 = chartRef3.current?.getContext("2d");
+      if (!ctx1 || !ctx2 || !ctx3) return;
+
+      // Linea: Ingresos
+      chartInstance1.current?.destroy();
+      chartInstance1.current = new Chart(ctx1, {
+        type: "line",
+        data: {
+          labels: ["1Y", "3Y", "5Y"],
+          datasets: [
+            {
+              label: "Conservador",
+              data: [
+                (estimacionData.proyecciones.ingresos["1Y"]?.conservador ?? 0) / 1e9,
+                (estimacionData.proyecciones.ingresos["3Y"]?.conservador ?? 0) / 1e9,
+                (estimacionData.proyecciones.ingresos["5Y"]?.conservador ?? 0) / 1e9,
+              ],
+              borderColor: "rgb(239, 68, 68)",
+              backgroundColor: "rgba(239, 68, 68, 0.1)",
+              tension: 0.4,
             },
+            {
+              label: "Base",
+              data: [
+                (estimacionData.proyecciones.ingresos["1Y"]?.base ?? 0) / 1e9,
+                (estimacionData.proyecciones.ingresos["3Y"]?.base ?? 0) / 1e9,
+                (estimacionData.proyecciones.ingresos["5Y"]?.base ?? 0) / 1e9,
+              ],
+              borderColor: "rgb(34, 197, 94)",
+              backgroundColor: "rgba(34, 197, 94, 0.1)",
+              tension: 0.4,
+            },
+            {
+              label: "Optimista",
+              data: [
+                (estimacionData.proyecciones.ingresos["1Y"]?.optimista ?? 0) / 1e9,
+                (estimacionData.proyecciones.ingresos["3Y"]?.optimista ?? 0) / 1e9,
+                (estimacionData.proyecciones.ingresos["5Y"]?.optimista ?? 0) / 1e9,
+              ],
+              borderColor: "rgb(59, 130, 246)",
+              backgroundColor: "rgba(59, 130, 246, 0.1)",
+              tension: 0.4,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: { display: true, text: "Proyección de Ingresos (Billions)", color: "white" },
+            legend: { labels: { color: "white" } },
           },
-        });
-      }
+          scales: {
+            y: {
+              ticks: { color: "white", callback: (v: any) => `$${v}B` },
+              grid: { color: "rgba(255,255,255,0.1)" },
+            },
+            x: { ticks: { color: "white" }, grid: { color: "rgba(255,255,255,0.1)" } },
+          },
+        },
+      });
+
+      // Barras: EPS
+      chartInstance2.current?.destroy();
+      const y1 = estimacionData.proyecciones.eps["1Y"];
+      const y5 = estimacionData.proyecciones.eps["5Y"];
+      chartInstance2.current = new Chart(ctx2, {
+        type: "bar",
+        data: {
+          labels: ["1Y (Cons.)", "1Y (Base)", "1Y (Opt.)", "5Y (Cons.)", "5Y (Base)", "5Y (Opt.)"],
+          datasets: [
+            {
+              label: "EPS",
+              data: [y1?.conservador ?? 0, y1?.base ?? 0, y1?.optimista ?? 0, y5?.conservador ?? 0, y5?.base ?? 0, y5?.optimista ?? 0],
+              backgroundColor: "rgba(34, 197, 94, 0.8)",
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: { title: { display: true, text: "Proyección de EPS", color: "white" }, legend: { labels: { color: "white" } } },
+          scales: {
+            y: { beginAtZero: true, ticks: { color: "white", callback: (v: any) => `$${v}` }, grid: { color: "rgba(255,255,255,0.1)" } },
+            x: { ticks: { color: "white" }, grid: { color: "rgba(255,255,255,0.1)" } },
+          },
+        },
+      });
 
       // Donut: Precio objetivo 12M
-      if (chartRef3.current) {
-        chartInstance3.current?.destroy();
-        const po = estimacionData.valoracion_futura.precio_objetivo_12m || { conservador: 0, base: 0, optimista: 0 };
-        chartInstance3.current = new Chart.default(chartRef3.current.getContext("2d")!, {
-          type: "doughnut",
-          data: {
-            labels: ["Conservador", "Base", "Optimista"],
-            datasets: [
-              {
-                data: [po.conservador ?? 0, po.base ?? 0, po.optimista ?? 0],
-                backgroundColor: ["rgba(239,68,68,0.8)", "rgba(34,197,94,0.8)", "rgba(59,130,246,0.8)"],
-                borderWidth: 2,
-                borderColor: "#1f2937",
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            plugins: {
-              title: { display: true, text: "Precio Objetivo 12M", color: "white" },
-              legend: { labels: { color: "white" } },
+      chartInstance3.current?.destroy();
+      const po = estimacionData.valoracion_futura.precio_objetivo_12m || { conservador: 0, base: 0, optimista: 0 };
+      chartInstance3.current = new Chart(ctx3, {
+        type: "doughnut",
+        data: {
+          labels: ["Conservador", "Base", "Optimista"],
+          datasets: [
+            {
+              data: [po.conservador ?? 0, po.base ?? 0, po.optimista ?? 0],
+              backgroundColor: ["rgba(239,68,68,0.8)", "rgba(34,197,94,0.8)", "rgba(59,130,246,0.8)"],
+              borderWidth: 2,
+              borderColor: "#1f2937",
             },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: { display: true, text: "Precio Objetivo 12M", color: "white" },
+            legend: { labels: { color: "white" } },
           },
-        });
-      }
+        },
+      });
     });
 
     return () => {
@@ -365,7 +382,7 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
       chartInstance2.current?.destroy();
       chartInstance3.current?.destroy();
     };
-  }, [isOpen, estimacionData]);
+  }, [isOpen, estimacionData.proyecciones, estimacionData.valoracion_futura, estimacionData.inferencia_historica]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -616,7 +633,7 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
                   </div>
                   <div className="text-center">
                     <div className="text-orange-400 text-sm mb-2">Semáforo de Riesgo</div>
-                    <RiskSemaphore level={estimacionData.nivel_riesgo as any} />
+                    <RiskSemaphore level={estimacionData.nivel_riesgo} />
                   </div>
                 </div>
               </CardContent>

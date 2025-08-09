@@ -114,7 +114,7 @@ const RadarChart: React.FC<RadarChartProps> = ({ stockBasicData, stockAnalysis }
                 max: 100,
                 ticks: {
                   display: false,
-                  stepSize: 25
+                  stepSize: 40
                 },
                 pointLabels: {
                   color: 'rgba(255, 255, 255, 0.9)',

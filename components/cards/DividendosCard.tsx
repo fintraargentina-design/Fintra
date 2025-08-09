@@ -212,7 +212,7 @@ export default function DividendosCard({ stockAnalysis, stockBasicData, stockRep
           </CardContent>
         </Card>
       </DialogTrigger>
-      <DialogContent className="max-w-5xl bg-gray-900 border-green-500/30">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-gray-900 border-green-500/30">
         <DialogHeader>
           <DialogTitle className="text-green-400 text-2xl">Análisis de Dividendos Detallado</DialogTitle>
         </DialogHeader>
@@ -223,7 +223,7 @@ export default function DividendosCard({ stockAnalysis, stockBasicData, stockRep
             Resumen Ejecutivo
           </h3>
           <p className="text-gray-200 text-sm leading-relaxed">
-            {stockBasicData?.datos?.dividendos?.["Resumen Ejecutivo"] || "N/A"}
+            {stockReport?.analisisDividendos?.["Resumen Ejecutivo"] || "N/A"}
           </p>
         </div>
 
@@ -312,7 +312,7 @@ export default function DividendosCard({ stockAnalysis, stockBasicData, stockRep
             Interpretación Automática (IA)
           </h3>
           <p className="text-gray-200 text-sm leading-relaxed italic">
-            {stockReport?.analisisDividendos?.["Conclusión para inversores"] || "No hay datos suficientes"}
+            {stockReport?.analisisDividendos?.analisisDividendos?.["Conclusión para inversores"] || "No hay datos suficientes"}
           </p>
         </div>
       </DialogContent>

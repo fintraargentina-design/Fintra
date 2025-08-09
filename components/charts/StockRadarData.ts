@@ -211,7 +211,7 @@ export function formatRadarData(dimensions: RadarDimensions, stockName?: string,
     } else if (value < 0) {
       return "rgba(255, 99, 99, 0.8)"; // Rojo para valores negativos
     } else {
-      return "rgba(75, 192, 192, 1)"; // Verde/azul para valores positivos
+      return "rgba(75, 192, 192, 0.8)"; // Verde/azul para valores positivos
     }
   });
 
@@ -236,17 +236,32 @@ export function formatRadarData(dimensions: RadarDimensions, stockName?: string,
       "Riesgo / Volatilidad",
       "Dividendos"
     ],
-    datasets: [{
-      label: stockName || stockSymbol || 'Stock',
-      data: dataValues,
-      fill: true,
-      backgroundColor: "rgba(75,192,192,0.2)",
-      borderColor: "rgba(75,192,192,1)",
-      pointBackgroundColor: pointColors,
-      pointBorderColor: borderColors,
-      pointRadius: 6,
-      pointHoverRadius: 8
-    }]
+    datasets: [
+      // Dataset para el área roja (desde 0 hasta -100)
+      {
+        label: 'Área Negativa',
+        data: [-100, -100, -100, -100, -100, -100, -100, -100], // Valores fijos en -100
+        fill: true,
+        backgroundColor: "rgba(255, 99, 99, 0.15)", // Rojo suave
+        borderColor: "transparent", // Sin borde
+        pointRadius: 0, // Sin puntos visibles
+        pointHoverRadius: 0,
+        order: 2 // Se dibuja primero (debajo)
+      },
+      // Dataset principal con los datos reales
+      {
+        label: stockName || stockSymbol || 'Stock',
+        data: dataValues,
+        fill: true,
+        backgroundColor: "rgba(75,192,192,0.2)",
+        borderColor: "rgba(75,192,192,1)",
+        pointBackgroundColor: pointColors,
+        pointBorderColor: borderColors,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        order: 1 // Se dibuja segundo (encima)
+      }
+    ]
   };
 }
 

@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import "chart.js/auto";
-import zoomPlugin from "chartjs-plugin-zoom";
 import { Chart } from "chart.js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,9 +12,6 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-
-// registra el plugin de zoom una sola vez
-Chart.register(zoomPlugin);
 
 // Chart wrappers
 const Line = dynamic(() => import("react-chartjs-2").then((m) => m.Line), { ssr: false });
@@ -195,6 +191,10 @@ type ChartsTabHistoricosProps = {
   market?: Market; // default: "NASDAQ"
 };
 
+// ─────────────────────────────────────────────
+// Component Chart tab Historicos
+// ─────────────────────────────────────────────
+
 export default function ChartsTabHistoricos({
   symbol,
   companyName,
@@ -228,6 +228,18 @@ export default function ChartsTabHistoricos({
       mounted = false;
     };
   }, [symbol, showBenchmark, market]);
+
+  // Registrar el plugin de zoom solo en el cliente
+  useEffect(() => {
+    const registerZoomPlugin = async () => {
+      if (typeof window !== 'undefined') {
+        const { default: zoomPlugin } = await import('chartjs-plugin-zoom');
+        Chart.register(zoomPlugin);
+      }
+    };
+    
+    registerZoomPlugin();
+  }, []);
 
   // Aplicar rango
   const dataR = useMemo(() => applyRange(ohlc, range), [ohlc, range]);
@@ -634,6 +646,8 @@ export default function ChartsTabHistoricos({
     // Forzamos re-render cambiando el range (toggle) o podés manejar refs de cada gráfico y llamar chart.resetZoom()
     setRange((r) => (r === "3A" ? "3A" : r));
   };
+
+
 
   // ─────────────────────────────────────────────
   // Render

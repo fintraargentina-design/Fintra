@@ -292,7 +292,7 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockR
         <div className="bg-gradient-to-r from-green-900/20 to-blue-900/20 border border-green-500/30 rounded-lg p-4 mb-6">
           <h3 className="text-green-400 text-lg font-semibold mb-2">Resumen Ejecutivo</h3>
           <p className="text-gray-200 text-sm leading-relaxed">
-            {stockBasicData?.datos?.desempeno?.["Resumen Ejecutivo"] || "N/A"}
+            {stockReport?.analisisDesempeno?.["Resumen Ejecutivo"] || "N/A"}
           </p>
         </div>
 
@@ -394,6 +394,7 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockR
           <h3 className="text-blue-400 text-lg font-semibold mb-2">Interpretación Automática (IA)</h3>
           <p className="text-gray-200 text-sm leading-relaxed italic">
             {stockReport?.analisisDesempeno?.["Conclusión para inversores"] || "No hay datos suficientes"}
+
           </p>
         </div>
 
