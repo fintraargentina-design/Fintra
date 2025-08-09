@@ -193,7 +193,7 @@ export async function calculateRadarDimensions(symbol: string): Promise<RadarDim
  * Convierte las dimensiones a formato para Chart.js radar
  */
 export function formatRadarData(dimensions: RadarDimensions, stockName?: string, stockSymbol?: string) {
-  // Crear arrays de colores basados en valores negativos/positivos
+  // Crear arrays de colores basados en valores negativos/positivos/cero
   const dataValues = [
     dimensions.rentabilidad,
     dimensions.crecimiento,
@@ -205,13 +205,25 @@ export function formatRadarData(dimensions: RadarDimensions, stockName?: string,
     dimensions.dividendos
   ];
 
-  const pointColors = dataValues.map(value => 
-    value < 0 ? "rgba(255, 99, 99, 0.8)" : "rgba(75, 192, 192, 1)"
-  );
+  const pointColors = dataValues.map(value => {
+    if (value === 0) {
+      return "rgba(255, 235, 59, 0.8)"; // Amarillo suave para valores 0
+    } else if (value < 0) {
+      return "rgba(255, 99, 99, 0.8)"; // Rojo para valores negativos
+    } else {
+      return "rgba(75, 192, 192, 1)"; // Verde/azul para valores positivos
+    }
+  });
 
-  const borderColors = dataValues.map(value => 
-    value < 0 ? "rgba(255, 99, 99, 1)" : "rgba(75, 192, 192, 1)"
-  );
+  const borderColors = dataValues.map(value => {
+    if (value === 0) {
+      return "rgba(255, 235, 59, 1)"; // Amarillo suave para bordes de valores 0
+    } else if (value < 0) {
+      return "rgba(255, 99, 99, 1)"; // Rojo para bordes de valores negativos
+    } else {
+      return "rgba(75, 192, 192, 1)"; // Verde/azul para bordes de valores positivos
+    }
+  });
 
   return {
     labels: [

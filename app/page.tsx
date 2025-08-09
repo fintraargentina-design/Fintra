@@ -5,6 +5,7 @@ import { searchStockData, getStockConclusionData } from '@/lib/stockQueries';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { BarChart3, DollarSign, TrendingUp, TrendingDown, Activity, Search, Terminal, Sun, Moon, ChevronDown, ChevronRight } from 'lucide-react';
 import {
   DropdownMenu,
@@ -28,6 +29,7 @@ import { getConclusionColors } from '@/lib/conclusionColors';
 import ConclusionRapidaCard from '@/components/cards/ConclusionRapidaCard';
 import OverviewCard from '@/components/cards/OverviewCard';
 import EstimacionCard from '@/components/cards/EstimacionCard';
+import { Badge } from "@/components/ui/badge";
 
 export default function StockTerminal() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,10 +40,11 @@ export default function StockTerminal() {
   const [stockReport, setStockReport] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('estimacion');
+  const [activeTab, setActiveTab] = useState('resumen');
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [user, setUser] = useState(null);
   const [stockConclusion, setStockConclusion] = useState(null);
+  const [isChartModalOpen, setIsChartModalOpen] = useState(false);
   // Agregar estos estados para el reloj
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [isClient, setIsClient] = useState(false);
@@ -144,24 +147,131 @@ export default function StockTerminal() {
   // Función para renderizar el contenido de cada tab
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'resumen':
+        return <ConclusionRapidaCard 
+          stockBasicData={stockBasicData}
+          stockAnalysis={stockAnalysis}
+          stockConclusion={stockConclusion}
+        />;
       case 'datos':
         return <DatosTab stockAnalysis={stockAnalysis} stockPerformance={stockPerformance} stockBasicData={stockBasicData} stockReport={stockReport} />;
       case 'chart':
-        return <ChartTab 
-          selectedStock={selectedStock} 
-          stockBasicData={stockBasicData}
-          stockAnalysis={stockAnalysis}
-        />;
+        return (
+          <div className="space-y-6">
+            {/* Header con información básica */}
+            <Card className="bg-gray-900/50 border-green-500/30">
+              <CardHeader>
+                <CardTitle className="text-green-400 text-xl flex items-center gap-2">
+                  📈 Análisis Técnico y Charts - {selectedStock?.companyName || stockBasicData?.companyName || 'Stock'}
+                  <Badge variant="outline" className="text-green-400 border-green-400">
+                    {selectedStock?.symbol || selectedStock}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            
+            {/* Tarjeta de acceso a Charts */}
+            <Card className="bg-gray-900/50 border-green-500/30">
+              <CardHeader>
+                <CardTitle className="text-green-400 text-lg">📊 1. Visualización de Charts</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="bg-gray-800/50 p-4 rounded-lg">
+                      <h4 className="text-green-300 font-semibold mb-3 flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4" />
+                        Análisis Disponible
+                      </h4>
+                      <ul className="space-y-2">
+                        <li className="flex items-start gap-2 text-gray-300">
+                          <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
+                          <span className="text-sm">Gráfico de precios históricos (OHLC)</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-gray-300">
+                          <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
+                          <span className="text-sm">Volumen de transacciones</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-gray-300">
+                          <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
+                          <span className="text-sm">Proyecciones y estimaciones</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-gray-300">
+                          <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
+                          <span className="text-sm">Comparación con benchmark</span>
+                        </li>
+                      </ul>
+                    </div>
+                    
+                    <div className="bg-gray-800/50 p-4 rounded-lg">
+                      <p className="text-gray-300 text-sm mb-2">
+                        <strong>Descripción:</strong> Visualización completa de datos técnicos y fundamentales
+                      </p>
+                      <p className="text-gray-300 text-sm">
+                        <strong>Formato:</strong> Gráficos interactivos con múltiples rangos temporales
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col justify-center items-center space-y-4">
+                    <div className="text-center">
+                      <h4 className="text-green-300 font-semibold mb-3">🚀 Abrir Análisis Completo</h4>
+                      <p className="text-gray-400 text-sm mb-4">
+                        Los charts se abrirán en un modal para mejor visualización
+                      </p>
+                    </div>
+                    
+                    <Button 
+                      onClick={() => setIsChartModalOpen(true)}
+                      className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 text-lg w-full max-w-xs"
+                    >
+                      <BarChart3 className="mr-2 h-5 w-5" />
+                      Abrir Charts
+                    </Button>
+                    
+                    <div className="text-center">
+                      <Badge className="bg-blue-500 text-white">
+                        Modal Interactivo
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Modal existente */}
+            <Dialog open={isChartModalOpen} onOpenChange={setIsChartModalOpen}>
+              <DialogContent className="w-[90vw] max-w-[90vw] h-[90vh] max-h-[90vh] overflow-y-auto bg-gray-900/95 backdrop-blur-md border border-green-400/30 shadow-2xl">
+                <DialogHeader>
+                  <DialogTitle className="text-green-400">
+                    📈 Charts - {selectedStock?.symbol || selectedStock}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="mt-4">
+                  <ChartTab 
+                    symbol={selectedStock?.symbol || selectedStock}
+                    companyName={selectedStock?.companyName || stockBasicData?.companyName}
+                    liveQuoteEnabled={true}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        );
       case 'informe':
         return <InformeTab stockReport={stockReport} />;
       case 'estimacion':
         return <EstimacionCard selectedStock={selectedStock} />
       case 'noticias':
-        return <NoticiasTab symbol={selectedStock?.symbol || 'AAPL'} /> // ✅ Solo pasar el símbolo
+        return <NoticiasTab symbol={selectedStock?.symbol || 'AAPL'} />
       case 'twits':
         return <TwitsTab />;
       default:
-        return <DatosTab stockAnalysis={stockAnalysis} stockPerformance={stockPerformance} stockBasicData={stockBasicData} />;
+        return <ConclusionRapidaCard 
+          stockBasicData={stockBasicData}
+          stockAnalysis={stockAnalysis}
+          stockConclusion={stockConclusion}
+        />;
     }
   };
 
@@ -187,6 +297,13 @@ export default function StockTerminal() {
     setSearchTerm(symbol);
     buscarDatosAccion(symbol);
   };
+
+  // Efecto para abrir el modal automáticamente cuando se selecciona chart
+useEffect(() => {
+  if (activeTab === 'chart') {
+    setIsChartModalOpen(true);
+  }
+}, [activeTab]);
 
   // Verificar estado de autenticación al cargar
   useEffect(() => {
@@ -229,7 +346,6 @@ export default function StockTerminal() {
             {/* Información de tiempo */}
             <div className="space-y-3">
               <div className="flex items-center space-x-3">
-                
                 <span className={`font-mono text-sm ${isMarketOpen() ? 'text-green-400' : 'text-red-400'}`}>
                   {currentTime ? currentTime.toLocaleTimeString('es-ES', { 
                     hour12: false,
@@ -242,9 +358,8 @@ export default function StockTerminal() {
                   <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                 </svg>
               </div>
-
+              
               <div className="flex items-center space-x-3">
-                
                 <span className={`font-mono text-sm ${isMarketOpen() ? 'text-green-400' : 'text-red-400'}`}>
                   {currentTime ? currentTime.toLocaleTimeString('en-US', { 
                     timeZone: 'America/New_York',
@@ -256,12 +371,8 @@ export default function StockTerminal() {
                 </span>
                 <span className="text-green-400 font-semibold">NY</span>
               </div>
-
               
               <div className="flex items-center space-x-3">
-                {/* <span className="text-lg">
-                  {isMarketOpen() ? '🟢' : '🔴'}
-                </span> */}
                 <span className={`text-sm font-medium ${
                   isMarketOpen() ? 'text-green-400' : 'text-red-400'
                 }`}>
@@ -322,44 +433,8 @@ export default function StockTerminal() {
       
       {/* Contenido principal a la derecha */}
       <div className="flex-1 p-6">
-        {/* Barra de Busqueda */}
-        <div className="flex justify-between items-center space-x-4 mb-6">
-          <div className="flex space-x-4 items-center">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-green-400" />
-              <Input
-                type="text"
-                placeholder="Buscar símbolo de acción (ej: AAPL, GOOGL)..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="pl-10 bg-black/50 border-green-400/30 text-green-400 placeholder-green-400/50 focus:border-green-400"
-              />
-            </div>
-            <Button 
-              onClick={() => buscarDatosAccion(searchTerm.trim())}
-              disabled={isLoading || !searchTerm.trim()}
-              className="bg-green-400/20 text-green-400 border border-green-400/30 hover:bg-green-400/30"
-            >
-              {isLoading ? 'Buscando...' : 'Buscar'}
-            </Button>
-            
-            {/* Acciones más buscadas como componente fijo */}
-            <div className="flex items-center space-x-2 bg-black/30 border border-green-400/20 rounded-md px-3 py-2">
-              <span className="text-green-400 text-sm font-medium">Más buscadas:</span>
-              <div className="flex space-x-1">
-                <TopSearchedStocksDropdown onStockClick={handleTopStockClick} />
-              </div>
-            </div>
-          </div>
-          {/* Botón Analizadores alineado a la derecha */}
-          <Button 
-            className="bg-green-400/20 text-green-400 border border-green-400/30 hover:bg-green-400/30 px-6"
-          >
-            Analizadores
-          </Button>
-        </div>
-      
+        {/* Barra de Busqueda eliminada de aquí */}
+        
         {/* Mostrar error si existe */}
         {error && (
           <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded text-red-400">
@@ -374,18 +449,44 @@ export default function StockTerminal() {
             <div className="flex gap-6"> 
               {/* COLUMNA IZQUIERDA */}
               <div className="w-2/5 flex flex-col gap-6">
+                {/* Barra de Busqueda movida aquí */}
+                <div className="w-full">
+                  <div className="flex space-x-4 items-center">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-green-400" />
+                      <Input
+                        type="text"
+                        placeholder="Buscar símbolo de acción (ej: AAPL, GOOGL)..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        className="pl-10 bg-black/50 border-green-400/30 text-green-400 placeholder-green-400/50 focus:border-green-400"
+                      />
+                    </div>
+                    <Button 
+                      onClick={() => buscarDatosAccion(searchTerm.trim())}
+                      disabled={isLoading || !searchTerm.trim()}
+                      className="bg-green-400/20 text-green-400 border border-green-400/30 hover:bg-green-400/30 flex-shrink-0"
+                    >
+                      {isLoading ? 'Buscando...' : 'Buscar'}
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Acciones más buscadas con scroll horizontal */}
+                <div className="flex items-center space-x-2 bg-black/30 border border-green-400/20 rounded-md px-3 py-2">
+                  <span className="text-green-400 text-sm font-medium flex-shrink-0">Más buscadas:</span>
+                  <div className="flex space-x-1 overflow-x-auto scrollbar-thin min-w-0">
+                    <TopSearchedStocksDropdown onStockClick={handleTopStockClick} />
+                  </div>
+                </div>
+                
                 <div className="space-y-4">                   
                   <OverviewCard 
                     stockBasicData={stockBasicData}
                     stockAnalysis={stockAnalysis}
                     selectedStock={selectedStock}
                   />
-                </div>
-                
-                <div className="mb-6 flex">
-                  <div className="w-full">
-                    <ConclusionRapidaCard stockConclusion={stockConclusion} />
-                  </div>
                 </div>
               </div>
               
@@ -428,3 +529,4 @@ export default function StockTerminal() {
   </div>
   );
 }
+

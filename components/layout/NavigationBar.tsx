@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button"
-import { BarChart3, TrendingUp } from "lucide-react"
+import { BarChart3, TrendingUp, FileText } from "lucide-react"
 
 const tabs = [
-  { id: 'estimacion', label: 'Estimación' },
+  { id: 'resumen', label: 'Resumen Estratégico', icon: FileText },
+  { id: 'estimacion', label: 'P & P' },
   { id: 'informe', label: 'Informe' },
   { id: 'datos', label: 'Datos', icon: BarChart3 },
   { id: 'noticias', label: 'Noticias' },

@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Configuración del cliente Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+);
 
 // Interfaces para los datos estructurados
 // Agregar interface para dividendos
@@ -289,4 +289,87 @@ export async function registerStockSearch(symbol: string) {
   } catch (error) {
     console.error('Error in registerStockSearch:', error);
   }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────────
+ *  Tipos para Proyecciones
+ * ────────────────────────────────────────────────────────────────────────────── */
+export type StockProyeccionRow = {
+  symbol: string;
+  fecha_de_creacion: string; // timestamptz
+  proyeccion: any;           // jsonb que guardás desde n8n
+};
+
+interface StockProyeccionData {
+  kpi: string;
+  fuente: string;
+  moneda: string;
+  symbol: string;
+  empresa: string;
+  base_year: number;
+  proyecciones: {
+    eps: {
+      "1Y": number;
+      "3Y": number;
+      "5Y": number;
+    };
+    ingresos: {
+      "1Y": number;
+      "3Y": number;
+      "5Y": number;
+    };
+    netIncome: {
+      "1Y": number;
+      "3Y": number;
+      "5Y": number;
+    };
+  };
+  tasas_revenue: {
+    "1Y": number;
+    "3Y": number;
+    "5Y": number;
+  };
+  revenue_actual: number;
+  cagr_revenue_5y: number;
+  fechaDeCreacion: string;
+  valoracion_futura: {
+    precio_objetivo_12m: number; // Direct value, not an object
+    metodos_valoracion: string[];
+  };
+  resumen_explicativo: string;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────────
+ *  Obtener la ÚLTIMA proyección por símbolo desde stock_proyecciones
+ * ────────────────────────────────────────────────────────────────────────────── */
+export async function getStockProyecciones(symbol: string): Promise<StockProyeccionData | null> {
+  const { data, error } = await supabase
+    .from('stock_proyecciones')
+    .select('symbol, fecha_de_creacion, proyeccion')
+    .eq('symbol', symbol)
+    .order('fecha_de_creacion', { ascending: false })
+    .limit(1)
+    .maybeSingle<StockProyeccionRow>();
+
+  if (error) {
+    console.error('getStockProyecciones error', error);
+    return null;
+  }
+  if (!data) return null;
+
+  // El jsonb “proyeccion” es exactamente lo que guardaste en n8n
+  const p = data.proyeccion ?? {};
+
+  return {
+    symbol: data.symbol,
+    empresa: p?.empresa,                 // si lo incluís en el payload
+    proyecciones: p?.proyecciones,
+    valoracion_futura: p?.valoracion_futura,
+    inferencia_historica: p?.inferencia_historica,
+    drivers_crecimiento: p?.drivers_crecimiento,
+    comparacion_analistas: p?.comparacion_analistas,
+    rating_futuro_ia: p?.rating_futuro_ia,
+    riesgo: p?.riesgo ?? 'amarillo',
+    resumen_llm: p?.resumen_llm,
+  };
 }

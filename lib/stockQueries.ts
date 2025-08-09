@@ -1,5 +1,8 @@
 import { supabase } from './supabase';
 
+export { supabase, registerStockSearch, getStockProyecciones } from './supabase';
+export type { StockProyeccionData } from './supabase';
+
 // Interfaces para los tipos de datos
 export interface StockData {
   symbol: string;
@@ -106,7 +109,8 @@ export async function searchStockData(symbol: string) {
       .eq('symbol', symbol.toUpperCase())
       .single();
 
-    if (analysisError?.code && analysisError.code !== 'PGRST116') {
+    // Only log if there's actually an error and it's not the "no rows" error
+    if (analysisError && analysisError.code && analysisError.code !== 'PGRST116') {
       console.error('Error en análisis:', {
         message: analysisError.message || 'Sin mensaje',
         details: analysisError.details || 'Sin detalles',
@@ -115,14 +119,18 @@ export async function searchStockData(symbol: string) {
         fullError: analysisError
       });
     }
-
+    
+    // Remove or modify this section that's causing the empty object log
     if (analysisError && !analysisError.code) {
-      console.warn('analysisError sin código:', {
-        error: analysisError,
-        type: typeof analysisError,
-        keys: Object.keys(analysisError || {}),
-        stringified: JSON.stringify(analysisError)
-      });
+      // Only log if the error object actually has meaningful content
+      if (Object.keys(analysisError).length > 0) {
+        console.warn('analysisError sin código:', {
+          error: analysisError,
+          type: typeof analysisError,
+          keys: Object.keys(analysisError || {}),
+          stringified: JSON.stringify(analysisError)
+        });
+      }
     }
 
     // Si no hay datos de análisis, crear un objeto por defecto
