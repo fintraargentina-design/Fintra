@@ -6,6 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, AlertTriangle, Star, Target } from "lucide-react";
 import { getStockProyecciones, StockProyeccionData } from "@/lib/stockQueries";
 
+// NUEVO: analyst estimates (FMP)
+import {
+  getAnalystEstimates,
+  formatAnalystEstimatesForDisplay,
+} from "@/api/financialModelingPrep";
+
 interface EstimacionCardProps {
   selectedStock?: { symbol?: string; name?: string; price?: number } | null;
 }
@@ -121,6 +127,10 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
   const [proyeccionData, setProyeccionData] = useState<StockProyeccionData | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // NUEVO: estado para Analyst Estimates
+  const [analystRows, setAnalystRows] = useState<any[]>([]);
+  const [analystErr, setAnalystErr] = useState<string | null>(null);
+
   const chartRef1 = useRef<HTMLCanvasElement>(null);
   const chartRef2 = useRef<HTMLCanvasElement>(null);
   const chartRef3 = useRef<HTMLCanvasElement>(null);
@@ -129,39 +139,73 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
   const chartInstance3 = useRef<any>(null);
 
   useEffect(() => {
-    const fetchProyecciones = async () => {
+    const fetchAll = async () => {
       if (!selectedStock?.symbol) {
         setProyeccionData(null);
+        setAnalystRows([]);
         return;
       }
       setLoading(true);
       try {
-        const data = await getStockProyecciones(selectedStock.symbol);
-        setProyeccionData(data);
-      } catch (error) {
-        console.error("Error fetching proyecciones:", error);
+        const [proj, estimates] = await Promise.all([
+          getStockProyecciones(selectedStock.symbol),
+          getAnalystEstimates(selectedStock.symbol, { period: "annual", limit: 10 }),
+        ]);
+        setProyeccionData(proj);
+        setAnalystRows(formatAnalystEstimatesForDisplay(estimates));
+        setAnalystErr(null);
+      } catch (error: any) {
+        console.error("Error fetching proyecciones/estimates:", error);
         setProyeccionData(null);
+        setAnalystRows([]);
+        setAnalystErr(error?.message || "Error estimates");
       } finally {
         setLoading(false);
       }
     };
-    fetchProyecciones();
+    fetchAll();
   }, [selectedStock?.symbol]);
+
+  // Agregados simples desde Analyst Estimates (conteo y EPS/Ingresos como fallback)
+  const analystAgg = useMemo(() => {
+    if (!analystRows?.length) return { numAnalysts: 0, y1: null as any, y3: null as any, y5: null as any };
+
+    // máximo de analistas reportado
+    const numAnalysts = analystRows.reduce((m, r: any) => {
+      const n = Number(r.numberAnalysts ?? 0);
+      return Number.isFinite(n) && n > m ? n : m;
+    }, 0);
+
+    const sorted = [...analystRows].sort((a: any, b: any) => {
+      const ax = Number(a.date ?? a.period ?? a.calendarYear ?? 0);
+      const bx = Number(b.date ?? b.period ?? b.calendarYear ?? 0);
+      return ax - bx;
+    });
+
+    const last = sorted[sorted.length - 1] || null;      // aprox 1Y
+    const mid3 = sorted[sorted.length - 3] || null;      // aprox 3Y
+    const mid5 = sorted[sorted.length - 5] || null;      // aprox 5Y
+    const pick = (r: any) => r ? ({
+      revenue: r.revenueAvg ?? r.revenueAverage ?? null,
+      eps: r.epsAvg ?? r.epsAverage ?? null,
+    }) : null;
+
+    return { numAnalysts, y1: pick(last), y3: pick(mid3), y5: pick(mid5) };
+  }, [analystRows]);
 
   const estimacionData = useMemo(() => {
     if (proyeccionData) {
-      // Corregir el acceso a drivers_crecimiento
       const drivers = proyeccionData.drivers_crecimiento?.principales || ["Próximamente"];
       const riesgos = proyeccionData.drivers_crecimiento?.riesgos || ["Próximamente"];
-  
-      // Corregir el acceso a precio_objetivo_12m
+
       const precioObjetivo = proyeccionData.valoracion_futura?.precio_objetivo_12m;
-      const precio12m = typeof precioObjetivo === 'object' && precioObjetivo !== null
-        ? precioObjetivo
-        : typeof precioObjetivo === 'number' && precioObjetivo > 0
+      const precio12m =
+        typeof precioObjetivo === "object" && precioObjetivo !== null
+          ? precioObjetivo
+          : typeof precioObjetivo === "number" && precioObjetivo > 0
           ? { base: precioObjetivo, conservador: precioObjetivo * 0.9, optimista: precioObjetivo * 1.1 }
           : { base: 0, conservador: 0, optimista: 0 };
-  
+
       const result = {
         symbol: proyeccionData.symbol || selectedStock?.symbol || "N/A",
         empresa: proyeccionData.empresa || selectedStock?.name || "Próximamente",
@@ -190,7 +234,7 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
         inferencia_historica: {
           fair_value_actual: proyeccionData.inferencia_historica?.fair_value_actual || 0,
           precio_actual: selectedStock?.price || 0,
-          upside_estimado: 0, // lo calculamos abajo
+          upside_estimado: 0, // se calcula abajo
           tendencia: "Próximamente",
         },
         drivers_crecimiento: drivers,
@@ -204,17 +248,36 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
         rating_ai_futuro: proyeccionData.rating_futuro_ia || 0,
         nivel_riesgo: (proyeccionData.riesgo as NivelRiesgo) || "amarillo",
       };
-  
-      // Calcular upside estimado
+
+      // Upside
       const { fair_value_actual, precio_actual } = result.inferencia_historica;
       if (fair_value_actual > 0 && precio_actual > 0) {
         result.inferencia_historica.upside_estimado = Math.round(((fair_value_actual - precio_actual) / precio_actual) * 100);
       }
-  
+
+      // ---- Fallback con Analyst Estimates (sin pisar lo que ya traés) ----
+      if (!result.comparacion_analistas.numero_analistas && analystAgg.numAnalysts) {
+        result.comparacion_analistas.numero_analistas = analystAgg.numAnalysts;
+      }
+      // EPS fallback 1Y / 5Y
+      if (analystAgg.y1?.eps != null && !result.proyecciones.eps["1Y"]?.base) {
+        result.proyecciones.eps["1Y"].base = Number(analystAgg.y1.eps);
+      }
+      if (analystAgg.y5?.eps != null && !result.proyecciones.eps["5Y"]?.base) {
+        result.proyecciones.eps["5Y"].base = Number(analystAgg.y5.eps);
+      }
+      // Ingresos fallback 1Y / 5Y
+      if (analystAgg.y1?.revenue != null && !result.proyecciones.ingresos["1Y"]?.base) {
+        result.proyecciones.ingresos["1Y"].base = Number(analystAgg.y1.revenue);
+      }
+      if (analystAgg.y5?.revenue != null && !result.proyecciones.ingresos["5Y"]?.base) {
+        result.proyecciones.ingresos["5Y"].base = Number(analystAgg.y5.revenue);
+      }
+
       return result;
     }
 
-    // Branch sin datos
+    // Branch sin datos (conserva tu layout e “Próximamente”)
     return {
       symbol: selectedStock?.symbol || "N/A",
       empresa: selectedStock?.name || "Próximamente",
@@ -253,9 +316,9 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
       rating_ai_futuro: 0,
       nivel_riesgo: "amarillo" as NivelRiesgo,
     };
-  }, [proyeccionData, selectedStock?.name, selectedStock?.price, selectedStock?.symbol]);
+  }, [proyeccionData, selectedStock?.name, selectedStock?.price, selectedStock?.symbol, analystAgg]);
 
-  // Charts
+  // Charts (sin cambios visuales)
   useEffect(() => {
     if (!isOpen || typeof window === "undefined") return;
 
@@ -267,7 +330,7 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
       const ctx3 = chartRef3.current?.getContext("2d");
       if (!ctx1 || !ctx2 || !ctx3) return;
 
-      // Linea: Ingresos
+      // Línea: Ingresos
       chartInstance1.current?.destroy();
       chartInstance1.current = new Chart(ctx1, {
         type: "line",
@@ -617,6 +680,7 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
                     <div className="text-gray-400 text-sm">Analistas</div>
                   </div>
                 </div>
+                {analystErr && <div className="text-xs text-yellow-500 mt-3">Estimates: {analystErr}</div>}
               </CardContent>
             </Card>
 
