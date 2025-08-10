@@ -10,11 +10,27 @@ export default function InformeTab({ stockReport }: InformeTabProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const sections = [
-    { key: 'analisisFundamental', label: 'Análisis Fundamental' },
+    { 
+      key: 'analisisFundamental', 
+      path: ['analisisFundamental', 'analisisFundamental'],
+      label: 'Análisis Fundamental' 
+    },
     { key: 'analisisCualitativo', label: 'Análisis Cualitativo' },
-    { key: 'analisisValoracion', label: 'Análisis Valoración' },
-    { key: 'analisisDividendos', label: 'Análisis Dividendos' },
-    { key: 'analisisDesempeno', label: 'Análisis Desempeño' }
+    { 
+      key: 'analisisValoracion', 
+      path: ['analisisValoracion', 'analisisValoracion'],
+      label: 'Análisis Valoración' 
+    },
+    { 
+      key: 'analisisDividendos', 
+      path: ['analisisDividendos', 'analisisDividendos'],
+      label: 'Análisis Dividendos' 
+    },
+    { 
+      key: 'analisisDesempeno', 
+      path: ['analisisDesempeno', 'analisisDesempeno'],
+      label: 'Análisis Desempeño' 
+    }
   ];
 
   // Reiniciar scroll cuando cambie la sección activa
@@ -29,15 +45,38 @@ export default function InformeTab({ stockReport }: InformeTabProps) {
   };
 
   const renderContent = () => {
-    if (!stockReport || !stockReport[activeSection]) {
+    const currentSection = sections.find(s => s.key === activeSection);
+    
+    if (!stockReport || !currentSection) {
       return (
         <div className="text-gray-400 text-center py-8">
           No hay información disponible para esta sección
         </div>
       );
     }
-
-    const sectionData = stockReport[activeSection];
+  
+    // Determinar los datos de la sección
+    let sectionData;
+    
+    if (currentSection.path) {
+      // Para secciones con path anidado (analisisFundamental, analisisValoracion, etc.)
+      sectionData = stockReport;
+      for (const pathSegment of currentSection.path) {
+        sectionData = sectionData?.[pathSegment];
+        if (!sectionData) break;
+      }
+    } else {
+      // Para secciones de acceso directo (analisisCualitativo)
+      sectionData = stockReport[currentSection.key];
+    }
+    
+    if (!sectionData) {
+      return (
+        <div className="text-gray-400 text-center py-8">
+          No hay información disponible para esta sección
+        </div>
+      );
+    }
     
     return (
       <div className="space-y-6">

@@ -9,7 +9,8 @@ interface ConclusionRapidaCardProps {
 }
 
 export default function ConclusionRapidaCard({ stockConclusion, stockBasicData, stockAnalysis }: ConclusionRapidaCardProps) {
-  const [activeSection, setActiveSection] = useState('negocio');
+  const [activeSection, setActiveSection] = useState('resumen');
+
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   const conclusion = stockConclusion?.conclusion?.Conclusión;
@@ -25,12 +26,12 @@ export default function ConclusionRapidaCard({ stockConclusion, stockBasicData, 
   };
 
   const sections = [
+    { key: 'resumen', label: '¿Es una buena compra?' },
     { key: 'negocio', label: '¿Qué hace la empresa?' },
     { key: 'ventaja', label: '¿Tiene una ventaja clara frente a la competencia?' },
     { key: 'rentabilidad', label: '¿Gana dinero de verdad y lo sigue haciendo crecer?' },
     { key: 'crecimiento', label: '¿El negocio puede seguir creciendo en 5 o 10 años?' },
-    { key: 'valoracion', label: '¿El precio tiene sentido o está inflado?' },
-    { key: 'resumen', label: '¿Es una buena compra?' }
+    { key: 'valoracion', label: '¿El precio tiene sentido o está inflado?' } 
   ];
 
   // Reiniciar scroll cuando cambie la sección activa

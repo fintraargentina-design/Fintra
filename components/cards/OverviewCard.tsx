@@ -259,7 +259,7 @@ export default function OverviewCard({ stockBasicData, stockAnalysis, selectedSt
           </div>
 
           {/* Acciones */}
-          <div className="flex justify-end gap-4 pt-4 border-t border-gray-700/50">
+          {/* <div className="flex justify-end gap-4 pt-4 border-t border-gray-700/50">
             <button className="text-sm text-green-300 hover:underline transition-colors">
               Ver análisis completo
             </button>
@@ -269,7 +269,7 @@ export default function OverviewCard({ stockBasicData, stockAnalysis, selectedSt
             <button className="text-sm text-green-300 hover:underline transition-colors">
               Ver noticias recientes
             </button>
-          </div>
+          </div> */}
         </div>
       </DialogContent>
     </Dialog>
