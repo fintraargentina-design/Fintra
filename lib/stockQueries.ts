@@ -147,18 +147,8 @@ export async function searchStockData(symbol: string) {
 
     // Mejorar el manejo de errores de performance
     if (performanceError) {
-      console.log('performanceError object:', {
-        error: performanceError,
-        type: typeof performanceError,
-        keys: Object.keys(performanceError || {}),
-        stringified: JSON.stringify(performanceError)
-      });
-      
-      if (
-        typeof performanceError === 'object' &&
-        'code' in performanceError &&
-        performanceError.code !== 'PGRST116'
-      ) {
+      // Solo hacer log si hay un error real (no "no rows found")
+      if (performanceError.code && performanceError.code !== 'PGRST116') {
         console.error('Error en rendimiento:', {
           message: performanceError.message || 'Sin mensaje',
           details: performanceError.details || 'Sin detalles',
@@ -167,14 +157,10 @@ export async function searchStockData(symbol: string) {
           fullError: performanceError
         });
       }
-    }
-
-    if (
-    performanceError &&
-    typeof performanceError === 'object' &&
-    'message' in performanceError
-    ) {
-    console.warn('performanceError con mensaje:', performanceError.message);
+      // Si es PGRST116 (no rows found), es normal y no es un error
+      else if (performanceError.code === 'PGRST116') {
+        console.info(`No se encontraron datos de rendimiento para ${symbol}`);
+      }
     }
 
     // Buscar informe de analisis_accion

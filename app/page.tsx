@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { searchStockData, getStockConclusionData } from '@/lib/stockQueries';
+import { getCompanyProfile } from '@/api/fmpCompanyProfiles';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,6 @@ import InformeTab from '@/components/tabs/InformeTab';
 import EstimacionTab from '@/components/tabs/EstimacionTab';
 import NoticiasTab from '@/components/tabs/NoticiasTab';
 import TwitsTab from '@/components/tabs/TwitsTab';
-import TopSearchedStocks from '@/components/TopSearchedStocks';
 import MarketClock from '@/components/MarketClock';
 import { supabase, registerStockSearch } from '@/lib/supabase';
 import RadarChart from "@/components/charts/RadarChart";
@@ -32,6 +32,7 @@ export default function StockTerminal() {
   const [stockAnalysis, setStockAnalysis] = useState(null);
   const [stockPerformance, setStockPerformance] = useState(null);
   const [stockReport, setStockReport] = useState(null);
+  const [companyImage, setCompanyImage] = useState(''); // Nuevo estado
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('resumen');
@@ -39,7 +40,6 @@ export default function StockTerminal() {
   const [user, setUser] = useState(null);
   const [stockConclusion, setStockConclusion] = useState(null);
   const [isChartModalOpen, setIsChartModalOpen] = useState(false);
-  // Agregar estos estados para el reloj
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [isClient, setIsClient] = useState(false);
 
@@ -55,6 +55,24 @@ export default function StockTerminal() {
     return () => clearInterval(interval);
   }, []);
 
+    // Función para obtener datos de la empresa
+  const fetchCompanyProfile = async (symbol) => {
+    try {
+      const profile = await getCompanyProfile(symbol);
+      setCompanyImage(profile.image);
+    } catch (error) {
+      console.error('Error fetching company profile:', error);
+      setCompanyImage('');
+    }
+  };
+
+  // Llamar cuando cambie el stock seleccionado
+  useEffect(() => {
+    if (selectedStock) {
+      fetchCompanyProfile(selectedStock);
+    }
+  }, [selectedStock]);
+  
   // Función para verificar si el mercado está abierto
   const isMarketOpen = () => {
     if (!currentTime) return false;
@@ -156,10 +174,14 @@ export default function StockTerminal() {
             <Card className="bg-gray-900/50 border-green-500/30">
               <CardHeader>
                 <CardTitle className="text-green-400 text-xl flex items-center gap-2">
-                  📈 Análisis Técnico y Charts - {selectedStock?.companyName || stockBasicData?.companyName || 'Stock'}
-                  <Badge variant="outline" className="text-green-400 border-green-400">
-                    {selectedStock?.symbol || selectedStock}
-                  </Badge>
+                  Charts - {selectedStock?.symbol || selectedStock}
+                  {companyImage && (
+                    <img 
+                      src={companyImage} 
+                      alt={`${selectedStock} logo`}
+                      className="w-6 h-6 rounded ml-2"
+                    />
+                  )}
                 </CardTitle>
               </CardHeader>
             </Card>

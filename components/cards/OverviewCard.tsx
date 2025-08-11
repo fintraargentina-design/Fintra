@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { TrendingUp, DollarSign, Users, Building2, Calendar, User } from 'lucide-react';
-import { getCompanyProfile } from '@/api/financialModelingPrep';
+import { getCompanyProfile } from '@/api/fmpCompanyProfiles';
 
 interface OverviewCardProps {
   selectedStock: any;

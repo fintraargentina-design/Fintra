@@ -1,451 +1,582 @@
-// components/EstimacionCard.tsx
+'use client';
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, AlertTriangle, Star, Target } from "lucide-react";
-import { getStockProyecciones, StockProyeccionData } from "@/lib/stockQueries";
-
-// NUEVO: analyst estimates (FMP)
-import {
-  getAnalystEstimates,
-  formatAnalystEstimatesForDisplay,
-} from "@/api/financialModelingPrep";
+import { TrendingUp, AlertTriangle, Star, Target, BarChart3, DollarSign, Brain, Zap, Shield, FileText, Users, Award } from "lucide-react";
 
 interface EstimacionCardProps {
   selectedStock?: { symbol?: string; name?: string; price?: number } | null;
 }
 
-type NivelRiesgo = "verde" | "amarillo" | "rojo";
+interface AnalystEstimate {
+  symbol: string;
+  date: string;
+  revenueLow: number;
+  revenueHigh: number;
+  revenueAvg: number;
+  ebitdaLow: number;
+  ebitdaHigh: number;
+  ebitdaAvg: number;
+  ebitLow: number;
+  ebitHigh: number;
+  ebitAvg: number;
+  netIncomeLow: number;
+  netIncomeHigh: number;
+  netIncomeAvg: number;
+  sgaExpenseLow: number;
+  sgaExpenseHigh: number;
+  sgaExpenseAvg: number;
+  epsAvg: number;
+  epsHigh: number;
+  epsLow: number;
+  numAnalystsRevenue: number;
+  numAnalystsEps: number;
+}
 
-/* =========================
-   Helpers y subcomponentes
-   ========================= */
-
-const formatMoney = (n: number) => {
-  if (n === null || n === undefined) return "N/A";
-  const a = Math.abs(n);
-  const sign = n < 0 ? "-" : "";
-  if (a >= 1e12) return `${sign}$${(a / 1e12).toFixed(1)}T`;
-  if (a >= 1e9) return `${sign}$${(a / 1e9).toFixed(1)}B`;
-  if (a >= 1e6) return `${sign}$${(a / 1e6).toFixed(1)}M`;
-  return `${sign}$${a.toLocaleString()}`;
+const formatMoney = (value: number, isLarge = false): string => {
+  if (isLarge) {
+    if (value >= 1e12) return `$${(value / 1e12).toFixed(1)}T`;
+    if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
+    if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
+  }
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 };
 
-function StatTile({
-  label,
-  value,
-  accent = "indigo",
-}: {
-  label: string;
-  value: React.ReactNode;
-  accent?: "indigo" | "emerald" | "rose" | "amber";
-}) {
-  const colors: Record<string, string> = {
-    indigo: "from-indigo-900/30 to-purple-900/20 border-indigo-500/30",
-    emerald: "from-emerald-900/30 to-teal-900/20 border-emerald-500/30",
-    rose: "from-rose-900/30 to-pink-900/20 border-rose-500/30",
-    amber: "from-amber-900/30 to-yellow-900/20 border-amber-500/30",
-  };
-  return (
-    <div className={`rounded-lg p-4 border bg-gradient-to-r ${colors[accent]}`}>
-      <div className="text-2xl font-bold">{value}</div>
-      <div className="text-gray-400 text-xs mt-1">{label}</div>
-    </div>
-  );
-}
-
-function BulletListCard({
+function StatCard({
   title,
-  items,
-  tone = "green",
+  value,
+  subtitle,
+  icon: Icon,
+  trend
 }: {
   title: string;
-  items: string[];
-  tone?: "green" | "red";
+  value: string;
+  subtitle?: string;
+  icon: any;
+  trend?: 'up' | 'down' | 'neutral';
 }) {
-  const border = tone === "green" ? "border-green-500/30" : "border-red-500/30";
-  const titleClr = tone === "green" ? "text-green-400" : "text-red-400";
-  const dot = tone === "green" ? "bg-green-400" : "bg-red-400";
-
+  const trendColor = trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-red-400' : 'text-gray-400';
+  
   return (
-    <Card className={`bg-gray-800/50 ${border}`}>
-      <CardHeader>
-        <CardTitle className={`${titleClr} flex items-center gap-2`}>
-          {tone === "green" ? <TrendingUp className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="space-y-2">
-          {items?.length ? (
-            items.map((t, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm">
-                <div className={`w-2 h-2 ${dot} rounded-full mt-2 flex-shrink-0`} />
-                <span className="text-gray-300">{t}</span>
-              </li>
-            ))
-          ) : (
-            <span className="text-gray-500 text-sm">Sin información</span>
-          )}
-        </ul>
-      </CardContent>
-    </Card>
-  );
-}
-
-function Stars({ rating }: { rating: number }) {
-  return (
-    <div className="flex justify-center gap-1">
-      {Array.from({ length: 5 }, (_, i) => (
-        <Star key={i} className={`w-4 h-4 ${i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-600"}`} />
-      ))}
+    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
+      <div className="flex items-center justify-between mb-2">
+        <Icon className="h-5 w-5 text-blue-400" />
+        {trend && (
+          <TrendingUp className={`h-4 w-4 ${trendColor} ${trend === 'down' ? 'rotate-180' : ''}`} />
+        )}
+      </div>
+      <div className="text-lg font-semibold text-white">{value}</div>
+      <div className="text-sm text-gray-400">{title}</div>
+      {subtitle && <div className="text-xs text-gray-500 mt-1">{subtitle}</div>}
     </div>
   );
 }
 
-function RiskSemaphore({ level }: { level: NivelRiesgo }) {
-  const map: Record<NivelRiesgo, string> = {
-    verde: "bg-green-500",
-    amarillo: "bg-yellow-500",
-    rojo: "bg-red-500",
+// Nuevo componente para la sección de Inferencia IA
+function AIInferenceSection({ selectedStock }: { selectedStock?: { symbol?: string; name?: string; price?: number } | null }) {
+  // Datos simulados para demostración - en producción vendrían de la API
+  const fairValue = selectedStock?.symbol === 'AAPL' ? 215 : selectedStock?.symbol === 'TSLA' ? 280 : 195;
+  const currentPrice = selectedStock?.price || 195;
+  const upside = ((fairValue - currentPrice) / currentPrice * 100);
+  
+  return (
+    <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 rounded-lg p-6 border border-purple-500/30">
+      <h3 className="text-xl font-bold text-purple-400 mb-4 flex items-center gap-2">
+        <Brain className="h-6 w-6" />
+        🤖 3. Inferencia IA con Historial
+      </h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="text-center">
+          <div className="text-2xl font-bold text-purple-400">${fairValue}</div>
+          <div className="text-sm text-gray-400">Fair Value Hoy</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-white">${currentPrice}</div>
+          <div className="text-sm text-gray-400">Precio Actual</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold flex items-center justify-center gap-1 ">
+            <TrendingUp className={`h-5 w-5 ${upside < 0 ? 'rotate-180' : ''}`} />
+            {upside > 0 ? '+' : ''}{upside.toFixed(2)}%
+          </div>
+          <div className="text-sm text-gray-400">Upside Estimado</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Nuevo componente para Drivers de Crecimiento
+function GrowthDriversSection({ selectedStock }: { selectedStock?: { symbol?: string; name?: string; price?: number } | null }) {
+  // Datos simulados basados en el símbolo
+  const getDrivers = () => {
+    if (selectedStock?.symbol === 'AAPL') {
+      return [
+        "Expansión en servicios (App Store, iCloud, Apple Music)",
+        "Innovación en productos (iPhone, Mac, iPad)",
+        "Crecimiento en mercados emergentes",
+        "Ecosistema integrado y fidelidad del cliente"
+      ];
+    }
+    return ["Próximamente"];
   };
+  
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className={`w-8 h-8 rounded-full ${map[level]}`} />
-      <div className="text-xs text-gray-400 capitalize">{level}</div>
+    <div className="bg-gradient-to-r from-green-900/30 to-emerald-900/30 rounded-lg p-6 border border-green-500/30">
+      <h3 className="text-xl font-bold text-green-400 mb-4 flex items-center gap-2">
+        <TrendingUp className="h-6 w-6" />
+        📈 4. Drivers de Crecimiento
+      </h3>
+      
+      <div className="space-y-3">
+        {getDrivers().map((driver, index) => (
+          <div key={index} className="flex items-start gap-3">
+            <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
+            <span className="text-gray-300">{driver}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-/* =========================
-   Componente principal
-   ========================= */
+// Nuevo componente para Riesgos Limitantes
+function LimitingRisksSection({ selectedStock }: { selectedStock?: { symbol?: string; name?: string; price?: number } | null }) {
+  // Datos simulados basados en el símbolo
+  const getRisks = () => {
+    if (selectedStock?.symbol === 'AAPL') {
+      return [
+        "Dependencia del iPhone (60% de ingresos)",
+        "Competencia intensa en smartphones",
+        "Regulaciones antimonopolio",
+        "Saturación en mercados desarrollados"
+      ];
+    }
+    return ["Próximamente"];
+  };
+  
+  return (
+    <div className="bg-gradient-to-r from-red-900/30 to-orange-900/30 rounded-lg p-6 border border-red-500/30">
+      <h3 className="text-xl font-bold text-red-400 mb-4 flex items-center gap-2">
+        <AlertTriangle className="h-6 w-6" />
+        ⚠️ Riesgos Limitantes
+      </h3>
+      
+      <div className="space-y-3">
+        {getRisks().map((risk, index) => (
+          <div key={index} className="flex items-start gap-3">
+            <div className="w-2 h-2 bg-red-400 rounded-full mt-2 flex-shrink-0"></div>
+            <span className="text-gray-300">{risk}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Nuevo componente para Resumen Explicativo
+function ExplanatorySummarySection() {
+  return (
+    <div className="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 rounded-lg p-6 border border-blue-500/30">
+      <h3 className="text-xl font-bold text-blue-400 mb-4 flex items-center gap-2">
+        <FileText className="h-6 w-6" />
+        📋 5. Resumen Explicativo
+      </h3>
+      
+      <div className="text-center py-8">
+        <div className="text-gray-400">Análisis próximamente disponible</div>
+      </div>
+    </div>
+  );
+}
+
+// Nuevo componente para Comparación con Analistas
+function AnalystComparisonSection() {
+  return (
+    <div className="bg-gradient-to-r from-yellow-900/30 to-amber-900/30 rounded-lg p-6 border border-yellow-500/30">
+      <h3 className="text-xl font-bold text-yellow-400 mb-4 flex items-center gap-2">
+        <Users className="h-6 w-6" />
+        👥 6. Comparación con Analistas
+      </h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="text-center">
+          <div className="text-3xl font-bold text-yellow-400">$0</div>
+          <div className="text-sm text-gray-400 mt-1">Precio Objetivo Promedio</div>
+        </div>
+        <div className="text-center">
+          <Badge className="bg-yellow-600 text-white px-3 py-1">
+            Próximamente
+          </Badge>
+          <div className="text-sm text-gray-400 mt-2">Opinión Promedio</div>
+        </div>
+        <div className="text-center">
+          <div className="text-3xl font-bold text-yellow-400">0</div>
+          <div className="text-sm text-gray-400 mt-1">Analistas</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Nuevo componente para Evaluación AI
+function AIEvaluationSection() {
+  return (
+    <div className="bg-gradient-to-r from-orange-900/30 to-red-900/30 rounded-lg p-6 border border-orange-500/30">
+      <h3 className="text-xl font-bold text-orange-400 mb-4 flex items-center gap-2">
+        <Award className="h-6 w-6" />
+        🎯 Bonus - Evaluación AI
+      </h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="text-center">
+          <div className="text-lg font-semibold text-gray-300 mb-2">Rating AI Futuro</div>
+          <div className="flex justify-center gap-1 mb-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star key={star} className="h-6 w-6 text-gray-600 fill-gray-600" />
+            ))}
+          </div>
+          <div className="text-sm text-gray-400">0/5 estrellas</div>
+        </div>
+        <div className="text-center">
+          <div className="text-lg font-semibold text-gray-300 mb-2">Semáforo de Riesgo</div>
+          <div className="w-16 h-16 bg-yellow-500 rounded-full mx-auto mb-2 flex items-center justify-center">
+            <div className="w-8 h-8 bg-yellow-400 rounded-full"></div>
+          </div>
+          <div className="text-sm text-yellow-400 font-medium">Amarillo</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EstimateTable({ estimates }: { estimates: AnalystEstimate[] }) {
+  if (estimates.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-400">
+        <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+        <p>No hay estimaciones disponibles</p>
+      </div>
+    );
+  }
+
+  // Filtrar solo años futuros
+  const currentYear = new Date().getFullYear();
+  const futureEstimates = estimates.filter(est => {
+    const year = new Date(est.date).getFullYear();
+    return year >= currentYear;
+  }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  return (
+    <div className="space-y-6">
+      {/* Revenue Table */}
+      <div>
+        <h4 className="text-lg font-semibold text-blue-400 mb-3 flex items-center gap-2">
+          <DollarSign className="h-5 w-5" />
+          Proyecciones de Ingresos
+        </h4>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-700">
+                <th className="text-left py-2 text-gray-300">Año</th>
+                <th className="text-right py-2 text-gray-300">Conservador</th>
+                <th className="text-right py-2 text-gray-300">Promedio</th>
+                <th className="text-right py-2 text-gray-300">Optimista</th>
+                <th className="text-right py-2 text-gray-300">Analistas</th>
+              </tr>
+            </thead>
+            <tbody>
+              {futureEstimates.map((estimate) => {
+                const year = new Date(estimate.date).getFullYear();
+                return (
+                  <tr key={estimate.date} className="border-b border-gray-800">
+                    <td className="py-2 text-white font-medium">{year}</td>
+                    <td className="py-2 text-right text-red-400">{formatMoney(estimate.revenueLow, true)}</td>
+                    <td className="py-2 text-right text-blue-400 font-semibold">{formatMoney(estimate.revenueAvg, true)}</td>
+                    <td className="py-2 text-right text-green-400">{formatMoney(estimate.revenueHigh, true)}</td>
+                    <td className="py-2 text-right text-gray-400">{estimate.numAnalystsRevenue}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* EPS Table */}
+      <div>
+        <h4 className="text-lg font-semibold text-blue-400 mb-3 flex items-center gap-2">
+          <Target className="h-5 w-5" />
+          Proyecciones de EPS
+        </h4>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-700">
+                <th className="text-left py-2 text-gray-300">Año</th>
+                <th className="text-right py-2 text-gray-300">Conservador</th>
+                <th className="text-right py-2 text-gray-300">Promedio</th>
+                <th className="text-right py-2 text-gray-300">Optimista</th>
+                <th className="text-right py-2 text-gray-300">Analistas</th>
+              </tr>
+            </thead>
+            <tbody>
+              {futureEstimates.map((estimate) => {
+                const year = new Date(estimate.date).getFullYear();
+                return (
+                  <tr key={estimate.date} className="border-b border-gray-800">
+                    <td className="py-2 text-white font-medium">{year}</td>
+                    <td className="py-2 text-right text-red-400">{formatMoney(estimate.epsLow)}</td>
+                    <td className="py-2 text-right text-blue-400 font-semibold">{formatMoney(estimate.epsAvg)}</td>
+                    <td className="py-2 text-right text-green-400">{formatMoney(estimate.epsHigh)}</td>
+                    <td className="py-2 text-right text-gray-400">{estimate.numAnalystsEps}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* EBITDA Table */}
+      <div>
+        <h4 className="text-lg font-semibold text-blue-400 mb-3">Proyecciones de EBITDA</h4>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-700">
+                <th className="text-left py-2 text-gray-300">Año</th>
+                <th className="text-right py-2 text-gray-300">Conservador</th>
+                <th className="text-right py-2 text-gray-300">Promedio</th>
+                <th className="text-right py-2 text-gray-300">Optimista</th>
+              </tr>
+            </thead>
+            <tbody>
+              {futureEstimates.map((estimate) => {
+                const year = new Date(estimate.date).getFullYear();
+                return (
+                  <tr key={estimate.date} className="border-b border-gray-800">
+                    <td className="py-2 text-white font-medium">{year}</td>
+                    <td className="py-2 text-right text-red-400">{formatMoney(estimate.ebitdaLow, true)}</td>
+                    <td className="py-2 text-right text-blue-400 font-semibold">{formatMoney(estimate.ebitdaAvg, true)}</td>
+                    <td className="py-2 text-right text-green-400">{formatMoney(estimate.ebitdaHigh, true)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Net Income Table */}
+      <div>
+        <h4 className="text-lg font-semibold text-blue-400 mb-3">Proyecciones de Ingreso Neto</h4>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-700">
+                <th className="text-left py-2 text-gray-300">Año</th>
+                <th className="text-right py-2 text-gray-300">Conservador</th>
+                <th className="text-right py-2 text-gray-300">Promedio</th>
+                <th className="text-right py-2 text-gray-300">Optimista</th>
+              </tr>
+            </thead>
+            <tbody>
+              {futureEstimates.map((estimate) => {
+                const year = new Date(estimate.date).getFullYear();
+                return (
+                  <tr key={estimate.date} className="border-b border-gray-800">
+                    <td className="py-2 text-white font-medium">{year}</td>
+                    <td className="py-2 text-right text-red-400">{formatMoney(estimate.netIncomeLow, true)}</td>
+                    <td className="py-2 text-right text-blue-400 font-semibold">{formatMoney(estimate.netIncomeAvg, true)}</td>
+                    <td className="py-2 text-right text-green-400">{formatMoney(estimate.netIncomeHigh, true)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [proyeccionData, setProyeccionData] = useState<StockProyeccionData | null>(null);
   const [loading, setLoading] = useState(false);
-
-  // NUEVO: estado para Analyst Estimates
-  const [analystRows, setAnalystRows] = useState<any[]>([]);
-  const [analystErr, setAnalystErr] = useState<string | null>(null);
+  const [estimates, setEstimates] = useState<AnalystEstimate[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const chartRef1 = useRef<HTMLCanvasElement>(null);
   const chartRef2 = useRef<HTMLCanvasElement>(null);
-  const chartRef3 = useRef<HTMLCanvasElement>(null);
   const chartInstance1 = useRef<any>(null);
   const chartInstance2 = useRef<any>(null);
-  const chartInstance3 = useRef<any>(null);
 
+  // Fetch estimates data usando la URL exacta que funciona
   useEffect(() => {
-    const fetchAll = async () => {
-      if (!selectedStock?.symbol) {
-        setProyeccionData(null);
-        setAnalystRows([]);
-        return;
-      }
+    if (!selectedStock?.symbol) {
+      setEstimates([]);
+      setError(null);
+      return;
+    }
+
+    const fetchEstimates = async () => {
       setLoading(true);
+      setError(null);
       try {
-        const [proj, estimates] = await Promise.all([
-          getStockProyecciones(selectedStock.symbol),
-          getAnalystEstimates(selectedStock.symbol, { period: "annual", limit: 10 }),
-        ]);
-        setProyeccionData(proj);
-        setAnalystRows(formatAnalystEstimatesForDisplay(estimates));
-        setAnalystErr(null);
-      } catch (error: any) {
-        console.error("Error fetching proyecciones/estimates:", error);
-        setProyeccionData(null);
-        setAnalystRows([]);
-        setAnalystErr(error?.message || "Error estimates");
+        const apiKey = 'CoxPU7bKfCKHpDpSE1pxpVVQ2jGKjZzK';
+        const url = `https://financialmodelingprep.com/stable/analyst-estimates?symbol=${selectedStock.symbol}&period=annual&page=0&limit=10&apikey=${apiKey}`;
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setEstimates(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error fetching estimates:', err);
+        setError(err instanceof Error ? err.message : 'Error desconocido');
+        setEstimates([]);
       } finally {
         setLoading(false);
       }
     };
-    fetchAll();
+
+    fetchEstimates();
   }, [selectedStock?.symbol]);
 
-  // Agregados simples desde Analyst Estimates (conteo y EPS/Ingresos como fallback)
-  const analystAgg = useMemo(() => {
-    if (!analystRows?.length) return { numAnalysts: 0, y1: null as any, y3: null as any, y5: null as any };
+  const futureEstimates = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return estimates.filter(est => {
+      const year = new Date(est.date).getFullYear();
+      return year >= currentYear;
+    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [estimates]);
 
-    // máximo de analistas reportado
-    const numAnalysts = analystRows.reduce((m, r: any) => {
-      const n = Number(r.numberAnalysts ?? 0);
-      return Number.isFinite(n) && n > m ? n : m;
-    }, 0);
+  const totalAnalysts = useMemo(() => {
+    if (futureEstimates.length === 0) return 0;
+    return Math.max(...futureEstimates.map(est => Math.max(est.numAnalystsRevenue || 0, est.numAnalystsEps || 0)));
+  }, [futureEstimates]);
 
-    const sorted = [...analystRows].sort((a: any, b: any) => {
-      const ax = Number(a.date ?? a.period ?? a.calendarYear ?? 0);
-      const bx = Number(b.date ?? b.period ?? b.calendarYear ?? 0);
-      return ax - bx;
-    });
-
-    const last = sorted[sorted.length - 1] || null;      // aprox 1Y
-    const mid3 = sorted[sorted.length - 3] || null;      // aprox 3Y
-    const mid5 = sorted[sorted.length - 5] || null;      // aprox 5Y
-    const pick = (r: any) => r ? ({
-      revenue: r.revenueAvg ?? r.revenueAverage ?? null,
-      eps: r.epsAvg ?? r.epsAverage ?? null,
-    }) : null;
-
-    return { numAnalysts, y1: pick(last), y3: pick(mid3), y5: pick(mid5) };
-  }, [analystRows]);
-
-  const estimacionData = useMemo(() => {
-    if (proyeccionData) {
-      const drivers = proyeccionData.drivers_crecimiento?.principales || ["Próximamente"];
-      const riesgos = proyeccionData.drivers_crecimiento?.riesgos || ["Próximamente"];
-
-      const precioObjetivo = proyeccionData.valoracion_futura?.precio_objetivo_12m;
-      const precio12m =
-        typeof precioObjetivo === "object" && precioObjetivo !== null
-          ? precioObjetivo
-          : typeof precioObjetivo === "number" && precioObjetivo > 0
-          ? { base: precioObjetivo, conservador: precioObjetivo * 0.9, optimista: precioObjetivo * 1.1 }
-          : { base: 0, conservador: 0, optimista: 0 };
-
-      const result = {
-        symbol: proyeccionData.symbol || selectedStock?.symbol || "N/A",
-        empresa: proyeccionData.empresa || selectedStock?.name || "Próximamente",
-        proyecciones: {
-          ingresos: proyeccionData.proyecciones?.ingresos || {
-            "1Y": { base: 0, conservador: 0, optimista: 0 },
-            "3Y": { base: 0, conservador: 0, optimista: 0 },
-            "5Y": { base: 0, conservador: 0, optimista: 0 },
-          },
-          netIncome: proyeccionData.proyecciones?.netIncome || {
-            "1Y": { base: 0, conservador: 0, optimista: 0 },
-            "3Y": { base: 0, conservador: 0, optimista: 0 },
-            "5Y": { base: 0, conservador: 0, optimista: 0 },
-          },
-          eps: proyeccionData.proyecciones?.eps || {
-            "1Y": { base: 0, conservador: 0, optimista: 0 },
-            "3Y": { base: 0, conservador: 0, optimista: 0 },
-            "5Y": { base: 0, conservador: 0, optimista: 0 },
-          },
-        },
-        valoracion_futura: {
-          precio_objetivo_12m: precio12m,
-          metodo: proyeccionData.valoracion_futura?.metodo || "Próximamente",
-          estado_actual: proyeccionData.valoracion_futura?.estado_actual || "Próximamente",
-        },
-        inferencia_historica: {
-          fair_value_actual: proyeccionData.inferencia_historica?.fair_value_actual || 0,
-          precio_actual: selectedStock?.price || 0,
-          upside_estimado: 0, // se calcula abajo
-          tendencia: "Próximamente",
-        },
-        drivers_crecimiento: drivers,
-        riesgos_limitantes: riesgos,
-        resumen_llm: proyeccionData.resumen_llm || "Análisis próximamente disponible",
-        comparacion_analistas: {
-          precio_objetivo_promedio: proyeccionData.comparacion_analistas?.consenso_precio_objetivo || 0,
-          opinion_promedio: proyeccionData.comparacion_analistas?.opinion_promedio || "Próximamente",
-          numero_analistas: proyeccionData.comparacion_analistas?.cantidad_analistas || 0,
-        },
-        rating_ai_futuro: proyeccionData.rating_futuro_ia || 0,
-        nivel_riesgo: (proyeccionData.riesgo as NivelRiesgo) || "amarillo",
-      };
-
-      // Upside
-      const { fair_value_actual, precio_actual } = result.inferencia_historica;
-      if (fair_value_actual > 0 && precio_actual > 0) {
-        result.inferencia_historica.upside_estimado = Math.round(((fair_value_actual - precio_actual) / precio_actual) * 100);
-      }
-
-      // ---- Fallback con Analyst Estimates (sin pisar lo que ya traés) ----
-      if (!result.comparacion_analistas.numero_analistas && analystAgg.numAnalysts) {
-        result.comparacion_analistas.numero_analistas = analystAgg.numAnalysts;
-      }
-      // EPS fallback 1Y / 5Y
-      if (analystAgg.y1?.eps != null && !result.proyecciones.eps["1Y"]?.base) {
-        result.proyecciones.eps["1Y"].base = Number(analystAgg.y1.eps);
-      }
-      if (analystAgg.y5?.eps != null && !result.proyecciones.eps["5Y"]?.base) {
-        result.proyecciones.eps["5Y"].base = Number(analystAgg.y5.eps);
-      }
-      // Ingresos fallback 1Y / 5Y
-      if (analystAgg.y1?.revenue != null && !result.proyecciones.ingresos["1Y"]?.base) {
-        result.proyecciones.ingresos["1Y"].base = Number(analystAgg.y1.revenue);
-      }
-      if (analystAgg.y5?.revenue != null && !result.proyecciones.ingresos["5Y"]?.base) {
-        result.proyecciones.ingresos["5Y"].base = Number(analystAgg.y5.revenue);
-      }
-
-      return result;
-    }
-
-    // Branch sin datos (conserva tu layout e “Próximamente”)
-    return {
-      symbol: selectedStock?.symbol || "N/A",
-      empresa: selectedStock?.name || "Próximamente",
-      proyecciones: {
-        ingresos: {
-          "1Y": { base: 0, conservador: 0, optimista: 0 },
-          "3Y": { base: 0, conservador: 0, optimista: 0 },
-          "5Y": { base: 0, conservador: 0, optimista: 0 },
-        },
-        netIncome: {
-          "1Y": { base: 0, conservador: 0, optimista: 0 },
-          "3Y": { base: 0, conservador: 0, optimista: 0 },
-          "5Y": { base: 0, conservador: 0, optimista: 0 },
-        },
-        eps: {
-          "1Y": { base: 0, conservador: 0, optimista: 0 },
-          "3Y": { base: 0, conservador: 0, optimista: 0 },
-          "5Y": { base: 0, conservador: 0, optimista: 0 },
-        },
-      },
-      valoracion_futura: {
-        precio_objetivo_12m: { base: 0, conservador: 0, optimista: 0 },
-        metodo: "Próximamente",
-        estado_actual: "Próximamente",
-      },
-      inferencia_historica: {
-        fair_value_actual: 0,
-        precio_actual: selectedStock?.price || 0,
-        upside_estimado: 0,
-        tendencia: "Próximamente",
-      },
-      drivers_crecimiento: ["Próximamente"],
-      riesgos_limitantes: ["Próximamente"],
-      resumen_llm: "Análisis próximamente disponible",
-      comparacion_analistas: { precio_objetivo_promedio: 0, opinion_promedio: "Próximamente", numero_analistas: 0 },
-      rating_ai_futuro: 0,
-      nivel_riesgo: "amarillo" as NivelRiesgo,
-    };
-  }, [proyeccionData, selectedStock?.name, selectedStock?.price, selectedStock?.symbol, analystAgg]);
-
-  // Charts (sin cambios visuales)
+  // Charts
   useEffect(() => {
-    if (!isOpen || typeof window === "undefined") return;
+    if (!isOpen || typeof window === "undefined" || futureEstimates.length === 0) return;
 
     import("chart.js/auto").then((mod) => {
       const Chart = mod.default;
 
       const ctx1 = chartRef1.current?.getContext("2d");
       const ctx2 = chartRef2.current?.getContext("2d");
-      const ctx3 = chartRef3.current?.getContext("2d");
-      if (!ctx1 || !ctx2 || !ctx3) return;
+      if (!ctx1 || !ctx2) return;
 
-      // Línea: Ingresos
+      // Revenue Chart
       chartInstance1.current?.destroy();
       chartInstance1.current = new Chart(ctx1, {
         type: "line",
         data: {
-          labels: ["1Y", "3Y", "5Y"],
+          labels: futureEstimates.map(est => new Date(est.date).getFullYear().toString()),
           datasets: [
             {
               label: "Conservador",
-              data: [
-                (estimacionData.proyecciones.ingresos["1Y"]?.conservador ?? 0) / 1e9,
-                (estimacionData.proyecciones.ingresos["3Y"]?.conservador ?? 0) / 1e9,
-                (estimacionData.proyecciones.ingresos["5Y"]?.conservador ?? 0) / 1e9,
-              ],
-              borderColor: "rgb(239, 68, 68)",
-              backgroundColor: "rgba(239, 68, 68, 0.1)",
-              tension: 0.4,
+              data: futureEstimates.map(est => est.revenueLow / 1e9),
+              borderColor: "rgba(239,68,68,0.8)",
+              backgroundColor: "rgba(239,68,68,0.1)",
+              tension: 0.4
             },
             {
-              label: "Base",
-              data: [
-                (estimacionData.proyecciones.ingresos["1Y"]?.base ?? 0) / 1e9,
-                (estimacionData.proyecciones.ingresos["3Y"]?.base ?? 0) / 1e9,
-                (estimacionData.proyecciones.ingresos["5Y"]?.base ?? 0) / 1e9,
-              ],
-              borderColor: "rgb(34, 197, 94)",
-              backgroundColor: "rgba(34, 197, 94, 0.1)",
-              tension: 0.4,
+              label: "Promedio",
+              data: futureEstimates.map(est => est.revenueAvg / 1e9),
+              borderColor: "rgba(59,130,246,0.8)",
+              backgroundColor: "rgba(59,130,246,0.1)",
+              tension: 0.4
             },
             {
               label: "Optimista",
-              data: [
-                (estimacionData.proyecciones.ingresos["1Y"]?.optimista ?? 0) / 1e9,
-                (estimacionData.proyecciones.ingresos["3Y"]?.optimista ?? 0) / 1e9,
-                (estimacionData.proyecciones.ingresos["5Y"]?.optimista ?? 0) / 1e9,
-              ],
-              borderColor: "rgb(59, 130, 246)",
-              backgroundColor: "rgba(59, 130, 246, 0.1)",
-              tension: 0.4,
-            },
-          ],
+              data: futureEstimates.map(est => est.revenueHigh / 1e9),
+              borderColor: "rgba(34,197,94,0.8)",
+              backgroundColor: "rgba(34,197,94,0.1)",
+              tension: 0.4
+            }
+          ]
         },
         options: {
           responsive: true,
           plugins: {
-            title: { display: true, text: "Proyección de Ingresos (Billions)", color: "white" },
-            legend: { labels: { color: "white" } },
+            title: { display: true, text: "Proyecciones de Ingresos (Billions)", color: "white" },
+            legend: { labels: { color: "white" } }
           },
           scales: {
-            y: {
-              ticks: { color: "white", callback: (v: any) => `$${v}B` },
-              grid: { color: "rgba(255,255,255,0.1)" },
-            },
             x: { ticks: { color: "white" }, grid: { color: "rgba(255,255,255,0.1)" } },
-          },
-        },
+            y: { ticks: { color: "white" }, grid: { color: "rgba(255,255,255,0.1)" } }
+          }
+        }
       });
 
-      // Barras: EPS
+      // EPS Chart
       chartInstance2.current?.destroy();
-      const y1 = estimacionData.proyecciones.eps["1Y"];
-      const y5 = estimacionData.proyecciones.eps["5Y"];
       chartInstance2.current = new Chart(ctx2, {
         type: "bar",
         data: {
-          labels: ["1Y (Cons.)", "1Y (Base)", "1Y (Opt.)", "5Y (Cons.)", "5Y (Base)", "5Y (Opt.)"],
+          labels: futureEstimates.map(est => new Date(est.date).getFullYear().toString()),
           datasets: [
             {
-              label: "EPS",
-              data: [y1?.conservador ?? 0, y1?.base ?? 0, y1?.optimista ?? 0, y5?.conservador ?? 0, y5?.base ?? 0, y5?.optimista ?? 0],
-              backgroundColor: "rgba(34, 197, 94, 0.8)",
+              label: "Conservador",
+              data: futureEstimates.map(est => est.epsLow),
+              backgroundColor: "rgba(239,68,68,0.8)"
             },
-          ],
-        },
-        options: {
-          responsive: true,
-          plugins: { title: { display: true, text: "Proyección de EPS", color: "white" }, legend: { labels: { color: "white" } } },
-          scales: {
-            y: { beginAtZero: true, ticks: { color: "white", callback: (v: any) => `$${v}` }, grid: { color: "rgba(255,255,255,0.1)" } },
-            x: { ticks: { color: "white" }, grid: { color: "rgba(255,255,255,0.1)" } },
-          },
-        },
-      });
-
-      // Donut: Precio objetivo 12M
-      chartInstance3.current?.destroy();
-      const po = estimacionData.valoracion_futura.precio_objetivo_12m || { conservador: 0, base: 0, optimista: 0 };
-      chartInstance3.current = new Chart(ctx3, {
-        type: "doughnut",
-        data: {
-          labels: ["Conservador", "Base", "Optimista"],
-          datasets: [
             {
-              data: [po.conservador ?? 0, po.base ?? 0, po.optimista ?? 0],
-              backgroundColor: ["rgba(239,68,68,0.8)", "rgba(34,197,94,0.8)", "rgba(59,130,246,0.8)"],
-              borderWidth: 2,
-              borderColor: "#1f2937",
+              label: "Promedio",
+              data: futureEstimates.map(est => est.epsAvg),
+              backgroundColor: "rgba(59,130,246,0.8)"
             },
-          ],
+            {
+              label: "Optimista",
+              data: futureEstimates.map(est => est.epsHigh),
+              backgroundColor: "rgba(34,197,94,0.8)"
+            }
+          ]
         },
         options: {
           responsive: true,
           plugins: {
-            title: { display: true, text: "Precio Objetivo 12M", color: "white" },
-            legend: { labels: { color: "white" } },
+            title: { display: true, text: "Proyecciones de EPS", color: "white" },
+            legend: { labels: { color: "white" } }
           },
-        },
+          scales: {
+            x: { ticks: { color: "white" }, grid: { color: "rgba(255,255,255,0.1)" } },
+            y: { ticks: { color: "white" }, grid: { color: "rgba(255,255,255,0.1)" } }
+          }
+        }
       });
     });
 
     return () => {
       chartInstance1.current?.destroy();
       chartInstance2.current?.destroy();
-      chartInstance3.current?.destroy();
     };
-  }, [isOpen, estimacionData.proyecciones, estimacionData.valoracion_futura, estimacionData.inferencia_historica]);
+  }, [isOpen, futureEstimates]);
+
+  const getQualityBadge = () => {
+    const years = futureEstimates.length;
+    const analysts = totalAnalysts;
+    
+    if (years >= 4 && analysts >= 20) return { text: "Excelente", color: "bg-green-500" };
+    if (years >= 3 && analysts >= 10) return { text: "Buena", color: "bg-blue-500" };
+    if (years >= 2 && analysts >= 5) return { text: "Regular", color: "bg-yellow-500" };
+    return { text: "Limitada", color: "bg-red-500" };
+  };
+
+  const qualityBadge = getQualityBadge();
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -453,256 +584,138 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
         <Card className="bg-gray-900/50 border-blue-500/30 cursor-pointer transition-all duration-300 hover:border-[#00BFFF] hover:shadow-lg hover:shadow-[#00BFFF]/20">
           <CardHeader>
             <CardTitle className="text-blue-400 text-lg flex items-center gap-2">
-              📊 Proyecciones y Perspectivas (3–5 años)
+              📊 Estimaciones de Analistas
               <Badge variant="outline" className="text-xs border-blue-500/50 text-blue-400">
-                {loading ? "Cargando..." : "AI Analysis"}
+                {loading ? "Cargando..." : "Análisis"}
               </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {loading ? (
-              <div className="text-center text-gray-500">Cargando proyecciones...</div>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-700 rounded animate-pulse"></div>
+                <div className="h-4 bg-gray-700 rounded animate-pulse w-3/4"></div>
+              </div>
+            ) : error ? (
+              <div className="flex items-center gap-2 text-red-400">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="text-sm">Error al cargar datos</span>
+              </div>
+            ) : futureEstimates.length === 0 ? (
+              <div className="text-gray-400 text-sm">No hay estimaciones disponibles</div>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Precio Objetivo (12m):</span>
-                    <span className="text-blue-400 font-mono">
-                      {Number(estimacionData.valoracion_futura.precio_objetivo_12m?.base) > 0
-                        ? `$${estimacionData.valoracion_futura.precio_objetivo_12m?.base}`
-                        : "Próximamente"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Fair Value:</span>
-                    <span className="text-blue-400 font-mono">
-                      {estimacionData.inferencia_historica.fair_value_actual > 0
-                        ? formatMoney(estimacionData.inferencia_historica.fair_value_actual)
-                        : "Próximamente"}
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Upside:</span>
-                    <span className="text-green-400 font-mono">
-                      {estimacionData.inferencia_historica.upside_estimado > 0
-                        ? `+${estimacionData.inferencia_historica.upside_estimado}%`
-                        : "Próximamente"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Rating AI:</span>
-                    <div className="flex">
-                      {estimacionData.rating_ai_futuro > 0 ? (
-                        <Stars rating={estimacionData.rating_ai_futuro} />
-                      ) : (
-                        <span className="text-gray-500 text-xs">Próximamente</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+              <div className="grid grid-cols-2 gap-3">
+                <StatCard
+                  title="Años Proyectados"
+                  value={futureEstimates.length.toString()}
+                  icon={BarChart3}
+                  trend="neutral"
+                />
+                <StatCard
+                  title="Total Analistas"
+                  value={totalAnalysts.toString()}
+                  icon={Star}
+                  trend="neutral"
+                />
               </div>
             )}
-            <div className="text-center text-xs text-gray-500">Click para ver análisis completo</div>
           </CardContent>
         </Card>
       </DialogTrigger>
 
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-gray-900 border-blue-500/30">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-gray-900 border-gray-700">
         <DialogHeader>
-          <DialogTitle className="text-blue-400 text-xl flex items-center gap-2">
-            📊 Proyecciones y Perspectivas — {estimacionData.empresa}
-            <Badge variant="outline" className="border-blue-500/50 text-blue-400">{estimacionData.symbol}</Badge>
+          <DialogTitle className="text-2xl font-bold text-blue-400 flex items-center gap-3">
+            📊 Estimaciones de Analistas - {selectedStock?.symbol}
+            <Badge className={`${qualityBadge.color} text-white`}>
+              Calidad: {qualityBadge.text}
+            </Badge>
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* KPI Tiles */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatTile label="Fair Value Hoy" value={formatMoney(estimacionData.inferencia_historica.fair_value_actual)} accent="indigo" />
-            <StatTile label="Precio Actual" value={formatMoney(estimacionData.inferencia_historica.precio_actual)} accent="indigo" />
-            <StatTile label="Upside Estimado" value={<span className="text-emerald-400">+{estimacionData.inferencia_historica.upside_estimado}%</span>} accent="emerald" />
-          </div>
-
-          {/* Proyecciones */}
-          <Card className="bg-gray-800/50 border-blue-500/30">
-            <CardHeader>
-              <CardTitle className="text-blue-400 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
-                1. Proyecciones de Crecimiento
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="border-b border-gray-700">
-                      <th className="text-left py-2 px-3 text-gray-400">Métrica</th>
-                      <th className="text-center py-2 px-3 text-red-400">Conservador</th>
-                      <th className="text-center py-2 px-3 text-green-400">Base</th>
-                      <th className="text-center py-2 px-3 text-blue-400">Optimista</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-sm">
-                    <tr className="border-b border-gray-800">
-                      <td className="py-2 px-3 font-medium text-gray-300">Ingresos 1Y</td>
-                      <td className="text-center py-2 px-3 text-red-400">{formatMoney(estimacionData.proyecciones.ingresos["1Y"]?.conservador ?? 0)}</td>
-                      <td className="text-center py-2 px-3 text-green-400">{formatMoney(estimacionData.proyecciones.ingresos["1Y"]?.base ?? 0)}</td>
-                      <td className="text-center py-2 px-3 text-blue-400">{formatMoney(estimacionData.proyecciones.ingresos["1Y"]?.optimista ?? 0)}</td>
-                    </tr>
-                    <tr className="border-b border-gray-800">
-                      <td className="py-2 px-3 font-medium text-gray-300">Ingresos 5Y</td>
-                      <td className="text-center py-2 px-3 text-red-400">{formatMoney(estimacionData.proyecciones.ingresos["5Y"]?.conservador ?? 0)}</td>
-                      <td className="text-center py-2 px-3 text-green-400">{formatMoney(estimacionData.proyecciones.ingresos["5Y"]?.base ?? 0)}</td>
-                      <td className="text-center py-2 px-3 text-blue-400">{formatMoney(estimacionData.proyecciones.ingresos["5Y"]?.optimista ?? 0)}</td>
-                    </tr>
-                    <tr className="border-b border-gray-800">
-                      <td className="py-2 px-3 font-medium text-gray-300">EPS 1Y</td>
-                      <td className="text-center py-2 px-3 text-red-400">${estimacionData.proyecciones.eps["1Y"]?.conservador ?? 0}</td>
-                      <td className="text-center py-2 px-3 text-green-400">${estimacionData.proyecciones.eps["1Y"]?.base ?? 0}</td>
-                      <td className="text-center py-2 px-3 text-blue-400">${estimacionData.proyecciones.eps["1Y"]?.optimista ?? 0}</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 px-3 font-medium text-gray-300">EPS 5Y</td>
-                      <td className="text-center py-2 px-3 text-red-400">${estimacionData.proyecciones.eps["5Y"]?.conservador ?? 0}</td>
-                      <td className="text-center py-2 px-3 text-green-400">${estimacionData.proyecciones.eps["5Y"]?.base ?? 0}</td>
-                      <td className="text-center py-2 px-3 text-blue-400">${estimacionData.proyecciones.eps["5Y"]?.optimista ?? 0}</td>
-                    </tr>
-                  </tbody>
-                </table>
+          {loading ? (
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-20 bg-gray-800 rounded animate-pulse"></div>
+              ))}
+            </div>
+          ) : error ? (
+            <div className="text-center py-8">
+              <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+              <p className="text-red-400 text-lg">Error al cargar las estimaciones</p>
+              <p className="text-gray-400 text-sm mt-2">{error}</p>
+            </div>
+          ) : (
+            <>
+              {/* Summary Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <StatCard
+                  title="Años Disponibles"
+                  value={futureEstimates.length.toString()}
+                  subtitle={futureEstimates.length > 0 ? `${new Date(futureEstimates[0].date).getFullYear()} - ${new Date(futureEstimates[futureEstimates.length - 1].date).getFullYear()}` : ""}
+                  icon={BarChart3}
+                  trend="neutral"
+                />
+                <StatCard
+                  title="Total Analistas"
+                  value={totalAnalysts.toString()}
+                  subtitle="Siguiendo la acción"
+                  icon={Star}
+                  trend="neutral"
+                />
+                <StatCard
+                  title="Métricas"
+                  value="4"
+                  subtitle="Revenue, EPS, EBITDA, Net Income"
+                  icon={Target}
+                  trend="neutral"
+                />
+                <StatCard
+                  title="Última Actualización"
+                  value="Reciente"
+                  subtitle="Datos de FMP"
+                  icon={TrendingUp}
+                  trend="up"
+                />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-gray-900/50 p-4 rounded-lg">
-                  <canvas ref={chartRef1} width="400" height="300" />
+              {/* Charts */}
+              {futureEstimates.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-gray-800/50 rounded-lg p-4">
+                    <canvas ref={chartRef1} className="w-full h-64"></canvas>
+                  </div>
+                  <div className="bg-gray-800/50 rounded-lg p-4">
+                    <canvas ref={chartRef2} className="w-full h-64"></canvas>
+                  </div>
                 </div>
-                <div className="bg-gray-900/50 p-4 rounded-lg">
-                  <canvas ref={chartRef2} width="400" height="300" />
-                </div>
+              )}
+
+              {/* Detailed Tables */}
+              <EstimateTable estimates={futureEstimates} />
+              
+              {/* NUEVAS SECCIONES AGREGADAS */}
+              
+              {/* AI Inference Section */}
+              <AIInferenceSection selectedStock={selectedStock} />
+              
+              {/* Growth Drivers and Limiting Risks - Side by side */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <GrowthDriversSection selectedStock={selectedStock} />
+                <LimitingRisksSection selectedStock={selectedStock} />
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Valoración futura */}
-          <Card className="bg-gray-800/50 border-green-500/30">
-            <CardHeader>
-              <CardTitle className="text-green-400 flex items-center gap-2">
-                <Target className="w-5 h-5" />
-                2. Valoración Futura Estimada (12 meses)
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div className="bg-rose-900/30 p-3 rounded-lg">
-                      <div className="text-rose-400 font-bold text-lg">
-                        ${estimacionData.valoracion_futura.precio_objetivo_12m?.conservador ?? 0}
-                      </div>
-                      <div className="text-xs text-gray-400">Conservador</div>
-                    </div>
-                    <div className="bg-green-900/30 p-3 rounded-lg border border-green-500/50">
-                      <div className="text-green-400 font-bold text-lg">
-                        ${estimacionData.valoracion_futura.precio_objetivo_12m?.base ?? 0}
-                      </div>
-                      <div className="text-xs text-gray-400">Base</div>
-                    </div>
-                    <div className="bg-blue-900/30 p-3 rounded-lg">
-                      <div className="text-blue-400 font-bold text-lg">
-                        ${estimacionData.valoracion_futura.precio_objetivo_12m?.optimista ?? 0}
-                      </div>
-                      <div className="text-xs text-gray-400">Optimista</div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Método:</span>
-                      <span className="text-green-400 text-sm">{estimacionData.valoracion_futura.metodo}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Estado actual:</span>
-                      <Badge variant="outline" className="border-green-500/50 text-green-400">
-                        {estimacionData.valoracion_futura.estado_actual}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gray-900/50 p-4 rounded-lg">
-                  <canvas ref={chartRef3} width="300" height="300" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Drivers vs Riesgos */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <BulletListCard title="4. Drivers de Crecimiento" items={estimacionData.drivers_crecimiento} tone="green" />
-            <BulletListCard title="Riesgos Limitantes" items={estimacionData.riesgos_limitantes} tone="red" />
-          </div>
-
-          {/* Resumen LLM */}
-          <Card className="bg-gray-800/50 border-blue-500/30">
-            <CardHeader>
-              <CardTitle className="text-blue-400">5. Resumen Explicativo</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-300 leading-relaxed">{estimacionData.resumen_llm}</p>
-            </CardContent>
-          </Card>
-
-          {/* Analistas + Bonus */}
-          <div className="grid grid-cols-1 gap-6">
-            <Card className="bg-gray-800/50 border-yellow-500/30">
-              <CardHeader>
-                <CardTitle className="text-yellow-400">6. Comparación con Analistas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-                  <div>
-                    <div className="text-yellow-400 font-bold text-2xl">
-                      {formatMoney(estimacionData.comparacion_analistas.precio_objetivo_promedio)}
-                    </div>
-                    <div className="text-gray-400 text-sm">Precio Objetivo Promedio</div>
-                  </div>
-                  <div>
-                    <Badge variant="outline" className="border-yellow-500/50 text-yellow-400">
-                      {estimacionData.comparacion_analistas.opinion_promedio}
-                    </Badge>
-                    <div className="text-gray-400 text-sm mt-1">Opinión Promedio</div>
-                  </div>
-                  <div>
-                    <div className="text-yellow-400 font-bold text-2xl">
-                      {estimacionData.comparacion_analistas.numero_analistas}
-                    </div>
-                    <div className="text-gray-400 text-sm">Analistas</div>
-                  </div>
-                </div>
-                {analystErr && <div className="text-xs text-yellow-500 mt-3">Estimates: {analystErr}</div>}
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gray-800/50 border-orange-500/30">
-              <CardHeader>
-                <CardTitle className="text-orange-400">🎯 Bonus - Evaluación AI</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="text-center">
-                    <div className="text-orange-400 text-sm mb-2">Rating AI Futuro</div>
-                    <Stars rating={estimacionData.rating_ai_futuro} />
-                    <div className="text-gray-400 text-xs mt-1">{estimacionData.rating_ai_futuro}/5 estrellas</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-orange-400 text-sm mb-2">Semáforo de Riesgo</div>
-                    <RiskSemaphore level={estimacionData.nivel_riesgo} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              
+              {/* Explanatory Summary */}
+              <ExplanatorySummarySection />
+              
+              {/* Analyst Comparison */}
+              <AnalystComparisonSection />
+              
+              {/* AI Evaluation */}
+              <AIEvaluationSection />
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

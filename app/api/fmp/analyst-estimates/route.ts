@@ -1,5 +1,6 @@
 // app/api/fmp/analyst-estimates/route.ts
 import { NextRequest } from 'next/server';
+import https from 'https';
 
 export const runtime = 'nodejs';
 
@@ -28,40 +29,81 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Usar v3 para consistencia
-  const url = `https://financialmodelingprep.com/api/v3/analyst-estimates/${encodeURIComponent(symbol)}?apikey=${API_KEY}&period=${period}&limit=${limit}&page=${page}`;
-
-  try {
-    const r = await fetch(url, { cache: 'no-store' });
+  return new Promise((resolve) => {
+    const path = `/api/v3/analyst-estimates/${encodeURIComponent(symbol)}?apikey=${API_KEY}&period=${period}&limit=${limit}&page=${page}`;
     
-    if (!r.ok) {
-      console.error(`FMP API error: ${r.status} - ${r.statusText}`);
-      return new Response(JSON.stringify({ 
-        error: `Financial Modeling Prep API error: ${r.status}`,
-        details: r.statusText 
-      }), {
-        status: r.status,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-    
-    const body = await r.json();
-    
-    return new Response(JSON.stringify(body), {
-      status: 200,
+    const options = {
+      hostname: 'financialmodelingprep.com',
+      port: 443,
+      path: path,
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+        'User-Agent': 'Fintra-App/1.0'
+      }
+    };
+    
+    const req = https.request(options, (res) => {
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        try {
+          if (res.statusCode !== 200) {
+            resolve(new Response(JSON.stringify({ 
+              error: `FMP API error: ${res.statusCode}`,
+              details: res.statusMessage 
+            }), {
+              status: res.statusCode || 500,
+              headers: { 'Content-Type': 'application/json' },
+            }));
+            return;
+          }
+          
+          const jsonData = JSON.parse(data);
+          
+          resolve(new Response(JSON.stringify(jsonData), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          }));
+        } catch (err) {
+          resolve(new Response(JSON.stringify({ 
+            error: 'Failed to parse API response',
+            details: err instanceof Error ? err.message : 'Unknown error'
+          }), {
+            status: 502,
+            headers: { 'Content-Type': 'application/json' },
+          }));
+        }
+      });
     });
-  } catch (err) {
-    console.error('Fetch error:', err);
-    return new Response(JSON.stringify({ 
-      error: 'Failed to fetch from Financial Modeling Prep API',
-      details: err instanceof Error ? err.message : 'Unknown error'
-    }), {
-      status: 502,
-      headers: { 'Content-Type': 'application/json' },
+    
+    req.on('error', (error) => {
+      resolve(new Response(JSON.stringify({ 
+        error: 'Failed to connect to FMP API',
+        details: error.message
+      }), {
+        status: 502,
+        headers: { 'Content-Type': 'application/json' },
+      }));
     });
-  }
+    
+    req.setTimeout(10000, () => {
+      req.destroy();
+      resolve(new Response(JSON.stringify({ 
+        error: 'Request timeout',
+        details: 'The request to FMP API timed out'
+      }), {
+        status: 504,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+    });
+    
+    req.end();
+  });
 }
