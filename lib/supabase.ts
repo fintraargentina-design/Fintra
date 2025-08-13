@@ -207,37 +207,12 @@ export async function getSpecificStockFields(symbol: string, fields: string[]) {
 // Función para registrar una búsqueda
 export async function registerStockSearch(symbol: string) {
   try {
-    // PRIMERO: Verificar si el símbolo existe en datos_accion
-    const { data: stockExists, error: stockError } = await supabase
-      .from('datos_accion')
-      .select('symbol')
-      .eq('symbol', symbol.toUpperCase())
-      .single();
-
-    // Si el símbolo no existe en datos_accion, no registrar la búsqueda
-    if (stockError && stockError.code === 'PGRST116') {
-      console.log(`Símbolo ${symbol} no encontrado en datos_accion, no se registra la búsqueda`);
-      return;
-    }
-
-    if (stockError) {
-      console.error('Error verificando símbolo en datos_accion:', stockError);
-      return;
-    }
-
-    // Si llegamos aquí, el símbolo existe en datos_accion
-    // Ahora verificar si ya existe en busquedas_acciones
+    // Registrar búsqueda independientemente de si está en datos_accion
     const { data: existingData, error: selectError } = await supabase
       .from('busquedas_acciones')
       .select('symbol, busquedas')
       .eq('symbol', symbol.toUpperCase())
       .single();
-
-    if (selectError && selectError.code !== 'PGRST116') {
-      // Error diferente a "no encontrado"
-      console.error('Error checking existing search:', selectError);
-      return;
-    }
 
     if (existingData) {
       // Actualizar contador existente
@@ -248,12 +223,6 @@ export async function registerStockSearch(symbol: string) {
           ultima_busqueda: new Date().toISOString()
         })
         .eq('symbol', symbol.toUpperCase());
-
-      if (updateError) {
-        console.error('Error updating search count:', updateError);
-      } else {
-        console.log(`Búsqueda actualizada para símbolo válido: ${symbol}`);
-      }
     } else {
       // Crear nuevo registro
       const { error: insertError } = await supabase
@@ -263,12 +232,6 @@ export async function registerStockSearch(symbol: string) {
           busquedas: 1,
           ultima_busqueda: new Date().toISOString()
         });
-
-      if (insertError) {
-        console.error('Error inserting new search:', insertError);
-      } else {
-        console.log(`Nueva búsqueda registrada para símbolo válido: ${symbol}`);
-      }
     }
   } catch (error) {
     console.error('Error in registerStockSearch:', error);

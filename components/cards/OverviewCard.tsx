@@ -1,11 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
-import { TrendingUp, DollarSign, Users, Building2, Calendar, User } from 'lucide-react';
+import { TrendingUp, DollarSign, Users, Building2, Calendar, User, FileText, BarChart3, Search } from 'lucide-react';
 import { getCompanyProfile } from '@/api/fmpCompanyProfiles';
+import { getConclusionColors } from '@/lib/conclusionColors';
 
 interface OverviewCardProps {
   selectedStock: any;
+  stockConclusion?: any;
+  onStockSearch?: (symbol: string) => void; // Nueva prop para manejar búsqueda
 }
 
 type Profile = Record<string, any>;
@@ -82,10 +86,43 @@ function formatPercentage(value?: number) {
   return `${sign}${value.toFixed(2)}%`;
 }
 
-export default function OverviewCard({ selectedStock }: OverviewCardProps) {
+export default function OverviewCard({ selectedStock, stockConclusion, onStockSearch }: OverviewCardProps) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'analysis'>('overview');
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [searchValue, setSearchValue] = useState('');
+  const [tickerInput, setTickerInput] = useState('');
+  const [isTickerFocused, setIsTickerFocused] = useState(false); // Nuevo estado para el focus
+
+  // Función para manejar el cambio en el input del ticker
+  const handleTickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTickerInput(e.target.value.toUpperCase());
+  };
+
+  // Función para manejar la búsqueda cuando se presiona Enter
+  const handleTickerKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && tickerInput.trim() && onStockSearch) {
+      onStockSearch(tickerInput.trim());
+      setTickerInput('');
+      setIsTickerFocused(false);
+    }
+  };
+
+  // Función para manejar cuando el input recibe focus
+  const handleTickerFocus = () => {
+    setIsTickerFocused(true);
+    setTickerInput(''); // Limpiar el input para que puedas escribir
+  };
+
+  // Función para manejar cuando el input pierde focus
+  const handleTickerBlur = () => {
+    setIsTickerFocused(false);
+    if (!tickerInput.trim()) {
+      setTickerInput(''); // Mantener vacío si no hay texto
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -107,6 +144,18 @@ export default function OverviewCard({ selectedStock }: OverviewCardProps) {
     fetchCompanyProfile();
     return () => { active = false; };
   }, [selectedStock?.symbol]);
+
+  // Extraer datos del análisis
+  const conclusion = stockConclusion?.conclusion?.Conclusión;
+  const colors = getConclusionColors(conclusion);
+  
+  const analysisData = {
+    queHace: stockConclusion?.conclusion?.["¿Qué hace la empresa?"] || "No disponible",
+    ventajaCompetitiva: stockConclusion?.conclusion?.["¿Tiene una ventaja clara frente a la competencia?"] || "No disponible",
+    ganaDinero: stockConclusion?.conclusion?.["¿Gana dinero de verdad y lo sigue haciendo crecer?"] || "No disponible",
+    crecimientoFuturo: stockConclusion?.conclusion?.["¿El negocio puede seguir creciendo en 5 o 10 años?"] || "No disponible",
+    precioSentido: stockConclusion?.conclusion?.["¿El precio tiene sentido o está inflado?"] || "No disponible"
+  };
 
   if (loading) {
     return (
@@ -134,74 +183,374 @@ export default function OverviewCard({ selectedStock }: OverviewCardProps) {
 
   const data = profile || {};
 
+  // Add missing functions for editable fields
+  const handleNAClick = (fieldName: string) => {
+    setEditingField(fieldName);
+    setSearchValue('');
+  };
+
+  const handleSearch = () => {
+    if (searchValue.trim() && onStockSearch) {
+      onStockSearch(searchValue.trim().toUpperCase());
+      setEditingField(null);
+      setSearchValue('');
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    } else if (e.key === 'Escape') {
+      setEditingField(null);
+      setSearchValue('');
+    }
+  };
+
+  const renderEditableField = (value: any, fieldName: string) => {
+    if (editingField === fieldName) {
+      return (
+        <div className="flex items-center gap-2">
+          <Input
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            onKeyDown={handleKeyPress}
+            placeholder="Buscar ticker..."
+            className="h-8 w-32 bg-gray-800 border-gray-600 text-white"
+            autoFocus
+          />
+          <Search 
+            className="w-4 h-4 text-gray-400 cursor-pointer hover:text-green-400" 
+            onClick={handleSearch}
+          />
+        </div>
+      );
+    }
+
+    if (!value || value === 'N/A') {
+      return (
+        <span 
+          className="text-gray-500 cursor-pointer hover:text-green-400 transition-colors"
+          onClick={() => handleNAClick(fieldName)}
+        >
+          N/A
+        </span>
+      );
+    }
+
+    return <span className="text-white">{value}</span>;
+  };
+
+  const renderAnalysisContent = () => {
+    if (!stockConclusion) {
+      return (
+        <div className="text-gray-400 text-center py-8">
+          No hay información de análisis disponible
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {/* Conclusión General */}
+        <div className={`${colors.bgColor} ${colors.borderColor} p-6 rounded-lg border-2`}>
+          <h3 className={`${colors.textColor} text-xl font-bold mb-4`}>
+            ¿Es una buena compra?
+          </h3>
+          <div className={`${colors.textColor} text-lg leading-relaxed`}>
+            {conclusion || 'No hay conclusión disponible'}
+          </div>
+        </div>
+
+        {/* Todas las preguntas y respuestas */}
+        <div className="space-y-4">
+          <div className="bg-gray-900/50 p-4 rounded border-l-4 border-green-500/50">
+            <h4 className="text-green-400 text-lg font-semibold mb-3">¿Qué hace la empresa?</h4>
+            <p className="text-gray-200 leading-relaxed">{analysisData.queHace}</p>
+          </div>
+
+          <div className="bg-gray-900/50 p-4 rounded border-l-4 border-blue-500/50">
+            <h4 className="text-blue-400 text-lg font-semibold mb-3">¿Tiene una ventaja clara frente a la competencia?</h4>
+            <p className="text-gray-200 leading-relaxed">{analysisData.ventajaCompetitiva}</p>
+          </div>
+
+          <div className="bg-gray-900/50 p-4 rounded border-l-4 border-yellow-500/50">
+            <h4 className="text-yellow-400 text-lg font-semibold mb-3">¿Gana dinero de verdad y lo sigue haciendo crecer?</h4>
+            <p className="text-gray-200 leading-relaxed">{analysisData.ganaDinero}</p>
+          </div>
+
+          <div className="bg-gray-900/50 p-4 rounded border-l-4 border-purple-500/50">
+            <h4 className="text-purple-400 text-lg font-semibold mb-3">¿El negocio puede seguir creciendo en 5 o 10 años?</h4>
+            <p className="text-gray-200 leading-relaxed">{analysisData.crecimientoFuturo}</p>
+          </div>
+
+          <div className="bg-gray-900/50 p-4 rounded border-l-4 border-red-500/50">
+            <h4 className="text-red-400 text-lg font-semibold mb-3">¿El precio tiene sentido o está inflado?</h4>
+            <p className="text-gray-200 leading-relaxed">{analysisData.precioSentido}</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderOverviewContent = () => (
+    <div className="space-y-6">
+      {/* Información de la Empresa */}
+      <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
+        <h3 className="text-green-400 text-lg font-semibold mb-4 flex items-center gap-2">
+          <Building2 className="w-5 h-5" />
+          Información de la Empresa
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-400">Nombre:</span>
+              {renderEditableField(data.companyName, 'companyName')}
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Sector:</span>
+              {renderEditableField(data.sector, 'sector')}
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Industria:</span>
+              {renderEditableField(data.industry, 'industry')}
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">CEO:</span>
+              {renderEditableField(data.ceo, 'ceo')}
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Fundada (IPO):</span>
+              {renderEditableField(data.ipoDate, 'ipoDate')}
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-400">Empleados:</span>
+              {renderEditableField(
+                data.fullTimeEmployees?.toLocaleString(), 
+                'employees'
+              )}
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Sitio web:</span>
+              {data.website ? (
+                <span className="text-green-400">
+                  <a
+                    href={data.website.startsWith('http') ? data.website : `https://${data.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-green-300 underline"
+                  >
+                    {data.website.replace(/^https?:\/\//, '').trim()}
+                  </a>
+                </span>
+              ) : (
+                renderEditableField(null, 'website')
+              )}
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Intercambio:</span>
+              {renderEditableField(data.exchange, 'exchange')}
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">País:</span>
+              {renderEditableField(data.country, 'country')}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Métricas */}
+      <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
+        <h3 className="text-green-400 text-lg font-semibold mb-4 flex items-center gap-2">
+          <DollarSign className="w-5 h-5" />
+          Métricas Financieras Clave
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="space-y-3">
+            <h4 className="text-gray-300 font-medium border-b border-gray-600 pb-2">Valoración</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Cap. de Mercado:</span>
+                <span className="text-green-400 font-mono">
+                  {formatLargeNumber(data.marketCap)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Precio Actual:</span>
+                <span className="text-green-400 font-mono">
+                  {typeof data.price === 'number' ? `$${data.price.toFixed(2)}` : 'N/A'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Moneda:</span>
+                <span className="text-green-400 font-mono">{data.currency || 'N/A'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="text-gray-300 font-medium border-b border-gray-600 pb-2">Rendimiento</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Cambio Diario:</span>
+                <span className={`font-mono ${Number(data.change) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {Number.isFinite(Number(data.change)) ? `$${Number(data.change).toFixed(2)}` : 'N/A'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">% Cambio:</span>
+                <span className={`font-mono ${Number(data.changePercentage) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {Number.isFinite(Number(data.changePercentage)) ? formatPercentage(Number(data.changePercentage)) : 'N/A'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Beta:</span>
+                <span className="text-green-400 font-mono">
+                  {typeof data.beta === 'number' ? data.beta.toFixed(3) : 'N/A'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="text-gray-300 font-medium border-b border-gray-600 pb-2">Volumen y Dividendos</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Último Dividendo:</span>
+                <span className="text-green-400 font-mono">
+                  {Number.isFinite(Number(data.lastDividend)) ? `$${Number(data.lastDividend).toFixed(2)}` : 'N/A'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Volumen:</span>
+                <span className="text-green-400 font-mono">
+                  {Number.isFinite(Number(data.volume)) ? Number(data.volume).toLocaleString() : 'N/A'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Vol. Promedio:</span>
+                <span className="text-green-400 font-mono">
+                  {Number.isFinite(Number(data.averageVolume)) ? Number(data.averageVolume).toLocaleString() : 'N/A'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Rango 52 sem:</span>
+                <span className="text-green-400 font-mono text-xs">
+                  {data.range || 'N/A'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Descripción */}
+      <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
+        <h3 className="text-green-400 text-lg font-semibold mb-3">Descripción del Negocio</h3>
+        <p className="text-gray-200 text-sm leading-relaxed">
+          {data.description || 'No hay descripción disponible para esta empresa.'}
+        </p>
+      </div>
+
+      {/* Info adicional */}
+      <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
+        <h3 className="text-green-400 text-lg font-semibold mb-4">Información Adicional</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="space-y-2">
+            <div className="flex justify-between"><span className="text-gray-400">CIK:</span><span className="text-green-400 font-mono">{data.cik || 'N/A'}</span></div>
+            <div className="flex justify-between"><span className="text-gray-400">ISIN:</span><span className="text-green-400 font-mono">{data.isin || 'N/A'}</span></div>
+            <div className="flex justify-between"><span className="text-gray-400">CUSIP:</span><span className="text-green-400 font-mono">{data.cusip || 'N/A'}</span></div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between"><span className="text-gray-400">Teléfono:</span><span className="text-green-400">{data.phone || 'N/A'}</span></div>
+            <div className="flex justify-between"><span className="text-gray-400">Es ETF:</span><span className="text-green-400">{data.isEtf ? 'Sí' : 'No'}</span></div>
+            <div className="flex justify-between"><span className="text-gray-400">Activamente negociado:</span><span className="text-green-400">{data.isActivelyTrading ? 'Sí' : 'No'}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <Card className="bg-gray-900/50 border-gray-700/50 backdrop-blur-sm hover:bg-gray-800/50 transition-colors cursor-pointer">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-green-400 text-lg flex items-center justify-between">
-              <div className="text-gray-400 flex items-center gap-2">
-                {data.symbol} - {typeof data.price === 'number' ? `$${Math.round(data.price)}` : 'N/A'}
-              </div>
-              {data.image && (
-                <img 
-                  src={data.image} 
-                  alt={`Logo de ${data.companyName || data.symbol}`}
-                  className="w-8 h-8 object-contain rounded"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                  }}
-                />
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-green-400" />
-                  <span className="text-sm text-gray-400">Cap. Mercado</span>
-                </div>
-                <p className="text-lg font-semibold text-green-400">
-                  {formatLargeNumber(data.marketCap)}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-green-400" />
-                  <span className="text-sm text-gray-400">Beta</span>
-                </div>
-                <p className="text-lg font-semibold text-green-400">
-                  {typeof data.beta === 'number' ? data.beta.toFixed(2) : 'N/A'}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-green-400" />
-                  <span className="text-sm text-gray-400">Empleados</span>
-                </div>
-                <p className="text-lg font-semibold text-green-400">
-                  {data.fullTimeEmployees?.toLocaleString() || 'N/A'}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-green-400" />
-                  <span className="text-sm text-gray-400">CEO</span>
-                </div>
-                <p className="text-lg font-semibold text-green-400">
-                  {data.ceo || 'N/A'}
-                </p>
-              </div>
+      <Card className="bg-gray-900/50 border-gray-700/50 backdrop-blur-sm hover:bg-gray-800/50 transition-colors">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-green-400 text-lg flex items-center justify-between">
+            <input
+              type="text"
+              value={isTickerFocused ? tickerInput : (tickerInput || data.symbol || '')}
+              onChange={handleTickerChange}
+              onKeyPress={handleTickerKeyPress}
+              onFocus={handleTickerFocus}
+              onBlur={handleTickerBlur}
+              placeholder={data.symbol || 'Buscar Ticker'}
+              className="bg-transparent border-none outline-none text-gray-400 text-lg font-medium cursor-text focus:text-green-400 transition-colors"
+              style={{ width: 'auto', minWidth: '60px' }}
+            />
+            <div className="text-gray-400 flex items-center gap-2">
+             {typeof data.price === 'number' ? `$${Math.round(data.price)}` : 'N/A'}
             </div>
-            <div className="pt-2 border-t border-gray-700/50">
-              <p className="text-xs text-gray-500 text-center">
-                Haz clic para ver detalles completos
+            {data.image && (
+              <img 
+                src={data.image} 
+                alt={`Logo de ${data.companyName || data.symbol}`}
+                className="w-8 h-8 object-contain rounded"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-green-400" />
+                <span className="text-sm text-gray-400">Cap. Mercado</span>
+              </div>
+              <p className="text-lg font-semibold text-green-400">
+                {formatLargeNumber(data.marketCap)}
               </p>
             </div>
-          </CardContent>
-        </Card>
-      </DialogTrigger>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-green-400" />
+                <span className="text-sm text-gray-400">Beta</span>
+              </div>
+              <p className="text-lg font-semibold text-green-400">
+                {typeof data.beta === 'number' ? data.beta.toFixed(2) : 'N/A'}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-green-400" />
+                <span className="text-sm text-gray-400">Empleados</span>
+              </div>
+              <p className="text-lg font-semibold text-green-400">
+                {data.fullTimeEmployees?.toLocaleString() || 'N/A'}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-green-400" />
+                <span className="text-sm text-gray-400">CEO</span>
+              </div>
+              <p className="text-lg font-semibold text-green-400">
+                {data.ceo || 'N/A'}
+              </p>
+            </div>
+          </div>
+          <div className="pt-2 border-t border-gray-700/50">
+            <DialogTrigger asChild>
+              <p className="text-xs text-gray-500 text-center cursor-pointer hover:text-green-400 transition-colors">
+                Haz clic para ver detalles completos
+              </p>
+            </DialogTrigger>
+          </div>
+        </CardContent>
+      </Card>
 
       <DialogContent className="bg-gray-900 border-gray-700 max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
@@ -218,195 +567,49 @@ export default function OverviewCard({ selectedStock }: OverviewCardProps) {
               ) : (
                 <Building2 className="w-5 h-5" />
               )}
-            {data.companyName || selectedStock?.symbol || 'Empresa'} - Overview
+            {data.companyName || selectedStock?.symbol || 'Empresa'}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Información de la Empresa */}
-          <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
-            <h3 className="text-green-400 text-lg font-semibold mb-4 flex items-center gap-2">
-              <Building2 className="w-5 h-5" />
-              Información de la Empresa
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Nombre:</span>
-                  <span className="text-green-400 font-medium">
-                    {data.companyName || 'N/A'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Sector:</span>
-                  <span className="text-green-400">{data.sector || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Industria:</span>
-                  <span className="text-green-400">{data.industry || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">CEO:</span>
-                  <span className="text-green-400">{data.ceo || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Fundada (IPO):</span>
-                  <span className="text-green-400">{data.ipoDate || 'N/A'}</span>
-                </div>
+        {/* Sistema de Pestañas */}
+        <div className="border-b border-gray-700">
+          <div className="flex space-x-1">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                activeTab === 'overview'
+                  ? 'bg-green-500/20 text-green-400 border-b-2 border-green-500'
+                  : 'text-gray-400 hover:text-green-300 hover:bg-gray-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" />
+                Overview
               </div>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Empleados:</span>
-                  <span className="text-green-400">
-                    {data.fullTimeEmployees?.toLocaleString() || 'N/A'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Sitio web:</span>
-                  <span className="text-green-400">
-                    {data.website ? (
-                      <a
-                        href={data.website.startsWith('http') ? data.website : `https://${data.website}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:text-green-300 underline"
-                      >
-                        {data.website.replace(/^https?:\/\//, '').trim()}
-                      </a>
-                    ) : 'N/A'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Intercambio:</span>
-                  <span className="text-green-400">{data.exchange || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">País:</span>
-                  <span className="text-green-400">{data.country || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Dirección:</span>
-                  <span className="text-green-400 text-sm">
-                    {data.address && data.city && data.state
-                      ? `${data.address}, ${data.city}, ${data.state} ${data.zip || ''}`.trim()
-                      : 'N/A'}
-                  </span>
-                </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('analysis')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                activeTab === 'analysis'
+                  ? 'bg-green-500/20 text-green-400 border-b-2 border-green-500'
+                  : 'text-gray-400 hover:text-green-300 hover:bg-gray-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                Análisis Estratégico
               </div>
-            </div>
+            </button>
           </div>
+        </div>
 
-          {/* Métricas */}
-          <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
-            <h3 className="text-green-400 text-lg font-semibold mb-4 flex items-center gap-2">
-              <DollarSign className="w-5 h-5" />
-              Métricas Financieras Clave
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-3">
-                <h4 className="text-gray-300 font-medium border-b border-gray-600 pb-2">Valoración</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Cap. de Mercado:</span>
-                    <span className="text-green-400 font-mono">
-                      {formatLargeNumber(data.marketCap)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Precio Actual:</span>
-                    <span className="text-green-400 font-mono">
-                      {typeof data.price === 'number' ? `$${data.price.toFixed(2)}` : 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Moneda:</span>
-                    <span className="text-green-400 font-mono">{data.currency || 'N/A'}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="text-gray-300 font-medium border-b border-gray-600 pb-2">Rendimiento</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Cambio Diario:</span>
-                    <span className={`font-mono ${Number(data.change) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {Number.isFinite(Number(data.change)) ? `$${Number(data.change).toFixed(2)}` : 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">% Cambio:</span>
-                    <span className={`font-mono ${Number(data.changePercentage) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {Number.isFinite(Number(data.changePercentage)) ? formatPercentage(Number(data.changePercentage)) : 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Beta:</span>
-                    <span className="text-green-400 font-mono">
-                      {typeof data.beta === 'number' ? data.beta.toFixed(3) : 'N/A'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="text-gray-300 font-medium border-b border-gray-600 pb-2">Volumen y Dividendos</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Último Dividendo:</span>
-                    <span className="text-green-400 font-mono">
-                      {Number.isFinite(Number(data.lastDividend)) ? `$${Number(data.lastDividend).toFixed(2)}` : 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Volumen:</span>
-                    <span className="text-green-400 font-mono">
-                      {Number.isFinite(Number(data.volume)) ? Number(data.volume).toLocaleString() : 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Vol. Promedio:</span>
-                    <span className="text-green-400 font-mono">
-                      {Number.isFinite(Number(data.averageVolume)) ? Number(data.averageVolume).toLocaleString() : 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Rango 52 sem:</span>
-                    <span className="text-green-400 font-mono text-xs">
-                      {data.range || 'N/A'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Descripción */}
-          <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
-            <h3 className="text-green-400 text-lg font-semibold mb-3">Descripción del Negocio</h3>
-            <p className="text-gray-200 text-sm leading-relaxed">
-              {data.description || 'No hay descripción disponible para esta empresa.'}
-            </p>
-          </div>
-
-          {/* Info adicional */}
-          <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
-            <h3 className="text-green-400 text-lg font-semibold mb-4">Información Adicional</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="space-y-2">
-                <div className="flex justify-between"><span className="text-gray-400">CIK:</span><span className="text-green-400 font-mono">{data.cik || 'N/A'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-400">ISIN:</span><span className="text-green-400 font-mono">{data.isin || 'N/A'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-400">CUSIP:</span><span className="text-green-400 font-mono">{data.cusip || 'N/A'}</span></div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between"><span className="text-gray-400">Teléfono:</span><span className="text-green-400">{data.phone || 'N/A'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-400">Es ETF:</span><span className="text-green-400">{data.isEtf ? 'Sí' : 'No'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-400">Activamente negociado:</span><span className="text-green-400">{data.isActivelyTrading ? 'Sí' : 'No'}</span></div>
-              </div>
-            </div>
-          </div>
+        {/* Contenido de las pestañas */}
+        <div className="mt-4">
+          {activeTab === 'overview' && renderOverviewContent()}
+          {activeTab === 'analysis' && renderAnalysisContent()}
         </div>
       </DialogContent>
     </Dialog>
   );
 }
+

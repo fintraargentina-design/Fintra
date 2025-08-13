@@ -3,7 +3,7 @@ import {
   getDailyTimeSeries, 
   getCompanyOverview, 
   searchSymbols 
-} from '../api/alphavantage.js';
+} from '../api/alphavantage';
 
 /**
  * Servicio principal que orquesta múltiples APIs para obtener datos de acciones

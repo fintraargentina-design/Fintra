@@ -502,6 +502,7 @@ useEffect(() => {
                     stockBasicData={stockBasicData}
                     stockAnalysis={stockAnalysis}
                     selectedStock={selectedStock}
+                    onStockSearch={buscarDatosAccion} // Agregar esta prop
                   />
                 </div>
               </div>

@@ -1,234 +1,178 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 interface DesempenoCardProps {
-  stockPerformance: any;
-  stockBasicData: any; // Agregar esta prop
-  stockReport: any;
+  stockPerformance?: any;
+  stockBasicData?: any;
+  stockAnalysis?: any;
+  stockReport?: any;
 }
 
-// Función para determinar el color del indicador de rendimiento
-const getPerformanceColor = (indicator: string, value: number | string) => {
-  const numValue = typeof value === 'string' ? parseFloat(value.toString().replace('%', '')) : value;
-  
-  switch (indicator) {
-    case '1 mes':
-      if (numValue >= 3) return 'text-green-400';
-      if (numValue >= -3) return 'text-yellow-400';
-      return 'text-red-400';
-    case '3 meses':
-      if (numValue >= 8) return 'text-green-400';
-      if (numValue >= -5) return 'text-yellow-400';
-      return 'text-red-400';
-    case '1 año':
-      if (numValue >= 15) return 'text-green-400';
-      if (numValue >= -10) return 'text-yellow-400';
-      return 'text-red-400';
-    case 'YTD (año actual)':
-      if (numValue >= 15) return 'text-green-400';
-      if (numValue >= -5) return 'text-yellow-400';
-      return 'text-red-400';
-    case '3 años':
-      if (numValue >= 30) return 'text-green-400';
-      if (numValue >= -15) return 'text-yellow-400';
-      return 'text-red-400';
-    case '5 años':
-      if (numValue >= 50) return 'text-green-400';
-      if (numValue >= -25) return 'text-yellow-400';
-      return 'text-red-400';
-    default:
-      return 'text-green-400';
+/* =========================
+   Helpers
+   ========================= */
+const num = (v: any): number | null => {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v === "string") {
+    const n = parseFloat(v.replace(/[^\d.-]/g, ""));
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+};
+const pct = (v: number | null, d = 1) => (v == null ? "N/A" : `${v >= 0 ? "+" : ""}${v.toFixed(d)}%`);
+const money = (v: number | null) => (v == null ? "N/A" : `$${v.toFixed(2)}`);
+const rangeText = (lo: number | null, hi: number | null) =>
+  lo != null && hi != null ? `$${lo.toFixed(2)} / $${hi.toFixed(2)}` : "N/A";
+
+const perfColor = (label: string, v: number | null) => {
+  if (v == null) return "text-gray-400";
+  switch (label) {
+    case "1 mes":        return v >= 3 ? "text-green-400" : v >= -3 ? "text-yellow-400" : "text-red-400";
+    case "3 meses":      return v >= 8 ? "text-green-400" : v >= -5 ? "text-yellow-400" : "text-red-400";
+    case "YTD":          return v >= 15 ? "text-green-400" : v >= -5 ? "text-yellow-400" : "text-red-400";
+    case "1 año":        return v >= 15 ? "text-green-400" : v >= -10 ? "text-yellow-400" : "text-red-400";
+    case "3 años":       return v >= 30 ? "text-green-400" : v >= -15 ? "text-yellow-400" : "text-red-400";
+    case "5 años":       return v >= 50 ? "text-green-400" : v >= -25 ? "text-yellow-400" : "text-red-400";
+    case "Rel. S&P 1Y":  return v >= 0 ? "text-green-400" : "text-red-400";
+    case "Rel. Nasdaq 1Y": return v >= 0 ? "text-green-400" : "text-red-400";
+    default: return "text-gray-300";
+  }
+};
+const perfComment = (label: string, v: number | null) => {
+  if (v == null) return "Sin datos";
+  switch (label) {
+    case "1 mes":   return v >= 5 ? "Fuerte recuperación" : v >= 0 ? "Tendencia positiva" : v >= -5 ? "Corrección leve" : "Caída";
+    case "3 meses": return v >= 10 ? "Crecimiento sostenido" : v >= 0 ? "Tendencia alcista" : v >= -10 ? "Volatilidad normal" : "Bajista";
+    case "YTD":     return v >= 15 ? "Excelente año" : v >= 5 ? "Buen rendimiento" : v >= 0 ? "Estable" : v >= -10 ? "Año difícil" : "Muy negativo";
+    case "1 año":   return v >= 20 ? "Excepcional" : v >= 10 ? "Buen desempeño" : v >= 0 ? "Positivo" : v >= -20 ? "Complicado" : "Pérdidas fuertes";
+    case "3 años":  return v >= 40 ? "Gran crecimiento" : v >= 15 ? "Sostenido" : v >= 0 ? "Moderado" : v >= -30 ? "Desafiante" : "Declive";
+    case "5 años":  return v >= 60 ? "Extraordinario" : v >= 25 ? "Sólido" : v >= 0 ? "Estable" : v >= -40 ? "Muy difícil" : "Declive severo";
+    case "Rel. S&P 1Y":
+    case "Rel. Nasdaq 1Y":
+      return v >= 0 ? "Supera al índice" : "Bajo el índice";
+    default: return "—";
   }
 };
 
-// Función para obtener comentario del indicador de rendimiento
-const getPerformanceComment = (indicator: string, value: number | string) => {
-  const numValue = typeof value === 'string' ? parseFloat(value.toString().replace('%', '')) : value;
-  
-  switch (indicator) {
-    case '1 mes':
-      if (numValue >= 5) return 'Fuerte recuperación';
-      if (numValue >= 0) return 'Tendencia positiva';
-      if (numValue >= -5) return 'Corrección leve';
-      if (numValue >= -15) return 'Caída moderada';
-      return 'Caída abrupta';
-    case '3 meses':
-      if (numValue >= 10) return 'Crecimiento sostenido';
-      if (numValue >= 0) return 'Tendencia alcista';
-      if (numValue >= -10) return 'Volatilidad normal';
-      return 'Tendencia bajista';
-    case 'YTD (año actual)':
-      if (numValue >= 15) return 'Excelente desempeño anual';
-      if (numValue >= 5) return 'Buen rendimiento';
-      if (numValue >= 0) return 'Estabilidad';
-      if (numValue >= -10) return 'Año difícil';
-      return 'Año muy negativo';
-    case '1 año':
-      if (numValue >= 20) return 'Rendimiento excepcional';
-      if (numValue >= 10) return 'Buen desempeño';
-      if (numValue >= 0) return 'Rendimiento positivo';
-      if (numValue >= -20) return 'Año complicado';
-      return 'Pérdidas significativas';
-    case '3 años':
-      if (numValue >= 40) return 'Crecimiento excepcional a largo plazo';
-      if (numValue >= 15) return 'Buen crecimiento sostenido';
-      if (numValue >= 0) return 'Crecimiento moderado';
-      if (numValue >= -30) return 'Período desafiante';
-      return 'Declive prolongado';
-    case '5 años':
-      if (numValue >= 60) return 'Inversión extraordinaria';
-      if (numValue >= 25) return 'Sólido crecimiento histórico';
-      if (numValue >= 0) return 'Estabilidad a largo plazo';
-      if (numValue >= -40) return 'Período muy difícil';
-      return 'Declive severo histórico';
-    default:
-      return 'Análisis en progreso';
+const riskColor = (label: string, v: number | null) => {
+  if (v == null) return "text-gray-400";
+  switch (label) {
+    case "Beta":              return v < 0.8 ? "text-green-400" : v <= 1.2 ? "text-yellow-400" : "text-red-400";
+    case "Volatilidad 1Y":    return v < 25 ? "text-green-400" : v <= 40 ? "text-yellow-400" : "text-red-400";
+    case "Máxima caída 1Y":   // v es negativa (drawdown)
+      return v > -15 ? "text-green-400" : v >= -30 ? "text-yellow-400" : "text-red-400";
+    case "Distancia SMA 200": // positiva (por encima) suele ser bueno, muy negativa malo
+      return v >= 0 ? "text-green-400" : v > -10 ? "text-yellow-400" : "text-red-400";
+    default: return "text-gray-300";
+  }
+};
+const riskComment = (label: string, v: number | null) => {
+  if (v == null) return "Datos no disponibles";
+  switch (label) {
+    case "Beta":              return v < 0.8 ? "Más estable que el mercado" : v <= 1.2 ? "Similar al mercado" : "Más volátil que el mercado";
+    case "Volatilidad 1Y":    return v < 25 ? "Volatilidad contenida" : v <= 40 ? "Volatilidad media" : "Alta volatilidad";
+    case "Máxima caída 1Y":   return v > -15 ? "Drawdown controlado" : v >= -30 ? "Volátil" : "Riesgoso";
+    case "Distancia SMA 200": return v >= 0 ? "Por encima de tendencia" : "Por debajo de tendencia";
+    default: return "—";
   }
 };
 
-// Función para obtener ícono de tendencia
-const getTrendIcon = (value: number) => {
-  return value >= 0 ? '📈' : '📉';
-};
-
-// Función para determinar el color de las métricas de riesgo
-const getRiskColor = (indicator: string, value: number | string) => {
-  if (value === 'N/A' || value === 'Dato no disponible') return 'text-gray-400';
-  
-  const numValue = typeof value === 'string' ? parseFloat(value.toString()) : value;
-  
-  switch (indicator) {
-    case 'Volatilidad 1 año (%)':
-      return 'text-gray-400'; // Dato no disponible
-    case 'Beta':
-      if (numValue >= 0.8 && numValue <= 1.2) return 'text-yellow-400'; // Similar al mercado
-      if (numValue < 0.8) return 'text-green-400'; // Estable
-      return 'text-red-400'; // Volátil
-    case 'Máxima caída 1 año':
-      if (numValue > -15) return 'text-green-400'; // Controlada
-      if (numValue >= -30) return 'text-yellow-400'; // Volátil
-      return 'text-red-400'; // Riesgosa
-    default:
-      return 'text-gray-400';
-  }
-};
-
-const getRiskComment = (indicator: string, value: number | string) => {
-  if (value === 'N/A' || value === 'Dato no disponible') return 'Datos no disponibles';
-  
-  const numValue = typeof value === 'string' ? parseFloat(value.toString()) : value;
-  
-  switch (indicator) {
-    case 'Volatilidad 1 año (%)':
-      return 'Datos no disponibles';
-    case 'Beta':
-      if (numValue >= 0.8 && numValue <= 1.2) return 'Similar al mercado';
-      if (numValue < 0.8) return 'Estable';
-      return 'Volátil';
-    case 'Máxima caída 1 año':
-      if (numValue > -15) return 'Controlada';
-      if (numValue >= -30) return 'Volátil';
-      return 'Riesgosa';
-    default:
-      return 'Análisis en progreso';
-  }
-};
-
-// Componente para fila de rendimiento
-const PerformanceRow = ({ label, value, unit = '%', comment }: {
-  label: string;
-  value: any;
-  unit?: string;
-  comment?: string;
-}) => {
-  const displayValue = value || 'N/A';
-  const colorClass = value ? getPerformanceColor(label, value) : 'text-gray-400';
-  const autoComment = value ? getPerformanceComment(label, value) : 'Sin datos';
-  const icon = typeof value === 'number' ? getTrendIcon(value) : '';
-  
+function PerfRow({label, value}:{label:string; value:number|null}) {
   return (
     <tr className="border-b border-gray-700/50">
       <td className="py-3 px-4 text-gray-300">{label}</td>
-      <td className={`py-3 px-4 font-mono text-lg ${colorClass}`}>
-        {icon} {typeof displayValue === 'number' ? `${displayValue > 0 ? '+' : ''}${displayValue.toFixed(1)}` : displayValue}{unit}
-      </td>
-      <td className={`py-3 px-4 text-sm ${colorClass}`}>
-        {comment || autoComment}
-      </td>
+      <td className={`py-3 px-4 font-mono text-lg ${perfColor(label, value)}`}>{pct(value)}</td>
+      <td className={`py-3 px-4 text-sm ${perfColor(label, value)}`}>{perfComment(label, value)}</td>
     </tr>
   );
-};
-
-// Componente para fila de riesgo
-const RiskRow = ({ label, value, unit = '', comment }: {
-  label: string;
-  value: any;
-  unit?: string;
-  comment?: string;
-}) => {
-  const displayValue = value || 'N/A';
-  const colorClass = value ? getRiskColor(label, value) : 'text-gray-400';
-  const autoComment = value ? getRiskComment(label, value) : 'Sin datos';
-  
+}
+function RiskRow({label, value, unit='%' }:{label:string; value:number|null; unit?:string}) {
+  const show = value == null ? "N/A" : unit === "%" ? `${value.toFixed(1)}%` : value.toFixed(2);
   return (
     <tr className="border-b border-gray-700/50">
       <td className="py-3 px-4 text-gray-300">{label}</td>
-      <td className={`py-3 px-4 font-mono text-lg ${colorClass}`}>
-        {typeof displayValue === 'number' ? displayValue.toFixed(1) : displayValue}{unit}
-      </td>
-      <td className={`py-3 px-4 text-sm ${colorClass}`}>
-        {comment || autoComment}
-      </td>
+      <td className={`py-3 px-4 font-mono text-lg ${riskColor(label, value)}`}>{show}</td>
+      <td className={`py-3 px-4 text-sm ${riskColor(label, value)}`}>{riskComment(label, value)}</td>
     </tr>
   );
-};
+}
 
-export default function DesempenoCard({ stockPerformance, stockBasicData, stockReport }: DesempenoCardProps) {
+/* =========================
+   Normalización (prefiere stockAnalysis.cards.*)
+   ========================= */
+function useNormalized(perf?: any, basic?: any, analysis?: any) {
+  const A = analysis || {};
+  const cards = A.cards || {};
+  const P = cards.performance || {};
+  const T = cards.technical || {};
+  const B = cards.benchmarks || {};
+  const D = (basic?.datos?.desempeno || {}) as Record<string, any>;
+  const DP = (basic?.datos?.desempeno?.performance || {}) as Record<string, any>;
+
+  // Precio actual (si no viene, usar de basic o de la prop stockPerformance)
+  const price =
+    num(A?.price) ??
+    num(basic?.price) ??
+    num(basic?.datos?.precio?.price) ??
+    num(perf?.current_price) ??
+    null;
+
+  // Retornos
+  const r1m = num(P?.returnsPct?.["1M"]) ?? num(DP["1M"]) ?? num(D?.["1M"]) ?? null;
+  const r3m = num(P?.returnsPct?.["3M"]) ?? num(DP["3M"]) ?? num(D?.["3M"]) ?? null;
+  const rYTD = num(P?.returnsPct?.["YTD"]) ?? num(DP["YTD"]) ?? num(D?.YTD) ?? null;
+  const r1y = num(P?.returnsPct?.["1Y"]) ?? num(DP["1Y"]) ?? num(D?.["1Y"]) ?? null;
+  const r3y = num(P?.returnsPct?.["3Y"]) ?? num(DP["3Y"]) ?? num(D?.["3Y"]) ?? null;
+  const r5y = num(P?.returnsPct?.["5Y"]) ?? num(DP["5Y"]) ?? num(D?.["5Y"]) ?? null;
+
+  // Riesgo
+  const beta = num(P?.beta) ?? num(D?.beta) ?? null;
+  const vol1y = num(P?.volatility1yPct) ?? num(D?.volatility1yPct) ?? null;
+
+  // 52w range y drawdown
+  const low52w = num(P?.low52w) ?? num(D?.low52w) ?? null;
+  const high52w = num(P?.high52w) ?? num(D?.high52w) ?? null;
+
+  // drawdown directo si lo provee el agregador; sino por 52w
+  const dd1y =
+    num(P?.drawdown1yPct) ??
+    (low52w != null && high52w != null && high52w > 0 ? ((low52w - high52w) / high52w) * 100 : null);
+
+  // Técnicos: SMA 20/50/200 y distancia (%)
+  const sma20 = num(T?.sma20) ?? num(D?.sma20) ?? null;
+  const sma50 = num(T?.sma50) ?? num(D?.sma50) ?? null;
+  const sma200 = num(T?.sma200) ?? num(D?.sma200) ?? null;
+  const distSMA20 = price && sma20 ? ((price - sma20) / sma20) * 100 : null;
+  const distSMA50 = price && sma50 ? ((price - sma50) / sma50) * 100 : null;
+  const distSMA200 = price && sma200 ? ((price - sma200) / sma200) * 100 : null;
+
+  // Benchmarks relativos (si existen)
+  const relSP1y = num(B?.relative1yVsSPX) ?? null;     // +% vs S&P 500
+  const relNDX1y = num(B?.relative1yVsNDX) ?? null;    // +% vs Nasdaq
+
+  return {
+    price,
+    returns: { r1m, r3m, rYTD, r1y, r3y, r5y },
+    risk:   { beta, vol1y, dd1y },
+    range:  { low52w, high52w },
+    tech:   { sma20, sma50, sma200, distSMA20, distSMA50, distSMA200 },
+    rel:    { relSP1y, relNDX1y },
+  };
+}
+
+/* =========================
+   Componente principal
+   ========================= */
+export default function DesempenoCard({ stockPerformance, stockBasicData, stockAnalysis, stockReport }: DesempenoCardProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Extraer datos de performance desde stockBasicData.datos.desempeno.performance
-  const performanceData = stockBasicData?.datos?.desempeno?.performance || {};
-  const parseDesempenoDataToNumbers = (data: Record<string, any>) => {
-    const parsed: Record<string, number | string | null> = {};
+  const data = useMemo(
+    () => useNormalized(stockPerformance, stockBasicData, stockAnalysis),
+    [stockPerformance, stockBasicData, stockAnalysis]
+  );
 
-    for (const [key, value] of Object.entries(data)) {
-      const parsedValue = parseFloat(value);
-      parsed[key] = !isNaN(parsedValue) ? parsedValue : value;
-    }
-
-    return parsed;
-  };
-
-  // Uso:
-  const rawDesempenoData = stockBasicData?.datos?.desempeno || {};
-  const desempenoData = parseDesempenoDataToNumbers(rawDesempenoData);
-
-  
-  // Función helper para convertir valores a números
-  const parsePerformanceValue = (value: any): number | null => {
-    if (value === null || value === undefined || value === '') return null;
-    const parsed = parseFloat(value);
-    return isNaN(parsed) ? null : parsed;
-  };
-  
-  // Calcular métricas de riesgo
-  const beta = typeof desempenoData.beta === 'number' ? desempenoData.beta : null;
-  const low52w = typeof desempenoData.low52w === 'number' ? desempenoData.low52w : null;
-  const high52w = typeof desempenoData.high52w === 'number' ? desempenoData.high52w : null;
-
-  const maxDrawdown = (low52w !== null && high52w !== null && high52w > 0)
-    ? ((low52w - high52w) / high52w * 100)
-    : null;
-
-  
-  // Convertir valores de performance a números
-  const performance1Y = parsePerformanceValue(performanceData["1Y"]);
-  const performance5Y = parsePerformanceValue(performanceData["5Y"]);
-  
-  console.log('Performance data from desempeno.performance:', performanceData);
-  console.log('Desempeno data:', desempenoData);
-  
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -241,48 +185,44 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockR
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-gray-400">Precio actual:</span>
-                  <span className="font-mono text-green-400">
-                    {stockPerformance?.current_price ? `$${stockPerformance.current_price.toFixed(2)}` : 'N/A'}
-                  </span>
+                  <span className="font-mono text-green-400">{money(data.price)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Beta:</span>
-                  <span className="font-mono text-blue-400">
-                    {beta ? beta.toFixed(2) : 'N/A'}
+                  <span className={`font-mono ${riskColor("Beta", data.risk.beta)}`}>
+                    {data.risk.beta == null ? "N/A" : data.risk.beta.toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Rendimiento 1 año:</span>
-                  <span className={`font-mono ${
-                    performance1Y !== null && performance1Y >= 0 ? 'text-green-400' : 'text-red-400'
-                  }`}>
-                    {performance1Y !== null ? `${performance1Y > 0 ? '+' : ''}${performance1Y.toFixed(2)}%` : 'N/A'}
-                  </span>
+                  <span className="text-gray-400">Rend. 1 año:</span>
+                  <span className={`font-mono ${perfColor("1 año", data.returns.r1y)}`}>{pct(data.returns.r1y)}</span>
                 </div>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Rendimiento 5 años:</span>
-                  <span className={`font-mono ${
-                    performance5Y !== null && performance5Y >= 0 ? 'text-green-400' : 'text-red-400'
-                  }`}>
-                    {performance5Y !== null ? `${performance5Y > 0 ? '+' : ''}${performance5Y.toFixed(2)}%` : 'N/A'}
-                  </span>
+                  <span className="text-gray-400">Rend. YTD:</span>
+                  <span className={`font-mono ${perfColor("YTD", data.returns.rYTD)}`}>{pct(data.returns.rYTD)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">52 sem. mín/máx:</span>
+                  <span className="text-gray-400">52s mín/máx:</span>
                   <span className="font-mono text-yellow-400">
-                    {!isNaN(parseFloat(low52w)) && !isNaN(parseFloat(high52w))
-                    ? `$${parseFloat(low52w).toFixed(2)} / $${parseFloat(high52w).toFixed(2)}`
-                    : 'N/A'}
+                    {rangeText(data.range.low52w, data.range.high52w)}
                   </span>
                 </div>
+                {data.tech.sma200 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Distancia SMA 200:</span>
+                    <span className={`font-mono ${riskColor("Distancia SMA 200", data.tech.distSMA200)}`}>
+                      {pct(data.tech.distSMA200)}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
       </DialogTrigger>
-      
+
       <DialogContent className="max-w-5xl bg-gray-900 border-green-500/30 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-green-400 text-2xl">Análisis de Desempeño Detallado</DialogTitle>
@@ -296,24 +236,15 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockR
           </p>
         </div>
 
-        {/* 2. TABLA DE RETORNOS POR PERÍODO */}
+        {/* 2. RETORNOS POR PERÍODO */}
         <div className="mt-6">
           <h3 className="text-green-400 text-lg font-semibold mb-4">Retornos por Período</h3>
-          
-          {/* Leyenda de colores */}
+
+          {/* Leyenda */}
           <div className="flex gap-6 mb-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-green-400 rounded"></div>
-              <span className="text-gray-300">Positivo</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-yellow-400 rounded"></div>
-              <span className="text-gray-300">Neutral</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-red-400 rounded"></div>
-              <span className="text-gray-300">Negativo</span>
-            </div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 bg-green-400 rounded" /><span className="text-gray-300">Positivo</span></div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 bg-yellow-400 rounded" /><span className="text-gray-300">Neutral</span></div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 bg-red-400 rounded" /><span className="text-gray-300">Negativo</span></div>
           </div>
 
           <div className="bg-gray-800/30 rounded-lg overflow-hidden">
@@ -326,39 +257,20 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockR
                 </tr>
               </thead>
               <tbody>
-                <PerformanceRow 
-                  label="1 mes" 
-                  value={performanceData["1M"]}
-                />
-                <PerformanceRow 
-                  label="3 meses" 
-                  value={performanceData["3M"]}
-                />
-                <PerformanceRow 
-                  label="YTD (año actual)" 
-                  value={performanceData["YTD"]}
-                />
-                <PerformanceRow 
-                  label="1 año" 
-                  value={performanceData["1Y"]}
-                />
-                <PerformanceRow 
-                  label="3 años" 
-                  value={performanceData["3Y"]}
-                />
-                <PerformanceRow 
-                  label="5 años" 
-                  value={performanceData["5Y"]}
-                />
+                <PerfRow label="1 mes" value={data.returns.r1m} />
+                <PerfRow label="3 meses" value={data.returns.r3m} />
+                <PerfRow label="YTD" value={data.returns.rYTD} />
+                <PerfRow label="1 año" value={data.returns.r1y} />
+                <PerfRow label="3 años" value={data.returns.r3y} />
+                <PerfRow label="5 años" value={data.returns.r5y} />
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* 3. VOLATILIDAD Y RIESGO RELATIVO */}
+        {/* 3. VOLATILIDAD Y RIESGO */}
         <div className="mt-6">
-          <h3 className="text-green-400 text-lg font-semibold mb-4">Volatilidad y Riesgo Relativo</h3>
-          
+          <h3 className="text-green-400 text-lg font-semibold mb-4">Volatilidad y Riesgo</h3>
           <div className="bg-gray-800/30 rounded-lg overflow-hidden">
             <table className="w-full">
               <thead className="bg-gray-700/50">
@@ -369,44 +281,66 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockR
                 </tr>
               </thead>
               <tbody>
-                <RiskRow 
-                  label="Volatilidad 1 año (%)" 
-                  value="Dato no disponible"
-                  unit=""
-                />
-                <RiskRow 
-                  label="Beta" 
-                  value={beta || 'N/A'}
-                  unit=""
-                />
-                <RiskRow 
-                  label="Máxima caída 1 año" 
-                  value={maxDrawdown ? maxDrawdown.toFixed(1) : 'N/A'}
-                  unit="%" 
-                />
+                <RiskRow label="Beta" value={data.risk.beta} unit="" />
+                <RiskRow label="Volatilidad 1Y" value={data.risk.vol1y} />
+                <RiskRow label="Máxima caída 1Y" value={data.risk.dd1y} />
+                {data.tech.distSMA200 != null && (
+                  <RiskRow label="Distancia SMA 200" value={data.tech.distSMA200} />
+                )}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* 4. INTERPRETACIÓN AUTOMÁTICA (IA) */}
-        <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-500/30 rounded-lg p-4">
+        {/* 4. BENCHMARKS RELATIVOS (si existen) */}
+        {(data.rel.relSP1y != null || data.rel.relNDX1y != null) && (
+          <div className="mt-6">
+            <h3 className="text-green-400 text-lg font-semibold mb-4">Desempeño Relativo vs. Índices</h3>
+            <div className="bg-gray-800/30 rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-gray-700/50">
+                  <tr>
+                    <th className="py-3 px-4 text-left text-green-400 font-semibold">Comparativa</th>
+                    <th className="py-3 px-4 text-left text-green-400 font-semibold">Diferencial</th>
+                    <th className="py-3 px-4 text-left text-green-400 font-semibold">Comentario</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.rel.relSP1y != null && (
+                    <tr className="border-b border-gray-700/50">
+                      <td className="py-3 px-4 text-gray-300">Rel. S&P 1Y</td>
+                      <td className={`py-3 px-4 font-mono text-lg ${perfColor("Rel. S&P 1Y", data.rel.relSP1y)}`}>
+                        {pct(data.rel.relSP1y)}
+                      </td>
+                      <td className={`py-3 px-4 text-sm ${perfColor("Rel. S&P 1Y", data.rel.relSP1y)}`}>
+                        {perfComment("Rel. S&P 1Y", data.rel.relSP1y)}
+                      </td>
+                    </tr>
+                  )}
+                  {data.rel.relNDX1y != null && (
+                    <tr className="border-b border-gray-700/50">
+                      <td className="py-3 px-4 text-gray-300">Rel. Nasdaq 1Y</td>
+                      <td className={`py-3 px-4 font-mono text-lg ${perfColor("Rel. Nasdaq 1Y", data.rel.relNDX1y)}`}>
+                        {pct(data.rel.relNDX1y)}
+                      </td>
+                      <td className={`py-3 px-4 text-sm ${perfColor("Rel. Nasdaq 1Y", data.rel.relNDX1y)}`}>
+                        {perfComment("Rel. Nasdaq 1Y", data.rel.relNDX1y)}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* 5. INTERPRETACIÓN IA */}
+        <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-500/30 rounded-lg p-4 mt-6">
           <h3 className="text-blue-400 text-lg font-semibold mb-2">Interpretación Automática (IA)</h3>
           <p className="text-gray-200 text-sm leading-relaxed italic">
             {stockReport?.analisisDesempeno?.["Conclusión para inversores"] || "No hay datos suficientes"}
-
           </p>
         </div>
-
-        {/* ACCIONES OPCIONALES */}
-        {/* <div className="mt-6 flex justify-end gap-4 pt-4 border-t border-gray-700/50">
-          <button className="text-sm text-green-300 hover:underline transition-colors">
-            Ver análisis completo
-          </button>
-          <button className="text-sm text-green-300 hover:underline transition-colors">
-            Comparar con índices
-          </button>
-        </div> */}
       </DialogContent>
     </Dialog>
   );

@@ -85,22 +85,70 @@ export interface StockReport {
 // Función principal para buscar todos los datos de una acción
 export async function searchStockData(symbol: string) {
   try {
-    // Buscar en la tabla datos_accion (datos básicos)
+    // Buscar en Supabase primero
     const { data: datosData, error: datosError } = await supabase
       .from('datos_accion')
-      .select(`
-        symbol,
-        fecha_de_creacion,
-        datos
-      `)
+      .select(`symbol, fecha_de_creacion, datos`)
       .eq('symbol', symbol.toUpperCase())
       .order('fecha_de_creacion', { ascending: false })
       .limit(1)
       .single();
 
-    if (datosError && datosError.code !== 'PGRST116') {
-      console.error('Error en datos básicos:', datosError);
+    // Si no se encuentra en Supabase, buscar en APIs externas
+    if (datosError && datosError.code === 'PGRST116') {
+      console.log(`Ticker ${symbol} no encontrado en Supabase, buscando en APIs externas...`);
+      
+      try {
+        // Importar las funciones de API
+        const { getCompanyProfile } = await import('@/api/fmpCompanyProfiles');
+        const { getHistoricalPrices } = await import('@/api/fmpHistoricalPrices');
+        
+        // Obtener datos de FMP
+        const [profileData, priceData] = await Promise.all([
+          getCompanyProfile(symbol),
+          getHistoricalPrices(symbol, 1) // último día
+        ]);
+        
+        if (profileData) {
+          // Formatear datos para que coincidan con la estructura esperada
+          const processedData = {
+            symbol: symbol.toUpperCase(),
+            company_name: profileData.companyName,
+            current_price: profileData.price,
+            market_cap: profileData.mktCap,
+            pe_ratio: profileData.pe,
+            volume: profileData.volume,
+            industry: profileData.industry,
+            country: profileData.country,
+            sector: profileData.sector,
+            exchange: profileData.exchange,
+            website: profileData.website,
+            description: profileData.description,
+            // ... más campos según necesites
+          };
+          
+          return {
+            basicData: processedData,
+            analysisData: null, // No disponible desde API externa
+            performanceData: null, // No disponible desde API externa
+            reportData: null, // No disponible desde API externa
+            success: true,
+            fromExternalAPI: true // Flag para indicar origen
+          };
+        }
+      } catch (apiError) {
+        console.error('Error obteniendo datos de API externa:', apiError);
+      }
     }
+    
+    // Si llegamos aquí, usar los datos de Supabase (datosData ya está declarado arriba)
+    if (datosError) {
+      console.error('Error buscando datos en Supabase:', datosError);
+      return { success: false, error: datosError };
+    }
+
+    // Remove the duplicate declaration - datosData is already available from line 89
+    // const { data: datosData, error: datosError } = await supabase... <- REMOVE THIS
 
     // Buscar análisis
     const { data: analysisData, error: analysisError } = await supabase
