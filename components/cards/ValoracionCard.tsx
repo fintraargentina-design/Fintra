@@ -356,7 +356,7 @@ export default function ValoracionCard({ stockAnalysis, stockBasicData, stockRep
         </div>
 
         {/* 4. INTERPRETACIÓN AUTOMÁTICA */}
-        <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-500/30 rounded-lg p-4 mt-6">
+        <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-green-500/30 rounded-lg p-4 mb-6">
           <h3 className="text-blue-400 text-lg font-semibold mb-2">Interpretación Automática (IA)</h3>
           <p className="text-gray-200 text-sm leading-relaxed italic">
             {stockReport?.analisisValoracion?.["Conclusión para inversores"] || "No hay datos suficientes"}

@@ -67,7 +67,7 @@ export default function DatosTab({
 
   return (
     <div className="flex flex-col">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <FundamentalCard
           stockBasicData={fundamentalNorm}
           stockAnalysis={stockAnalysis}

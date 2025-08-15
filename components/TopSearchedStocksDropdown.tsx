@@ -125,7 +125,7 @@ export default function TopSearchedStocksDropdown({ onStockClick }: TopSearchedS
         <button
           key={stock.symbol}
           onClick={() => handleStockClick(stock.symbol)}
-          className="px-3 py-1.5 text-green-400 hover:bg-green-400/10 cursor-pointer rounded-full border border-green-400/30 transition-colors duration-200 text-sm font-medium"
+          className="px-3 py-1.5 text-gray-400 hover:bg-orange-400/10 cursor-pointer transition-colors duration-200 text-sm font-medium"
         >
           {stock.symbol}
         </button>

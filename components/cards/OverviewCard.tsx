@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
-import { TrendingUp, DollarSign, Users, Building2, Calendar, User, FileText, BarChart3, Search } from 'lucide-react';
+import { TrendingUp, DollarSign, Users, Building2, Calendar, User, FileText, BarChart3, Search, SearchIcon } from 'lucide-react';
 import { getCompanyProfile } from '@/api/fmpCompanyProfiles';
 import { getConclusionColors } from '@/lib/conclusionColors';
 
@@ -477,16 +477,18 @@ export default function OverviewCard({ selectedStock, stockConclusion, onStockSe
       <Card className="bg-gray-900/50 border-gray-700/50 backdrop-blur-sm hover:bg-gray-800/50 transition-colors">
         <CardHeader className="pb-3">
           <CardTitle className="text-green-400 text-lg flex items-center justify-between">
-            <input
+            <input 
               type="text"
               value={isTickerFocused ? tickerInput : (tickerInput || data.symbol || '')}
               onChange={handleTickerChange}
               onKeyPress={handleTickerKeyPress}
               onFocus={handleTickerFocus}
               onBlur={handleTickerBlur}
-              placeholder={data.symbol || 'Buscar Ticker'}
-              className="bg-transparent border-none outline-none text-gray-400 text-lg font-medium cursor-text focus:text-green-400 transition-colors"
-              style={{ width: 'auto', minWidth: '60px' }}
+              placeholder={data.symbol || 'Buscar ticker...'}
+
+              className="justify-left focus:placeholder:text-transparent bg-orange-800/20 focus:bg-transparent border-none outline-none text-orange-400 text-lg font-medium cursor-text focus:text-orange-400 transition-colors"
+              style={{ width: '140px', minWidth: '60px' }}
+
             />
             <div className="text-gray-400 flex items-center gap-2">
              {typeof data.price === 'number' ? `$${Math.round(data.price)}` : 'N/A'}

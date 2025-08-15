@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import ConclusionRapidaCard from '@/components/cards/ConclusionRapidaCard';
 import OverviewCard from '@/components/cards/OverviewCard';
 import EstimacionCard from '@/components/cards/EstimacionCard';
+import Header from '@/components/layout/Header';
 
 export default function StockTerminal() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,7 +34,8 @@ export default function StockTerminal() {
   const [companyImage, setCompanyImage] = useState(''); 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'resumen'|'datos'|'chart'|'informe'|'estimacion'|'noticias'|'twits'>('resumen');
+  const [activeTab, setActiveTab] = useState<'resumen'|'datos'|'chart'|'informe'|'estimacion'|'noticias'|'twits'>('datos');
+
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [stockConclusion, setStockConclusion] = useState<any>(null);
@@ -201,92 +203,17 @@ export default function StockTerminal() {
     <div
       className={`min-h-screen transition-colors duration-300 ${
         isDarkMode
-          ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-black text-green-400'
-          : 'bg-gradient-to-br from-gray-100 via-white to-gray-50 text-gray-800'
+          ? 'text-green-400'
+          : 'bg-gray-100 text-gray-800'
       }`}
+      style={{
+        backgroundColor: isDarkMode ? '#1B1A1F' : undefined
+      }}
     >
-      <div className="flex min-h-screen">
-        {/* Sidebar */}
-        <div className="w-80 flex flex-col p-6 border-r border-green-400/20 bg-black/20">
-          <div className="flex items-center space-x-3 mb-8 pb-4 border-b border-green-400/20">
-            <Terminal className="w-8 h-8 text-green-400" />
-            <h1 className="text-xl font-bold text-green-400">FINTRA</h1>
-          </div>
-
-          <div className="flex flex-col space-y-6">
-            {/* Hora */}
-            <div className="space-y-3">
-              <div className="flex items-center space-x-3">
-                <span className={`font-mono text-sm ${isMarketOpen() ? 'text-green-400' : 'text-red-400'}`}>
-                  {currentTime
-                    ? currentTime.toLocaleTimeString('es-ES', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
-                    : '--:--:--'}
-                </span>
-                <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                </svg>
-              </div>
-
-              <div className="flex items-center space-x-3">
-                <span className={`font-mono text-sm ${isMarketOpen() ? 'text-green-400' : 'text-red-400'}`}>
-                  {currentTime
-                    ? currentTime.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
-                    : '--:--:--'}
-                </span>
-                <span className="text-green-400 font-semibold">NY</span>
-              </div>
-
-              <div className="flex items-center space-x-3">
-                <span className={`text-sm font-medium ${isMarketOpen() ? 'text-green-400' : 'text-red-400'}`}>
-                  {isMarketOpen() ? 'Market Open' : 'Market Close'}
-                </span>
-              </div>
-            </div>
-
-            <div className="border-t border-green-400/20" />
-
-            {/* Controles */}
-            <div className="space-y-3">
-              <Button
-                onClick={toggleTheme}
-                variant="ghost"
-                size="sm"
-                className="w-full text-gray-300 hover:bg-green-400/10 hover:text-green-400 justify-start transition-colors"
-              >
-                {isDarkMode ? <Sun className="w-4 h-4 mr-3" /> : <Moon className="w-4 h-4 mr-3" />}
-                {isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}
-              </Button>
-
-              <Button
-                onClick={handleAuth}
-                variant="ghost"
-                size="sm"
-                className="w-full text-gray-300 hover:bg-green-400/10 hover:text-green-400 justify-start transition-colors"
-              >
-                <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                {user ? 'Logout' : 'Login'}
-              </Button>
-            </div>
-
-            <div className="border-t border-green-400/20" />
-
-            {/* Fecha */}
-            <div className="flex items-center space-x-3 text-gray-400">
-              <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                <line x1="16" y1="2" x2="16" y2="6"></line>
-                <line x1="8" y1="2" x2="8" y2="6"></line>
-                <line x1="3" y1="10" x2="21" y2="10"></line>
-              </svg>
-              <span className="text-sm font-mono">
-                {currentTime ? currentTime.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '--/--/--'}
-              </span>
-            </div>
-          </div>
-        </div>
-
+      {/* Header */}
+      <Header user={user} onAuth={handleAuth} />
+      
+      <div className="flex min-h-screen"> 
         {/* Contenido principal */}
         <div className="flex-1 p-6">
           {error && (
@@ -298,11 +225,22 @@ export default function StockTerminal() {
           {selectedStock && (
             <>
               {/* Columnas */}
+              <div className='flex gap-6'>
+                <div className="w-1/2 flex items-center space-x-2 px-3 py-2">
+                    <span className="text-orange-400 text-sm font-medium flex-shrink-0">Más buscadas en Fintra:</span>
+                    <div className="flex space-x-1 overflow-x-auto scrollbar-thin min-w-0">
+                      <TopSearchedStocksDropdown onStockClick={handleTopStockClick} />   
+                    </div>
+                  </div>
+                <div className='w-1/2'>
+                  <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} />
+                </div>
+              </div>
               <div className="flex gap-6">
                 {/* Izquierda */}
-                <div className="w-2/5 flex flex-col gap-6">
+                <div className="w-1/2 flex flex-col gap-6">
                   {/* Búsqueda */}
-                  <div className="w-full">
+                  {/* <div className="w-full">
                     <div className="flex space-x-4 items-center">
                       <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-green-400" />
@@ -323,15 +261,7 @@ export default function StockTerminal() {
                         {isLoading ? 'Buscando...' : 'Buscar'}
                       </Button>
                     </div>
-                  </div>
-
-                  {/* Más buscadas */}
-                  <div className="flex items-center space-x-2 bg-black/30 border border-green-400/20 rounded-md px-3 py-2">
-                    <span className="text-green-400 text-sm font-medium flex-shrink-0">Más buscadas:</span>
-                    <div className="flex space-x-1 overflow-x-auto scrollbar-thin min-w-0">
-                      <TopSearchedStocksDropdown onStockClick={handleTopStockClick} />
-                    </div>
-                  </div>
+                  </div> */}
 
                   {/* Overview */}
                   <div className="space-y-4">
@@ -345,7 +275,8 @@ export default function StockTerminal() {
                 </div>
 
                 {/* Derecha */}
-                <div className="w-3/5 flex flex-col items-center justify-center">
+                <div className="w-1/2 flex flex-col items-center justify-center">
+                
                   <div className="w-full">
                     <RadarPeersCard
                       symbol={selectedSymbol || "NVDA"}
@@ -362,7 +293,7 @@ export default function StockTerminal() {
 
               {/* Tabs debajo de las columnas */}
               <div className="w-full mt-6">
-                <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} />
+                {/* <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} /> */}
                 <div className="mt-6">
                   {renderTabContent()}
                 </div>
@@ -370,12 +301,12 @@ export default function StockTerminal() {
             </>
           )}
 
-          {!selectedStock && (
+          {/* {!selectedStock && (
             <>
               <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} />
               <div className="mt-6">{renderTabContent()}</div>
             </>
-          )}
+          )} */}
         </div>
       </div>
     </div>

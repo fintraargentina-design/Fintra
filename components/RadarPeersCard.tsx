@@ -6,6 +6,8 @@ import * as echarts from "echarts/core";
 import { RadarChart as EchartsRadar } from "echarts/charts";
 import { TooltipComponent, LegendComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TrendingUp, Users, ChartNoAxesCombined } from 'lucide-react';
 
 // registra lo que usa ECharts
 echarts.use([EchartsRadar, TooltipComponent, LegendComponent, CanvasRenderer]);
@@ -194,77 +196,120 @@ export default function RadarPeersCard({ symbol = "NVDA" }: { symbol?: string })
       tooltip: { trigger: "item" as const },
       legend: {
         bottom: 6,
-        data: ["Data C", "Data D"],
-        textStyle: { color: "#cbd5e1" },
+        data: [main?.label || "Empresa Principal", peer?.label || "Competidor"],
+        textStyle: { color: "#9ca3af" },
       },
       radar: [
         {
           indicator: indicators,
           center: ["50%", "45%"],
           radius: "55%",
-          axisName: { color: "#999", backgroundColor: "#3b3b3b", borderRadius: 4, padding: [2, 6] },
+          axisName: { color: "#9ca3af", borderRadius: 8, padding: [2, 6] },
           splitArea: {
             areaStyle: {
-              color: ["rgba(255,255,255,0.02)", "rgba(255,255,255,0.04)"],
+              color: ["rgba(158, 165, 163, 0.02)", "rgba(158, 165, 163, 0.04)"],
             },
           },
-          axisLine: { lineStyle: { color: "rgba(255,255,255,0.15)" } },
-          splitLine: { lineStyle: { color: "rgba(255,255,255,0.1)" } },
+          axisLine: { lineStyle: { color: "rgba(100, 110, 107, 0.3)" } },
+          splitLine: { lineStyle: { color: "rgba(100, 110, 107, 0.2)" } },
         },
       ],
       series: [
         {
-          name: main?.label ?? "Data C",
+          name: main?.label ?? "Empresa Principal",
           type: "radar" as const,
-          symbol: "rect",
-          symbolSize: 8,
-          lineStyle: { width: 2, type: "dashed", color: "#60a5fa" },
-          itemStyle: { color: "#60a5fa" },
-          data: [{ value: mainVals, name: "Data C" }],
+          symbol: "circle",
+          symbolSize: 6,
+          lineStyle: { width: 2, color: "#ff917c" },
+          itemStyle: { color: "#ff917c" },
+          areaStyle: { 
+            color: new echarts.graphic.RadialGradient(0.1, 0.6, 1, [
+              {
+                color: 'rgba(255, 183, 124, 0.1)',
+                offset: 0
+              },
+              {
+                color: 'rgba(255, 183, 124, 0.9)',
+                offset: 1
+              }
+            ])
+          },
+          data: [{ value: mainVals, name: main?.label || "Empresa Principal" }],
         },
         {
-          name: peer?.label ?? "Data D",
+          name: peer?.label ?? "Competidor",
           type: "radar" as const,
-          areaStyle: { color: "rgba(244, 114, 182, 0.35)" },
-          lineStyle: { width: 2, color: "rgba(244, 114, 182, 1)" },
-          itemStyle: { color: "rgba(244, 114, 182, 1)" },
-          data: [{ value: peerVals, name: "Data D" }],
+          symbol: "circle",
+          symbolSize: 6,
+          lineStyle: { width: 2, type: 'dashed', color: "#60a5fa" },
+          itemStyle: { color: "#60a5fa" },
+          data: [{ value: peerVals, name: peer?.label || "Competidor" }],
         },
       ],
     };
   }, [main, peer]);
 
-  return (
-    <div className="rounded-2xl border border-gray-800 bg-[#0b0f14]">
-      {/* barra superior de peers */}
-      <div className="flex gap-2 overflow-x-auto p-3 border-b border-gray-800">
-        {peers.length === 0 ? (
-          <span className="text-gray-400 text-sm">Sin peers</span>
-        ) : (
-          peers.map((p) => (
-            <button
-              key={p}
-              onClick={() => setActivePeer(p)}
-              className={`px-3 py-1 rounded-full border text-sm ${
-                p === activePeer
-                  ? "bg-rose-500/20 border-rose-400/40 text-rose-300"
-                  : "bg-emerald-500/10 border-emerald-400/30 text-emerald-300 hover:bg-emerald-500/20"
-              }`}
-            >
-              {p}
-            </button>
-          ))
-        )}
-      </div>
+  if (loading) {
+    return (
+      <Card className="bg-gray-900/50 border-gray-700/50">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center h-96">
+            <div className="text-gray-400">Cargando análisis de competidores...</div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
-      {/* radar */}
-      <div style={{ height: 440, width: "100%" }}>
-        {!loading && main ? (
-          <ReactEChartsCore echarts={echarts as any} option={option as any} style={{ height: "100%", width: "100%" }} />
-        ) : (
-          <div className="h-full grid place-items-center text-gray-400 text-sm">Cargando…</div>
-        )}
-      </div>
-    </div>
+  return (
+    <Card className="bg-gray-900/50 border-gray-700/50 transition-colors">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-gray-400 text-lg flex items-center gap-2">
+          <ChartNoAxesCombined className="text-orange-400 w-5 h-5" />
+          Análisis Comparativo
+          {main && (
+            <span className="text-m text-orange-400 font-normal ml-2">
+              {main.symbol}
+            </span>
+          )}
+          vs 
+          <div className="flex gap-2 overflow-x-auto">
+            {peers.length === 0 ? (
+              <span className="text-gray-500 text-m">Sin competidores disponibles</span>
+            ) : (
+              peers.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setActivePeer(p)}
+                  className={`px-3 py-1 ${
+                    p === activePeer
+                      ? "border-orange-400 text-orange-400"
+                      : "border-gray-600/50 text-gray-300 hover:bg-orange-500/10 hover:border-orange-400/30 hover:text-orange-400"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))
+            )}
+          </div>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Radar Chart */}
+        <div style={{ height: 400, width: "100%" }}>
+            {main ? (
+              <ReactEChartsCore 
+                echarts={echarts as any} 
+                option={option as any} 
+                style={{ height: "100%", width: "100%" }} 
+              />
+            ) : (
+              <div className="h-full grid place-items-center text-gray-400 text-sm">
+                No hay datos disponibles
+              </div>
+            )}
+          </div>
+      </CardContent>
+    </Card>
   );
 }
