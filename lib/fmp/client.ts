@@ -1,67 +1,37 @@
-// /lib/fmp/client.ts
-import "server-only";
+// lib/fmp/client.ts  (NO server-only; sin process.env)
+const BASE = "/api/fmp";
 
-const BASE_URL = process.env.FMP_BASE_URL || "https://financialmodelingprep.com";
-const API_KEY = process.env.FMP_API_KEY; // ⚠️ Server-side, NO public.
+type Params = Record<string, string | number | boolean | undefined>;
 
-if (!API_KEY) {
-  // No tiramos error para no romper build, pero en runtime devolveremos 500 si falta
-  console.warn("[FMP] FMP_API_KEY no configurada en el servidor (.env).");
-}
-
-type Query = Record<string, string | number | boolean | undefined>;
-
-function buildUrl(path: string, query: Query = {}): string {
-  const url = new URL(`${BASE_URL}${path}`);
-  Object.entries(query).forEach(([k, v]) => {
-    if (v !== undefined) url.searchParams.set(k, String(v));
-  });
-  if (API_KEY) url.searchParams.set("apikey", API_KEY);
-  return url.toString();
-}
-
-// Reintentos simples para 429/5xx
-async function fetchWithRetry(url: string, init?: RequestInit, retries = 2): Promise<Response> {
-  let attempt = 0;
-  let lastErr: unknown;
-  while (attempt <= retries) {
-    try {
-      const res = await fetch(url, { ...init, cache: "no-store" });
-      if (res.ok) return res;
-      // Retries para 429/5xx
-      if (res.status === 429 || res.status >= 500) {
-        await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
-        attempt++;
-        continue;
-      }
-      return res; // errores 4xx sin retry
-    } catch (err) {
-      lastErr = err;
-      await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
-      attempt++;
-    }
+function toQs(params: Params) {
+  const obj: Record<string, string> = {};
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null) obj[k] = String(v);
   }
-  throw lastErr ?? new Error("Fetch retry agotado");
+  const qs = new URLSearchParams(obj).toString();
+  return qs ? `?${qs}` : "";
 }
 
-export async function fmpGet<T>(path: string, query: Query = {}): Promise<T> {
-  if (!API_KEY) {
-    throw new Error("FMP_API_KEY ausente en el servidor");
-  }
-  const url = buildUrl(path, query);
-  const res = await fetchWithRetry(url);
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`FMP ${res.status} ${res.statusText} — ${text}`);
-  }
-  return res.json() as Promise<T>;
+async function get<T>(path: string, params: Params = {}): Promise<T> {
+  const url = `${BASE}${path}${toQs(params)}`;
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error(`${path} ${r.status}`);
+  return r.json() as Promise<T>;
 }
 
-// lib/fmpClient.ts
-export async function getPeers(symbol: string) {
-  const r = await fetch(`/api/fmp/peers?symbol=${encodeURIComponent(symbol)}`, {
-    cache: "no-store",
-  });
-  if (!r.ok) throw new Error(`Peers ${r.status}`);
-  return r.json() as Promise<{ symbol: string; peers: string[] }>;
-}
+import type { DetailedPeersResponse } from "@/lib/fmp/types";
+
+export const fmp = {
+  profile: (symbol: string) => get<any[]>(`/profile`, { symbol }),
+  ratios:  (symbol: string) => get<any[]>(`/ratios`,  { symbol }),
+  growth:  (symbol: string) => get<any[]>(`/growth`,  { symbol }),
+  peers:   (symbol: string) =>
+    get<{ symbol: string; peers: string[] }>(`/peers`, { symbol }),
+
+  detailedPeers: (symbol: string, limit = 10) =>
+    get<DetailedPeersResponse>(`/peers/detailed`, { symbol, limit }),
+
+  // Actívalos solo si tienes los routes creados:
+  // keyMetrics: (symbol: string) => get<any[]>(`/key-metrics`, { symbol }),
+  // cashflow:   (symbol: string) => get<any[]>(`/cashflow`,   { symbol }),
+};

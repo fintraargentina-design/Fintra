@@ -1,11 +1,11 @@
 // /app/api/fmp/peers/detailed/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { fmpGet } from "@/lib/fmp/client";
+import { NextResponse } from "next/server";
+import { fmpServer } from "@/lib/fmp/server"; // <-- usa el server SDK
 import { DetailedPeer, DetailedPeersResponse } from "@/lib/fmp/types";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const symbol = searchParams.get("symbol")?.toUpperCase();
   const limit = Number(searchParams.get("limit") ?? 10);
@@ -15,29 +15,29 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // 1) peers
-    const raw: any = await fmpGet("/stable/stock-peers", { symbol });
+    // 1) peers (stable/stock-peers)
+    const raw: any = await fmpServer.peers(symbol);
     const peersList: string[] =
       Array.isArray(raw) ? (raw[0]?.peersList ?? []) : (raw?.peersList ?? []);
 
     const peers = (peersList || [])
       .filter((p: unknown): p is string => typeof p === "string")
-      .filter((p: string) => p.toUpperCase() !== symbol)
+      .filter((p) => p.toUpperCase() !== symbol)
       .slice(0, Math.max(1, limit));
 
     if (!peers.length) {
-      return NextResponse.json({ symbol, peers: [] }, { status: 200 });
+      return NextResponse.json({ symbol, peers: [] } as DetailedPeersResponse, { status: 200 });
     }
 
-    // 2) perfiles en batch
+    // 2) perfiles en batch (FMP acepta CSV: /profile/AAPL,MSFT,...)
     const csv = peers.join(",");
-    const profiles: any[] = await fmpGet(`/api/v3/profile/${csv}`);
+    const profiles: any[] = await fmpServer.profile(csv);
 
     const map: DetailedPeer[] = (profiles || []).map((p: any) => ({
       symbol: p.symbol,
       companyName: p.companyName,
       price: p.price,
-      mktCap: p.mktCap,
+      mktCap: p.mktCap ?? p.marketCap,
       beta: p.beta,
       sector: p.sector,
       industry: p.industry,
@@ -45,10 +45,7 @@ export async function GET(req: NextRequest) {
       image: p.image,
     }));
 
-    const payload: DetailedPeersResponse = {
-      symbol,
-      peers: map,
-    };
+    const payload: DetailedPeersResponse = { symbol, peers: map };
     return NextResponse.json(payload, { status: 200 });
   } catch (err: any) {
     return NextResponse.json(

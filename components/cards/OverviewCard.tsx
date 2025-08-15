@@ -2,7 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
-import { TrendingUp, DollarSign, Users, Building2, Calendar, User, FileText, BarChart3, Search, SearchIcon } from 'lucide-react';
+import { TrendingUp, DollarSign, Users, Building2, Calendar, User, FileText, BarChart3, Search, SearchIcon, DollarSign as DollarSignIcon, TextCursorInput } from 'lucide-react';
+
 import { getCompanyProfile } from '@/api/fmpCompanyProfiles';
 import { getConclusionColors } from '@/lib/conclusionColors';
 
@@ -159,7 +160,7 @@ export default function OverviewCard({ selectedStock, stockConclusion, onStockSe
 
   if (loading) {
     return (
-      <Card className="bg-gray-900/50 border-gray-700/50 backdrop-blur-sm">
+      <Card className="bg-tarjetas border-gray-700/50 backdrop-blur-sm">
         <CardContent className="p-6">
           <div className="flex items-center justify-center h-32">
             <div className="text-gray-400">Cargando perfil de la empresa...</div>
@@ -171,7 +172,7 @@ export default function OverviewCard({ selectedStock, stockConclusion, onStockSe
 
   if (error) {
     return (
-      <Card className="bg-gray-900/50 border-gray-700/50 backdrop-blur-sm">
+      <Card className="bg-tarjetas border-gray-700/50">
         <CardContent className="p-6">
           <div className="flex items-center justify-center h-32">
             <div className="text-red-400">{error}</div>
@@ -215,11 +216,11 @@ export default function OverviewCard({ selectedStock, stockConclusion, onStockSe
             onChange={(e) => setSearchValue(e.target.value)}
             onKeyDown={handleKeyPress}
             placeholder="Buscar ticker..."
-            className="h-8 w-32 bg-gray-800 border-gray-600 text-white"
+            className="h-8 w-32 bg-tarjetas border-gray-600 text-white"
             autoFocus
           />
           <Search 
-            className="w-4 h-4 text-gray-400 cursor-pointer hover:text-green-400" 
+            className="w-4 h-4 text-gray-400 cursor-pointer hover:text-orange-400" 
             onClick={handleSearch}
           />
         </div>
@@ -229,7 +230,7 @@ export default function OverviewCard({ selectedStock, stockConclusion, onStockSe
     if (!value || value === 'N/A') {
       return (
         <span 
-          className="text-gray-500 cursor-pointer hover:text-green-400 transition-colors"
+          className="text-gray-500 cursor-pointer hover:text-orange-400 transition-colors"
           onClick={() => handleNAClick(fieldName)}
         >
           N/A
@@ -263,27 +264,27 @@ export default function OverviewCard({ selectedStock, stockConclusion, onStockSe
 
         {/* Todas las preguntas y respuestas */}
         <div className="space-y-4">
-          <div className="bg-gray-900/50 p-4 rounded border-l-4 border-green-500/50">
+          <div className="bg-tarjetas p-4 rounded border-l-4 border-green-500/50">
             <h4 className="text-green-400 text-lg font-semibold mb-3">¿Qué hace la empresa?</h4>
             <p className="text-gray-200 leading-relaxed">{analysisData.queHace}</p>
           </div>
 
-          <div className="bg-gray-900/50 p-4 rounded border-l-4 border-blue-500/50">
+          <div className="bg-tarjetas p-4 rounded border-l-4 border-blue-500/50">
             <h4 className="text-blue-400 text-lg font-semibold mb-3">¿Tiene una ventaja clara frente a la competencia?</h4>
             <p className="text-gray-200 leading-relaxed">{analysisData.ventajaCompetitiva}</p>
           </div>
 
-          <div className="bg-gray-900/50 p-4 rounded border-l-4 border-yellow-500/50">
+          <div className="bg-tarjetas p-4 rounded border-l-4 border-yellow-500/50">
             <h4 className="text-yellow-400 text-lg font-semibold mb-3">¿Gana dinero de verdad y lo sigue haciendo crecer?</h4>
             <p className="text-gray-200 leading-relaxed">{analysisData.ganaDinero}</p>
           </div>
 
-          <div className="bg-gray-900/50 p-4 rounded border-l-4 border-purple-500/50">
+          <div className="bg-tarjetas p-4 rounded border-l-4 border-purple-500/50">
             <h4 className="text-purple-400 text-lg font-semibold mb-3">¿El negocio puede seguir creciendo en 5 o 10 años?</h4>
             <p className="text-gray-200 leading-relaxed">{analysisData.crecimientoFuturo}</p>
           </div>
 
-          <div className="bg-gray-900/50 p-4 rounded border-l-4 border-red-500/50">
+          <div className="bg-tarjetas p-4 rounded border-l-4 border-red-500/50">
             <h4 className="text-red-400 text-lg font-semibold mb-3">¿El precio tiene sentido o está inflado?</h4>
             <p className="text-gray-200 leading-relaxed">{analysisData.precioSentido}</p>
           </div>
@@ -295,8 +296,8 @@ export default function OverviewCard({ selectedStock, stockConclusion, onStockSe
   const renderOverviewContent = () => (
     <div className="space-y-6">
       {/* Información de la Empresa */}
-      <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
-        <h3 className="text-green-400 text-lg font-semibold mb-4 flex items-center gap-2">
+      <div className="bg-tarjetas rounded-lg p-4 border border-gray-700/30">
+        <h3 className="text-orange-400 text-lg font-semibold mb-4 flex items-center gap-2">
           <Building2 className="w-5 h-5" />
           Información de la Empresa
         </h3>
@@ -334,12 +335,13 @@ export default function OverviewCard({ selectedStock, stockConclusion, onStockSe
             <div className="flex justify-between">
               <span className="text-gray-400">Sitio web:</span>
               {data.website ? (
-                <span className="text-green-400">
+                <span className="text-orange-400">
+
                   <a
                     href={data.website.startsWith('http') ? data.website : `https://${data.website}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hover:text-green-300 underline"
+                    className="hover:text-orange-300 underline"
                   >
                     {data.website.replace(/^https?:\/\//, '').trim()}
                   </a>
@@ -361,8 +363,8 @@ export default function OverviewCard({ selectedStock, stockConclusion, onStockSe
       </div>
 
       {/* Métricas */}
-      <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
-        <h3 className="text-green-400 text-lg font-semibold mb-4 flex items-center gap-2">
+      <div className="bg-tarjetas rounded-lg p-4 border border-gray-700/30">
+        <h3 className="text-orange-400 text-lg font-semibold mb-4 flex items-center gap-2">
           <DollarSign className="w-5 h-5" />
           Métricas Financieras Clave
         </h3>
@@ -372,19 +374,19 @@ export default function OverviewCard({ selectedStock, stockConclusion, onStockSe
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-400">Cap. de Mercado:</span>
-                <span className="text-green-400 font-mono">
+                <span className="text-orange-400 font-mono">
                   {formatLargeNumber(data.marketCap)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Precio Actual:</span>
-                <span className="text-green-400 font-mono">
+                <span className="text-orange-400 font-mono">  
                   {typeof data.price === 'number' ? `$${data.price.toFixed(2)}` : 'N/A'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Moneda:</span>
-                <span className="text-green-400 font-mono">{data.currency || 'N/A'}</span>
+                <span className="text-orange-400 font-mono">{data.currency || 'N/A'}</span>
               </div>
             </div>
           </div>
@@ -474,79 +476,89 @@ export default function OverviewCard({ selectedStock, stockConclusion, onStockSe
 
   return (
     <Dialog>
-      <Card className="bg-gray-900/50 border-gray-700/50 backdrop-blur-sm hover:bg-gray-800/50 transition-colors">
+      <Card className="bg-tarjetas">
         <CardHeader className="pb-3">
           <CardTitle className="text-green-400 text-lg flex items-center justify-between">
-            <input 
-              type="text"
-              value={isTickerFocused ? tickerInput : (tickerInput || data.symbol || '')}
-              onChange={handleTickerChange}
-              onKeyPress={handleTickerKeyPress}
-              onFocus={handleTickerFocus}
-              onBlur={handleTickerBlur}
-              placeholder={data.symbol || 'Buscar ticker...'}
+            <div className="flex flex-col gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                <div className="flex items-center justify-center">
+                  {data.image && (
+                    <img 
+                      src={data.image} 
+                      alt={`Logo de ${data.companyName || data.symbol}`}
+                      className="justify-end w-10 h-10 object-contain rounded"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                  )}
+                </div>
+                
+                <div className="space-y-0">
+                  <div className="flex items-center gap-2">
+                    <TextCursorInput className="w-4 h-4 text-green-400" />
+                    <span className="text-sm text-gray-400">Ticker</span>
+                  </div>
+                    <div className="text-lg font-semibold text-green-400">
+                      <input
+                        type="text"
+                        value={isTickerFocused ? tickerInput : (tickerInput || data.symbol || '')}
+                        onChange={handleTickerChange}
+                        onKeyPress={handleTickerKeyPress}
+                        onFocus={handleTickerFocus}
+                        onBlur={handleTickerBlur}
+                        placeholder={data.symbol || 'Buscar...'}
+                        className="justify-left justify-center focus:placeholder:text-transparent bg-orange-800/20 border-none outline-none text-orange-400 text-lg font-medium cursor-text focus:text-orange-400 transition-colors"
+                        // Estilo dinámico basado en las condiciones
+                        style={{
+                          background: data.symbol ? 'transparent' : 'bg-orange-800/20',
+                          width: data.symbol ? 'fit-content' : '90px', // O la lógica que prefieras
+                          minWidth: '60px',
+                        }}
+                      />
+                  </div>
+                </div>
+                
 
-              className="justify-left focus:placeholder:text-transparent bg-orange-800/20 focus:bg-transparent border-none outline-none text-orange-400 text-lg font-medium cursor-text focus:text-orange-400 transition-colors"
-              style={{ width: '140px', minWidth: '60px' }}
+              
+                <div className="space-y-0">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-green-400" />
+                    <span className="text-sm text-gray-400">Precio</span>
+                  </div>
+                    <div className="text-lg font-semibold text-green-400">
+                  {typeof data.price === 'number' ? `${Math.round(data.price)}` : 'N/A'}
+                </div>
+                </div>
+                
+                <div className="space-y-0">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-green-400" />
+                    <span className="text-sm text-gray-400">Beta</span>
+                  </div>
+                    <p className="text-lg font-semibold text-green-400">
+                    {typeof data.beta === 'number' ? data.beta.toFixed(2) : 'N/A'}
+                    </p>
+                </div>
 
-            />
-            <div className="text-gray-400 flex items-center gap-2">
-             {typeof data.price === 'number' ? `$${Math.round(data.price)}` : 'N/A'}
+                <div className="space-y-0">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-green-400" />
+                    <span className="text-sm text-gray-400">CEO</span>
+                  </div>
+                  <p className="text-lg font-semibold text-green-400">
+                    {data.ceo || 'N/A'}
+                  </p>
+                </div>
+              </div>
             </div>
-            {data.image && (
-              <img 
-                src={data.image} 
-                alt={`Logo de ${data.companyName || data.symbol}`}
-                className="w-8 h-8 object-contain rounded"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                }}
-              />
-            )}
+            
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-gray-400">Cap. Mercado</span>
-              </div>
-              <p className="text-lg font-semibold text-green-400">
-                {formatLargeNumber(data.marketCap)}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-gray-400">Beta</span>
-              </div>
-              <p className="text-lg font-semibold text-green-400">
-                {typeof data.beta === 'number' ? data.beta.toFixed(2) : 'N/A'}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-gray-400">Empleados</span>
-              </div>
-              <p className="text-lg font-semibold text-green-400">
-                {data.fullTimeEmployees?.toLocaleString() || 'N/A'}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-gray-400">CEO</span>
-              </div>
-              <p className="text-lg font-semibold text-green-400">
-                {data.ceo || 'N/A'}
-              </p>
-            </div>
-          </div>
           <div className="pt-2 border-t border-gray-700/50">
             <DialogTrigger asChild>
-              <p className="text-xs text-gray-500 text-center cursor-pointer hover:text-green-400 transition-colors">
+              <p className="text-xs text-gray-500 text-center cursor-pointer hover:text-orange-400 transition-colors">
                 Haz clic para ver detalles completos
               </p>
             </DialogTrigger>
@@ -554,9 +566,9 @@ export default function OverviewCard({ selectedStock, stockConclusion, onStockSe
         </CardContent>
       </Card>
 
-      <DialogContent className="bg-gray-900 border-gray-700 max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="bg-tarjetas border-gray-700 max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-green-400 text-xl flex items-center gap-2">
+          <DialogTitle className="text-orange-400 text-xl flex items-center gap-2">
             {data.image ? (
                 <img 
                   src={data.image} 
@@ -580,8 +592,8 @@ export default function OverviewCard({ selectedStock, stockConclusion, onStockSe
               onClick={() => setActiveTab('overview')}
               className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
                 activeTab === 'overview'
-                  ? 'bg-green-500/20 text-green-400 border-b-2 border-green-500'
-                  : 'text-gray-400 hover:text-green-300 hover:bg-gray-800/50'
+                  ? 'bg-orange-500/20 text-orange-400 border-b-2 border-orange-500'
+                  : 'text-gray-400 hover:text-orange-300 hover:bg-fondoDeTarjetas'
               }`}
             >
               <div className="flex items-center gap-2">
@@ -593,8 +605,8 @@ export default function OverviewCard({ selectedStock, stockConclusion, onStockSe
               onClick={() => setActiveTab('analysis')}
               className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
                 activeTab === 'analysis'
-                  ? 'bg-green-500/20 text-green-400 border-b-2 border-green-500'
-                  : 'text-gray-400 hover:text-green-300 hover:bg-gray-800/50'
+                  ? 'bg-orange-500/20 text-orange-400 border-b-2 border-orange-500'
+                  : 'text-gray-400 hover:text-orange-300 hover:bg-gray-800/50'
               }`}
             >
               <div className="flex items-center gap-2">

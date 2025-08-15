@@ -253,7 +253,7 @@ export default function ValoracionCard({ stockAnalysis, stockBasicData, stockRep
             <CardTitle className="text-green-400 text-lg">Valoración</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            <div className="grid grid-cols-2 gap-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-400">P/E (PER):</span>
                 <span className={`font-mono ${colorFor("P/E (PER)", data.pe)}`}>{ratio(data.pe)}</span>
@@ -303,7 +303,7 @@ export default function ValoracionCard({ stockAnalysis, stockBasicData, stockRep
           <h3 className="text-green-400 text-lg font-semibold mb-4">Múltiplos Clave</h3>
 
           {/* Leyenda */}
-          <div className="flex gap-6 mb-4 text-sm">
+          <div className="flex gap-2 mb-4 text-sm">
             <div className="flex items-center gap-2"><div className="w-3 h-3 bg-green-400 rounded" /><span className="text-gray-300">Bueno</span></div>
             <div className="flex items-center gap-2"><div className="w-3 h-3 bg-yellow-400 rounded" /><span className="text-gray-300">Neutral</span></div>
             <div className="flex items-center gap-2"><div className="w-3 h-3 bg-red-400 rounded" /><span className="text-gray-300">Negativo</span></div>

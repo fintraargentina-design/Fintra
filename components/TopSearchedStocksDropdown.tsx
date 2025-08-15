@@ -86,7 +86,7 @@ export default function TopSearchedStocksDropdown({ onStockClick }: TopSearchedS
   // Estado de carga
   if (loading) {
     return (
-      <div className="px-3 py-2 text-green-400 text-sm flex items-center space-x-2">
+      <div className="px-3 py-2 text-orange-400 text-sm flex items-center space-x-2">
         <RefreshCw className="w-3 h-3 animate-spin" />
         <span>Cargando...</span>
       </div>

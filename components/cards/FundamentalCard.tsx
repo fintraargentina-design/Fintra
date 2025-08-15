@@ -1,339 +1,467 @@
+// components/cards/FundamentalCard.tsx
+"use client";
+
+import React, { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import * as echarts from "echarts/core";
+import { BarChart } from "echarts/charts";
+import { GridComponent, TooltipComponent } from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useMemo, useState } from "react";
+import { fmp } from "@/lib/fmp/client"; // <-- cliente que llama a /api/fmp
 
-/** 
- * Props:
- * - stockAnalysis puede venir del agregador: getAllCardsData(symbol)
- *   => stockAnalysis.cards.fundamental.indicadores.*
- * - Conservamos compatibilidad con tu objeto anterior (stockBasicData)
- */
-interface FundamentalCardProps {
-  stockBasicData?: any;
-  stockAnalysis?: any;  // ideal: salida de getAllCardsData
-  stockReport?: any;
-}
+echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
-/* =========================
-   Helpers de validación/parseo
-   ========================= */
-const isValidValue = (val: any) => {
-  if (val === null || val === undefined) return false;
-  if (typeof val === "string") {
-    const s = val.trim().toLowerCase();
-    if (!s || s === "n/a" || s === "-") return false;
-    const n = Number(val.replace(/[^\d.-]/g, ""));
-    return Number.isFinite(n);
-  }
-  if (typeof val === "number") return Number.isFinite(val);
-  return false;
+const ReactECharts = dynamic(() => import("echarts-for-react/lib/core"), {
+  ssr: false,
+});
+
+/* ────────────────────────────────────────────
+   Utils de normalización / formatos (0–100)
+   ──────────────────────────────────────────── */
+const clamp = (x: number, min = 0, max = 100) => Math.max(min, Math.min(max, x));
+const pctCap = (x?: number | null, cap = 40) =>
+  x == null ? null : clamp((Math.max(x, 0) / cap) * 100);
+const inverseRatio = (x?: number | null, bueno = 0.3, maxMalo = 1.5) => {
+  if (x == null) return null;
+  const v = Math.min(Math.max(x, 0), maxMalo);
+  const score = ((maxMalo - v) / (maxMalo - bueno)) * 100;
+  return clamp(score);
 };
-
-const parseValue = (val: any): number | null => {
-  if (typeof val === "number") return Number.isFinite(val) ? val : null;
-  if (typeof val === "string") {
-    const cleaned = val.replace(/[^\d.-]/g, "");
-    const n = parseFloat(cleaned);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
+const sweetSpot = (x?: number | null, ideal = 2, rango = 1.5) => {
+  if (x == null) return null;
+  const dist = Math.abs(x - ideal);
+  const score = (1 - Math.min(dist / rango, 1)) * 100;
+  return clamp(score);
 };
+const logSaturate = (x?: number | null, cap = 20) => {
+  if (x == null) return null;
+  const v = Math.min(Math.max(x, 0), cap);
+  return clamp((Math.log(1 + v) / Math.log(1 + cap)) * 100);
+};
+const linearCap = (x?: number | null, cap = 60) =>
+  x == null ? null : clamp((x / cap) * 100);
 
 const fmtPercent = (v?: number | null, d = 1) =>
-  v === null || v === undefined ? "N/A" : `${(v as number).toFixed(d)}%`;
-
+  v == null ? "N/A" : `${v.toFixed(d)}%`;
 const fmtRatio = (v?: number | null, d = 2) =>
-  v === null || v === undefined ? "N/A" : (v as number).toFixed(d);
+  v == null ? "N/A" : v.toFixed(d);
 
-const formatFCFCompact = (raw?: number | null) => {
-  if (!Number.isFinite(raw as number)) return "N/A";
-  const n = raw as number;
-  const sign = n < 0 ? "-" : "";
-  const a = Math.abs(n);
-  if (a >= 1e12) return `${sign}$${(a / 1e12).toFixed(1)}T`;
-  if (a >= 1e9)  return `${sign}$${(a / 1e9).toFixed(1)}B`;
-  if (a >= 1e6)  return `${sign}$${(a / 1e6).toFixed(1)}M`;
-  return `${sign}$${a.toFixed(0)}`;
-};
+/* Para growth anual FMP (viene en decimales: 0.10 = 10%) */
+function cagrFromGrowthSeries(series: number[]): number | null {
+  const valid = series.filter((x) => Number.isFinite(x));
+  if (!valid.length) return null;
+  // aproximación simple: media geométrica de tasas
+  const compounded = valid.reduce((acc, r) => acc * (1 + r), 1);
+  const cagr = Math.pow(compounded, 1 / valid.length) - 1;
+  return cagr * 100;
+}
 
-/* =========================
-   Colores y comentarios por indicador
-   ========================= */
-const getIndicatorColor = (indicator: string, value: number) => {
-  switch (indicator) {
-    case "ROE":
-      return value >= 15 ? "text-green-400" : value >= 10 ? "text-yellow-400" : "text-red-400";
-    case "ROIC":
-      return value >= 12 ? "text-green-400" : value >= 8 ? "text-yellow-400" : "text-red-400";
-    case "Margen bruto":
-    case "Margen neto":
-      return value >= 20 ? "text-green-400" : value >= 10 ? "text-yellow-400" : "text-red-400";
-    case "Deuda/Capital":
-      return value <= 0.3 ? "text-green-400" : value <= 0.6 ? "text-yellow-400" : "text-red-400";
-    case "Cobertura de intereses":
-      return value >= 8 ? "text-green-400" : value >= 4 ? "text-yellow-400" : "text-red-400";
-    case "Current Ratio":
-      return value >= 2 ? "text-green-400" : value >= 1.2 ? "text-yellow-400" : "text-red-400";
-    case "CAGR ingresos":
-    case "CAGR beneficios":
-    case "CAGR patrimonio":
-      return value >= 15 ? "text-green-400" : value >= 5 ? "text-yellow-400" : "text-red-400";
-    case "Flujo de Caja Libre":
-      return value < 0 ? "text-red-400" : value >= 1e9 ? "text-green-400" : value >= 1e8 ? "text-yellow-400" : "text-blue-400";
-    default:
-      return "text-gray-300";
-  }
-};
-
-const getIndicatorComment = (indicator: string, value: number) => {
-  switch (indicator) {
-    case "ROE":
-    case "ROIC":
-      return value >= 12 ? "Excelente" : value >= 8 ? "Bueno" : "Bajo";
-    case "Margen bruto":
-    case "Margen neto":
-      return value >= 20 ? "Alto" : value >= 10 ? "Moderado" : "Bajo";
-    case "Deuda/Capital":
-      return value <= 0.3 ? "Conservador" : value <= 0.6 ? "Moderado" : "Alto riesgo";
-    case "Cobertura de intereses":
-      return value >= 8 ? "Sólida" : value >= 4 ? "Aceptable" : "Riesgosa";
-    case "Current Ratio":
-      return value >= 2 ? "Sólido" : value >= 1.2 ? "Aceptable" : "Riesgo";
-    case "CAGR ingresos":
-    case "CAGR beneficios":
-    case "CAGR patrimonio":
-      return value >= 15 ? "Crecimiento alto" : value >= 5 ? "Crecimiento moderado" : "Crecimiento bajo";
-    case "Flujo de Caja Libre":
-      return value >= 1e9 ? "Excelente generación" : value >= 1e8 ? "Buena generación" : value > 0 ? "Positiva" : "Negativa";
-    default:
-      return "";
-  }
-};
-
-/* =========================
-   Fila de tabla
-   ========================= */
-function IndicatorRow({
-  label,
-  rawValue,
-  render,
-  unit,
-}: {
+/* ────────────────────────────────────────────
+   Tipos & mapeo de scores/targets
+   ──────────────────────────────────────────── */
+type MetricRow = {
   label: string;
-  rawValue: any;
-  render?: (n: number) => string; // para formatos custom (ej: FCF compacto)
-  unit?: string;
-}) {
-  const has = isValidValue(rawValue);
-  const n = has ? parseValue(rawValue)! : null;
-  const isNum = typeof n === "number" && Number.isFinite(n as number);
-  const color = isNum ? getIndicatorColor(label, n as number) : "text-gray-400";
-  const comment = isNum ? getIndicatorComment(label, n as number) : "Sin datos";
+  unit?: "%" | "x" | "$";
+  raw: number | null;
+  score: number | null; // 0..100
+  target: number | null;
+  thresholds: { poor: number; avg: number }; // en 0..100
+  display: string; // texto bonito a la derecha
+};
 
-  return (
-    <tr className="border-b border-gray-700/50">
-      <td className="py-3 px-4 text-gray-300">{label}</td>
-      <td className={`py-3 px-4 font-mono text-lg ${color}`}>
-        {!isNum
-          ? "N/A"
-          : render
-          ? render(n as number)
-          : unit === "%"
-          ? fmtPercent(n, 1)
-          : unit === "x"
-          ? `${fmtRatio(n, 2)}x`
-          : unit === "$"
-          ? formatFCFCompact(n)
-          : fmtRatio(n, 2)}
-      </td>
-      <td className={`py-3 px-4 text-sm ${color}`}>{comment}</td>
-    </tr>
-  );
+function getScoreMeta(label: string, raw: number | null) {
+  switch (label) {
+    case "ROE":
+      return {
+        score: pctCap(raw, 40),
+        target: (15 / 40) * 100,
+        thresholds: { poor: (10 / 40) * 100, avg: (20 / 40) * 100 },
+      };
+    case "ROIC":
+      return {
+        score: pctCap(raw, 40),
+        target: (12 / 40) * 100,
+        thresholds: { poor: (8 / 40) * 100, avg: (15 / 40) * 100 },
+      };
+    case "Margen bruto":
+      return {
+        score: pctCap(raw, 80),
+        target: (40 / 80) * 100,
+        thresholds: { poor: (25 / 80) * 100, avg: (35 / 80) * 100 },
+      };
+    case "Margen neto":
+      return {
+        score: pctCap(raw, 30),
+        target: (15 / 30) * 100,
+        thresholds: { poor: (7 / 30) * 100, avg: (12 / 30) * 100 },
+      };
+    case "Deuda/Capital":
+      return {
+        score: inverseRatio(raw, 0.3, 1.5),
+        target: inverseRatio(0.6, 0.3, 1.5),
+        thresholds: { poor: 40, avg: 70 },
+      };
+    case "Current Ratio":
+      return {
+        score: sweetSpot(raw, 2, 1.5),
+        target: sweetSpot(2, 2, 1.5),
+        thresholds: { poor: 40, avg: 70 },
+      };
+    case "Cobertura de intereses":
+      return {
+        score: logSaturate(raw, 20),
+        target: logSaturate(8, 20),
+        thresholds: { poor: 40, avg: 70 },
+      };
+    case "Flujo de Caja Libre":
+      // si no tenemos monto, dejamos “sin datos”
+      return { score: null, target: null, thresholds: { poor: 40, avg: 70 } };
+    case "CAGR ingresos":
+      return {
+        score: pctCap(raw, 30),
+        target: (10 / 30) * 100,
+        thresholds: { poor: (5 / 30) * 100, avg: (12 / 30) * 100 },
+      };
+    case "CAGR beneficios":
+      return {
+        score: pctCap(raw, 40),
+        target: (15 / 40) * 100,
+        thresholds: { poor: (8 / 40) * 100, avg: (20 / 40) * 100 },
+      };
+    case "CAGR patrimonio":
+      return {
+        score: pctCap(raw, 25),
+        target: (10 / 25) * 100,
+        thresholds: { poor: (5 / 25) * 100, avg: (12 / 25) * 100 },
+      };
+    case "Book Value por acción":
+      return {
+        score: linearCap(raw, 60),
+        target: (20 / 60) * 100,
+        thresholds: { poor: (10 / 60) * 100, avg: (30 / 60) * 100 },
+      };
+    case "Acciones en circulación":
+      // sin key-metrics no lo tenemos fiable; dejar N/A
+      return { score: null, target: null, thresholds: { poor: 40, avg: 70 } };
+    default:
+      return { score: null, target: null, thresholds: { poor: 40, avg: 70 } };
+  }
 }
 
-/* =========================
-   Normalización de entrada
-   ========================= */
-function useNormalizedData(stockBasicData?: any, stockAnalysis?: any) {
-  // Agregador (preferido)
-  const agg = stockAnalysis?.cards?.fundamental?.indicadores;
-
-  // Fallback a tu estructura anterior (stockBasicData)
-  const data = {
-    roe: agg?.ROE ?? stockBasicData?.roe ?? null,                           // %
-    roic: agg?.ROIC ?? stockBasicData?.roic ?? null,                        // %
-    grossMargin: agg?.grossMargin ?? stockBasicData?.gross_margin ?? null,  // %
-    netMargin: agg?.netMargin ?? stockBasicData?.net_margin ?? null,        // %
-    debtToEquity: agg?.debtToEquity ?? stockBasicData?.debt_equity ?? null, // ratio
-    currentRatio: agg?.currentRatio ?? stockBasicData?.current_ratio ?? null, // ratio
-    interestCoverage: agg?.interestCoverage ?? stockBasicData?.interest_coverage ?? null, // x
-    freeCashFlow: agg?.freeCashFlow ?? stockBasicData?.free_cash_flow ?? null, // $
-    revenueCAGR_5Y:
-      agg?.revenueCAGR_5Y ??
-      stockBasicData?.datos?.valoracion?.revenueCAGR?.value ??
-      null, // %
-    netIncomeCAGR_5Y:
-      agg?.netIncomeCAGR_5Y ??
-      stockBasicData?.datos?.valoracion?.netIncomeCAGR?.value ??
-      null, // %
-    equityCAGR_5Y: agg?.equityCAGR_5Y ?? stockBasicData?.equity_cagr_5y ?? null, // %
-    bookValuePerShare:
-      agg?.bookValuePerShare ?? stockBasicData?.book_value_per_share ?? null, // $
-    sharesOutstanding:
-      agg?.sharesOutstanding ?? stockBasicData?.shares_outstanding ?? null, // #
-  };
-
-  // Calidad (para badge si quisieras)
-  const availableCount = Object.values(data).filter(isValidValue).length;
-  const quality =
-    availableCount >= 10 ? "Excelente" : availableCount >= 7 ? "Buena" : availableCount >= 4 ? "Regular" : "Limitada";
-
-  return { data, quality };
+/* ────────────────────────────────────────────
+   Props
+   ──────────────────────────────────────────── */
+interface FundamentalCardProps {
+  /** Symbol a consultar en FMP (ej: "AAPL"). */
+  symbol: string;
 }
 
-/* =========================
+/* ────────────────────────────────────────────
    Componente principal
-   ========================= */
-export default function FundamentalCard({ stockBasicData, stockAnalysis, stockReport }: FundamentalCardProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const { data, quality } = useNormalizedData(stockBasicData, stockAnalysis);
+   ──────────────────────────────────────────── */
+export default function FundamentalCard({ symbol }: FundamentalCardProps) {
+  const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState<MetricRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  // KPIs rápidos para la card
-  const quick = useMemo(() => {
-    return [
-      { label: "ROE", value: data.roe, unit: "%", colorKey: "ROE" },
-      { label: "ROIC", value: data.roic, unit: "%", colorKey: "ROIC" },
-      { label: "Margen neto", value: data.netMargin, unit: "%", colorKey: "Margen neto" },
-      { label: "Deuda/Capital", value: data.debtToEquity, unit: "x", colorKey: "Deuda/Capital" },
-      { label: "FCF", value: data.freeCashFlow, unit: "$", colorKey: "Flujo de Caja Libre" },
-      { label: "Margen bruto", value: data.grossMargin, unit: "%", colorKey: "Margen bruto" },
-    ];
-  }, [data]);
+  // fetch FMP (ratios + growth + profile como apoyo)
+  useEffect(() => {
+    let alive = true;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const [ratiosRes, growthRes, profileRes] = await Promise.allSettled([
+          fmp.ratios(symbol),
+          fmp.growth(symbol),
+          fmp.profile(symbol),
+        ]);
+
+        // ratios (tomamos el más reciente)
+        const ratios =
+          ratiosRes.status === "fulfilled" && Array.isArray(ratiosRes.value) && ratiosRes.value.length
+            ? ratiosRes.value[0]
+            : {};
+
+        // growth (serie anual, tomamos últimos 5 puntos)
+        const growthArr =
+          growthRes.status === "fulfilled" && Array.isArray(growthRes.value)
+            ? growthRes.value
+            : [];
+
+        const revenueCAGR =
+          cagrFromGrowthSeries(
+            growthArr.slice(0, 5).map((g: any) => Number(g.growthRevenue ?? 0))
+          ) ?? null;
+
+        // FMP a veces trae EPS o NetIncome; probamos ambos
+        const netIncomeCAGR =
+          cagrFromGrowthSeries(
+            growthArr.slice(0, 5).map((g: any) =>
+              Number(
+                g.growthNetIncome ??
+                  g.growthOperatingIncome ??
+                  g.growthEPS ??
+                  0
+              )
+            )
+          ) ?? null;
+
+        const equityCAGR =
+          cagrFromGrowthSeries(
+            growthArr.slice(0, 5).map((g: any) =>
+              Number(g.growthStockholdersEquity ?? 0)
+            )
+          ) ?? null;
+
+        // profile por si a futuro tomamos image/bvps/shares — no bloquea
+        const profile =
+          profileRes.status === "fulfilled" && Array.isArray(profileRes.value) && profileRes.value.length
+            ? profileRes.value[0]
+            : {};
+
+        // Mapear a filas (con %*100 donde aplique: FMP ratios trae márgenes en decimales)
+        const vals = {
+          roe: ratios.returnOnEquity != null ? Number(ratios.returnOnEquity) * 100 : null,
+          roic:
+            ratios.returnOnCapitalEmployed != null
+              ? Number(ratios.returnOnCapitalEmployed) * 100
+              : null,
+          grossMargin:
+            ratios.grossProfitMargin != null
+              ? Number(ratios.grossProfitMargin) * 100
+              : null,
+          netMargin:
+            ratios.netProfitMargin != null
+              ? Number(ratios.netProfitMargin) * 100
+              : null,
+          debtToEquity:
+            ratios.debtEquityRatio != null ? Number(ratios.debtEquityRatio) : null,
+          currentRatio:
+            ratios.currentRatio != null ? Number(ratios.currentRatio) : null,
+          interestCoverage:
+            ratios.interestCoverage != null ? Number(ratios.interestCoverage) : null,
+          // FCF absoluto: necesitaríamos /key-metrics o /cash-flow; de momento N/A
+          freeCashFlow: null as number | null,
+          revenueCAGR_5Y: revenueCAGR,
+          netIncomeCAGR_5Y: netIncomeCAGR,
+          equityCAGR_5Y: equityCAGR,
+          // Sin key-metrics dejamos N/A estas dos:
+          bookValuePerShare: null as number | null,
+          sharesOutstanding: null as number | null,
+        };
+
+        const build = (label: string, raw: number | null, unit?: "%" | "x" | "$"): MetricRow => {
+          const meta = getScoreMeta(label, raw);
+          const display =
+            unit === "%"
+              ? fmtPercent(raw)
+              : unit === "x"
+              ? `${fmtRatio(raw)}x`
+              : unit === "$"
+              ? (raw == null ? "N/A" : `$${raw.toFixed(0)}`)
+              : raw == null
+              ? "N/A"
+              : String(raw);
+          return { label, unit, raw, score: meta.score, target: meta.target, thresholds: meta.thresholds, display };
+        };
+
+        const list: MetricRow[] = [
+          build("ROE", vals.roe, "%"),
+          build("ROIC", vals.roic, "%"),
+          build("Margen bruto", vals.grossMargin, "%"),
+          build("Margen neto", vals.netMargin, "%"),
+          build("Deuda/Capital", vals.debtToEquity, "x"),
+          build("Current Ratio", vals.currentRatio, "x"),
+          build("Cobertura de intereses", vals.interestCoverage, "x"),
+          build("Flujo de Caja Libre", vals.freeCashFlow, "$"),
+          build("CAGR ingresos", vals.revenueCAGR_5Y, "%"),
+          build("CAGR beneficios", vals.netIncomeCAGR_5Y, "%"),
+          build("CAGR patrimonio", vals.equityCAGR_5Y, "%"),
+          build("Book Value por acción", vals.bookValuePerShare, "$"),
+          build("Acciones en circulación", vals.sharesOutstanding),
+        ];
+
+        if (alive) setRows(list);
+      } catch (e: any) {
+        if (alive) setError(e?.message ?? "Error cargando fundamentales");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      alive = false;
+    };
+  }, [symbol]);
+
+  /* ECharts: un solo gráfico tipo “bullet list”
+     - 3 series apiladas (rangos rojo/amarillo/verde)
+     - 1 serie medida (valor actual)
+     - markLine por fila para el target
+  */
+  const option = useMemo(() => {
+    const labels = rows.map((r) => r.label);
+
+    const poor = rows.map((r) => r.thresholds.poor);
+    const mid = rows.map((r) => Math.max(r.thresholds.avg - r.thresholds.poor, 0));
+    const good = rows.map((r) => Math.max(100 - r.thresholds.avg, 0));
+
+    const scores = rows.map((r) => (r.score == null ? 0 : r.score));
+
+    const targets = rows
+      .map((r, idx) =>
+        r.target == null
+          ? null
+          : [
+              {
+                xAxis: r.target,
+                yAxis: r.label, // categoría
+              },
+            ]
+      )
+      .filter(Boolean) as any[];
+
+    return {
+      backgroundColor: "transparent",
+      grid: { left: 170, right: 120, top: 10, bottom: 10 },
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "shadow" },
+        formatter: (params: any) => {
+          // params es array con las 4 series; usamos el índice para mapear
+          const idx = params?.[params.length - 1]?.dataIndex ?? 0;
+          const row = rows[idx];
+          const scoreTxt =
+            row.score == null ? "Sin datos" : `${Math.round(row.score)} / 100`;
+          return `
+            <div style="min-width:220px">
+              <div style="font-weight:600;margin-bottom:6px">${row.label}</div>
+              <div>Valor: <b>${row.display}</b></div>
+              <div>Score: <b>${scoreTxt}</b></div>
+            </div>
+          `;
+        },
+      },
+      xAxis: {
+        type: "value",
+        max: 100,
+        axisLabel: { color: "#94a3b8" },
+        splitLine: { lineStyle: { color: "rgba(255,255,255,0.06)" } },
+      },
+      yAxis: {
+        type: "category",
+        data: labels,
+        axisLabel: { color: "#e2e8f0" },
+        axisTick: { show: false },
+        axisLine: { show: false },
+      },
+      series: [
+        // rangos
+        {
+          name: "débil",
+          type: "bar",
+          stack: "range",
+          data: poor,
+          barWidth: 14,
+          itemStyle: { color: "rgba(239,68,68,0.30)" }, // red-500/30
+          emphasis: { disabled: true },
+          tooltip: { show: false },
+        },
+        {
+          name: "medio",
+          type: "bar",
+          stack: "range",
+          data: mid,
+          barWidth: 14,
+          itemStyle: { color: "rgba(234,179,8,0.30)" }, // yellow-500/30
+          emphasis: { disabled: true },
+          tooltip: { show: false },
+        },
+        {
+          name: "fuerte",
+          type: "bar",
+          stack: "range",
+          data: good,
+          barWidth: 14,
+          itemStyle: { color: "rgba(34,197,94,0.30)" }, // green-500/30
+          emphasis: { disabled: true },
+          tooltip: { show: false },
+        },
+        // medida
+        {
+          name: "valor",
+          type: "bar",
+          data: scores,
+          barWidth: 8,
+          z: 5,
+          itemStyle: { color: "#ffffff" },
+          label: {
+            show: true,
+            position: "right",
+            color: "#cbd5e1",
+            formatter: (p: any) => rows[p.dataIndex]?.display ?? "",
+          },
+          markLine: {
+            symbol: ["none", "none"],
+            animation: false,
+            label: { show: false },
+            lineStyle: { color: "#ffffff", width: 1.5, opacity: 0.9 },
+            data: targets,
+          },
+        },
+      ],
+    };
+  }, [rows]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Card className="bg-gray-900/50 border-green-500/30 cursor-pointer transition-all duration-300 hover:border-[#00FF00] hover:shadow-lg hover:shadow-[#00FF00]/20">
-          <CardHeader>
-            <CardTitle className="text-green-400 text-lg">Fundamental</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-4">
-              {quick.map((kpi) => {
-                const n = parseValue(kpi.value);
-                const color = Number.isFinite(n as number)
-                  ? getIndicatorColor(kpi.label, n as number)
-                  : "text-gray-400";
-                const display =
-                  !Number.isFinite(n as number)
-                    ? "N/A"
-                    : kpi.unit === "%"
-                    ? fmtPercent(n, 1)
-                    : kpi.unit === "x"
-                    ? `${fmtRatio(n, 2)}x`
-                    : kpi.unit === "$"
-                    ? formatFCFCompact(n)
-                    : fmtRatio(n, 2);
+    <Card className="bg-tarjetas border-orange-500/30">
+      <CardHeader>
+        <CardTitle className="text-orange-400 text-lg">
+          Fundamental — {symbol}
+        </CardTitle>
+      </CardHeader>
 
-                return (
-                  <div key={kpi.label} className="flex justify-between">
-                    <span className="text-gray-400">{kpi.label}:</span>
-                    <span className={`font-mono ${color}`}>{display}</span>
-                  </div>
-                );
-              })}
-              {/* Badge de calidad simple */}
-              <div className="col-span-2 flex justify-end">
-                <span className="text-xs px-2 py-1 rounded bg-emerald-900/30 border border-emerald-500/30 text-emerald-300">
-                  Datos: {quality}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </DialogTrigger>
-
-      <DialogContent className="max-w-5xl bg-gray-900 border-green-500/30 max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-green-400 text-2xl">Análisis Fundamental Detallado</DialogTitle>
-        </DialogHeader>
-
-        {/* 1. RESUMEN EJECUTIVO */}
-        <div className="bg-gradient-to-r from-green-900/20 to-blue-900/20 border border-green-500/30 rounded-lg p-4 mb-6">
-          <h3 className="text-green-400 text-lg font-semibold mb-2">Resumen Ejecutivo</h3>
-          <p className="text-gray-200 text-sm leading-relaxed">
-            {stockReport?.analisisFundamental?.["Resumen Ejecutivo"] || "N/A"}
-          </p>
-        </div>
-
-        {/* 2. TABLA DE INDICADORES CLAVE */}
-        <div className="mt-6">
-          <h3 className="text-green-400 text-lg font-semibold mb-4">Indicadores Clave</h3>
-
-          {/* Leyenda */}
-          <div className="flex gap-6 mb-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-green-400 rounded" />
-              <span className="text-gray-300">Excelente</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-yellow-400 rounded" />
-              <span className="text-gray-300">A vigilar</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-red-400 rounded" />
-              <span className="text-gray-300">Débil</span>
-            </div>
+      <CardContent>
+        {loading ? (
+          <div className="h-72 flex items-center justify-center text-gray-400">
+            Cargando fundamentales…
           </div>
-
-          <div className="bg-gray-800/30 rounded-lg overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-700/50">
-                <tr>
-                  <th className="py-3 px-4 text-left text-green-400 font-semibold">Indicador</th>
-                  <th className="py-3 px-4 text-left text-green-400 font-semibold">Valor</th>
-                  <th className="py-3 px-4 text-left text-green-400 font-semibold">Comentario</th>
-                </tr>
-              </thead>
-              <tbody>
-                <IndicatorRow label="ROE" rawValue={data.roe} unit="%" />
-                <IndicatorRow label="ROIC" rawValue={data.roic} unit="%" />
-                <IndicatorRow label="Margen bruto" rawValue={data.grossMargin} unit="%" />
-                <IndicatorRow label="Margen neto" rawValue={data.netMargin} unit="%" />
-                <IndicatorRow label="Deuda/Capital" rawValue={data.debtToEquity} unit="x" />
-                <IndicatorRow label="Current Ratio" rawValue={data.currentRatio} unit="x" />
-                <IndicatorRow label="Cobertura de intereses" rawValue={data.interestCoverage} unit="x" />
-                <IndicatorRow
-                  label="Flujo de Caja Libre"
-                  rawValue={data.freeCashFlow}
-                  unit="$"
-                />
-                <IndicatorRow label="CAGR ingresos" rawValue={data.revenueCAGR_5Y} unit="%" />
-                <IndicatorRow label="CAGR beneficios" rawValue={data.netIncomeCAGR_5Y} unit="%" />
-                <IndicatorRow label="CAGR patrimonio" rawValue={data.equityCAGR_5Y} unit="%" />
-                <IndicatorRow
-                  label="Book Value por acción"
-                  rawValue={data.bookValuePerShare}
-                  render={(n) => `$${n.toFixed(2)}`}
-                />
-                <IndicatorRow
-                  label="Acciones en circulación"
-                  rawValue={data.sharesOutstanding}
-                  render={(n) => (n >= 1e9 ? `${(n / 1e9).toFixed(2)}B` : `${(n / 1e6).toFixed(2)}M`)}
-                />
-              </tbody>
-            </table>
+        ) : error ? (
+          <div className="h-72 flex items-center justify-center text-red-400">
+            {error}
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Leyenda compacta */}
+            <div className="flex items-center gap-4 text-xs text-gray-400 mb-3">
+              <span className="inline-flex items-center gap-1">
+                <span className="w-3 h-3 bg-red-500/50 rounded-sm" /> Débil
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="w-3 h-3 bg-yellow-500/50 rounded-sm" /> A vigilar
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="w-3 h-3 bg-green-500/50 rounded-sm" /> Fuerte
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="w-[2px] h-3 bg-white inline-block" /> Target
+              </span>
+            </div>
 
-        {/* 3. INTERPRETACIÓN AUTOMÁTICA (IA) */}
-        <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-500/30 rounded-lg p-4">
-          <h3 className="text-blue-400 text-lg font-semibold mb-2">Interpretación Automática (IA)</h3>
-          <p className="text-gray-300 leading-relaxed">
-            {stockReport?.analisisFundamental?.["Conclusión para inversores"] || "No hay datos suficientes"}
-          </p>
-        </div>
-      </DialogContent>
-    </Dialog>
+            <ReactECharts
+              echarts={echarts as any}
+              option={option as any}
+              notMerge
+              lazyUpdate
+              style={{ height: Math.max(260, rows.length * 28), width: "100%" }}
+            />
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

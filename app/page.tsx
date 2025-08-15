@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BarChart3, Search, Terminal, Sun, Moon } from 'lucide-react';
+import { BarChart3, Search, Terminal } from 'lucide-react';
 import NavigationBar from '@/components/layout/NavigationBar';
 import DatosTab from '@/components/tabs/DatosTab';
 import ChartTab from '@/components/tabs/ChartTab';
@@ -134,7 +134,7 @@ export default function StockTerminal() {
       case 'chart':
         return (
           <Dialog open={isChartModalOpen} onOpenChange={setIsChartModalOpen}>
-            <DialogContent className="w-[90vw] max-w-[90vw] h-[90vh] max-h-[90vh] overflow-y-auto bg-gray-900/95 backdrop-blur-md border border-green-400/30 shadow-2xl">
+            <DialogContent className="w-[90vw] max-w-[90vw] h-[90vh] max-h-[90vh] overflow-y-auto bg-gray-900 ... backdrop-blur-md border border-green-400/30 shadow-2xl">
               <DialogHeader>
                 <DialogTitle className="text-green-400">
                   📈 Charts - {selectedSymbol}
@@ -200,22 +200,13 @@ export default function StockTerminal() {
   };
 
   return (
-    <div
-      className={`min-h-screen transition-colors duration-300 ${
-        isDarkMode
-          ? 'text-green-400'
-          : 'bg-gray-100 text-gray-800'
-      }`}
-      style={{
-        backgroundColor: isDarkMode ? '#1B1A1F' : undefined
-      }}
-    >
+    <div className="bg-fondoDeTarjetas min-h-screen text-green-400">
       {/* Header */}
       <Header user={user} onAuth={handleAuth} />
       
       <div className="flex min-h-screen"> 
         {/* Contenido principal */}
-        <div className="flex-1 p-6">
+        <div className="flex-1 p-2 pt-1">
           {error && (
             <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded text-red-400">
               {error}
@@ -225,7 +216,7 @@ export default function StockTerminal() {
           {selectedStock && (
             <>
               {/* Columnas */}
-              <div className='flex gap-6'>
+              <div className='flex'>
                 <div className="w-1/2 flex items-center space-x-2 px-3 py-2">
                     <span className="text-orange-400 text-sm font-medium flex-shrink-0">Más buscadas en Fintra:</span>
                     <div className="flex space-x-1 overflow-x-auto scrollbar-thin min-w-0">
@@ -236,9 +227,9 @@ export default function StockTerminal() {
                   <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} />
                 </div>
               </div>
-              <div className="flex gap-6">
+              <div className="flex gap-2">
                 {/* Izquierda */}
-                <div className="w-1/2 flex flex-col gap-6">
+                <div className="w-1/2 flex flex-col">
                   {/* Búsqueda */}
                   {/* <div className="w-full">
                     <div className="flex space-x-4 items-center">
@@ -276,10 +267,10 @@ export default function StockTerminal() {
 
                 {/* Derecha */}
                 <div className="w-1/2 flex flex-col items-center justify-center">
-                
-                  <div className="w-full">
+
+                  <div className="w-full gap-2">
                     <RadarPeersCard
-                      symbol={selectedSymbol || "NVDA"}
+                      symbol={selectedSymbol || "N/A"}
                       companyName={stockBasicData?.companyName}
                       onSelectSymbol={(s) => {
                         setSearchTerm(s);
@@ -293,20 +284,12 @@ export default function StockTerminal() {
 
               {/* Tabs debajo de las columnas */}
               <div className="w-full mt-6">
-                {/* <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} /> */}
                 <div className="mt-6">
                   {renderTabContent()}
                 </div>
               </div>
             </>
           )}
-
-          {/* {!selectedStock && (
-            <>
-              <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} />
-              <div className="mt-6">{renderTabContent()}</div>
-            </>
-          )} */}
         </div>
       </div>
     </div>

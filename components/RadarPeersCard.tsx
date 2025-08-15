@@ -7,7 +7,13 @@ import { RadarChart as EchartsRadar } from "echarts/charts";
 import { TooltipComponent, LegendComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Users, ChartNoAxesCombined } from 'lucide-react';
+import { TrendingUp, Users, ChartNoAxesCombined, ChevronDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // registra lo que usa ECharts
 echarts.use([EchartsRadar, TooltipComponent, LegendComponent, CanvasRenderer]);
@@ -136,7 +142,7 @@ async function fetchFactors(symbol: string) {
 // ─────────────────────────────────────────────
 // Componente
 // ─────────────────────────────────────────────
-export default function RadarPeersCard({ symbol = "NVDA" }: { symbol?: string }) {
+export default function RadarPeersCard({ symbol }: { symbol?: string }) {
   const [main, setMain] = useState<{ symbol: string; label: string; radarData: Record<string, number> } | null>(null);
   const [peer, setPeer] = useState<{ symbol: string; label: string; radarData: Record<string, number> } | null>(null);
   const [peers, setPeers] = useState<string[]>([]);
@@ -195,14 +201,15 @@ export default function RadarPeersCard({ symbol = "NVDA" }: { symbol?: string })
       backgroundColor: "transparent",
       tooltip: { trigger: "item" as const },
       legend: {
-        bottom: 6,
+        bottom: 90,
+        right: 6,
         data: [main?.label || "Empresa Principal", peer?.label || "Competidor"],
         textStyle: { color: "#9ca3af" },
       },
       radar: [
         {
           indicator: indicators,
-          center: ["50%", "45%"],
+          center: ["50%", "40%"],
           radius: "55%",
           axisName: { color: "#9ca3af", borderRadius: 8, padding: [2, 6] },
           splitArea: {
@@ -210,8 +217,8 @@ export default function RadarPeersCard({ symbol = "NVDA" }: { symbol?: string })
               color: ["rgba(158, 165, 163, 0.02)", "rgba(158, 165, 163, 0.04)"],
             },
           },
-          axisLine: { lineStyle: { color: "rgba(100, 110, 107, 0.3)" } },
-          splitLine: { lineStyle: { color: "rgba(100, 110, 107, 0.2)" } },
+          axisLine: { lineStyle: { color: "rgba(90, 91, 94, 0.3)" } },
+          splitLine: { lineStyle: { color: "rgba(90, 91, 94, 0.2)" } },
         },
       ],
       series: [
@@ -225,11 +232,11 @@ export default function RadarPeersCard({ symbol = "NVDA" }: { symbol?: string })
           areaStyle: { 
             color: new echarts.graphic.RadialGradient(0.1, 0.6, 1, [
               {
-                color: 'rgba(255, 183, 124, 0.1)',
+                color: 'rgba(170, 104, 38, 0.1)',
                 offset: 0
               },
               {
-                color: 'rgba(255, 183, 124, 0.9)',
+                color: 'rgba(170, 104, 38, 0.9)',
                 offset: 1
               }
             ])
@@ -251,7 +258,7 @@ export default function RadarPeersCard({ symbol = "NVDA" }: { symbol?: string })
 
   if (loading) {
     return (
-      <Card className="bg-gray-900/50 border-gray-700/50">
+      <Card className="bg-black-700/50">
         <CardContent className="p-6">
           <div className="flex items-center justify-center h-96">
             <div className="text-gray-400">Cargando análisis de competidores...</div>
@@ -262,46 +269,60 @@ export default function RadarPeersCard({ symbol = "NVDA" }: { symbol?: string })
   }
 
   return (
-    <Card className="bg-gray-900/50 border-gray-700/50 transition-colors">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-gray-400 text-lg flex items-center gap-2">
+    <Card className="bg-tarjetas border-gray-400">
+      <CardHeader className="pb-0">
+        <CardTitle className="text-gray-400 text-lg flex items-center">
           <ChartNoAxesCombined className="text-orange-400 w-5 h-5" />
           Análisis Comparativo
+
+          {/* Simbol vs Peers */}
           {main && (
             <span className="text-m text-orange-400 font-normal ml-2">
+
               {main.symbol}
             </span>
           )}
-          vs 
-          <div className="flex gap-2 overflow-x-auto">
+          <span className="text-m text-gray-400 font-normal">
+          </span>
+          vs
+          <div className="flex gap-2">
             {peers.length === 0 ? (
-              <span className="text-gray-500 text-m">Sin competidores disponibles</span>
+              <span className="text-gray-500 text-sm">Sin competidores disponibles</span>
             ) : (
-              peers.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setActivePeer(p)}
-                  className={`px-3 py-1 ${
-                    p === activePeer
-                      ? "border-orange-400 text-orange-400"
-                      : "border-gray-600/50 text-gray-300 hover:bg-orange-500/10 hover:border-orange-400/30 hover:text-orange-400"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 px-3 py-2 rounded-lg text-blue-300 transition-colors min-w-[60px] justify-between">
+                    <span>{activePeer || "Seleccionar competidor"}</span>
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-gray-800 border-gray-700 min-w-[60px]">
+                  {peers.map((p) => (
+                    <DropdownMenuItem
+                      key={p}
+                      onClick={() => setActivePeer(p)}
+                      className={`cursor-pointer transition-colors ${
+                        p === activePeer
+                          ? "bg-orange-500/20 text-orange-300"
+                          : "text-gray-300 hover:bg-orange-500/10 hover:text-orange-400"
+                      }`}
+                    >
+                      {p}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Radar Chart */}
         <div style={{ height: 400, width: "100%" }}>
             {main ? (
               <ReactEChartsCore 
                 echarts={echarts as any} 
                 option={option as any} 
-                style={{ height: "100%", width: "100%" }} 
+                style={{ height: "120%", width: "100%" }} 
               />
             ) : (
               <div className="h-full grid place-items-center text-gray-400 text-sm">

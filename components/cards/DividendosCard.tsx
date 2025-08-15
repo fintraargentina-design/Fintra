@@ -228,7 +228,7 @@ export default function DividendosCard({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Card className="bg-gray-900/50 border-green-500/30 cursor-pointer transition-all duration-300 hover:border-[#00FF00] hover:shadow-lg hover:shadow-[#00FF00]/20">
+        <Card className="bg-gray-800/60 border-green-500/30 cursor-pointer transition-all duration-300 hover:border-[#00FF00] hover:shadow-lg hover:shadow-[#00FF00]/20">
           <CardHeader>
             <CardTitle className="text-green-400 text-lg">Dividendos</CardTitle>
           </CardHeader>
@@ -277,7 +277,8 @@ export default function DividendosCard({
         </Card>
       </DialogTrigger>
 
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-gray-900 border-green-500/30">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-gray-800/60 border-orange-500/30">
+
         <DialogHeader>
           <DialogTitle className="text-green-400 text-2xl">Análisis de Dividendos Detallado</DialogTitle>
         </DialogHeader>
@@ -293,7 +294,7 @@ export default function DividendosCard({
         {/* 2) Métricas clave */}
         <div className="bg-gray-800/30 rounded-lg overflow-hidden mb-6">
           {/* Leyenda */}
-          <div className="px-4 pt-4 pb-2 text-sm flex gap-6">
+          <div className="px-4 pt-4 pb-2 text-sm flex gap-2">
             <span className="flex items-center gap-2">
               <span className="w-3 h-3 bg-green-500 rounded-full" /> <span className="text-gray-300">Favorable</span>
             </span>
