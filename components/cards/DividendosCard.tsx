@@ -228,7 +228,7 @@ export default function DividendosCard({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Card className="bg-gray-800/60 border-green-500/30 cursor-pointer transition-all duration-300 hover:border-[#00FF00] hover:shadow-lg hover:shadow-[#00FF00]/20">
+        <Card className="bg-tarjetas border-none cursor-pointer">
           <CardHeader>
             <CardTitle className="text-green-400 text-lg">Dividendos</CardTitle>
           </CardHeader>

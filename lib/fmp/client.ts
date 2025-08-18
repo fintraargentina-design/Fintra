@@ -1,37 +1,45 @@
-// lib/fmp/client.ts  (NO server-only; sin process.env)
-const BASE = "/api/fmp";
+// /lib/fmp/client.ts
+import type { PeersResponse } from '@/lib/types';
 
-type Params = Record<string, string | number | boolean | undefined>;
+type CacheOpt = RequestCache | undefined;
+type GetOpts = { params?: Record<string, any>; cache?: CacheOpt };
 
-function toQs(params: Params) {
-  const obj: Record<string, string> = {};
-  for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== null) obj[k] = String(v);
+async function get<T>(path: string, { params = {}, cache }: GetOpts = {}): Promise<T> {
+  const qs = new URLSearchParams(params as any).toString();
+  const url = `/api/fmp${path}${qs ? `?${qs}` : ''}`;
+  const init: RequestInit = {};
+  if (cache) init.cache = cache;               // solo seteamos si viene
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`${path} ${res.status} ${text}`);
   }
-  const qs = new URLSearchParams(obj).toString();
-  return qs ? `?${qs}` : "";
+  return res.json() as Promise<T>;
 }
-
-async function get<T>(path: string, params: Params = {}): Promise<T> {
-  const url = `${BASE}${path}${toQs(params)}`;
-  const r = await fetch(url, { cache: "no-store" });
-  if (!r.ok) throw new Error(`${path} ${r.status}`);
-  return r.json() as Promise<T>;
-}
-
-import type { DetailedPeersResponse } from "@/lib/fmp/types";
 
 export const fmp = {
-  profile: (symbol: string) => get<any[]>(`/profile`, { symbol }),
-  ratios:  (symbol: string) => get<any[]>(`/ratios`,  { symbol }),
-  growth:  (symbol: string) => get<any[]>(`/growth`,  { symbol }),
-  peers:   (symbol: string) =>
-    get<{ symbol: string; peers: string[] }>(`/peers`, { symbol }),
-
-  detailedPeers: (symbol: string, limit = 10) =>
-    get<DetailedPeersResponse>(`/peers/detailed`, { symbol, limit }),
-
-  // Actívalos solo si tienes los routes creados:
-  // keyMetrics: (symbol: string) => get<any[]>(`/key-metrics`, { symbol }),
-  // cashflow:   (symbol: string) => get<any[]>(`/cashflow`,   { symbol }),
+  peers(symbol: string, opts?: { limit?: number; detailed?: boolean; cache?: CacheOpt }) {
+    return get<PeersResponse>('/peers', {
+      params: { symbol, ...(opts?.limit ? { limit: opts.limit } : {}), ...(opts?.detailed ? { detailed: 1 } : {}) },
+      cache: opts?.cache ?? 'force-cache',
+    });
+  },
+  ratios(symbol: string, opts?: { limit?: number; cache?: CacheOpt }) {
+    return get<any[]>('/ratios', {
+      params: { symbol, limit: opts?.limit ?? 1 },
+      cache: opts?.cache ?? 'force-cache',
+    });
+  },
+  profile(symbol: string, opts?: { cache?: CacheOpt }) {
+    return get<any[]>('/profile', {
+      params: { symbol },
+      cache: opts?.cache ?? 'force-cache',
+    });
+  },
+  growth(symbol: string, opts?: { period?: 'annual' | 'quarter'; limit?: number; cache?: CacheOpt }) {
+    return get<any[]>('/growth', {
+      params: { symbol, period: opts?.period ?? 'annual', limit: opts?.limit ?? 5 },
+      cache: opts?.cache ?? 'force-cache',
+    });
+  },
 };

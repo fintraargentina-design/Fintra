@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { fmp } from './fmp/client';
 
 export { supabase, registerStockSearch, getStockProyecciones } from './supabase';
 export type { StockProyeccionData } from './supabase';
@@ -99,31 +100,25 @@ export async function searchStockData(symbol: string) {
       console.log(`Ticker ${symbol} no encontrado en Supabase, buscando en APIs externas...`);
       
       try {
-        // Importar las funciones de API
-        const { getCompanyProfile } = await import('@/api/fmpCompanyProfiles');
-        const { getHistoricalPrices } = await import('@/api/fmpHistoricalPrices');
+        // Usar SOLO el cliente FMP que llama a /api/fmp/*
+        const profileData = await fmp.profile(symbol);
         
-        // Obtener datos de FMP
-        const [profileData, priceData] = await Promise.all([
-          getCompanyProfile(symbol),
-          getHistoricalPrices(symbol, 1) // último día
-        ]);
-        
-        if (profileData) {
+        if (profileData && profileData.length > 0) {
+          const profile = profileData[0];
           // Formatear datos para que coincidan con la estructura esperada
           const processedData = {
             symbol: symbol.toUpperCase(),
-            company_name: profileData.companyName,
-            current_price: profileData.price,
-            market_cap: profileData.mktCap,
-            pe_ratio: profileData.pe,
-            volume: profileData.volume,
-            industry: profileData.industry,
-            country: profileData.country,
-            sector: profileData.sector,
-            exchange: profileData.exchange,
-            website: profileData.website,
-            description: profileData.description,
+            company_name: profile.companyName,
+            current_price: profile.price,
+            market_cap: profile.mktCap,
+            pe_ratio: profile.pe,
+            volume: profile.volume,
+            industry: profile.industry,
+            country: profile.country,
+            sector: profile.sector,
+            exchange: profile.exchange,
+            website: profile.website,
+            description: profile.description,
             // ... más campos según necesites
           };
           
@@ -137,7 +132,8 @@ export async function searchStockData(symbol: string) {
           };
         }
       } catch (apiError) {
-        console.error('Error obteniendo datos de API externa:', apiError);
+        console.error('Error en APIs externas:', apiError);
+        throw new Error(`No se pudieron obtener datos para ${symbol}`);
       }
     }
     

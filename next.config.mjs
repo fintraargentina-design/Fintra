@@ -1,14 +1,20 @@
+// /next.config.mjs
 /** @type {import('next').NextConfig} */
+const isProd = process.env.NODE_ENV === 'production';
+
 const nextConfig = {
+  reactStrictMode: true,
+  experimental: {
+    typedRoutes: false,
+  },
   eslint: {
-    ignoreDuringBuilds: true,
+    // En producción NO ignorar errores
+    ignoreDuringBuilds: !isProd ? true : false,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    // En producción NO ignorar errores
+    ignoreBuildErrors: !isProd ? true : false,
   },
-  images: {
-    unoptimized: true,
-  },
-}
+};
 
-export default nextConfig
+export default nextConfig;

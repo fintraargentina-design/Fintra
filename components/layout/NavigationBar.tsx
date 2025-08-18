@@ -4,13 +4,12 @@ import { BarChart3, TrendingUp } from "lucide-react"
 const tabs = [
   { id: 'datos', label: 'Resultados', icon: BarChart3 },
   { id: 'estimacion', label: 'Analistas' },
-  { id: 'noticias', label: 'Noticias' },
   { id: 'chart', label: 'Charts', icon: TrendingUp }
 ]
 
 export default function NavigationBar({ activeTab, setActiveTab }) {
   return (
-    <nav className="flex flex-wrap items-end justify-end gap-2 p-1">
+    <nav className="flex w-full flex-wrap items-end justify-between gap-2 p-1">
       {tabs.map((tab) => (
         <Button
           key={tab.id}

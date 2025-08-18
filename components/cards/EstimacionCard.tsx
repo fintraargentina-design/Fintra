@@ -9,36 +9,6 @@ import {
   ArrowUpCircle, ArrowDownCircle, Clock, LineChart, UserCheck
 } from "lucide-react";
 
-// Core (ya los tenías) - CORRECCIÓN AQUÍ
-import { getAnalystEstimates } from "@/api/fmpAnalystEstimates";
-import { getRatingsSnapshot } from "@/api/fmpRatingsSnapshot";
-
-// NUEVO – APIs extra
-import {
-  getPriceTargetData,
-  formatPriceTargetForDisplay,
-  calculateUpside as calcPTUpside,
-  getPriceTargetStats,
-} from "@/api/fmpPriceTarget";
-
-import {
-  getUpgradesDowngradesData,
-  formatUpgradesDowngradesForDisplay,
-  getAnalystSentiment,
-} from "@/api/fmpUpgradesDowngrades";
-
-import {
-  getEarnings,
-  getUpcomingEarnings,
-  calculateEarningsAccuracy,
-} from "@/api/fmpEarnings";
-
-import {
-  getInsiderTradingBySymbol,
-  analyzeInsiderTradingTrends,
-} from "@/api/fmpInsiders";
-
-import { compareWithPeers } from "@/api/fmpStockPeers";
 
 /* =========================
    Tipos

@@ -27,8 +27,7 @@ export default function Header({ user, onAuth }: HeaderProps) {
   };
 
   return (
-    <header className="bg-tarjetas w-full border-b border-gray-800 px-6 py-3">
-
+    <header className="bg-fondoTarjeta w-full border-gray-800 px-6 py-3">
       <div className="flex items-center justify-between">
         {/* Lado izquierdo - Título */}
         <div className="flex items-center space-x-2">

@@ -176,7 +176,7 @@ export default function DesempenoCard({ stockPerformance, stockBasicData, stockA
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Card className="bg-gray-900/50 border-green-500/30 cursor-pointer transition-all duration-300 hover:border-[#00FF00] hover:shadow-lg hover:shadow-[#00FF00]/20">
+        <Card className="bg-tarjetas border-none cursor-pointer">
           <CardHeader>
             <CardTitle className="text-green-400 text-lg">Desempeño</CardTitle>
           </CardHeader>

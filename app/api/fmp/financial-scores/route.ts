@@ -1,4 +1,4 @@
-// app/api/fmp/key-metrics/route.ts
+// app/api/fmp/scores/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { fmpGet } from "@/lib/fmp/server";
 
@@ -7,13 +7,13 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const symbol = searchParams.get("symbol")?.toUpperCase();
+
   if (!symbol) return NextResponse.json({ error: "Missing ?symbol" }, { status: 400 });
 
   try {
-    // TTM key metrics
-    const data = await fmpGet<any[]>(`/api/v3/key-metrics-ttm/${symbol}`);
+    const data = await fmpGet<any[]>(`/stable/financial-scores`, { symbol });
     return NextResponse.json(data ?? [], { status: 200 });
   } catch (err: any) {
-    return NextResponse.json({ error: err?.message ?? "Key-metrics fetch failed" }, { status: 500 });
+    return NextResponse.json({ error: err?.message ?? "Scores fetch failed" }, { status: 500 });
   }
 }

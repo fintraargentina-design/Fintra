@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { searchStockData, getStockConclusionData } from '@/lib/stockQueries';
-import { getCompanyProfile } from '@/api/fmpCompanyProfiles';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BarChart3, Search, Terminal } from 'lucide-react';
+import { Flame, BarChart3, Search, Terminal } from 'lucide-react';
 import NavigationBar from '@/components/layout/NavigationBar';
 import DatosTab from '@/components/tabs/DatosTab';
 import ChartTab from '@/components/tabs/ChartTab';
@@ -23,6 +22,8 @@ import ConclusionRapidaCard from '@/components/cards/ConclusionRapidaCard';
 import OverviewCard from '@/components/cards/OverviewCard';
 import EstimacionCard from '@/components/cards/EstimacionCard';
 import Header from '@/components/layout/Header';
+//import { getCompanyProfile } from '@/lib/stockQueries';
+
 
 export default function StockTerminal() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -43,9 +44,10 @@ export default function StockTerminal() {
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
   // símbolo actual (string) sin importar si selectedStock es string u objeto
-  const selectedSymbol: string = typeof selectedStock === 'string'
+  const selectedSymbol =
+  typeof selectedStock === "string"
     ? selectedStock
-    : (selectedStock?.symbol ?? 'AAPL');
+    : (selectedStock?.symbol ?? "AAPL");
 
   useEffect(() => {
     setCurrentTime(new Date());
@@ -114,30 +116,23 @@ export default function StockTerminal() {
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'resumen':
-        return (
-          <ConclusionRapidaCard 
-            stockBasicData={stockBasicData}
-            stockAnalysis={stockAnalysis}
-            stockConclusion={stockConclusion}
-          />
-        );
       case 'datos':
         return (
-          <DatosTab 
+          <DatosTab
             stockAnalysis={stockAnalysis}
             stockPerformance={stockPerformance}
             stockBasicData={stockBasicData}
             stockReport={stockReport}
+            symbol={selectedSymbol}          // ← importante
           />
         );
       case 'chart':
         return (
           <Dialog open={isChartModalOpen} onOpenChange={setIsChartModalOpen}>
-            <DialogContent className="w-[90vw] max-w-[90vw] h-[90vh] max-h-[90vh] overflow-y-auto bg-gray-900 ... backdrop-blur-md border border-green-400/30 shadow-2xl">
+            <DialogContent className="w-[90vw] max-w-[90vw] h-[90vh] max-h-[90vh] overflow-y-auto bg-gray-900 ... backdrop-blur-md shadow-2xl">
               <DialogHeader>
                 <DialogTitle className="text-green-400">
-                  📈 Charts - {selectedSymbol}
+                  Charts - {selectedSymbol}
                 </DialogTitle>
               </DialogHeader>
               <div className="mt-4">
@@ -150,14 +145,8 @@ export default function StockTerminal() {
             </DialogContent>
           </Dialog>
         );
-      case 'informe':
-        return <InformeTab stockReport={stockReport} />;
       case 'estimacion':
         return <EstimacionCard selectedStock={selectedStock} />;
-      case 'noticias':
-        return <NoticiasTab symbol={selectedSymbol || 'AAPL'} />;
-      case 'twits':
-        return <TwitsTab />;
       default:
         return (
           <ConclusionRapidaCard 
@@ -206,69 +195,67 @@ export default function StockTerminal() {
       
       <div className="flex min-h-screen"> 
         {/* Contenido principal */}
-        <div className="flex-1 p-2 pt-1">
+        <div className="flex-1 p-2 pt-0">
           {error && (
-            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded text-red-400">
+            <div className="mb-4 p-3 bg-red-500/20 border-red-500/30 rounded text-red-400">
               {error}
             </div>
           )}
 
           {selectedStock && (
             <>
-              {/* Columnas */}
-              <div className='flex'>
-                <div className="w-1/2 flex items-center space-x-2 px-3 py-2">
-                    <span className="text-orange-400 text-sm font-medium flex-shrink-0">Más buscadas en Fintra:</span>
-                    <div className="flex space-x-1 overflow-x-auto scrollbar-thin min-w-0">
-                      <TopSearchedStocksDropdown onStockClick={handleTopStockClick} />   
-                    </div>
-                  </div>
-                <div className='w-1/2'>
-                  <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                {/* Izquierda */}
-                <div className="w-1/2 flex flex-col">
-                  {/* Búsqueda */}
-                  {/* <div className="w-full">
-                    <div className="flex space-x-4 items-center">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-green-400" />
-                        <Input
-                          type="text"
-                          placeholder="Buscar símbolo de acción (ej: AAPL, GOOGL)..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          onKeyDown={handleKeyDown}
-                          className="pl-10 bg-black/50 border-green-400/30 text-green-400 placeholder-green-400/50 focus:border-green-400"
-                        />
-                      </div>
-                      <Button
-                        onClick={() => buscarDatosAccion(searchTerm.trim())}
-                        disabled={isLoading || !searchTerm.trim()}
-                        className="bg-green-400/20 text-green-400 border border-green-400/30 hover:bg-green-400/30 flex-shrink-0"
-                      >
-                        {isLoading ? 'Buscando...' : 'Buscar'}
-                      </Button>
-                    </div>
-                  </div> */}
-
+              <div className='flex w-full items-center justify-between grid-cols-2'>
+                  <div className='flex w-full flex-col'>
                   {/* Overview */}
-                  <div className="space-y-4">
-                    <OverviewCard
-                      stockBasicData={stockBasicData}
-                      stockAnalysis={stockAnalysis}
-                      selectedStock={selectedStock}
-                      onStockSearch={buscarDatosAccion}
-                    />
+                    <div className="space-y-4">
+                      <OverviewCard
+                        stockBasicData={stockBasicData}
+                        stockAnalysis={stockAnalysis}
+                        selectedStock={selectedStock}
+                        onStockSearch={buscarDatosAccion}
+                      />
+                    </div>
                   </div>
+                  <Card className="min-w-[350px] flex justify-between bg-transparent border-none h-[36px]">
+
+                    <div className='flex w-full'>
+                      <div className="flex w-full items-center py-2">
+                          <div className="flex w-full min-w-0">
+                            <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} />   
+                          </div>
+                        </div>
+                    </div>
+                  </Card>
+                </div>
+
+              <div className="flex gap-1">
+                
+                {/* Izquierda */}
+                <div className="w-1/2 flex flex-col">   
+
+                  {/* Tabs debajo de las columnas */}
+                  <div className="w-full pt-1">
+                    <div >
+                      {renderTabContent()}
+                    </div>
+                  </div>
+
+                  <Card className="mt-1 flex items-center justify-content bg-tarjetas border-none h-[40px]">
+                    <div className='flex'>
+                      <div className="flex items-center space-x-2 px-3 py-2">
+                          <Flame className="w-4 h-4 text-green-400" />
+                          <span className="text-orange-400 text-sm font-medium flex-shrink-0">Top:</span>
+                          <div className="flex space-x-1 overflow-x-auto scrollbar-thin min-w-0">
+                            <TopSearchedStocksDropdown onStockClick={handleTopStockClick} />   
+                          </div>
+                        </div>
+                    </div>
+                  </Card>
                 </div>
 
                 {/* Derecha */}
-                <div className="w-1/2 flex flex-col items-center justify-center">
-
-                  <div className="w-full gap-2">
+                <div className="w-1/2 flex flex-col">
+                  <div className="w-full pt-1">
                     <RadarPeersCard
                       symbol={selectedSymbol || "N/A"}
                       companyName={stockBasicData?.companyName}
@@ -278,16 +265,19 @@ export default function StockTerminal() {
                         buscarDatosAccion(s);
                       }}
                     />
+                    
+                    {/* NoticiasTab agregado debajo del RadarPeersCard */}
+                    <div className="w-full pt-1">
+                      <NoticiasTab 
+                        stockBasicData={stockBasicData}
+                        stockAnalysis={stockAnalysis}
+                        selectedStock={selectedStock}
+                        symbol={selectedSymbol || "N/A"}
+                      />
+                    </div>
                   </div>
                 </div>
               </div> {/* ⬅️ cierre del contenedor de columnas */}
-
-              {/* Tabs debajo de las columnas */}
-              <div className="w-full mt-6">
-                <div className="mt-6">
-                  {renderTabContent()}
-                </div>
-              </div>
             </>
           )}
         </div>

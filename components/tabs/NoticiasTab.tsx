@@ -43,9 +43,17 @@ interface NewsResponse {
 
 interface NoticiasTabProps {
   symbol?: string;
+  stockBasicData?: any;
+  stockAnalysis?: any;
+  selectedStock?: any;
 }
 
-export default function NoticiasTab({ symbol = "AAPL" }: NoticiasTabProps) {
+export default function NoticiasTab({ 
+  symbol = "AAPL", 
+  stockBasicData, 
+  stockAnalysis, 
+  selectedStock 
+}: NoticiasTabProps) {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +65,13 @@ export default function NoticiasTab({ symbol = "AAPL" }: NoticiasTabProps) {
   }, [symbol]);
 
   const fetchNews = async () => {
+    // Validar que el símbolo sea válido
+    if (!symbol || symbol === "N/A" || symbol.length === 0) {
+      setError('No hay símbolo seleccionado');
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       setError(null);
@@ -135,7 +150,8 @@ export default function NoticiasTab({ symbol = "AAPL" }: NoticiasTabProps) {
 
   if (loading) {
     return (
-      <Card className="bg-gray-900/50 border-green-500/30">
+      <Card className="bg-tarjetas bg-tarjetas border-none h-[400px]">
+
         <CardHeader>
           <CardTitle className="text-green-400 text-lg flex items-center gap-2">
             Noticias de {symbol}
@@ -153,7 +169,7 @@ export default function NoticiasTab({ symbol = "AAPL" }: NoticiasTabProps) {
 
   if (error) {
     return (
-      <Card className="bg-gray-900/50 border-green-500/30">
+      <Card className="bg-tarjetas bg-tarjetas border-none h-[360px]">
         <CardHeader>
           <CardTitle className="text-green-400 text-lg flex items-center gap-2">
             Noticias de {symbol}
@@ -232,7 +248,7 @@ export default function NoticiasTab({ symbol = "AAPL" }: NoticiasTabProps) {
 
   return (
     <>
-      <Card className="bg-gray-900/50 border-green-500/30">
+      <Card className="flex-1 bg-tarjetas bg-tarjetas border-none  h-[360px]">
         <CardHeader>
           <CardTitle className="text-green-400 text-lg flex items-center gap-2">
             Noticias de {symbol}
@@ -241,7 +257,7 @@ export default function NoticiasTab({ symbol = "AAPL" }: NoticiasTabProps) {
             </Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="max-h-96 overflow-y-auto space-y-4">
+        <CardContent className="flex-1  h-[280px] overflow-y-auto space-y-4">
           {news.length === 0 ? (
             <p className="text-gray-400 text-center py-8">
               No hay noticias disponibles para {symbol}
@@ -259,7 +275,7 @@ export default function NoticiasTab({ symbol = "AAPL" }: NoticiasTabProps) {
               return (
                 <div
                   key={index}
-                  className="bg-gray-800/50 p-4 rounded-lg border border-gray-700/50 hover:border-green-500/30 transition-colors"
+                  className="bg-fondoDeTarjetas border-none p-4 rounded-lg"
                 >
                   {/* Header con título y sentimiento */}
                   <div className="flex items-start justify-between gap-3 mb-3">

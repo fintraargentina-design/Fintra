@@ -96,25 +96,39 @@ export type PeerSymbol = string;
 
 export type PeersResponse = {
   symbol: string;
-  peers: PeerSymbol[];
+  peers: string[];
+  source: 'fmp';
+  updatedAt: string;
 };
 
-export type DetailedPeer = Pick<
-  FMPCompanyProfile,
-  | "symbol"
-  | "companyName"
-  | "price"
-  | "mktCap"
-  | "beta"
-  | "sector"
-  | "industry"
-  | "currency"
-  | "image"
->;
+export type DetailedPeer = {
+  symbol: string;
+  companyName?: string;
+  sector?: string;
+  industry?: string;
+  price?: number;
+};
 
 export type DetailedPeersResponse = {
   symbol: string;
   peers: DetailedPeer[];
+  source: 'fmp';
+  updatedAt: string;
+};
+
+/** ───────────── Peers ───────────── */
+export type FMPFinancialScore = {
+  symbol: string;
+  reportedCurrency: string;
+  altmanZScore: number | null;
+  piotroskiScore: number | null;
+  workingCapital?: number;
+  totalAssets?: number;
+  retainedEarnings?: number;
+  ebit?: number;
+  marketCap?: number;
+  totalLiabilities?: number;
+  revenue?: number;
 };
 
 /** ───────────── Helpers de respuestas ───────────── */
