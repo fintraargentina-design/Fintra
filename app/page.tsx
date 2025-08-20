@@ -13,6 +13,7 @@ import ConclusionRapidaCard from '@/components/cards/ConclusionRapidaCard';
 import OverviewCard from '@/components/cards/OverviewCard';
 import EstimacionCard from '@/components/cards/EstimacionCard';
 import Header from '@/components/layout/Header';
+import FinancialScoresCard from '@/components/cards/FinancialScoresCard';
 
 type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits';
 
@@ -171,7 +172,15 @@ export default function StockTerminal() {
                 {/* Izquierda */}
                 <div className="w-1/2 flex flex-col">
                   <div className="w-full pt-1">
-                    <RadarPeersCard symbol={selectedSymbol} />
+                    <div className='w-full grid grid-cols-2 gap-1'>
+
+                      <div className='flex flex-col'>
+                        <RadarPeersCard symbol={selectedSymbol} />
+                      </div>
+                      <div className='flex flex-col'>
+                        <FinancialScoresCard symbol={selectedSymbol} />
+                      </div>                    
+                    </div>
 
                     {/* Noticias debajo del radar */}
                     <div className="w-full pt-1">

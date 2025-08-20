@@ -88,6 +88,14 @@ export const fmp = {
     });
   },
 
+  /** Ratios TTM (trailing twelve months) */
+  ratiosTTM(symbol: string, opts?: { cache?: CacheOpt }) {
+    return get<RatiosResponse>("/ratios-ttm", {
+      params: { symbol },
+      cache: opts?.cache ?? "force-cache",
+    });
+  },
+
   /** Perfil (array como lo da FMP /v3/profile) */
   profile(symbol: string, opts?: { cache?: CacheOpt }) {
     return get<ProfileResponse>("/profile", {
@@ -132,7 +140,7 @@ export const fmp = {
 
   /** Scores (stable/financial-scores) */
   scores(symbol: string, cache: CacheOpt = "force-cache") {
-    return get<FinancialScoreResponse>("/scores", { params: { symbol }, cache });
+    return get<FinancialScoreResponse>("/financial-scores", { params: { symbol }, cache });
   },
 
   /** Key metrics TTM */

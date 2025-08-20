@@ -11,8 +11,8 @@ const Query = z.object({
     .string()
     .trim()
     .min(1, "symbol requerido")
-    .transform((s) => s.toUpperCase())
-    .regex(/^[A-Z0-9.\-\^]+$/, "símbolo inválido"),
+    .regex(/^[A-Z0-9.\-\^]+$/i, "símbolo inválido") // ← regex ANTES del transform
+    .transform((s) => s.toUpperCase()),              // ← transform DESPUÉS
 });
 
 type ScoresOut = {

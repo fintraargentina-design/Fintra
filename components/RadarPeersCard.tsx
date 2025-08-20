@@ -242,7 +242,7 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
       radar: [
         {
           indicator: indicators,
-          center: ['30%', '45%'],
+          center: ['50%', '45%'],
           radius: '55%',
           axisName: { color: '#9ca3af', borderRadius: 8, padding: [2, 6] },
           splitArea: { areaStyle: { color: ['rgba(158,165,163,0.02)', 'rgba(158,165,163,0.04)'] } },

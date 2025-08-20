@@ -208,13 +208,6 @@ export default function OverviewCard({
           })
         };
         
-        // Líneas 211-213 - ELIMINAR estos console.log:
-        console.log('Raw profile data:', rawProfile);
-        console.log('Raw quote data:', rawQuote);
-        console.log('Combined data:', combinedData);
-        
-        // Línea 250 - ELIMINAR este console.log:
-        console.log('changePercentage', profile?.changePercentage)
         if (!active) return;
         setProfile(normalizeProfile(combinedData));
       } catch (err: any) {

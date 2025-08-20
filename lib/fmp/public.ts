@@ -50,6 +50,15 @@ export const fmp = {
     );
   },
 
+  /** Ratios TTM (trailing twelve months) */
+  ratiosTTM(symbol: string, opts?: { cache?: CacheOpt }) {
+    return getJSON<RatiosResponse>(
+      "/ratios-ttm",
+      { symbol },
+      opts?.cache ?? "force-cache"
+    );
+  },
+
   growth(
     symbol: string,
     opts?: { period?: "annual" | "quarter"; limit?: number; cache?: CacheOpt }

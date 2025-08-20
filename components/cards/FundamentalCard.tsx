@@ -10,6 +10,7 @@ import { CanvasRenderer } from "echarts/renderers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fmp } from "@/lib/fmp/client";
 
+
 echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 const ReactECharts = dynamic(() => import("echarts-for-react/lib/core"), { ssr: false });
 
@@ -113,72 +114,55 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let alive = true;
-    (async () => {
+    if (!symbol) return;
+
+    const fetchData = async () => {
       setLoading(true);
       setError(null);
+      
       try {
-        const [ratios, growth, keyMetrics, cashflow] = await Promise.all([
+        const [ratiosData, growthData, keyMetricsData, cashflowData, profileData] = await Promise.all([
           fmp.ratios(symbol, { limit: 1, period: "annual" }),
-          fmp.growth(symbol, { limit: 5, period: "annual" }),
-          fmp.keyMetricsTTM(symbol), // En lugar de fmp.keyMetrics(symbol)
-          fmp.cashflow(symbol, { limit: 1, period: "annual" }), // ← Añadir esta llamada
+          fmp.growth(symbol, { period: "annual", limit: 5 }),
+          fmp.keyMetricsTTM(symbol),
+          fmp.cashflow(symbol, { period: "annual", limit: 1 }),
+          fmp.profile(symbol), // Agregar profile para obtener marketCap
         ]);
+
+        // Procesar datos
+        const r = Array.isArray(ratiosData) && ratiosData.length ? ratiosData[0] : {};
+        const g = Array.isArray(growthData) ? growthData : [];
+        const km = Array.isArray(keyMetricsData) && keyMetricsData.length ? keyMetricsData[0] : {};
+        const cf = Array.isArray(cashflowData) && cashflowData.length ? cashflowData[0] : {};
+        const p = Array.isArray(profileData) && profileData.length ? profileData[0] : {};
+
+        // Normalizar valores
+        const roe = pctOrNull(r.returnOnEquity);
+        const roic = pctOrNull(r.returnOnCapitalEmployed);
+        const grossMargin = pctOrNull(r.grossProfitMargin);
+        const netMargin = pctOrNull(r.netProfitMargin);
+        const debtToEquity = numOrNull(r.debtEquityRatio);
+        const currentRatio = numOrNull(r.currentRatio);
+        const interestCoverage = numOrNull(r.interestCoverage);
+        const freeCashFlow = numOrNull(cf.freeCashFlow);
         
-        const km = Array.isArray(keyMetrics) && keyMetrics.length ? keyMetrics[0] : {};
-        const cf = Array.isArray(cashflow) && cashflow.length ? cashflow[0] : {};
+        // Calcular CAGRs de crecimiento
+        const revGrowthRates = g.map(item => numOrNull(item.growthRevenue) ? item.growthRevenue * 100 : 0);
+        const epsGrowthRates = g.map(item => numOrNull(item.growthEPS) ? item.growthEPS * 100 : 0);
+        const equityGrowthRates = g.map(item => numOrNull(item.growthStockholdersEquity) ? item.growthStockholdersEquity * 100 : 0);
         
-        const r = Array.isArray(ratios) && ratios.length ? ratios[0] : {};
-        const gArr = Array.isArray(growth) ? growth : [];
+        const revCagr = cagrFromGrowthSeries(revGrowthRates);
+        const epsCagr = cagrFromGrowthSeries(epsGrowthRates);
+        const equityCagr = cagrFromGrowthSeries(equityGrowthRates);
+        
+        // Obtener bookValuePerShare de keyMetrics y marketCap de profile
+        const bookValuePerShare = numOrNull(km.bookValuePerShare);
+        const marketCap = numOrNull(p.mktCap); // Cambiar de km.marketCap a p.mktCap
 
-        // No rellenamos con 0: dejamos NaN para que el CAGR ignore faltantes
-        const revenueCAGR =
-          cagrFromGrowthSeries(gArr.slice(0, 5).map((g: any) => Number(g?.growthRevenue))) ?? null;
-
-        const netIncomeCAGR =
-          cagrFromGrowthSeries(
-            gArr
-              .slice(0, 5)
-              .map((g: any) => Number(g?.growthNetIncome ?? g?.growthOperatingIncome ?? g?.growthEPS))
-          ) ?? null;
-
-        const equityCAGR =
-          cagrFromGrowthSeries(gArr.slice(0, 5).map((g: any) => Number(g?.growthStockholdersEquity))) ??
-          null;
-
-        // Normalización segura (sin NaN)
-        const vals = {
-          roe: pctOrNull(r.returnOnEquity),
-          roic: pctOrNull(r.returnOnCapitalEmployed),
-          grossMargin: pctOrNull(r.grossProfitMargin),
-          netMargin: pctOrNull(r.netProfitMargin),
-          debtToEquity: numOrNull(r.debtEquityRatio),
-          currentRatio: numOrNull(r.currentRatio),
-          interestCoverage: numOrNull(r.interestCoverage),
-          freeCashFlow: numOrNull(cf.freeCashFlow),
-          revenueCAGR_5Y: revenueCAGR,
-          netIncomeCAGR_5Y: netIncomeCAGR,
-          equityCAGR_5Y: equityCAGR,
-          bookValuePerShare: numOrNull(km.bookValuePerShare),
-          sharesOutstanding: numOrNull(km.sharesOutstanding),
-        };
-
-        const build = (label: string, raw: number | null, unit?: "%" | "x" | "$" | "large"): MetricRow => {
+        // Función helper para construir filas
+        const build = (label: string, raw: number | null, unit?: "% " | "x" | "$") => {
           const meta = getScoreMeta(label, raw);
-          const display =
-            unit === "%"
-              ? fmtPercent(raw)
-              : unit === "x"
-              ? `${fmtRatio(raw)}x`
-              : unit === "$"
-              ? raw == null
-                ? "N/A"
-                : `$${raw.toFixed(0)}`
-              : unit === "large"
-              ? fmtLargeNumber(raw)
-              : raw == null
-              ? "N/A"
-              : String(raw);
+          const display = unit === "%" ? fmtPercent(raw) : unit === "x" ? fmtRatio(raw) : unit === "$" ? fmtLargeNumber(raw) : fmtRatio(raw);
           return {
             label,
             unit,
@@ -190,32 +174,33 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
           };
         };
 
-        const list: MetricRow[] = [
-          build("ROE", vals.roe, "%"),
-          build("ROIC", vals.roic, "%"),
-          build("Margen bruto", vals.grossMargin, "%"),
-          build("Margen neto", vals.netMargin, "%"),
-          build("Deuda/Capital", vals.debtToEquity, "x"),
-          build("Current Ratio", vals.currentRatio, "x"),
-          build("Cobertura de intereses", vals.interestCoverage, "x"),
-          build("Flujo de Caja Libre", vals.freeCashFlow, "large"),
-          build("CAGR ingresos", vals.revenueCAGR_5Y, "%"),
-          build("CAGR beneficios", vals.netIncomeCAGR_5Y, "%"),
-          build("CAGR patrimonio", vals.equityCAGR_5Y, "%"),
-          build("Book Value por acción", vals.bookValuePerShare, "$"),
-          build("Acciones en circulación", vals.sharesOutstanding, "large"),
+        // Construir lista de métricas
+        const metrics: MetricRow[] = [
+          build("ROE", roe, "%"),
+          build("ROIC", roic, "%"),
+          build("Margen bruto", grossMargin, "%"),
+          build("Margen neto", netMargin, "%"),
+          build("Deuda/Capital", debtToEquity, "x"),
+          build("Current Ratio", currentRatio, "x"),
+          build("Cobertura de intereses", interestCoverage, "x"),
+          build("Flujo de Caja Libre", freeCashFlow, "$"),
+          build("CAGR ingresos", revCagr, "%"),
+          build("CAGR beneficios", epsCagr, "%"),
+          build("CAGR patrimonio", equityCagr, "%"),
+          build("Book Value por acción", bookValuePerShare, "$"),
+          build("Capitalización de Mercado", marketCap, "$"),
         ];
 
-        if (alive) setRows(list);
-      } catch (e: any) {
-        if (alive) setError(e?.message ?? "Error cargando fundamentales");
+        setRows(metrics);
+      } catch (error) {
+        console.error("Error fetching fundamental data:", error);
+        setError("Error cargando datos fundamentales");
       } finally {
-        if (alive) setLoading(false);
+        setLoading(false);
       }
-    })();
-    return () => {
-      alive = false;
     };
+
+    fetchData();
   }, [symbol]);
 
   const option = useMemo(() => {
