@@ -1,67 +1,38 @@
-// /app/api/fmp/peers/detailed/route.ts
-import { NextRequest, NextResponse } from "next/server";
+// app/api/fmp/peers/detailed/route.ts
+import { NextResponse, NextRequest } from "next/server";
+import { z } from "zod";
+import { fmpGet } from "@/lib/fmp/server";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type AnyJson = any;
+// Validación de query
+const Query = z.object({
+  symbol: z
+    .string()
+    .trim()
+    .min(1, "symbol requerido")
+    .transform((s) => s.toUpperCase())
+    .regex(/^[A-Z0-9.\-\^]+$/, "símbolo inválido"),
+  limit: z.coerce.number().int().positive().max(50).default(10),
+});
 
-const BASE_URL = process.env.FMP_BASE_URL || "https://financialmodelingprep.com";
-const API_KEY = process.env.FMP_API_KEY;
-
-type Query = Record<string, string | number | boolean | undefined>;
-
-function buildUrl(path: string, query: Query = {}): string {
-  const url = new URL(`${BASE_URL}${path}`);
-  Object.entries(query).forEach(([k, v]) => {
-    if (v !== undefined) url.searchParams.set(k, String(v));
-  });
-  if (API_KEY) url.searchParams.set("apikey", API_KEY);
-  return url.toString();
-}
-
-async function fetchWithRetry(url: string, init?: RequestInit, retries = 2): Promise<Response> {
-  let attempt = 0;
-  let lastErr: unknown;
-  while (attempt <= retries) {
-    try {
-      const res = await fetch(url, { ...init, cache: "no-store" });
-      if (res.ok) return res;
-      if (res.status === 429 || res.status >= 500) {
-        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
-        attempt++;
-        continue;
-      }
-      return res;
-    } catch (err) {
-      lastErr = err;
-      await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
-      attempt++;
-    }
-  }
-  throw lastErr ?? new Error("Fetch retry agotado");
-}
-
-async function fmpGetLocal(path: string, query: Query = {}) {
-  if (!API_KEY) {
-    throw new Error("FMP_API_KEY ausente en el servidor");
-  }
-  const url = buildUrl(path, query);
-  const res = await fetchWithRetry(url);
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`FMP ${res.status} ${res.statusText} — ${text}`);
-  }
-  return res.json() as Promise<AnyJson>;
-}
-
-function extractPeers(raw: AnyJson): string[] {
+// Normaliza payloads distintos de FMP → array de tickers
+function extractPeers(raw: any): string[] {
   if (!raw) return [];
+
   if (Array.isArray(raw)) {
     const first = raw[0];
+
+    // v3/v4: [{ peersList: [...] }]
     if (first?.peersList && Array.isArray(first.peersList)) {
       return first.peersList.filter((p: unknown): p is string => typeof p === "string");
     }
+
+    // A veces viene como array de strings
     if (raw.every((x) => typeof x === "string")) return raw as string[];
+
+    // Objetos con peersList/peer
     const fromObjs = raw
       .flatMap((o) =>
         Array.isArray(o?.peersList)
@@ -77,72 +48,76 @@ function extractPeers(raw: AnyJson): string[] {
       return (raw as any).peersList.filter((p: unknown): p is string => typeof p === "string");
     }
   }
+
   return [];
 }
 
+const cacheHeaders = {
+  "Content-Type": "application/json",
+  "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=900", // 30m
+};
+
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const symbol = searchParams.get("symbol")?.toUpperCase();
-  const limit = Number(searchParams.get("limit") ?? 10);
-
-  if (!symbol) {
-    return NextResponse.json({ error: "Missing ?symbol" }, { status: 400 });
-  }
-
   try {
-    // peers con fallback de endpoints
+    const { symbol, limit } = Query.parse(
+      Object.fromEntries(new URL(req.url).searchParams)
+    );
+
+    // Intentos con fallback
     const attempts = [
       { path: "/stable/stock-peers", note: "stable/stock-peers" },
       { path: "/api/v4/stock_peers", note: "v4/stock_peers" },
       { path: "/api/v3/stock_peers", note: "v3/stock_peers" },
     ];
-    let peers: string[] = [];
-    const errors: string[] = [];
 
+    let peers: string[] = [];
     for (const a of attempts) {
       try {
-        const raw = await fmpGetLocal(a.path, { symbol });
-        peers = extractPeers(raw)
-          .map((p) => p.toUpperCase())
-          .filter((p) => p !== symbol);
-        break;
-      } catch (err: any) {
-        const msg = String(err?.message ?? err);
-        errors.push(`${a.note}: ${msg}`);
-        if (/FMP\s+403/.test(msg) || /FMP\s+404/.test(msg)) {
-          console.warn(`[FMP peers detailed] ${a.note} -> ${msg}. Usando peers vacíos.`);
-          peers = [];
-          break;
-        }
+        const raw = await fmpGet<any>(a.path, { symbol });
+        peers = Array.from(
+          new Set(extractPeers(raw).map((p) => p.toUpperCase()))
+        ).filter((p) => p !== symbol);
+        if (peers.length) break;
+      } catch (e: any) {
+        // seguimos con el siguiente intento
+        // si quisieras frenar por 403/404, podés inspeccionar e.message
+        // console.warn(`[peers detailed] ${a.note} -> ${e?.message || e}`);
       }
     }
 
-    const trimmed = peers.slice(0, Math.max(1, limit));
+    const trimmed = peers.slice(0, limit);
     if (!trimmed.length) {
-      return NextResponse.json({ symbol, peers: [] }, { status: 200 });
+      return NextResponse.json({ symbol, peers: [] }, { status: 200, headers: cacheHeaders });
     }
 
-    // perfiles batch
+    // Batch profile de los peers
     const csv = trimmed.join(",");
-    const profiles: any[] = await fmpGetLocal(`/api/v3/profile/${csv}`);
+    const profiles = await fmpGet<any[]>(`/api/v3/profile/${csv}`);
 
-    const map = (profiles || []).map((p: any) => ({
+    const mapped = (Array.isArray(profiles) ? profiles : []).map((p) => ({
       symbol: p.symbol,
-      companyName: p.companyName,
-      price: p.price,
-      mktCap: p.mktCap,
-      beta: p.beta,
-      sector: p.sector,
-      industry: p.industry,
-      currency: p.currency,
-      image: p.image,
+      companyName: p.companyName ?? p.company ?? null,
+      price: Number.isFinite(+p.price) ? +p.price : null,
+      mktCap: Number.isFinite(+p.mktCap ?? +p.marketCap)
+        ? (+p.mktCap ?? +p.marketCap)
+        : null,
+      beta: Number.isFinite(+p.beta) ? +p.beta : null,
+      sector: p.sector ?? null,
+      industry: p.industry ?? null,
+      currency: p.currency ?? null,
+      image: p.image ?? null,
     }));
 
-    return NextResponse.json({ symbol, peers: map }, { status: 200 });
-  } catch (err: any) {
     return NextResponse.json(
-      { error: err?.message ?? "Detailed peers fetch failed" },
-      { status: 500 }
+      { symbol, peers: mapped },
+      { status: 200, headers: cacheHeaders }
+    );
+  } catch (err: any) {
+    console.error("[/api/fmp/peers/detailed] error:", err?.message || err);
+    // Shape estable para no romper la UI
+    return NextResponse.json(
+      { symbol: "", peers: [] },
+      { status: 200, headers: cacheHeaders }
     );
   }
 }

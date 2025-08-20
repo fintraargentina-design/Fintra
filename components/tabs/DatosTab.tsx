@@ -30,10 +30,12 @@ export default function DatosTab({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
         <FundamentalCard symbol={symbol} />
         <ValoracionCard  symbol={symbol} />
+        <DesempenoCard symbol={symbol} />
+        <DividendosCard symbol={symbol} />
 
         {/* tus otras tarjetas con sus props actuales */}
-        <DesempenoCard stockPerformance={stockPerformance} stockBasicData={stockPerformance} stockReport={stockReport}/>
-        <DividendosCard stockAnalysis={stockAnalysis} stockBasicData={stockBasicData?.datos?.dividendos ?? null} stockReport={stockReport}/>
+        {/* <DesempenoCard stockPerformance={stockPerformance} stockBasicData={stockPerformance} stockReport={stockReport}/>
+        <DividendosCard stockAnalysis={stockAnalysis} stockBasicData={stockBasicData?.datos?.dividendos ?? null} stockReport={stockReport}/> */}
       </div>
     </div>
   );

@@ -1,167 +1,160 @@
-import { NextResponse } from 'next/server';
-import { z } from 'zod';
+// app/api/fmp/peers/route.ts
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { fmpGet } from "@/lib/fmp/server";
 
-const FMP_BASE_URL = process.env.FMP_BASE_URL ?? 'https://financialmodelingprep.com/';
-const FMP_API_KEY = process.env.FMP_API_KEY!;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
+// Validación de query
 const QuerySchema = z.object({
-  symbol: z.string().trim().toUpperCase().regex(/^[A-Z.\-]+$/, 'Símbolo inválido'),
+  symbol: z
+    .string()
+    .trim()
+    .min(1, "Símbolo requerido")
+    .regex(/^[A-Z0-9.\-\^]+$/i, "Símbolo inválido") // Mover regex antes de transform
+    .transform((s) => s.toUpperCase()),
   limit: z.coerce.number().int().positive().max(100).default(20),
   detailed: z
-    .union([z.literal('1'), z.literal('true'), z.literal('0'), z.literal('false')])
+    .union([z.literal("1"), z.literal("true"), z.literal("0"), z.literal("false")])
     .optional()
-    .transform((v) => (v === '1' || v === 'true') ? true : false),
+    .transform((v) => (v === "1" || v === "true") ? true : false),
 });
 
-type PeerDetail = { symbol: string; companyName?: string; price?: number; mktCap?: number };
+type PeerDetail = { symbol: string; companyName?: string; price?: number | null; mktCap?: number | null };
 type PeersResponse = {
   symbol: string;
   peers: string[];
-  source: 'fmp';
+  source: "fmp";
   updatedAt: string;
-  details?: PeerDetail[]; // presente si detailed=1 y el backend lo pudo derivar
+  details?: PeerDetail[]; // presente si detailed=1
 };
 
-export const revalidate = 60 * 60 * 24;
+// Normaliza payloads distintos de FMP → lista de tickers
+// Función extractPeers - remover estos logs:
+function extractPeers(raw: any): string[] {
+  // ... existing code ...
+  
+  if (!raw) return [];
 
-function buildUrl(path: string, params: Record<string, string | number>) {
-  const url = new URL(`${FMP_BASE_URL}${path.startsWith('/api') ? path : `/api${path}`}`);
-  Object.entries({ ...params, apikey: FMP_API_KEY }).forEach(([k, v]) => url.searchParams.set(k, String(v)));
-  return url.toString();
-}
-
-async function fetchWithRetry(url: string, init: RequestInit = {}, retries = 2, timeoutMs = 10_000) {
-  let attempt = 0;
-  let lastErr: unknown;
-  while (attempt <= retries) {
-    const ac = new AbortController();
-    const t = setTimeout(() => ac.abort(), timeoutMs);
-    try {
-      const res = await fetch(url, { ...init, signal: ac.signal, cache: 'no-store' });
-      clearTimeout(t);
-      if (res.ok) return res;
-      if (res.status === 429 || res.status >= 500) {
-        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
-        attempt++;
-        continue;
-      }
-      return res; // 4xx no reintenta
-    } catch (err) {
-      clearTimeout(t);
-      lastErr = err;
-      await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
-      attempt++;
+  if (Array.isArray(raw)) {
+    // v4: [{ peersList: [...] }]
+    if (raw.length && Array.isArray(raw[0]?.peersList)) {
+      return raw[0].peersList.filter((p: unknown): p is string => typeof p === "string");
+    }
+    // a veces devuelven array de strings
+    if (raw.every((x) => typeof x === "string")) {
+      return raw as string[];
+    }
+    
+    // NUEVO: Manejar array de objetos con propiedad 'symbol'
+    if (raw.length && typeof raw[0] === 'object' && 'symbol' in raw[0]) {
+      const result = raw
+        .map((obj: any) => obj.symbol)
+        .filter((symbol: unknown): symbol is string => typeof symbol === "string" && symbol.trim().length > 0);
+      return result;
+    }
+    
+    // objetos con peersList/peer
+    const fromObjs = raw
+      .flatMap((o) =>
+        Array.isArray(o?.peersList)
+          ? o.peersList
+          : typeof o?.peer === "string"
+          ? [o.peer]
+          : []
+      )
+      .filter((p: unknown): p is string => typeof p === "string");
+    if (fromObjs.length) return fromObjs;
+  } else if (typeof raw === "object") {
+    if (Array.isArray((raw as any).peersList)) {
+      return (raw as any).peersList.filter((p: unknown): p is string => typeof p === "string");
     }
   }
-  throw lastErr ?? new Error('Fetch retry agotado');
+
+  return [];
 }
 
-/** Normaliza distintos formatos de respuesta de FMP a string[] de tickers y, si hay, detalles */
-function extractPeers(raw: any): { tickers: string[]; details?: PeerDetail[] } {
-  // 1) { peersList: [...] }
-  if (raw && Array.isArray(raw.peersList)) {
-    return { tickers: raw.peersList as string[] };
-  }
-
-  // 2) [ { peersList: [...] } ]
-  if (Array.isArray(raw) && raw.length && Array.isArray(raw[0]?.peersList)) {
-    return { tickers: raw[0].peersList as string[] };
-  }
-
-  // 3) [ { peer: "MSFT" }, ... ]
-  if (Array.isArray(raw) && raw.length && Object.prototype.hasOwnProperty.call(raw[0], 'peer')) {
-    const tickers = (raw as any[]).map((r) => r?.peer).filter(Boolean);
-    return { tickers };
-  }
-
-  // 4) [ { symbol: "SONY", companyName: "...", price: ..., mktCap: ... }, ... ]
-  if (Array.isArray(raw) && raw.length && Object.prototype.hasOwnProperty.call(raw[0], 'symbol')) {
-    const details: PeerDetail[] = (raw as any[])
-      .map((r) => ({
-        symbol: String(r?.symbol ?? '').toUpperCase(),
-        companyName: r?.companyName ?? undefined,
-        price: typeof r?.price === 'number' ? r.price : Number.isFinite(+r?.price) ? +r.price : undefined,
-        mktCap: typeof r?.mktCap === 'number' ? r.mktCap : Number.isFinite(+r?.mktCap) ? +r.mktCap : undefined,
-      }))
-      .filter((d) => !!d.symbol);
-
-    const tickers = details.map((d) => d.symbol);
-    return { tickers, details };
-  }
-
-  // 5) Nada reconocido
-  return { tickers: [] };
-}
+const cacheHeaders = {
+  "Content-Type": "application/json",
+  "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600", // 24h
+};
 
 export async function GET(req: Request) {
-  if (!FMP_API_KEY) {
-    return NextResponse.json({ error: 'Missing FMP_API_KEY' }, { status: 500 });
-  }
-
-  const { searchParams } = new URL(req.url);
-  const parsed = QuerySchema.safeParse({
-    symbol: searchParams.get('symbol') ?? '',
-    limit: searchParams.get('limit') ?? '20',
-    detailed: searchParams.get('detailed') ?? '0',
-  });
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
-  }
-  const { symbol, limit, detailed } = parsed.data;
-
   try {
-    // 1) v4 recomendado
-    const v4Url = buildUrl('/v4/stock_peers', { symbol, limit });
-    let res = await fetchWithRetry(v4Url);
-    let raw = res.ok ? await res.json() : null;
-    console.log('[FMP peers url]', v4Url.replace(/(apikey=)[^&]+/, '$1***'));
+    const sp = new URL(req.url).searchParams;
+    const { symbol, limit, detailed } = QuerySchema.parse({
+      symbol: sp.get("symbol") ?? "",
+      limit: sp.get("limit") ?? "20",
+      detailed: sp.get("detailed") ?? "0",
+    });
 
-    // 2) Fallback v3 si no hubo datos
-    if (!raw || (Array.isArray(raw) && raw.length === 0)) {
-      const v3Url = buildUrl('/v3/stock_peers', { symbol });
-      res = await fetchWithRetry(v3Url);
-      raw = res.ok ? await res.json() : null;
-      console.log('[FMP peers url v3]', v3Url.replace(/(apikey=)[^&]+/, '$1***'));
+    // Intentos con fallback: stable → v4 → v3
+    const attempts = [
+      { path: "/stable/stock-peers", note: "stable/stock-peers", params: { symbol } },
+      { path: "/api/v4/stock_peers", note: "v4/stock_peers", params: { symbol, limit } },
+      { path: "/api/v3/stock_peers", note: "v3/stock_peers", params: { symbol } },
+    ];
+
+    let peers: string[] = [];
+    // En el bucle de intentos - remover estos logs:
+    for (const a of attempts) {
+      try {
+        const raw = await fmpGet<any>(a.path, a.params as Record<string, any>);
+        
+        const extracted = extractPeers(raw);
+        
+        peers = Array.from(
+          new Set(extracted.map((p) => String(p).trim().toUpperCase()))
+        ).filter((p) => p && p !== symbol);
+        
+        if (peers.length) break;
+      } catch (error) {
+        // seguimos al siguiente intento
+      }
     }
 
-    const { tickers, details } = extractPeers(raw);
-    const clean = Array.from(
-      new Set(
-        (tickers ?? [])
-          .map((p) => String(p).trim().toUpperCase())
-          .filter((p) => p && p !== symbol)
-      )
-    ).sort();
+    // aplica límite final por si el endpoint no lo respeta
+    const clean = peers.slice(0, limit).sort();
+
+    // Si detailed=1, buscamos perfiles en batch (v3 profile soporta CSV)
+    let details: PeerDetail[] | undefined;
+    if (detailed && clean.length) {
+      const csv = clean.join(",");
+      const profRaw = await fmpGet<any[]>(`/api/v3/profile/${csv}`);
+      const arr = Array.isArray(profRaw) ? profRaw : [];
+      details = arr
+        .map((p) => ({
+          symbol: String(p.symbol ?? "").toUpperCase(),
+          companyName: p.companyName ?? p.company ?? undefined,
+          price: Number.isFinite(+p.price) ? +p.price : null,
+          mktCap: Number.isFinite(+p.mktCap ?? +p.marketCap) ? (+p.mktCap ?? +p.marketCap) : null,
+        }))
+        .filter((d) => !!d.symbol && clean.includes(d.symbol));
+    }
 
     const payload: PeersResponse = {
       symbol,
       peers: clean,
-      source: 'fmp',
+      source: "fmp",
       updatedAt: new Date().toISOString(),
-      ...(detailed && details ? { details: details.filter((d) => clean.includes(d.symbol)) } : {}),
+      ...(details ? { details } : {}),
     };
 
-    return new NextResponse(JSON.stringify(payload), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=3600',
-      },
-    });
-  } catch (error) {
+    return new NextResponse(JSON.stringify(payload), { status: 200, headers: cacheHeaders });
+  } catch (err: any) {
+    console.error("[/api/fmp/peers] error:", err?.message || err);
+    // Shape estable para no romper UI
+    const symbol = new URL(req.url).searchParams.get("symbol")?.toUpperCase() || "";
     const payload: PeersResponse = {
       symbol,
       peers: [],
-      source: 'fmp',
+      source: "fmp",
       updatedAt: new Date().toISOString(),
     };
     return new NextResponse(JSON.stringify(payload), {
       status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300',
-        'X-Fallback': 'true',
-      },
+      headers: { ...cacheHeaders, "X-Fallback": "true" },
     });
   }
 }

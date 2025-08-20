@@ -36,12 +36,35 @@ const linearCap = (x?: number | null, cap = 60) => (x == null ? null : clamp((x 
 const fmtPercent = (v?: number | null, d = 1) => (v == null ? "N/A" : `${v.toFixed(d)}%`);
 const fmtRatio = (v?: number | null, d = 2) => (v == null ? "N/A" : v.toFixed(d));
 
+// Función para formatear números grandes con T/B/M
+const fmtLargeNumber = (v?: number | null, d = 1) => {
+  if (v == null) return "N/A";
+  const abs = Math.abs(v);
+  if (abs >= 1e12) return `$${(v / 1e12).toFixed(d)}T`;
+  if (abs >= 1e9) return `$${(v / 1e9).toFixed(d)}B`;
+  if (abs >= 1e6) return `$${(v / 1e6).toFixed(d)}M`;
+  if (abs >= 1e3) return `$${(v / 1e3).toFixed(d)}K`;
+  return `$${v.toFixed(0)}`;
+};
+
 function cagrFromGrowthSeries(series: number[]): number | null {
   const valid = series.filter((x) => Number.isFinite(x));
   if (!valid.length) return null;
   const compounded = valid.reduce((acc, r) => acc * (1 + r), 1);
   return (Math.pow(compounded, 1 / valid.length) - 1) * 100;
 }
+
+// ─────────────────────────────
+// Helpers de normalización numérica (evita NaN)
+// ─────────────────────────────
+const numOrNull = (x: any): number | null => {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
+};
+const pctOrNull = (x: any): number | null => {
+  const n = numOrNull(x);
+  return n == null ? null : n * 100; // FMP: 0.23 => 23%
+};
 
 type MetricRow = {
   label: string;
@@ -95,37 +118,52 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
       setLoading(true);
       setError(null);
       try {
-        const [ratios, growth] = await Promise.all([
+        const [ratios, growth, keyMetrics, cashflow] = await Promise.all([
           fmp.ratios(symbol, { limit: 1, period: "annual" }),
           fmp.growth(symbol, { limit: 5, period: "annual" }),
+          fmp.keyMetricsTTM(symbol), // En lugar de fmp.keyMetrics(symbol)
+          fmp.cashflow(symbol, { limit: 1, period: "annual" }), // ← Añadir esta llamada
         ]);
-
+        
+        const km = Array.isArray(keyMetrics) && keyMetrics.length ? keyMetrics[0] : {};
+        const cf = Array.isArray(cashflow) && cashflow.length ? cashflow[0] : {};
+        
         const r = Array.isArray(ratios) && ratios.length ? ratios[0] : {};
         const gArr = Array.isArray(growth) ? growth : [];
 
-        const revenueCAGR = cagrFromGrowthSeries(gArr.slice(0, 5).map((g: any) => Number(g.growthRevenue ?? 0))) ?? null;
-        const netIncomeCAGR = cagrFromGrowthSeries(
-          gArr.slice(0, 5).map((g: any) => Number(g.growthNetIncome ?? g.growthOperatingIncome ?? g.growthEPS ?? 0))
-        ) ?? null;
-        const equityCAGR = cagrFromGrowthSeries(gArr.slice(0, 5).map((g: any) => Number(g.growthStockholdersEquity ?? 0))) ?? null;
+        // No rellenamos con 0: dejamos NaN para que el CAGR ignore faltantes
+        const revenueCAGR =
+          cagrFromGrowthSeries(gArr.slice(0, 5).map((g: any) => Number(g?.growthRevenue))) ?? null;
 
+        const netIncomeCAGR =
+          cagrFromGrowthSeries(
+            gArr
+              .slice(0, 5)
+              .map((g: any) => Number(g?.growthNetIncome ?? g?.growthOperatingIncome ?? g?.growthEPS))
+          ) ?? null;
+
+        const equityCAGR =
+          cagrFromGrowthSeries(gArr.slice(0, 5).map((g: any) => Number(g?.growthStockholdersEquity))) ??
+          null;
+
+        // Normalización segura (sin NaN)
         const vals = {
-          roe: r.returnOnEquity != null ? Number(r.returnOnEquity) * 100 : null,
-          roic: r.returnOnCapitalEmployed != null ? Number(r.returnOnCapitalEmployed) * 100 : null,
-          grossMargin: r.grossProfitMargin != null ? Number(r.grossProfitMargin) * 100 : null,
-          netMargin: r.netProfitMargin != null ? Number(r.netProfitMargin) * 100 : null,
-          debtToEquity: r.debtEquityRatio != null ? Number(r.debtEquityRatio) : null,
-          currentRatio: r.currentRatio != null ? Number(r.currentRatio) : null,
-          interestCoverage: r.interestCoverage != null ? Number(r.interestCoverage) : null,
-          freeCashFlow: null as number | null,
+          roe: pctOrNull(r.returnOnEquity),
+          roic: pctOrNull(r.returnOnCapitalEmployed),
+          grossMargin: pctOrNull(r.grossProfitMargin),
+          netMargin: pctOrNull(r.netProfitMargin),
+          debtToEquity: numOrNull(r.debtEquityRatio),
+          currentRatio: numOrNull(r.currentRatio),
+          interestCoverage: numOrNull(r.interestCoverage),
+          freeCashFlow: numOrNull(cf.freeCashFlow),
           revenueCAGR_5Y: revenueCAGR,
           netIncomeCAGR_5Y: netIncomeCAGR,
           equityCAGR_5Y: equityCAGR,
-          bookValuePerShare: null as number | null,
-          sharesOutstanding: null as number | null,
+          bookValuePerShare: numOrNull(km.bookValuePerShare),
+          sharesOutstanding: numOrNull(km.sharesOutstanding),
         };
 
-        const build = (label: string, raw: number | null, unit?: "%" | "x" | "$"): MetricRow => {
+        const build = (label: string, raw: number | null, unit?: "%" | "x" | "$" | "large"): MetricRow => {
           const meta = getScoreMeta(label, raw);
           const display =
             unit === "%"
@@ -133,9 +171,23 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
               : unit === "x"
               ? `${fmtRatio(raw)}x`
               : unit === "$"
-              ? raw == null ? "N/A" : `$${raw.toFixed(0)}`
-              : raw == null ? "N/A" : String(raw);
-          return { label, unit, raw, score: meta.score, target: meta.target, thresholds: meta.thresholds, display };
+              ? raw == null
+                ? "N/A"
+                : `$${raw.toFixed(0)}`
+              : unit === "large"
+              ? fmtLargeNumber(raw)
+              : raw == null
+              ? "N/A"
+              : String(raw);
+          return {
+            label,
+            unit,
+            raw,
+            score: meta.score,
+            target: meta.target,
+            thresholds: meta.thresholds,
+            display,
+          };
         };
 
         const list: MetricRow[] = [
@@ -146,12 +198,12 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
           build("Deuda/Capital", vals.debtToEquity, "x"),
           build("Current Ratio", vals.currentRatio, "x"),
           build("Cobertura de intereses", vals.interestCoverage, "x"),
-          build("Flujo de Caja Libre", vals.freeCashFlow, "$"),
+          build("Flujo de Caja Libre", vals.freeCashFlow, "large"),
           build("CAGR ingresos", vals.revenueCAGR_5Y, "%"),
           build("CAGR beneficios", vals.netIncomeCAGR_5Y, "%"),
           build("CAGR patrimonio", vals.equityCAGR_5Y, "%"),
           build("Book Value por acción", vals.bookValuePerShare, "$"),
-          build("Acciones en circulación", vals.sharesOutstanding),
+          build("Acciones en circulación", vals.sharesOutstanding, "large"),
         ];
 
         if (alive) setRows(list);
@@ -161,7 +213,9 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [symbol]);
 
   const option = useMemo(() => {
@@ -169,19 +223,22 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
     const poor = rows.map((r) => r.thresholds.poor);
     const mid = rows.map((r) => Math.max(r.thresholds.avg - r.thresholds.poor, 0));
     const good = rows.map((r) => Math.max(100 - r.thresholds.avg, 0));
-    const scores = rows.map((r) => (r.score == null ? 0 : r.score));
-    const targets = rows
-      .map((r) => (r.target == null ? null : [{ xAxis: r.target, yAxis: r.label }]))
-      .filter(Boolean) as any[];
+    const scores = rows.map((r) => (Number.isFinite(r.score as number) ? (r.score as number) : 0));
+
+    // sin anidación extra
+    const targets = rows.flatMap((r) =>
+      r.target == null ? [] : [{ xAxis: r.target, yAxis: r.label }]
+    );
 
     return {
       backgroundColor: "transparent",
-      grid: { left: 170, right: 120, top: 10, bottom: 10 },
+      grid: { left: 170, right: 50, top: 10, bottom: 10 },
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "shadow" },
         formatter: (params: any) => {
-          const idx = params?.[params.length - 1]?.dataIndex ?? 0;
+          const p = Array.isArray(params) ? params[params.length - 1] : params;
+          const idx = p?.dataIndex ?? 0;
           const row = rows[idx];
           const scoreTxt = row.score == null ? "Sin datos" : `${Math.round(row.score)} / 100`;
           return `
@@ -192,12 +249,50 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
             </div>`;
         },
       },
-      xAxis: { type: "value", max: 100, axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "rgba(255,255,255,0.06)" } } },
-      yAxis: { type: "category", data: labels, axisLabel: { color: "#e2e8f0" }, axisTick: { show: false }, axisLine: { show: false } },
+      xAxis: {
+        type: "value",
+        max: 100,
+        axisLabel: { color: "#94a3b8" },
+        splitLine: { lineStyle: { color: "rgba(255,255,255,0.06)" } },
+      },
+      yAxis: {
+        type: "category",
+        data: labels,
+        axisLabel: { color: "#e2e8f0" },
+        axisTick: { show: false },
+        axisLine: { show: false },
+      },
       series: [
-        { name: "débil", type: "bar", stack: "range", data: poor, barWidth: 14, itemStyle: { color: "rgba(239,68,68,0.30)" }, emphasis: { disabled: true }, tooltip: { show: false } },
-        { name: "medio", type: "bar", stack: "range", data: mid,  barWidth: 14, itemStyle: { color: "rgba(234,179,8,0.30)" }, emphasis: { disabled: true }, tooltip: { show: false } },
-        { name: "fuerte",type: "bar", stack: "range", data: good, barWidth: 14, itemStyle: { color: "rgba(34,197,94,0.30)"  }, emphasis: { disabled: true }, tooltip: { show: false } },
+        {
+          name: "débil",
+          type: "bar",
+          stack: "range",
+          data: poor,
+          barWidth: 14,
+          itemStyle: { color: "rgba(239,68,68,0.30)" },
+          emphasis: { disabled: true },
+          tooltip: { show: false },
+        },
+        {
+          name: "medio",
+          type: "bar",
+          stack: "range",
+          data: mid,
+          barWidth: 14,
+          itemStyle: { color: "rgba(234,179,8,0.30)" },
+          emphasis: { disabled: true },
+          tooltip: { show: false },
+        },
+        {
+          name: "fuerte",
+          type: "bar",
+          stack: "range",
+          data: good,
+          barWidth: 14,
+          itemStyle: { color: "rgba(34,197,94,0.30)" },
+          emphasis: { disabled: true },
+          tooltip: { show: false },
+        },
         {
           name: "valor",
           type: "bar",
@@ -205,8 +300,19 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
           barWidth: 8,
           z: 5,
           itemStyle: { color: "#ffffff" },
-          label: { show: true, position: "right", color: "#cbd5e1", formatter: (p: any) => rows[p.dataIndex]?.display ?? "" },
-          markLine: { symbol: ["none", "none"], animation: false, label: { show: false }, lineStyle: { color: "#ffffff", width: 1.5, opacity: 0.9 }, data: targets },
+          label: {
+            show: true,
+            position: "right",
+            color: "#cbd5e1",
+            formatter: (p: any) => rows[p.dataIndex]?.display ?? "",
+          },
+          markLine: {
+            symbol: ["none", "none"],
+            animation: false,
+            label: { show: false },
+            lineStyle: { color: "#ffffff", width: 1.5, opacity: 0.9 },
+            data: targets,
+          },
         },
       ],
     };
@@ -214,21 +320,39 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
 
   return (
     <Card className="bg-tarjetas border-none h-[492px]">
-      <CardHeader><CardTitle className="text-orange-400 text-lg">Fundamental — {symbol}</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle className="text-orange-400 text-lg">Fundamental — {symbol}</CardTitle>
+      </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="h-72 flex items-center justify-center text-gray-400">Cargando fundamentales…</div>
+          <div className="h-72 flex items-center justify-center text-gray-400">
+            Cargando fundamentales…
+          </div>
         ) : error ? (
           <div className="h-72 flex items-center justify-center text-red-400">{error}</div>
         ) : (
           <>
             <div className="flex items-center gap-4 text-xs text-gray-400 mb-3">
-              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 bg-red-500/50 rounded-sm" /> Débil</span>
-              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 bg-yellow-500/50 rounded-sm" /> A vigilar</span>
-              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 bg-green-500/50 rounded-sm" /> Fuerte</span>
-              <span className="inline-flex items-center gap-1"><span className="w-[2px] h-3 bg-white inline-block" /> Target</span>
+              <span className="inline-flex items-center gap-1">
+                <span className="w-3 h-3 bg-red-500/50 rounded-sm" /> Débil
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="w-3 h-3 bg-yellow-500/50 rounded-sm" /> A vigilar
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="w-3 h-3 bg-green-500/50 rounded-sm" /> Fuerte
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="w-[2px] h-3 bg-white inline-block" /> Target
+              </span>
             </div>
-            <ReactECharts echarts={echarts as any} option={option as any} notMerge lazyUpdate style={{ height: Math.max(260, rows.length * 28), width: "100%" }} />
+            <ReactECharts
+              echarts={echarts as any}
+              option={option as any}
+              notMerge
+              lazyUpdate
+              style={{ height: Math.max(260, rows.length * 28), width: "100%" }}
+            />
           </>
         )}
       </CardContent>

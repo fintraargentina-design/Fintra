@@ -1,50 +1,55 @@
-// /app/api/fmp/growth/route.ts
-import { NextResponse } from 'next/server';
-import { z } from 'zod';
+// app/api/fmp/growth/route.ts
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { fmpGet } from "@/lib/fmp/server";
 
-const FMP_BASE_URL = process.env.FMP_BASE_URL ?? 'https://financialmodelingprep.com/api';
-const FMP_API_KEY = process.env.FMP_API_KEY!;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
+// Validación de query
 const QuerySchema = z.object({
-  symbol: z.string().trim().toUpperCase().regex(/^[A-Z.\-]+$/),
-  period: z.enum(['annual', 'quarter']).default('annual'),
+  symbol: z
+    .string()
+    .trim()
+    .min(1, "symbol requerido")
+    .regex(/^[A-Z.\-]+$/i, "símbolo inválido") // ✅ regex ANTES de transform
+    .transform((s) => s.toUpperCase()),
+  period: z.enum(["annual", "quarter"]).default("annual"),
   limit: z.coerce.number().int().positive().max(40).default(5),
 });
 
-function buildUrl(path: string, params: Record<string, string | number>) {
-  const url = new URL(`${FMP_BASE_URL}${path.startsWith('/api') ? path : `/api${path}`}`);
-  Object.entries({ ...params, apikey: FMP_API_KEY }).forEach(([k, v]) => url.searchParams.set(k, String(v)));
-  return url.toString();
-}
-
-export const revalidate = 60 * 60 * 12;
-
 export async function GET(req: Request) {
-  if (!FMP_API_KEY) return NextResponse.json({ error: 'Missing FMP_API_KEY' }, { status: 500 });
+  try {
+    const sp = new URL(req.url).searchParams;
+    const { symbol, period, limit } = QuerySchema.parse({
+      symbol: sp.get("symbol") ?? "",
+      period: sp.get("period") ?? "annual",
+      limit: sp.get("limit") ?? "5",
+    });
 
-  const { searchParams } = new URL(req.url);
-  const parsed = QuerySchema.safeParse({
-    symbol: searchParams.get('symbol') ?? '',
-    period: searchParams.get('period') ?? 'annual',
-    limit: searchParams.get('limit') ?? '5',
-  });
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+    // FMP: financial-growth
+    // Devolvemos el payload tal cual (tu UI ya espera keys como growthRevenue, growthEPS, etc.)
+    const data = await fmpGet<any[]>(
+      `/api/v3/financial-growth/${symbol}`,
+      { period, limit }
+    );
+
+    return NextResponse.json(data ?? [], {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "public, s-maxage=43200, stale-while-revalidate=3600", // 12h
+      },
+    });
+  } catch (err: any) {
+    console.error("[/api/fmp/growth] error:", err?.message || err);
+    // Shape estable: array vacío para no romper el cliente
+    return NextResponse.json([], {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "public, s-maxage=600, stale-while-revalidate=600",
+      },
+    });
   }
-  const { symbol, period, limit } = parsed.data;
-
-  // financial-growth: /v3/financial-growth/{symbol}?period=annual&limit=5
-  const url = buildUrl(`/v3/financial-growth/${symbol}`, { period, limit });
-
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) return NextResponse.json({ error: `FMP ${res.status}` }, { status: res.status });
-  const data = await res.json();
-
-  return new NextResponse(JSON.stringify(data), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'public, s-maxage=43200, stale-while-revalidate=3600',
-    },
-  });
 }

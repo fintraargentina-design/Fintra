@@ -1,5 +1,8 @@
 // /lib/fmp/types.ts
 
+/** Clave común para retornos por período (usada en /performance y en la UI) */
+export type ReturnsKey = '1M' | '3M' | 'YTD' | '1Y' | '3Y' | '5Y';
+
 /** ───────────── Ratios (api/v3/ratios) ───────────── */
 export type FMPFinancialRatio = {
   symbol: string;
@@ -11,7 +14,7 @@ export type FMPFinancialRatio = {
   quickRatio?: number;
   cashRatio?: number;
 
-  // Márgenes (en FMP vienen como decimales: 0.20 = 20%)
+  // Márgenes (en FMP vienen como fracciones: 0.20 = 20%)
   grossProfitMargin?: number;
   operatingProfitMargin?: number;
   netProfitMargin?: number;
@@ -25,11 +28,14 @@ export type FMPFinancialRatio = {
   interestCoverage?: number;           // veces
   debtEquityRatio?: number;            // deuda/capital
 
-  // Valoración (por si las usas)
-  dividendYield?: number;
-  priceEarningsRatio?: number;
+  // Valoración
+  dividendYield?: number;              // fracción (0.012 = 1.2%)
+  priceEarningsRatio?: number;         // P/E
   enterpriseValueMultiple?: number;    // EV/EBITDA
-  priceToBookRatio?: number;
+  priceToBookRatio?: number;           // P/B
+  priceToSalesRatio?: number;          // P/S
+  priceToFreeCashFlowsRatio?: number;  // P/FCF (a veces)
+  priceToFreeCashFlowRatio?: number;   // alias alternativo
 
   // Otros
   freeCashFlowOperatingCashFlowRatio?: number;
@@ -47,29 +53,25 @@ export type FMPCompanyProfile = {
   exchange?: string;
   currency?: string;
   changes?: number | string;
+  changePercentage?: number;
   image?: string;
 };
 
-/** ───────────── Crecimiento (api/v3/income-statement-growth) ─────────────
- *  Ojo: FMP devuelve tasas como decimales (0.10 = 10%)
+/** ───────────── Crecimiento (api/v3/financial-growth) ─────────────
+ *  FMP devuelve tasas como fracciones (0.10 = 10%)
  */
 export type FMPIncomeStatementGrowth = {
   date: string;
   symbol: string;
   period: string;
-
-  growthRevenue?: number;              // 0.10 = 10%
-  growthEPS?: number;                  // 0.12 = 12%
-  // Campos que la tarjeta ya intenta usar:
+  growthRevenue?: number;
+  growthEPS?: number;
   growthNetIncome?: number;
   growthOperatingIncome?: number;
   growthStockholdersEquity?: number;
 };
 
-/** ───────────── Key Metrics (api/v3/key-metrics) ─────────────
- *  Útiles para Book Value por acción y Shares Outstanding
- *  (si luego creas la route /api/fmp/key-metrics)
- */
+/** ───────────── Key Metrics (api/v3/key-metrics-ttm / key-metrics) ───────────── */
 export type FMPKeyMetrics = {
   symbol: string;
   date: string;
@@ -79,21 +81,17 @@ export type FMPKeyMetrics = {
   freeCashFlowPerShare?: number;
 };
 
-/** ───────────── Cash Flow (api/v3/cash-flow-statement) ─────────────
- *  Útil para calcular FCF: OCF - CapEx (o usar freeCashFlow si viene).
- */
+/** ───────────── Cash Flow (api/v3/cash-flow) ───────────── */
 export type FMPCashFlowStatement = {
   symbol: string;
   date: string;
   period: string;
   netCashProvidedByOperatingActivities?: number; // operatingCashFlow
-  capitalExpenditure?: number;                   // capex (negativo)
+  capitalExpenditure?: number;                   // capex (suele ser negativo)
   freeCashFlow?: number;                         // algunos endpoints lo incluyen
 };
 
-/** ───────────── Peers ───────────── */
-export type PeerSymbol = string;
-
+/** ───────────── Peers (v3/v4/stable) ───────────── */
 export type PeersResponse = {
   symbol: string;
   peers: string[];
@@ -107,6 +105,10 @@ export type DetailedPeer = {
   sector?: string;
   industry?: string;
   price?: number;
+  mktCap?: number;
+  beta?: number;
+  currency?: string;
+  image?: string;
 };
 
 export type DetailedPeersResponse = {
@@ -116,10 +118,10 @@ export type DetailedPeersResponse = {
   updatedAt: string;
 };
 
-/** ───────────── Peers ───────────── */
+/** ───────────── Financial Scores (stable/financial-scores) ───────────── */
 export type FMPFinancialScore = {
   symbol: string;
-  reportedCurrency: string;
+  reportedCurrency?: string;
   altmanZScore: number | null;
   piotroskiScore: number | null;
   workingCapital?: number;
@@ -131,9 +133,82 @@ export type FMPFinancialScore = {
   revenue?: number;
 };
 
+/** ───────────── Performance (route interna /api/fmp/performance) ───────────── */
+export type PerformanceResponse = {
+  symbol: string;
+  returns: Record<ReturnsKey, number | null>;
+  vol1Y: number | null;    // %
+  maxDD1Y: number | null;  // % (negativo)
+  updatedAt: string;
+  source: 'fmp';
+  error?: string;
+};
+
+/** ───────────── Dividendos (route interna /api/fmp/dividends) ───────────── */
+export type DividendsResponse = {
+  symbol: string;
+  dpsByYear: Array<{ year: number; dps: number }>;
+  yieldByYear: Array<{ year: number; yield: number | null }>;
+  yieldTTM: number | null;
+  exDates: string[];     // ISO (ex-date)
+  payDates: string[];    // ISO (payment date)
+  payout: { eps: number | null; fcf: number | null };
+  updatedAt: string;
+  source: 'fmp';
+  error?: string;
+};
+
+/** ───────────── Candles normalizados (route interna /api/fmp/eod) ───────────── */
+export type OHLC = {
+  date: string;  // normalizado YYYY-MM-DD
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number;
+};
+
+export type EodResponse = {
+  symbol: string;
+  candles: OHLC[];
+};
+
+/** ───────────── Valuation (route interna /api/fmp/valuation) ───────────── */
+export type ValuationResponse = {
+  symbol: string;
+  date: string | null;
+
+  pe: number | null;
+  forwardPe: number | null;
+  peg: number | null;
+  pb: number | null;
+  ps: number | null;
+  pfcf: number | null;
+  evEbitda: number | null;
+  evSales: number | null;
+  dividendYield: number | null; // en %
+
+  // reservados para mejoras (percentiles, z-score vs peers, etc.)
+  pePercentile5y: number | null;
+  peZscorePeers: number | null;
+  impliedGrowth: number | null;
+  discountVsPt: number | null;
+
+  rawRatios?: any;
+  rawGrowth?: any[];
+
+  updatedAt: string;
+  source: 'fmp';
+  error?: string;
+};
+
 /** ───────────── Helpers de respuestas ───────────── */
 export type RatiosResponse = FMPFinancialRatio[];
 export type GrowthResponse = FMPIncomeStatementGrowth[];
 export type ProfileResponse = FMPCompanyProfile[];
 export type KeyMetricsResponse = FMPKeyMetrics[];
 export type CashFlowResponse = FMPCashFlowStatement[];
+export type PeersResponseArray = PeersResponse[];
+export type DetailedPeersResponseArray = DetailedPeersResponse[];
+export type PerformanceResponseArray = PerformanceResponse[];
+export type FinancialScoreResponse = FMPFinancialScore[];

@@ -1,4 +1,4 @@
-// /app/api/fmp/profile/route.ts
+// /app/api/fmp/quote/route.ts
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { fmpGet } from "@/lib/fmp/server";
@@ -12,11 +12,11 @@ const QuerySchema = z.object({
     .string()
     .trim()
     .min(1, "Símbolo requerido")
-    .regex(/^[A-Z0-9.\-\^]+$/i, "Símbolo inválido") // ✅ regex ANTES de transform
+    .regex(/^[A-Z0-9.\-\^]+$/i, "Símbolo inválido")
     .transform((s) => s.toUpperCase()),
 });
 
-export const revalidate = 60 * 60 * 12; // 12h
+export const revalidate = 60; // 1 minuto para datos en tiempo real
 
 export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
@@ -30,25 +30,23 @@ export async function GET(req: Request) {
   const { symbol } = parsed.data;
 
   try {
-    // FMP: /api/v3/profile/{symbol} — devuelve array
-    const data = await fmpGet<any[]>(`/api/v3/profile/${symbol}`);
+    // FMP: /api/v3/quote/{symbol} — devuelve array con datos de cotización
+    const data = await fmpGet<any[]>(`/api/v3/quote/${symbol}`);
 
     return NextResponse.json(data ?? [], {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, s-maxage=43200, stale-while-revalidate=3600",
+        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=30",
       },
     });
   } catch (err: any) {
-    console.error("[/api/fmp/profile] error:", err?.message || err);
-    // Shape estable para no romper el cliente
+    console.error("[/api/fmp/quote] error:", err?.message || err);
     return NextResponse.json([], {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, s-maxage=600, stale-while-revalidate=600",
-        "X-Fallback": "true",
+        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=60",
       },
     });
   }

@@ -21,8 +21,14 @@ echarts.use([EchartsRadar, TooltipComponent, LegendComponent, CanvasRenderer]);
 
 const ReactEChartsCore = dynamic(() => import('echarts-for-react/lib/core'), { ssr: false });
 
+// ─────────────────────────────────────────────
 // Helpers
-const clamp = (x: number) => Math.max(0, Math.min(100, Math.round(x)));
+// ─────────────────────────────────────────────
+const clamp100 = (x: number) => Math.max(0, Math.min(100, Math.round(x)));
+const numOrNull = (x: any): number | null => {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
+};
 
 function cagrFromRates(ratesPct: number[]): number | null {
   const valid = ratesPct.filter((r) => Number.isFinite(r));
@@ -31,31 +37,40 @@ function cagrFromRates(ratesPct: number[]): number | null {
   return (Math.pow(compounded, 1 / valid.length) - 1) * 100;
 }
 
-// más alto = más barato
-function valuationTo01(pe?: number, evE?: number, pb?: number) {
-  const pe01 = Number.isFinite(pe) ? Math.max(0, Math.min(1, (35 - Math.min(pe!, 35)) / 35)) : 0.5;
-  const ev01 = Number.isFinite(evE) ? Math.max(0, Math.min(1, (22 - Math.min(evE!, 22)) / 22)) : 0.5;
-  const pb01 = Number.isFinite(pb) ? Math.max(0, Math.min(1, (6 - Math.min(pb!, 6)) / 6)) : 0.5;
-  return Math.round(100 * (0.5 * pe01 + 0.35 * ev01 + 0.15 * pb01));
+// más alto = más barato (0–100)
+function valuationScore(pe?: number | null, evE?: number | null, pb?: number | null) {
+  const pe01 =
+    pe == null ? 0.5 : Math.max(0, Math.min(1, (35 - Math.min(pe, 35)) / 35));
+  const ev01 =
+    evE == null ? 0.5 : Math.max(0, Math.min(1, (22 - Math.min(evE, 22)) / 22));
+  const pb01 =
+    pb == null ? 0.5 : Math.max(0, Math.min(1, (6 - Math.min(pb, 6)) / 6));
+  return clamp100(100 * (0.5 * pe01 + 0.35 * ev01 + 0.15 * pb01));
 }
 
 // 0–100 (más alto = menos riesgo)
-function riskFromBeta(beta?: number) {
-  if (!Number.isFinite(beta)) return 50;
-  const capped = Math.min(Math.max(beta!, 0), 2);
-  const score01 = Math.max(0, Math.min(1, (2 - capped) / 1));
-  return clamp(100 * score01);
+function riskFromBeta(beta?: number | null) {
+  if (!Number.isFinite(beta as number)) return 50;
+  const capped = Math.min(Math.max(beta as number, 0), 2);
+  const score01 = (2 - capped) / 2; // normalizado a 0..1
+  return clamp100(100 * score01);
 }
 
-// solidez combinada (0–100) — FIX: divisor /3 en D/E
-function solidity(currentRatio?: number, debtToEquity?: number, interestCov?: number) {
-  const cr01 = Number.isFinite(currentRatio) ? Math.min(currentRatio ?? 0, 4) / 4 : 0.5;
-  const de01 = Number.isFinite(debtToEquity) ? (3 - Math.min(debtToEquity as number, 3)) / 3 : 0.5; // menor mejor
-  const ic01 = Number.isFinite(interestCov) ? Math.min(interestCov as number, 20) / 20 : 0.5;
-  return clamp(100 * (0.3 * cr01 + 0.4 * de01 + 0.3 * ic01));
+// solidez combinada (0–100) — divisor /3 en D/E (menor es mejor)
+function solidity(currentRatio?: number | null, debtToEquity?: number | null, interestCov?: number | null) {
+  const cr01 =
+    !Number.isFinite(currentRatio as number) ? 0.5 : Math.min(Math.max(currentRatio as number, 0), 4) / 4;
+  const de01 =
+    !Number.isFinite(debtToEquity as number) ? 0.5 : (3 - Math.min(Math.max(debtToEquity as number, 0), 3)) / 3;
+  const ic01 =
+    !Number.isFinite(interestCov as number) ? 0.5 : Math.min(Math.max(interestCov as number, 0), 20) / 20;
+  return clamp100(100 * (0.3 * cr01 + 0.4 * de01 + 0.3 * ic01));
 }
 
-type Ratios = Array<{
+// ─────────────────────────────────────────────
+// Tipos mínimos locales (robustos)
+// ─────────────────────────────────────────────
+type Ratios0 = {
   returnOnEquity?: number;
   netProfitMargin?: number;
   freeCashFlowOperatingCashFlowRatio?: number;
@@ -65,51 +80,72 @@ type Ratios = Array<{
   priceEarningsRatio?: number;
   enterpriseValueMultiple?: number;
   priceToBookRatio?: number;
-}>;
+};
 
-type Profile = Array<{ symbol: string; companyName?: string; beta?: number }>;
-type Growth = Array<{ growthRevenue?: number; growthEPS?: number }>;
+type Profile0 = { symbol?: string; companyName?: string; beta?: number };
+type Growth0 = { growthRevenue?: number; growthEPS?: number };
 
+// ─────────────────────────────────────────────
+// Carga de factores por símbolo (defensiva)
+// ─────────────────────────────────────────────
 async function fetchFactors(symbol: string) {
-  const [ratios, profile, growth] = await Promise.all([
-    fmp.ratios(symbol, { limit: 1 }),
+  const [ratiosArr, profileArr, growthArrRaw, peersRes] = await Promise.all([
+    fmp.ratios(symbol, { limit: 1, period: 'annual' }),
     fmp.profile(symbol),
     fmp.growth(symbol, { period: 'annual', limit: 5 }),
+    fmp.peers(symbol),
   ]);
 
-  const { peers } = await fmp.peers(symbol);
+  // peers list - ahora accedemos correctamente a la respuesta de la API
+  console.log('Respuesta de peers:', peersRes); // Para debugging
+  const peersList: string[] = Array.isArray(peersRes?.peers)
+    ? peersRes.peers
+    : [];
+  
+  console.log('Peers extraídos:', peersList); // Para debugging
 
-  const ratios0 = (ratios?.[0] ?? {}) as Ratios[0];
-  const profile0 = (profile?.[0] ?? {}) as Profile[0];
-  const growthArr = (growth ?? []) as Growth;
+  const r0 = (Array.isArray(ratiosArr) && ratiosArr.length ? (ratiosArr[0] as Ratios0) : {}) || {};
+  const p0 = (Array.isArray(profileArr) && profileArr.length ? (profileArr[0] as Profile0) : {}) || {};
+  const gArr = (Array.isArray(growthArrRaw) ? (growthArrRaw as Growth0[]) : []) || [];
 
-  const roePct = Number.isFinite(ratios0.returnOnEquity) ? (ratios0.returnOnEquity as number) * 100 : undefined;
-  const netMarginPct = Number.isFinite(ratios0.netProfitMargin) ? (ratios0.netProfitMargin as number) * 100 : undefined;
-  const fcfMarginPct = Number.isFinite(ratios0.freeCashFlowOperatingCashFlowRatio)
-    ? (ratios0.freeCashFlowOperatingCashFlowRatio as number) * 100
-    : undefined;
+  // márgenes y rentabilidad (FMP en decimales → %)
+  const roePct = numOrNull((r0.returnOnEquity ?? null)) != null ? (r0.returnOnEquity as number) * 100 : null;
+  const netMarginPct = numOrNull((r0.netProfitMargin ?? null)) != null ? (r0.netProfitMargin as number) * 100 : null;
+  const fcfMarginPct =
+    numOrNull((r0.freeCashFlowOperatingCashFlowRatio ?? null)) != null
+      ? (r0.freeCashFlowOperatingCashFlowRatio as number) * 100
+      : null;
 
-  const growthRevRates = growthArr.map((g) => ((g.growthRevenue ?? 0) as number) * 100);
-  const growthEpsRates = growthArr.map((g) => ((g.growthEPS ?? 0) as number) * 100);
-  const revCagr = cagrFromRates(growthRevRates) ?? undefined;
-  const epsCagr = cagrFromRates(growthEpsRates) ?? undefined;
-  const crecimiento = epsCagr ?? revCagr;
+  // growth series (FMP: decimales → %)
+  const growthRevRates = gArr.map((g) => numOrNull(g.growthRevenue) == null ? 0 : (g.growthRevenue as number) * 100);
+  const growthEpsRates = gArr.map((g) => numOrNull(g.growthEPS) == null ? 0 : (g.growthEPS as number) * 100);
+  const revCagr = cagrFromRates(growthRevRates) ?? null;
+  const epsCagr = cagrFromRates(growthEpsRates) ?? null;
+  const crecimiento = epsCagr ?? revCagr; // prioriza EPS
 
-  const radarData = {
-    Rentabilidad: clamp(((roePct ?? 0) / 40) * 100),
-    Crecimiento: clamp(((crecimiento ?? 0) / 30) * 100),
-    'Solidez Financiera': solidity(ratios0.currentRatio, ratios0.debtEquityRatio, ratios0.interestCoverage),
-    'Generación de Caja': clamp(((fcfMarginPct ?? 0) / 30) * 100),
-    Margen: clamp(((netMarginPct ?? 0) / 30) * 100),
-    Valoración: valuationTo01(ratios0.priceEarningsRatio, ratios0.enterpriseValueMultiple, ratios0.priceToBookRatio),
-    'Riesgo / Volatilidad': riskFromBeta(profile0?.beta),
-    Dividendos: clamp(0), // si sumás dividendYield, mapealo aquí
+  // valoración
+  const pe = numOrNull(r0.priceEarningsRatio);
+  const evE = numOrNull(r0.enterpriseValueMultiple);
+  const pb = numOrNull(r0.priceToBookRatio);
+
+  const radarData: Record<string, number> = {
+    Rentabilidad: clamp100(((roePct ?? 0) / 40) * 100),
+    Crecimiento: clamp100(((crecimiento ?? 0) / 30) * 100),
+    'Solidez Financiera': solidity(numOrNull(r0.currentRatio), numOrNull(r0.debtEquityRatio), numOrNull(r0.interestCoverage)),
+    'Generación de Caja': clamp100(((fcfMarginPct ?? 0) / 30) * 100),
+    Margen: clamp100(((netMarginPct ?? 0) / 30) * 100),
+    Valoración: valuationScore(pe, evE, pb),
+    'Riesgo / Volatilidad': riskFromBeta(numOrNull(p0.beta)),
+    Dividendos: clamp100(0), // si luego agregas dividendYield, mapealo aquí
   };
 
-  const label = (profile0?.companyName || symbol).trim();
-  return { symbol, label, radarData };
+  const label = (p0.companyName || symbol).trim();
+  return { symbol, label, radarData, peersList };
 }
 
+// ─────────────────────────────────────────────
+// Componente
+// ─────────────────────────────────────────────
 export default function RadarPeersCard({ symbol }: { symbol?: string }) {
   const [main, setMain] = useState<{ symbol: string; label: string; radarData: Record<string, number> } | null>(null);
   const [peer, setPeer] = useState<{ symbol: string; label: string; radarData: Record<string, number> } | null>(null);
@@ -117,47 +153,49 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
   const [activePeer, setActivePeer] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // cache factor por symbol para evitar recomputar al cambiar dropdown
+  // cache para evitar recomputes
   const cacheRef = useRef<Map<string, Promise<{ symbol: string; label: string; radarData: Record<string, number> }>>>(new Map());
 
+  // carga principal + peers
   useEffect(() => {
     let mounted = true;
-    if (!symbol?.trim()) {
-      setLoading(false);
-      return;
-    }
-    (async () => {
+    const run = async () => {
+      if (!symbol?.trim()) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
-        // carga principal + peers
-        const [m, peersRes] = await Promise.all([
-          fetchFactors(symbol),
-          fmp.peers(symbol), // { symbol, peers }
-        ]);
+        const fac = await fetchFactors(symbol);
         if (!mounted) return;
 
-        // dedupe y excluí el propio símbolo
-        const cleaned = Array.from(new Set((peersRes?.peers ?? []).map((p) => p.toUpperCase()))).filter(
-          (p) => p !== symbol.toUpperCase()
+        setMain({ symbol: fac.symbol, label: fac.label, radarData: fac.radarData });
+
+        // peers limpios (excluye self, dedupe, mayúsculas)
+        const cleaned = Array.from(
+          new Set((fac.peersList || []).map((p: string) => String(p).toUpperCase()).filter((p) => p && p !== symbol.toUpperCase()))
         );
 
-        setMain(m);
         setPeers(cleaned);
-        setActivePeer(cleaned[0] ?? null);
+        setActivePeer(cleaned.length ? cleaned[0] : null);
       } catch (e) {
-        console.error('[RadarPeersCard] load main error:', e);
+        console.error('[RadarPeersCard] main load error:', e);
+        setPeers([]);
+        setActivePeer(null);
       } finally {
         if (mounted) setLoading(false);
       }
-    })();
+    };
+    run();
     return () => {
       mounted = false;
     };
   }, [symbol]);
 
+  // carga peer activo (con cache)
   useEffect(() => {
     let mounted = true;
-    (async () => {
+    const run = async () => {
       if (!activePeer) {
         setPeer(null);
         return;
@@ -165,24 +203,32 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
       try {
         const key = activePeer;
         if (!cacheRef.current.has(key)) {
-          cacheRef.current.set(key, fetchFactors(key));
+          cacheRef.current.set(key, fetchFactors(key).then((r) => ({ symbol: r.symbol, label: r.label, radarData: r.radarData })));
         }
         const p = await cacheRef.current.get(key)!;
         if (!mounted) return;
         setPeer(p);
       } catch (e) {
-        console.error('[RadarPeersCard] load peer error:', e);
+        console.error('[RadarPeersCard] peer load error:', e);
+        if (mounted) setPeer(null);
       }
-    })();
+    };
+    run();
     return () => {
       mounted = false;
     };
   }, [activePeer]);
 
+  // opción de ECharts (defensiva)
   const option = useMemo(() => {
-    const indicators = main?.radarData ? Object.keys(main.radarData).map((k) => ({ name: k, max: 100 })) : [];
-    const mainVals = main?.radarData ? Object.values(main.radarData) : [];
-    const peerVals = peer?.radarData ? Object.values(peer.radarData) : [];
+    const indicators =
+      main?.radarData
+        ? Object.keys(main.radarData).map((name) => ({ name, max: 100 }))
+        : [];
+
+    // valores alineados al orden de indicators
+    const mainVals = indicators.map(({ name }) => (main?.radarData?.[name] ?? 0));
+    const peerVals = indicators.map(({ name }) => (peer?.radarData?.[name] ?? 0));
 
     return {
       backgroundColor: 'transparent',
@@ -233,6 +279,13 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
     };
   }, [main, peer]);
 
+  // Remover esta línea (aproximadamente línea 282):
+  // console.log('peers - Datos recibidos:', peers);
+
+  // ─────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────
+  // Estado de carga
   if (loading) {
     return (
       <Card className="bg-tarjetas border-none h-[492px]">
@@ -244,7 +297,7 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
       </Card>
     );
   }
-
+  
   return (
     <Card className="bg-tarjetas border-none h-[492px]">
       <CardHeader className="pb-1">
@@ -292,7 +345,13 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
       <CardContent className="space-y-4">
         <div style={{ height: 400, width: '100%' }}>
           {main ? (
-            <ReactEChartsCore echarts={echarts as any} option={option as any} style={{ height: '100%', width: '100%' }} />
+            <ReactEChartsCore
+              echarts={echarts as any}
+              option={option as any}
+              notMerge
+              lazyUpdate
+              style={{ height: '100%', width: '100%' }}
+            />
           ) : (
             <div className="h-full grid place-items-center text-gray-400 text-sm">No hay datos disponibles</div>
           )}
@@ -301,3 +360,4 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
     </Card>
   );
 }
+

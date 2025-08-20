@@ -248,7 +248,7 @@ export default function NoticiasTab({
 
   return (
     <>
-      <Card className="flex-1 bg-tarjetas bg-tarjetas border-none  h-[360px]">
+      <Card className="flex-1 bg-tarjetas bg-tarjetas border-none h-[360px]">
         <CardHeader>
           <CardTitle className="text-green-400 text-lg flex items-center gap-2">
             Noticias de {symbol}

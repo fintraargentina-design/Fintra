@@ -1,14 +1,15 @@
-import { Bell, Settings, User, ChevronDown } from 'lucide-react';
+import { Settings, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useState, useEffect } from 'react';
+import TopSearchedStocksDropdown from '@/components/TopSearchedStocksDropdown';
 
 interface HeaderProps {
   user?: any;
   onAuth?: () => void;
+  onSelectSymbol: (symbol: string) => void;
 }
 
-export default function Header({ user, onAuth }: HeaderProps) {
+export default function Header({ user, onAuth, onSelectSymbol }: HeaderProps) {
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -26,18 +27,35 @@ export default function Header({ user, onAuth }: HeaderProps) {
     return minutes >= 9 * 60 + 30 && minutes < 16 * 60;
   };
 
+  const handleTopStockClick = (symbol: string) => {
+    onSelectSymbol?.(symbol);
+  };
+
   return (
     <header className="bg-fondoTarjeta w-full border-gray-800 px-6 py-3">
       <div className="flex items-center justify-between">
         {/* Lado izquierdo - Título */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-1">
           <h1 className="text-lg font-medium text-white">
             Dashboard - Bienvenido a Fintra
           </h1>
         </div>
 
+        {/* Centro - TopSearchedStocksDropdown */}
+        <div className="flex items-center justify-center flex-1">
+          <div className="rounded-lg border text-card-foreground shadow-sm flex items-center justify-center bg-transparent border-none h-[36px] px-3">
+            <div className='flex items-center space-x-2'>
+              <Flame className="w-4 h-4 text-green-400" />
+              <span className="text-orange-400 text-sm font-medium flex-shrink-0">Top:</span>
+              <div className="flex space-x-1 overflow-x-auto scrollbar-thin min-w-0">
+                <TopSearchedStocksDropdown onStockClick={handleTopStockClick} />   
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Lado derecho - Controles */}
-        <div className="flex items-center space-x-6">
+        <div className="flex items-center space-x-6 flex-1 justify-end">
           
           {/* Tiempo Local */}
           <div className="flex items-center space-x-2 text-sm">
@@ -51,9 +69,6 @@ export default function Header({ user, onAuth }: HeaderProps) {
             </svg>
           </div>
 
-          {/* Separador vertical */}
-          {/* <div className="h-5 w-px bg-gray-700"></div> */}
-
           {/* Tiempo NY */}
           <div className="flex items-center space-x-2 text-sm">
             <span className={`font-mono ${isMarketOpen() ? 'text-green-400' : 'text-red-400'}`}>
@@ -62,11 +77,7 @@ export default function Header({ user, onAuth }: HeaderProps) {
                 : '--:--:--'}
             </span>
             <span className="text-orange-400 font-semibold">NY</span>
-
           </div>
-
-          {/* Separador vertical */}
-          {/* <div className="h-5 w-px bg-gray-700"></div> */}
 
           {/* Estado del Mercado */}
           <div className="flex items-center space-x-2 text-sm">
