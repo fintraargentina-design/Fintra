@@ -14,8 +14,8 @@ const Query = z.object({
     .string()
     .trim()
     .min(1, "Símbolo requerido")
-    .transform((s) => s.toUpperCase())
-    .regex(/^[A-Z0-9.\-\^]+$/, "Símbolo inválido"),
+    .regex(/^[A-Z0-9.\-\^]+$/i, "Símbolo inválido")
+    .transform((s) => s.toUpperCase()),
   period: z.enum(["annual", "quarter"]).default("annual"),
 });
 

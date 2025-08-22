@@ -209,9 +209,14 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
     optionPayout;
 
   return (
-    <Card className="bg-tarjetas border-none">
+    <Card className="h-[360px] bg-tarjetas border-none">
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <CardTitle className="text-orange-400 text-lg">Dividendos — {symbol}</CardTitle>
+        <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
+          <div className="text-gray-400">
+           Dividendos
+          </div>
+           {symbol}
+          </CardTitle>
         <div className="flex gap-2" role="tablist" aria-label="Vistas de dividendos">
           <button
             onClick={() => setView('historico')}

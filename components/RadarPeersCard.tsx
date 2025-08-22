@@ -83,7 +83,7 @@ type Ratios0 = {
 };
 
 type Profile0 = { symbol?: string; companyName?: string; beta?: number };
-type Growth0 = { growthRevenue?: number; growthEPS?: number };
+type Growth0 = { revenueGrowth?: number; epsgrowth?: number };
 
 // ─────────────────────────────────────────────
 // Carga de factores por símbolo (defensiva)
@@ -117,8 +117,8 @@ async function fetchFactors(symbol: string) {
       : null;
 
   // growth series (FMP: decimales → %)
-  const growthRevRates = gArr.map((g) => numOrNull(g.growthRevenue) == null ? 0 : (g.growthRevenue as number) * 100);
-  const growthEpsRates = gArr.map((g) => numOrNull(g.growthEPS) == null ? 0 : (g.growthEPS as number) * 100);
+  const growthRevRates = gArr.map((g) => numOrNull(g.revenueGrowth) == null ? 0 : (g.revenueGrowth as number) * 100);
+  const growthEpsRates = gArr.map((g) => numOrNull(g.epsgrowth) == null ? 0 : (g.epsgrowth as number) * 100);
   const revCagr = cagrFromRates(growthRevRates) ?? null;
   const epsCagr = cagrFromRates(growthEpsRates) ?? null;
   const crecimiento = epsCagr ?? revCagr; // prioriza EPS
@@ -243,7 +243,7 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
         {
           indicator: indicators,
           center: ['50%', '45%'],
-          radius: '55%',
+          radius: '40%',
           axisName: { color: '#9ca3af', borderRadius: 8, padding: [2, 6] },
           splitArea: { areaStyle: { color: ['rgba(158,165,163,0.02)', 'rgba(158,165,163,0.04)'] } },
           axisLine: { lineStyle: { color: 'rgba(90,91,94,0.3)' } },
@@ -291,7 +291,7 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
       <Card className="bg-tarjetas border-none h-[492px]">
         <CardContent className="p-6">
           <div className="flex items-center justify-center h-96">
-            <div className="text-gray-400">Cargando análisis de competidores...</div>
+            <div className="text-gray-400">Evaluando competidores...</div>
           </div>
         </CardContent>
       </Card>
@@ -302,8 +302,7 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
     <Card className="bg-tarjetas border-none h-[492px]">
       <CardHeader className="pb-1">
         <CardTitle className="text-gray-400 text-lg flex items-center">
-          <ChartNoAxesCombined className="mr-2 text-orange-400 w-5 h-5" />
-          Análisis Comparativo
+          Comparativo
           {main && <span className="text-m text-orange-400 font-normal ml-2 mr-2">{main.symbol}</span>}
           {' '}vs{' '}
           <div className="flex gap-2">

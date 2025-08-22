@@ -14,7 +14,7 @@ import { fmp } from "@/lib/fmp/client";
 echarts.use([BarChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
 const ReactECharts = dynamic(() => import("echarts-for-react/lib/core"), { ssr: false });
 
-// Función para formatear números grandes
+// Función mejorada para formatear números grandes
 const fmtLargeNumber = (v?: number | null, d = 1) => {
   if (v == null) return "N/A";
   const abs = Math.abs(v);
@@ -23,6 +23,17 @@ const fmtLargeNumber = (v?: number | null, d = 1) => {
   if (abs >= 1e6) return `$${(v / 1e6).toFixed(d)}M`;
   if (abs >= 1e3) return `$${(v / 1e3).toFixed(d)}K`;
   return `$${v.toFixed(0)}`;
+};
+
+// Función para formatear números completos con separadores de miles
+const fmtFullNumber = (v?: number | null) => {
+  if (v == null) return "N/A";
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(v);
 };
 
 const numOrNull = (x: any): number | null => {
@@ -182,16 +193,23 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
           const category = categories[param.dataIndex];
           
           let displayValue = '';
+          let fullValue = '';
+          
           if (category.includes('Score')) {
             displayValue = `${dataItem.original?.toFixed(2) || 'N/A'}${dataItem.unit}`;
+            fullValue = displayValue;
           } else {
             displayValue = fmtLargeNumber(dataItem.original);
+            fullValue = fmtFullNumber(dataItem.original);
           }
           
           return `
-            <div style="padding: 8px;">
-              <div style="font-weight: bold; margin-bottom: 4px;">${category}</div>
-              <div>${displayValue}</div>
+            <div style="padding: 12px; min-width: 200px;">
+              <div style="font-weight: bold; margin-bottom: 8px; color: #F59E0B;">${category}</div>
+              <div style="margin-bottom: 4px; font-size: 16px;">${displayValue}</div>
+              ${!category.includes('Score') && fullValue !== displayValue ? 
+                `<div style="font-size: 12px; color: #9CA3AF; border-top: 1px solid #374151; padding-top: 4px; margin-top: 4px;">Valor completo: ${fullValue}</div>` : 
+                ''}
             </div>
           `;
         },
@@ -240,7 +258,8 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
   }
 
   return (
-    <Card className="bg-tarjetas border-none">
+    <Card className="h-[492px] bg-tarjetas border-none">
+
       <CardHeader>
         <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
           <div className="text-gray-400">
@@ -256,12 +275,12 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
             <BarChart3 className="w-4 h-4" />
             Análisis Financiero Completo
           </h3>
-          <div className="h-80">
+          <div className="h-60">
             {combinedOption ? (
               <ReactECharts
                 echarts={echarts}
                 option={combinedOption}
-                style={{ height: "100%", width: "100%" }}
+                style={{ height: "80%", width: "100%" }}
                 opts={{ renderer: "canvas" }}
               />
             ) : (

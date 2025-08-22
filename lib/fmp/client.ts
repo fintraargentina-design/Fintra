@@ -7,6 +7,7 @@ import type {
   ProfileResponse,
   RatiosResponse,
   GrowthResponse,
+  BalanceSheetGrowthResponse,
   DetailedPeersResponse,
   FinancialScoreResponse,
   KeyMetricsResponse,
@@ -161,6 +162,13 @@ export const fmp = {
     return get<any[]>("/quote", {
       params: { symbol },
       cache: opts?.cache ?? "no-cache", // Sin cache para datos en tiempo real
+    });
+  },
+
+  balanceSheetGrowth(symbol: string, opts?: { period?: "annual" | "quarter"; limit?: number; cache?: CacheOpt }) {
+    return get<BalanceSheetGrowthResponse>("/balance-sheet-growth", {
+      params: { symbol, period: opts?.period || "annual", limit: opts?.limit || 5 },
+      cache: opts?.cache,
     });
   },
 };

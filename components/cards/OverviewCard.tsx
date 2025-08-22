@@ -33,6 +33,7 @@ interface OverviewCardProps {
   selectedStock: any; // string ("AAPL") o { symbol: "AAPL", ... }
   stockConclusion?: any;
   onStockSearch?: (symbol: string) => Promise<any> | any;
+  isParentLoading?: boolean; // Nueva prop para el estado de carga del padre
 }
 
 type Profile = Record<string, any>;
@@ -135,6 +136,7 @@ export default function OverviewCard({
   selectedStock,
   stockConclusion,
   onStockSearch,
+  isParentLoading = false, // Nueva prop con valor por defecto
 }: OverviewCardProps) {
   // ── estado
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -277,15 +279,13 @@ export default function OverviewCard({
       ] || "No disponible",
   };
 
-  // loading / error
-  if (loading) {
+  // loading / error - Modificar esta sección
+  if (loading || isParentLoading) {
     return (
-      <Card className="bg-tarjetas flex items-center flex-col w-full justify-between p-0 max-h-[36px]">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-center h-32">
-            <div className="text-gray-400">
-              Cargando perfil de la empresa...
-            </div>
+      <Card className="bg-tarjetas border-none flex items-center justify-center w-full h-[36px]">
+        <CardContent className="p-0 flex items-center justify-center w-full h-full">
+          <div className="text-gray-400 text-sm font-medium">
+            Cargando ticker...
           </div>
         </CardContent>
       </Card>

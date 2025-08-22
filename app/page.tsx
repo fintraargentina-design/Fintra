@@ -153,6 +153,7 @@ export default function StockTerminal() {
                     <OverviewCard
                       selectedStock={selectedStock}
                       onStockSearch={buscarDatosAccion}
+                      isParentLoading={isLoading} // Pasar el estado de carga del padre
                     />
                   </div>
                 </div>

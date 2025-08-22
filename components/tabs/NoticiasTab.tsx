@@ -250,8 +250,11 @@ export default function NoticiasTab({
     <>
       <Card className="flex-1 bg-tarjetas bg-tarjetas border-none h-[360px]">
         <CardHeader>
-          <CardTitle className="text-green-400 text-lg flex items-center gap-2">
-            Noticias de {symbol}
+          <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
+          <div className="text-gray-400">
+           Noticias
+          </div>
+           {symbol}
             <Badge variant="outline" className="text-xs">
               {news.length} artículos
             </Badge>

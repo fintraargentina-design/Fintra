@@ -64,13 +64,29 @@ export type FMPIncomeStatementGrowth = {
   date: string;
   symbol: string;
   period: string;
-  growthRevenue?: number;
-  growthEPS?: number;
+  revenueGrowth?: number;              // ✅ Nombre real de FMP
+  epsgrowth?: number;                  // ✅ Nombre real de FMP  
   growthNetIncome?: number;
   growthOperatingIncome?: number;
-  growthStockholdersEquity?: number;
+  stockholdersEquityGrowth?: number;   // ✅ Nombre real de FMP
 };
 
+/** ───────────── Balance Sheet Growth (api/v3/balance-sheet-statement-growth) ───────────── */
+export type FMPBalanceSheetGrowth = {
+  symbol: string;
+  date: string;
+  fiscalYear: string;
+  period: string;
+  reportedCurrency: string;
+  growthTotalStockholdersEquity?: number;  // Este es el que necesitamos
+  growthTotalAssets?: number;
+  growthTotalLiabilities?: number;
+  growthRetainedEarnings?: number;
+  growthCommonStock?: number;
+  // ... otros campos de crecimiento del balance
+};
+
+export type BalanceSheetGrowthResponse = FMPBalanceSheetGrowth[];
 /** ───────────── Key Metrics (api/v3/key-metrics-ttm / key-metrics) ───────────── */
 export type FMPKeyMetrics = {
   symbol: string;

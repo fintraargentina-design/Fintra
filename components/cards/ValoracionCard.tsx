@@ -229,7 +229,12 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
   return (
     <Card className="bg-tarjetas border-none h-[492px]">
       <CardHeader>
-        <CardTitle className="text-orange-400 text-lg">Valoración — {symbol}</CardTitle>
+        <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
+          <div className="text-gray-400">
+           Valoración
+          </div>
+           {symbol}
+          </CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (

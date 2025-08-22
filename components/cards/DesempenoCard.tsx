@@ -149,7 +149,12 @@ export default function DesempenoCard({ symbol }: { symbol: string }) {
   return (
     <Card className="bg-tarjetas border-none h-[360px]">
       <CardHeader className="pb-2">
-        <CardTitle className="text-orange-400 text-lg">Desempeño — {symbol}</CardTitle>
+        <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
+          <div className="text-gray-400">
+           Desempeño
+          </div>
+           {symbol}
+          </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
         {/* Píldoras de periodo */}
