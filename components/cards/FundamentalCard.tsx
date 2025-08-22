@@ -121,12 +121,13 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
       setError(null);
       
       try {
-        const [ratiosData, growthData, keyMetricsData, cashflowData, profileData] = await Promise.all([
+        const [ratiosData, growthData, keyMetricsData, cashflowData, profileData, balanceSheetGrowthData] = await Promise.all([
           fmp.ratios(symbol, { limit: 1, period: "annual" }),
           fmp.growth(symbol, { period: "annual", limit: 5 }),
           fmp.keyMetricsTTM(symbol),
           fmp.cashflow(symbol, { period: "annual", limit: 1 }),
           fmp.profile(symbol), // Agregar profile para obtener marketCap
+          fmp.balanceSheetGrowth(symbol, { period: "annual", limit: 5 }), // Nueva llamada para CAGR patrimonio
         ]);
 
         // Procesar datos
@@ -135,6 +136,7 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
         const km = Array.isArray(keyMetricsData) && keyMetricsData.length ? keyMetricsData[0] : {};
         const cf = Array.isArray(cashflowData) && cashflowData.length ? cashflowData[0] : {};
         const p = Array.isArray(profileData) && profileData.length ? profileData[0] : {};
+        const bsg = Array.isArray(balanceSheetGrowthData) ? balanceSheetGrowthData : []; // Datos de balance sheet growth
 
         // Normalizar valores
         const roe = pctOrNull(r.returnOnEquity);
@@ -164,9 +166,9 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
           return rate || 0;
         });
         
-        const equityGrowthRates = g.map((item, index) => {
-          const rate = numOrNull(item.stockholdersEquityGrowth); // ✅ Nombre correcto
-          console.log(`Equity growth [${index}]:`, rate, 'from item:', item.stockholdersEquityGrowth);
+        const equityGrowthRates = bsg.map((item, index) => {
+          const rate = numOrNull(item.growthTotalStockholdersEquity); // ✅ Campo correcto de balance sheet growth
+          console.log(`Equity growth [${index}]:`, rate, 'from item:', item.growthTotalStockholdersEquity);
           return rate || 0;
         });
         
