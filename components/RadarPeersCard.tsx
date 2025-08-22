@@ -39,13 +39,19 @@ function cagrFromRates(ratesPct: number[]): number | null {
 
 // más alto = más barato (0–100)
 function valuationScore(pe?: number | null, evE?: number | null, pb?: number | null) {
-  const pe01 =
-    pe == null ? 0.5 : Math.max(0, Math.min(1, (35 - Math.min(pe, 35)) / 35));
-  const ev01 =
-    evE == null ? 0.5 : Math.max(0, Math.min(1, (22 - Math.min(evE, 22)) / 22));
-  const pb01 =
-    pb == null ? 0.5 : Math.max(0, Math.min(1, (6 - Math.min(pb, 6)) / 6));
-  return clamp100(100 * (0.5 * pe01 + 0.35 * ev01 + 0.15 * pb01));
+  // Solo calcular si tenemos al menos un valor válido
+  const validMetrics = [pe, evE, pb].filter(x => x != null && x > 0);
+  if (validMetrics.length === 0) return 50; // valor neutro si no hay datos
+  
+  const pe01 = pe != null && pe > 0 ? Math.max(0, Math.min(1, (35 - Math.min(pe, 35)) / 35)) : null;
+  const ev01 = evE != null && evE > 0 ? Math.max(0, Math.min(1, (22 - Math.min(evE, 22)) / 22)) : null;
+  const pb01 = pb != null && pb > 0 ? Math.max(0, Math.min(1, (6 - Math.min(pb, 6)) / 6)) : null;
+  
+  // Promediar solo los valores válidos
+  const validScores = [pe01, ev01, pb01].filter(x => x != null) as number[];
+  const avgScore = validScores.reduce((sum, score) => sum + score, 0) / validScores.length;
+  
+  return clamp100(100 * avgScore);
 }
 
 // 0–100 (más alto = menos riesgo)
@@ -70,6 +76,7 @@ function solidity(currentRatio?: number | null, debtToEquity?: number | null, in
 // ─────────────────────────────────────────────
 // Tipos mínimos locales (robustos)
 // ─────────────────────────────────────────────
+// En el tipo Ratios0, agregar:
 type Ratios0 = {
   returnOnEquity?: number;
   netProfitMargin?: number;
@@ -80,6 +87,7 @@ type Ratios0 = {
   priceEarningsRatio?: number;
   enterpriseValueMultiple?: number;
   priceToBookRatio?: number;
+  dividendYield?: number;
 };
 
 type Profile0 = { symbol?: string; companyName?: string; beta?: number };
@@ -89,58 +97,103 @@ type Growth0 = { revenueGrowth?: number; epsgrowth?: number };
 // Carga de factores por símbolo (defensiva)
 // ─────────────────────────────────────────────
 async function fetchFactors(symbol: string) {
-  const [ratiosArr, profileArr, growthArrRaw, peersRes] = await Promise.all([
-    fmp.ratios(symbol, { limit: 1, period: 'annual' }),
-    fmp.profile(symbol),
-    fmp.growth(symbol, { period: 'annual', limit: 5 }),
-    fmp.peers(symbol),
-  ]);
+  try {
+    const [ratiosArr, profileArr, growthArrRaw, peersRes] = await Promise.all([
+      fmp.ratios(symbol, { limit: 1, period: 'annual' }),
+      fmp.profile(symbol),
+      fmp.growth(symbol, { period: 'annual', limit: 5 }),
+      fmp.peers(symbol),
+    ]);
 
-  // peers list - ahora accedemos correctamente a la respuesta de la API
-  console.log('Respuesta de peers:', peersRes); // Para debugging
-  const peersList: string[] = Array.isArray(peersRes?.peers)
-    ? peersRes.peers
-    : [];
-  
-  console.log('Peers extraídos:', peersList); // Para debugging
+    // Validar que los datos llegaron correctamente
+    if (!Array.isArray(ratiosArr) || ratiosArr.length === 0) {
+      console.warn(`[RadarPeersCard] No ratios data for ${symbol}`);
+    }
+    if (!Array.isArray(growthArrRaw) || growthArrRaw.length < 2) {
+      console.warn(`[RadarPeersCard] Insufficient growth data for ${symbol}: ${growthArrRaw?.length || 0} periods`);
+    }
+    
+    // peers list - ahora accedemos correctamente a la respuesta de la API
+    const peersList: string[] = Array.isArray(peersRes?.peers)
+      ? peersRes.peers
+      : [];
 
-  const r0 = (Array.isArray(ratiosArr) && ratiosArr.length ? (ratiosArr[0] as Ratios0) : {}) || {};
-  const p0 = (Array.isArray(profileArr) && profileArr.length ? (profileArr[0] as Profile0) : {}) || {};
-  const gArr = (Array.isArray(growthArrRaw) ? (growthArrRaw as Growth0[]) : []) || [];
+    // Extraer datos principales
+    const r0: Ratios0 = ratiosArr[0] || {};
+    const p0: Profile0 = profileArr[0] || {};
+    const gArr: Growth0[] = growthArrRaw || [];
 
-  // márgenes y rentabilidad (FMP en decimales → %)
-  const roePct = numOrNull((r0.returnOnEquity ?? null)) != null ? (r0.returnOnEquity as number) * 100 : null;
-  const netMarginPct = numOrNull((r0.netProfitMargin ?? null)) != null ? (r0.netProfitMargin as number) * 100 : null;
-  const fcfMarginPct =
-    numOrNull((r0.freeCashFlowOperatingCashFlowRatio ?? null)) != null
-      ? (r0.freeCashFlowOperatingCashFlowRatio as number) * 100
-      : null;
+    // márgenes y rentabilidad (FMP en decimales → %)
+    const roePct = numOrNull((r0.returnOnEquity ?? null)) != null ? (r0.returnOnEquity as number) * 100 : null;
+    const netMarginPct = numOrNull((r0.netProfitMargin ?? null)) != null ? (r0.netProfitMargin as number) * 100 : null;
+    const fcfMarginPct =
+      numOrNull((r0.freeCashFlowOperatingCashFlowRatio ?? null)) != null
+        ? (r0.freeCashFlowOperatingCashFlowRatio as number) * 100
+        : null;
 
-  // growth series (FMP: decimales → %)
-  const growthRevRates = gArr.map((g) => numOrNull(g.revenueGrowth) == null ? 0 : (g.revenueGrowth as number) * 100);
-  const growthEpsRates = gArr.map((g) => numOrNull(g.epsgrowth) == null ? 0 : (g.epsgrowth as number) * 100);
-  const revCagr = cagrFromRates(growthRevRates) ?? null;
-  const epsCagr = cagrFromRates(growthEpsRates) ?? null;
-  const crecimiento = epsCagr ?? revCagr; // prioriza EPS
+    // growth series (FMP: decimales → %)
+    const growthRevRates = gArr
+      .map((g) => numOrNull(g.revenueGrowth))
+      .filter(rate => rate != null && Number.isFinite(rate))
+      .map(rate => (rate as number) * 100);
+    
+    const growthEpsRates = gArr
+      .map((g) => numOrNull(g.epsgrowth))
+      .filter(rate => rate != null && Number.isFinite(rate))
+      .map(rate => (rate as number) * 100);
+    
+    const revCagr = growthRevRates.length >= 2 ? cagrFromRates(growthRevRates) : null;
+    const epsCagr = growthEpsRates.length >= 2 ? cagrFromRates(growthEpsRates) : null;
+    const crecimiento = epsCagr ?? revCagr; // prioriza EPS
+    
+    // Validar que crecimiento no sea NaN o infinito
+    const crecimientoFinal = (crecimiento != null && Number.isFinite(crecimiento)) ? crecimiento : 0;
 
-  // valoración
-  const pe = numOrNull(r0.priceEarningsRatio);
-  const evE = numOrNull(r0.enterpriseValueMultiple);
-  const pb = numOrNull(r0.priceToBookRatio);
+    // valoración
+    const pe = numOrNull(r0.priceEarningsRatio);
+    const evE = numOrNull(r0.enterpriseValueMultiple);
+    const pb = numOrNull(r0.priceToBookRatio);
+    
+    // Calcular dividendos antes del objeto radarData
+    const dividendYieldPct = numOrNull(r0.dividendYield) != null ? (r0.dividendYield as number) * 100 : null;
+    
+    // Console.log para verificar los valores calculados
+    console.log(`[RadarPeersCard] Valores calculados para ${symbol}:`);
+    console.log('- ROE%:', roePct);
+    console.log('- Net Margin%:', netMarginPct);
+    console.log('- FCF Margin%:', fcfMarginPct);
+    console.log('- Crecimiento (EPS/Revenue CAGR):', crecimiento, '→ Final:', crecimientoFinal);
+    console.log('- PE:', pe, 'EV/E:', evE, 'PB:', pb);
+    console.log('- Beta:', numOrNull(p0.beta));
+    console.log('- Dividend Yield%:', dividendYieldPct);
+    console.log('- Current Ratio:', numOrNull(r0.currentRatio));
+    console.log('- Debt/Equity:', numOrNull(r0.debtEquityRatio));
+    console.log('- Interest Coverage:', numOrNull(r0.interestCoverage));
+    
+    const radarData: Record<string, number> = {
+      Rentabilidad: clamp100(((roePct ?? 0) / 40) * 100),
+      Crecimiento: clamp100(((crecimientoFinal ?? 0) / 30) * 100), // usar crecimientoFinal
+      'Solidez Financiera': solidity(numOrNull(r0.currentRatio), numOrNull(r0.debtEquityRatio), numOrNull(r0.interestCoverage)),
+      'Generación de Caja': clamp100(((fcfMarginPct ?? 0) / 30) * 100),
+      Margen: clamp100(((netMarginPct ?? 0) / 30) * 100),
+      Valoración: valuationScore(pe, evE, pb),
+      'Riesgo / Volatilidad': riskFromBeta(numOrNull(p0.beta)),
+      Dividendos: clamp100(dividendYieldPct ? (dividendYieldPct / 8) * 100 : 0), // normalizado a 8% máximo
+    };
+    
+    // Console.log para verificar los valores finales del radar (deben estar entre 0-100)
+    console.log(`[RadarPeersCard] Valores finales del radar para ${symbol}:`);
+    Object.entries(radarData).forEach(([key, value]) => {
+      console.log(`- ${key}: ${value} (${value >= 0 && value <= 100 ? '✓' : '✗ FUERA DE RANGO'})`);
+    });
 
-  const radarData: Record<string, number> = {
-    Rentabilidad: clamp100(((roePct ?? 0) / 40) * 100),
-    Crecimiento: clamp100(((crecimiento ?? 0) / 30) * 100),
-    'Solidez Financiera': solidity(numOrNull(r0.currentRatio), numOrNull(r0.debtEquityRatio), numOrNull(r0.interestCoverage)),
-    'Generación de Caja': clamp100(((fcfMarginPct ?? 0) / 30) * 100),
-    Margen: clamp100(((netMarginPct ?? 0) / 30) * 100),
-    Valoración: valuationScore(pe, evE, pb),
-    'Riesgo / Volatilidad': riskFromBeta(numOrNull(p0.beta)),
-    Dividendos: clamp100(0), // si luego agregas dividendYield, mapealo aquí
-  };
-
-  const label = (p0.companyName || symbol).trim();
-  return { symbol, label, radarData, peersList };
+    const label = (p0.companyName || symbol).trim();
+    return { symbol, label, radarData, peersList };
+    
+  } catch (error) {
+    console.error(`[RadarPeersCard] Error fetching data for ${symbol}:`, error);
+    throw error;
+  }
 }
 
 // ─────────────────────────────────────────────
