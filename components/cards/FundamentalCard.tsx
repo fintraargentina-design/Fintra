@@ -147,17 +147,70 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
         const freeCashFlow = numOrNull(cf.freeCashFlow);
         
         // Calcular CAGRs de crecimiento
-        const revGrowthRates = g.map(item => numOrNull(item.growthRevenue) ? item.growthRevenue * 100 : 0);
-        const epsGrowthRates = g.map(item => numOrNull(item.growthEPS) ? item.growthEPS * 100 : 0);
-        const equityGrowthRates = g.map(item => numOrNull(item.growthStockholdersEquity) ? item.growthStockholdersEquity * 100 : 0);
+        // Calcular CAGRs de crecimiento
+        console.log('=== DEBUGGING GROWTH DATA ===');
+        console.log('Growth data (g):', g);
+        console.log('Growth data length:', g.length);
+        
+        const revGrowthRates = g.map((item, index) => {
+          const rate = numOrNull(item.revenueGrowth); // ✅ Nombre correcto
+          console.log(`Revenue growth [${index}]:`, rate, 'from item:', item.revenueGrowth);
+          return rate || 0;
+        });
+        
+        const epsGrowthRates = g.map((item, index) => {
+          const rate = numOrNull(item.epsgrowth); // ✅ Nombre correcto
+          console.log(`EPS growth [${index}]:`, rate, 'from item:', item.epsgrowth);
+          return rate || 0;
+        });
+        
+        const equityGrowthRates = g.map((item, index) => {
+          const rate = numOrNull(item.stockholdersEquityGrowth); // ✅ Nombre correcto
+          console.log(`Equity growth [${index}]:`, rate, 'from item:', item.stockholdersEquityGrowth);
+          return rate || 0;
+        });
+        
+        console.log('=== GROWTH ARRAYS ===');
+        console.log('Revenue growth rates array:', revGrowthRates);
+        console.log('EPS growth rates array:', epsGrowthRates);
+        console.log('Equity growth rates array:', equityGrowthRates);
         
         const revCagr = cagrFromGrowthSeries(revGrowthRates);
         const epsCagr = cagrFromGrowthSeries(epsGrowthRates);
         const equityCagr = cagrFromGrowthSeries(equityGrowthRates);
         
+        console.log('=== CALCULATED CAGRs ===');
+        console.log('Revenue CAGR:', revCagr);
+        console.log('EPS CAGR:', epsCagr);
+        console.log('Equity CAGR:', equityCagr);
+        
         // Obtener bookValuePerShare de keyMetrics y marketCap de profile
-        const bookValuePerShare = numOrNull(km.bookValuePerShare);
-        const marketCap = numOrNull(p.mktCap); // Cambiar de km.marketCap a p.mktCap
+        const bookValuePerShare = numOrNull(km.tangibleBookValuePerShareTTM);
+        const marketCap = numOrNull(p.mktCap);
+        
+        console.log('=== DEBUGGING BOOK VALUE ===');
+        console.log('Key metrics raw data:', km);
+        console.log('Available keys in km:', Object.keys(km));
+        console.log('km.tangibleBookValuePerShareTTM raw:', km.tangibleBookValuePerShareTTM);
+        console.log('bookValuePerShare processed:', bookValuePerShare);
+        
+        // Verificar si el campo tiene un nombre diferente
+        const alternativeFields = [
+          'bookValue',
+          'bookValuePerShareTTM',
+          'tangibleBookValuePerShare',
+          'bookValuePerCommonShare'
+        ];
+        
+        alternativeFields.forEach(field => {
+          if (km[field] !== undefined) {
+            console.log(`Found alternative field ${field}:`, km[field]);
+          }
+        });
+        
+        console.log('=== OTHER METRICS ===');
+        console.log('Profile data (p):', p);
+        console.log('Market Cap:', marketCap, 'from p.mktCap:', p.mktCap);
 
         // Función helper para construir filas
         const build = (label: string, raw: number | null, unit?: "% " | "x" | "$") => {
