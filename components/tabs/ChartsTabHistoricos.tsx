@@ -145,49 +145,267 @@ export default function ChartsTabHistoricos({
   const closes = React.useMemo(() => dataR.map((d) => d.close), [dataR]);
   const volumes = React.useMemo(() => dataR.map((d) => d.volume ?? 0), [dataR]);
 
-  // indicadores
-  const sma50 = React.useMemo(() => sma(closes, 50), [closes]);
-  const sma200 = React.useMemo(() => sma(closes, 200), [closes]);
+  // Función para calcular EMA (Media Móvil Exponencial)
+  const ema = (arr: number[], period: number) => {
+    const result: number[] = new Array(arr.length).fill(NaN);
+    if (arr.length === 0 || period <= 0) return result;
+    
+    const multiplier = 2 / (period + 1);
+    let emaValue = arr[0]; // Primer valor como semilla
+    result[0] = emaValue;
+    
+    for (let i = 1; i < arr.length; i++) {
+      if (!isNaN(arr[i])) {
+        emaValue = (arr[i] * multiplier) + (emaValue * (1 - multiplier));
+        result[i] = emaValue;
+      }
+    }
+    
+    return result;
+  };
+
+  // Cálculo de indicadores técnicos
+  const ema50 = React.useMemo(() => ema(closes, 50), [closes]);
+  const ema200 = React.useMemo(() => ema(closes, 200), [closes]);
   const vwap = React.useMemo(() => anchoredVWAP(dataR), [dataR]);
 
-  // 1) Precio (velas) + SMA50/200 + VWAP + Volumen (log en precio)
+  // 1) Precio (velas) + EMA50/200 + VWAP + Volumen - MEJORADO
   const optionCandles = React.useMemo(() => {
     const kline = dataR.map((d) => [d.open, d.close, d.low, d.high]);
+    const upColor = '#00da3c';
+    const downColor = '#ec0000';
+    
     return {
       backgroundColor: "transparent",
-      legend: { textStyle: { color: "#9ca3af" } },
-      tooltip: { trigger: "axis" as const, axisPointer: { type: "cross" as const } },
-      axisPointer: { link: [{ xAxisIndex: [0, 1] }] },
+      animation: false,
+      legend: {
+        bottom: 10,
+        left: 'center',
+        data: [symbol, 'EMA 50', 'EMA 200', 'VWAP'],
+        textStyle: { color: "#9ca3af" }
+      },
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: {
+          type: 'cross'
+        },
+        backgroundColor: 'rgba(245, 245, 245, 0.8)',
+        borderWidth: 1,
+        borderColor: '#ccc',
+        padding: 10,
+        textStyle: {
+          color: '#000'
+        },
+        position: function (pos, params, el, elRect, size) {
+          const obj = {
+            top: 10
+          };
+          obj[['left', 'right'][+(pos[0] < size.viewSize[0] / 2)]] = 30;
+          return obj;
+        },
+        formatter: function (param) {
+          const data0 = param[0];
+          if (!data0 || !data0.data) return '';
+          
+          const [open, close, low, high] = data0.data;
+          const change = close - open;
+          const changePercent = ((change / open) * 100).toFixed(2);
+          const color = change >= 0 ? upColor : downColor;
+          
+          return [
+            'Fecha: ' + data0.name + '<hr size=1 style="margin: 3px 0">',
+            'Apertura: ' + open.toFixed(2),
+            'Cierre: ' + close.toFixed(2),
+            'Mínimo: ' + low.toFixed(2),
+            'Máximo: ' + high.toFixed(2),
+            `<span style="color: ${color}">Cambio: ${change >= 0 ? '+' : ''}${change.toFixed(2)} (${changePercent}%)</span>`,
+            'Volumen: ' + (volumes[data0.dataIndex] || 0).toLocaleString()
+          ].join('<br/>');
+        }
+      },
+      axisPointer: {
+        link: [
+          {
+            xAxisIndex: 'all'
+          }
+        ],
+        label: {
+          backgroundColor: '#777'
+        }
+      },
+      toolbox: {
+        feature: {
+          dataZoom: {
+            yAxisIndex: false
+          },
+          brush: {
+            type: ['lineX', 'clear']
+          }
+        }
+      },
+      brush: {
+        xAxisIndex: 'all',
+        brushLink: 'all',
+        outOfBrush: {
+          colorAlpha: 0.1
+        }
+      },
       grid: [
-        { left: 55, right: 25, top: 30, height: 450, id: "price" }, // grid 0
-        { left: 55, right: 25, top: 270, height: 60, id: "volume" }, // grid 1
+        {
+          left: '10%',
+          right: '8%',
+          height: '50%'
+        },
+        {
+          left: '10%',
+          right: '8%',
+          top: '63%',
+          height: '16%'
+        }
       ],
       xAxis: [
-        { type: "category" as const, gridIndex: 0, data: dates, boundaryGap: true,
-          axisLine: { lineStyle: { color: "#475569" } }, axisLabel: { color: "#cbd5e1" } },
-        { type: "category" as const, gridIndex: 1, data: dates, boundaryGap: true,
-          axisLine: { lineStyle: { color: "#475569" } }, axisLabel: { show: false } },
+        {
+          type: 'category',
+          data: dates,
+          boundaryGap: false,
+          axisLine: { onZero: false },
+          splitLine: { show: false },
+          min: 'dataMin',
+          max: 'dataMax',
+          axisPointer: {
+            z: 100
+          },
+          axisLabel: { color: "#cbd5e1" },
+          axisLine: { lineStyle: { color: "#475569" } }
+        },
+        {
+          type: 'category',
+          gridIndex: 1,
+          data: dates,
+          boundaryGap: false,
+          axisLine: { onZero: false },
+          axisTick: { show: false },
+          splitLine: { show: false },
+          axisLabel: { show: false },
+          min: 'dataMin',
+          max: 'dataMax'
+        }
       ],
       yAxis: [
-        { type: "log" as const, gridIndex: 0, scale: true, axisLabel: { color: "#cbd5e1" },
-          splitLine: { lineStyle: { color: "rgba(148,163,184,0.15)" } } },
-        { type: "value" as const, gridIndex: 1, axisLabel: { color: "#94a3b8" }, splitLine: { show: false } },
+        {
+          scale: true,
+          splitArea: {
+            show: false
+          },
+          axisLabel: { color: "#cbd5e1" },
+          splitLine: { lineStyle: { color: "rgba(148,163,184,0.15)" } }
+        },
+        {
+          scale: true,
+          gridIndex: 1,
+          splitNumber: 2,
+          axisLabel: { show: false },
+          axisLine: { show: false },
+          axisTick: { show: false },
+          splitLine: { show: false }
+        }
       ],
       dataZoom: [
-        { type: "inside" as const, xAxisIndex: [0, 1] },
-        { type: "slider" as const, xAxisIndex: [0, 1], height: 18, bottom: -20 },
+        {
+          type: 'inside',
+          xAxisIndex: [0, 1],
+          start: 98,
+          end: 100
+        },
+        {
+          show: true,
+          xAxisIndex: [0, 1],
+          type: 'slider',
+          top: '85%',
+          start: 98,
+          end: 100
+        }
       ],
-      brush: { xAxisIndex: 0, brushLink: "all", toolbox: ["rect", "keep", "clear"], throttleType: "debounce", throttleDelay: 300 },
       series: [
-        { name: "K", type: "candlestick" as const, xAxisIndex: 0, yAxisIndex: 0, data: kline,
-          itemStyle: { color: "#16a34a", color0: "#ef4444", borderColor: "#16a34a", borderColor0: "#ef4444" } },
-        { name: "SMA 50", type: "line" as const, xAxisIndex: 0, yAxisIndex: 0, data: sma50, smooth: true, showSymbol: false, lineStyle: { width: 1.5, color: "#60a5fa" } },
-        { name: "SMA 200", type: "line" as const, xAxisIndex: 0, yAxisIndex: 0, data: sma200, smooth: true, showSymbol: false, lineStyle: { width: 1.5, color: "purple" } },
-        { name: "VWAP", type: "line" as const, xAxisIndex: 0, yAxisIndex: 0, data: vwap, smooth: true, showSymbol: false, lineStyle: { width: 1.5, color: 'orange', type: 'dashed'} },
-        { name: "Volumen", type: "bar" as const, xAxisIndex: 1, yAxisIndex: 1, data: volumes, itemStyle: { color: 'green' } },
-      ],
+        {
+          name: symbol,
+          type: 'candlestick',
+          data: kline,
+          itemStyle: {
+            color: upColor,
+            color0: downColor,
+            borderColor: undefined,
+            borderColor0: undefined
+          },
+          tooltip: {
+            formatter: function (param) {
+              const data = param.data;
+              return [
+                param.name + '<hr size=1 style="margin: 3px 0">',
+                'Apertura: ' + data[0],
+                'Cierre: ' + data[1],
+                'Mínimo: ' + data[2],
+                'Máximo: ' + data[3]
+              ].join('<br>');
+            }
+          }
+        },
+        {
+          name: 'EMA 50',
+          type: 'line',
+          data: ema50,
+          smooth: true,
+          lineStyle: {
+            opacity: 0.5,
+            width: 2,
+            color: '#60a5fa'
+          },
+          showSymbol: false
+        },
+        {
+          name: 'EMA 200',
+          type: 'line',
+          data: ema200,
+          smooth: true,
+          lineStyle: {
+            opacity: 0.5,
+            width: 2,
+            color: 'purple'
+          },
+          showSymbol: false
+        },
+        {
+          name: 'VWAP',
+          type: 'line',
+          data: vwap,
+          smooth: true,
+          lineStyle: {
+            opacity: 0.7,
+            width: 2,
+            color: 'orange',
+            type: 'dashed'
+          },
+          showSymbol: false
+        },
+        {
+          name: 'Volumen',
+          type: 'bar',
+          xAxisIndex: 1,
+          yAxisIndex: 1,
+          data: volumes.map((vol, index) => {
+            const isUp = kline[index] && kline[index][1] > kline[index][0];
+            return {
+              value: vol,
+              itemStyle: {
+                color: isUp ? upColor : downColor,
+                opacity: 0.7
+              }
+            };
+          })
+        }
+      ]
     };
-  }, [dataR, dates, volumes, sma50, sma200, vwap]);
+  }, [dataR, dates, volumes, ema50, ema200, vwap, symbol]);
 
   // 2) Drawdown comparativo
   const optionDD = React.useMemo(() => {
@@ -297,7 +515,7 @@ export default function ChartsTabHistoricos({
   // Render del gráfico según tab
   const renderChart = () => {
     if (loading) {
-      return <div className="h-[856px] animate-pulse bg-gray-800/40 rounded-md" />;
+      return <div className="h-[824px] animate-pulse bg-gray-800/40 rounded-md" />;
     }
     switch (view) {
       case "precio":
@@ -308,7 +526,7 @@ export default function ChartsTabHistoricos({
             option={optionCandles as any}
             notMerge
             lazyUpdate
-            style={{ height: 856, width: "100%" }}
+            style={{ height: 700, width: "100%" }}
           />
         );
       case "drawdown":

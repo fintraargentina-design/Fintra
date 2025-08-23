@@ -48,6 +48,39 @@ const fmtLargeNumber = (v?: number | null, d = 1) => {
   return `$${v.toFixed(0)}`;
 };
 
+// Diccionario de explicaciones para las métricas financieras
+const METRIC_EXPLANATIONS: Record<string, string> = {
+  "ROE": "Return on Equity - Mide la rentabilidad que obtienen los accionistas sobre su inversión. Un ROE alto indica que la empresa genera buenos beneficios con el capital de los accionistas.",
+  "ROIC": "Return on Invested Capital - Evalúa la eficiencia con la que la empresa utiliza todo su capital invertido para generar beneficios. Es clave para valorar la calidad del negocio.",
+  "Margen bruto": "Porcentaje de ingresos que queda después de descontar el costo directo de los productos vendidos. Un margen alto indica ventaja competitiva y poder de fijación de precios.",
+  "Margen neto": "Porcentaje de ingresos que se convierte en beneficio neto después de todos los gastos. Refleja la eficiencia operativa y la rentabilidad final del negocio.",
+  "Deuda/Capital": "Ratio que mide el nivel de endeudamiento respecto al capital total. Un ratio bajo indica menor riesgo financiero y mayor solidez del balance.",
+  "Current Ratio": "Capacidad de la empresa para pagar sus deudas a corto plazo con sus activos corrientes. Un ratio entre 1.5-3 se considera saludable.",
+  "Cobertura de intereses": "Número de veces que la empresa puede pagar los intereses de su deuda con sus beneficios. Un ratio alto indica menor riesgo de impago.",
+  "Flujo de Caja Libre": "Dinero generado por las operaciones después de inversiones en capital. Es crucial para evaluar la capacidad de generar efectivo real.",
+  "CAGR ingresos": "Tasa de crecimiento anual compuesta de los ingresos durante los últimos 5 años. Indica la consistencia del crecimiento del negocio.",
+  "CAGR beneficios": "Tasa de crecimiento anual compuesta de los beneficios durante los últimos 5 años. Refleja la capacidad de convertir crecimiento en rentabilidad.",
+  "CAGR patrimonio": "Tasa de crecimiento anual compuesta del patrimonio neto. Indica cómo crece el valor contable de la empresa para los accionistas.",
+  "Book Value por acción": "Valor contable de la empresa dividido por el número de acciones. Representa el valor teórico de cada acción según los libros contables.",
+  "Capitalización de Mercado": "Valor total de la empresa en el mercado (precio por acción × número de acciones). Refleja lo que los inversores están dispuestos a pagar por la empresa."
+};
+
+// Función para obtener el color del score
+const getScoreColor = (score: number | null): string => {
+  if (score == null) return "#94a3b8";
+  if (score >= 70) return "#22c55e"; // Verde
+  if (score >= 40) return "#eab308"; // Amarillo
+  return "#ef4444"; // Rojo
+};
+
+// Función para obtener el texto del nivel de score
+const getScoreLevel = (score: number | null): string => {
+  if (score == null) return "Sin datos";
+  if (score >= 70) return "Fuerte";
+  if (score >= 40) return "Medio";
+  return "Débil";
+};
+
 function cagrFromGrowthSeries(series: number[]): number | null {
   const valid = series.filter((x) => Number.isFinite(x));
   if (!valid.length) return null;
@@ -233,17 +266,45 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
       grid: { left: 170, right: 50, top: 10, bottom: 10 },
       tooltip: {
         trigger: "axis",
-        axisPointer: { type: "shadow" },
+        axisPointer: { type: "none" },
+        backgroundColor: "rgba(248, 250, 252, 0.98)",
+        borderColor: "rgba(203, 213, 225, 0.8)",
+        borderWidth: 1,
+        textStyle: { color: "#64748b", fontSize: 11 },
+        confine: false, // Permite que el tooltip salga del contenedor
+        appendToBody: true, // Renderiza el tooltip en el body del documento
+        position: function (point: any, params: any, dom: any, rect: any, size: any) {
+          // Posicionamiento inteligente para evitar que se corte
+          return [point[0] + 10, point[1] - size.contentSize[1] / 2];
+        },
         formatter: (params: any) => {
-          const p = Array.isArray(params) ? params[params.length - 1] : params;
-          const idx = p?.dataIndex ?? 0;
+          const idx = params[0]?.dataIndex;
+          if (idx == null || !rows[idx]) return "";
+          
           const row = rows[idx];
           const scoreTxt = row.score == null ? "Sin datos" : `${Math.round(row.score)} / 100`;
+          const scoreColor = getScoreColor(row.score);
+          const scoreLevel = getScoreLevel(row.score);
+          const explanation = METRIC_EXPLANATIONS[row.label] || "Métrica financiera importante.";
+          
           return `
-            <div style="min-width:220px">
-              <div style="font-weight:600;margin-bottom:6px">${row.label}</div>
-              <div>Valor: <b>${row.display}</b></div>
-              <div>Score: <b>${scoreTxt}</b></div>
+            <div style="max-width: 320px; padding: 12px; line-height: 1.4; background-color: rgba(248, 250, 252, 0.98); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+              <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #334155;">${row.label}</div>
+              
+              <div style="margin-bottom: 6px; font-size: 11px;">
+                <span style="color: #64748b;">Valor:</span> 
+                <span style="font-weight: 600; color: #475569;">${row.display}</span>
+              </div>
+              
+              <div style="margin-bottom: 8px; font-size: 11px;">
+                <span style="color: #64748b;">Score:</span> 
+                <span style="font-weight: 600; color: ${scoreColor};">${scoreTxt}</span>
+                <span style="margin-left: 6px; padding: 2px 6px; border-radius: 3px; font-size: 9px; background-color: ${scoreColor}15; color: ${scoreColor};">${scoreLevel}</span>
+              </div>
+              
+              <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; color: #64748b; font-size: 10px; line-height: 1.5; word-wrap: break-word; overflow-wrap: break-word;">
+                ${explanation}
+              </div>
             </div>`;
         },
       },
