@@ -50,50 +50,32 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
       setLoading(true);
       setError(null);
       try {
-        const ratios = await fmp.ratios(symbol, { limit: 1, period: "annual" });
-        const r = Array.isArray(ratios) && ratios.length ? ratios[0] : {};
-
-        // Múltiplos base (normalizados)
-        const pe = numOrNull(r?.priceEarningsRatio);
-        const fwd = numOrNull(r?.forwardPE);
-        const peg = numOrNull(r?.pegRatio);
-        const pb = numOrNull(r?.priceToBookRatio);
-        const ps = numOrNull(r?.priceToSalesRatio);
-        const pfcf = numOrNull(r?.priceToFreeCashFlowsRatio ?? r?.priceToFreeCashFlowRatio);
-        const evEbitda = numOrNull(r?.enterpriseValueMultiple);
-        const evSales = numOrNull(r?.evToSales ?? r?.enterpriseValueToSales);
-        const divYieldPct = (() => {
-          const n = numOrNull(r?.dividendYield);
-          return n == null ? null : n * 100; // FMP: 0.0123 => 1.23%
-        })();
-
-        // Precio y PT (robustos)
+        // Cambiar de fmp.ratios a fmp.valuation
+        const valuation = await fmp.valuation(symbol, { period: "annual" });
+        
+        // Los datos ya vienen procesados y normalizados
+        const {
+          pe,
+          forwardPe,
+          peg,
+          pb,
+          ps,
+          pfcf,
+          evEbitda,
+          evSales,
+          dividendYield,
+          impliedGrowth,
+          discountVsPt
+        } = valuation;
+    
+        // Precio actual del perfil
         const profileArr = await fmp.profile(symbol);
         const currentPrice = Array.isArray(profileArr) && profileArr.length ? numOrNull(profileArr[0]?.price) : null;
-
-        const priceTarget =
-          numOrNull(r?.targetMean) ??
-          numOrNull(r?.targetMedian) ??
-          numOrNull(r?.priceTargetAverage) ??
-          numOrNull(r?.priceTarget) ??
-          null;
-
-        // Derivados SIN score
-        // Crecimiento implícito (%) ≈ (PE_fwd || PE) / PEG
-        const peForImplied = fwd ?? pe;
-        const impliedGrowthPct =
-          peForImplied != null && peg != null && peg > 0 ? peForImplied / peg : null;
-
-        // Descuento vs. PT (%) = (PT - Precio) / Precio * 100
-        const discountVsPTPct =
-          currentPrice != null && currentPrice > 0 && priceTarget != null
-            ? ((priceTarget - currentPrice) / currentPrice) * 100
-            : null;
-
+    
         const build = (
           label: string,
           val: number | null,
-          unit?: "%" | "x",
+          unit?: "% " | "x",
           score?: number | null,
           thresholds?: { poor: number; avg: number }
         ): Row => ({
@@ -104,10 +86,10 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
           thresholds: thresholds ?? { poor: 40, avg: 70 },
           display: fmt(val, unit),
         });
-
+    
         const items: Row[] = [
           build("P/E (PER)", pe, "x", ratioBetterLow(pe, 12, 40)),
-          build("P/E forward", fwd, "x", ratioBetterLow(fwd, 12, 40)),
+          build("P/E forward", forwardPe, "x", ratioBetterLow(forwardPe, 12, 40)),
           build("PEG", peg, "x", ratioBetterLow(peg, 1, 3)),
           build("P/Book (P/B)", pb, "x", ratioBetterLow(pb, 2, 6)),
           build("P/S (Ventas)", ps, "x", ratioBetterLow(ps, 2, 12)),
@@ -116,16 +98,16 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
           build("EV/Ventas", evSales, "x", ratioBetterLow(evSales, 2, 12)),
           build(
             "Dividend Yield",
-            divYieldPct,
+            dividendYield, // Ya viene en % desde el endpoint
             "%",
-            divYieldPct == null ? null : clamp((divYieldPct / 8) * 100),
+            dividendYield == null ? null : clamp((dividendYield / 8) * 100),
             { poor: 10, avg: 30 }
           ),
-          // Derivados (solo informativos, sin score)
-          build("Crecimiento implícito", impliedGrowthPct, "%", null, { poor: 40, avg: 70 }),
-          build("Descuento vs. PT", discountVsPTPct, "%", null, { poor: 40, avg: 70 }),
+          // Derivados (ya calculados en el endpoint)
+          build("Crecimiento implícito", impliedGrowth, "%", null, { poor: 40, avg: 70 }),
+          build("Descuento vs. PT", discountVsPt, "%", null, { poor: 40, avg: 70 }),
         ];
-
+    
         if (alive) setRows(items);
       } catch (e: any) {
         if (alive) setError(e?.message ?? "Error cargando valoración");
