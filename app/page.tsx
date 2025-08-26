@@ -146,31 +146,19 @@ export default function StockTerminal() {
         )}
 
         {selectedStock && (
-          <div className="space-y-2 md:space-y-4">
-            {/* Overview y Navigation - Layout responsivo */}
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div className="flex-1">
-                <OverviewCard
-                  selectedStock={selectedStock}
-                  onStockSearch={buscarDatosAccion}
-                  isParentLoading={isLoading}
-                />
-              </div>
-              
-              {/* Navigation Bar responsiva */}
-              <div className="lg:min-w-[350px]">
-                <Card className="bg-transparent border-none">
-                  <div className="p-2">
-                    <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} />
-                  </div>
-                </Card>
-              </div>
-            </div>
+          <div className="space-y-1 md:space-y-1">
 
             {/* Layout principal responsivo */}
             <div className="flex flex-col xl:flex-row gap-2 md:gap-4">
               {/* Panel izquierdo */}
               <div className="w-full xl:w-1/2 space-y-2 md:space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4">
+                  <OverviewCard
+                      selectedStock={selectedStock}
+                      onStockSearch={buscarDatosAccion}
+                      isParentLoading={isLoading}
+                    />
+                </div>
                 {/* Grid responsivo para tarjetas */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4">
                   <div className="w-full">
@@ -194,6 +182,14 @@ export default function StockTerminal() {
 
               {/* Panel derecho */}
               <div className="w-full xl:w-1/2">
+                {/* Navigation Bar responsiva */}
+                <div className="lg:min-w-[350px]">
+                  <Card className="flex justify-end bg-transparent border-none">
+                    <div className="p-2">
+                      <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} />
+                    </div>
+                  </Card>
+                </div>
                 <div className="w-full">
                   {renderTabContent()}
                 </div>

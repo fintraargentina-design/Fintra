@@ -255,8 +255,8 @@ export default function NoticiasTab({
            Noticias
           </div>
            {symbol}
-            <Badge variant="outline" className="text-xs">
-              {news.length} artículos
+            <Badge variant="outline" className="text-xs border-none">
+              - {news.length} artículos
             </Badge>
           </CardTitle>
         </CardHeader>

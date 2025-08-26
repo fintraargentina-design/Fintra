@@ -39,14 +39,6 @@ const numOrNull = (x: any): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-// Función para obtener el color del score
-const getScoreColor = (score: number | null): string => {
-  if (score == null) return "#94a3b8";
-  if (score >= 70) return "#22c55e"; // Verde
-  if (score >= 40) return "#eab308"; // Amarillo
-  return "#ef4444"; // Rojo
-};
-
 // Función para obtener el texto del nivel de score
 const getScoreLevel = (score: number | null): string => {
   if (score == null) return "Sin datos";
@@ -194,7 +186,6 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
           const scoreTxt = row.score == null ? "Sin datos" : `${Math.round(row.score)} / 100`;
           const scoreColor = getScoreColor(row.score);
           const scoreLevel = getScoreLevel(row.score);
-          const explanation = METRIC_EXPLANATIONS[row.label] || "Métrica de valoración importante.";
           
           return `
             <div style="max-width: 320px; padding: 12px; line-height: 1.4; background-color: rgba(248, 250, 252, 0.98); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
@@ -209,10 +200,6 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
                 <span style="color: #64748b;">Score:</span> 
                 <span style="font-weight: 600; color: ${scoreColor};">${scoreTxt}</span>
                 <span style="margin-left: 6px; padding: 2px 6px; border-radius: 3px; font-size: 9px; background-color: ${scoreColor}15; color: ${scoreColor};">${scoreLevel}</span>
-              </div>
-              
-              <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; color: #64748b; font-size: 10px; line-height: 1.5; word-wrap: break-word; overflow-wrap: break-word;">
-                ${explanation}
               </div>
             </div>`;
         },
@@ -322,3 +309,11 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
     </Card>
   );
 }
+
+// Función para obtener el color del score
+const getScoreColor = (score: number | null): string => {
+  if (score == null) return "#94a3b8";
+  if (score >= 70) return "#22c55e"; // Verde
+  if (score >= 40) return "#eab308"; // Amarillo
+  return "#ef4444"; // Rojo
+};

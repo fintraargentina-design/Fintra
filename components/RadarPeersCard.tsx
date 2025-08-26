@@ -381,20 +381,19 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
   }
 
   return (
-    <Card className={`bg-tarjetas border-none ${cardHeight} responsive-container`}>
-      <CardHeader className={`${isMobile ? 'pb-0 px-2 py-1' : 'pb-0 px-2 py-1'}`}>
-        <div className="flex items-center justify-between">
+    <Card className="bg-tarjetas border-none h-[492px] responsive-container">
+      <CardHeader>
+        <CardTitle className="text-orange-400 text-lg flex items-center">
           <div className="flex items-center gap-2">
-            <ChartNoAxesCombined className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'} text-blue-500`} />
-            <CardTitle className={`text-gray-400 ${isMobile ? 'text-sm' : isTablet ? 'text-base' : 'text-lg'} flex items-center`}>
+            <div className="text-gray-400">
               Comparativo
-              {main && <span className="text-orange-400 font-normal ml-2 mr-2">{main.symbol}</span>}
-              vs
-            </CardTitle>
+            </div>
+            {main && <span className="text-orange-400 text-lg">{main.symbol}</span>}
+            <span className="text-gray-400">vs</span>
           </div>
           {peers.length > 0 && (
             <DropdownMenu>
-              <DropdownMenuTrigger className={`flex items-center gap-1 px-2 py-1 bg-gray-800 rounded hover:bg-gray-700 transition-colors ${isMobile ? 'text-xs' : 'text-sm'}`}>
+              <DropdownMenuTrigger className="flex items-center gap-1 px-2 py-1 border-none transition-colors text-sm">
                 <span className="text-blue-300">{activePeer || 'Seleccionar'}</span>
                 <ChevronDown className="w-3 h-3" />
               </DropdownMenuTrigger>
@@ -415,24 +414,24 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-        </div>
+        </CardTitle>
       </CardHeader>
 
-      <CardContent className={`${isMobile ? 'px-2 py-1' : 'px-2 py-1'}`}>
+      <CardContent>
         {main ? (
-          <div style={{ height: chartHeight, width: '100%' }}>
+          <div className="h-96">
             <ReactEChartsCore
               ref={chartRef}
               echarts={echarts as any}
               option={option as any}
               notMerge
               lazyUpdate
-              style={{ height: '80%', width: '100%' }}
+              style={{ height: '100%', width: '100%' }}
               opts={{ renderer: 'canvas' }}
             />
           </div>
         ) : (
-          <div className="flex items-center justify-center" style={{ height: chartHeight }}>
+          <div className="flex items-center justify-center h-96">
             <div className="text-gray-400 text-sm">No hay datos disponibles</div>
           </div>
         )}

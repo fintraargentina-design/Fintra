@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { TrendingUp, RefreshCw } from 'lucide-react';
+import { TrendingUp, RefreshCw, ChevronDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface SearchedStock {
   symbol: string;
@@ -11,12 +17,14 @@ interface SearchedStock {
 
 interface TopSearchedStocksDropdownProps {
   onStockClick?: (symbol: string) => void;
+  isMobile?: boolean;
 }
 
-export default function TopSearchedStocksDropdown({ onStockClick }: TopSearchedStocksDropdownProps) {
+export default function TopSearchedStocksDropdown({ onStockClick, isMobile = false }: TopSearchedStocksDropdownProps) {
   const [topStocks, setTopStocks] = useState<SearchedStock[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedStock, setSelectedStock] = useState<string>('');
 
   useEffect(() => {
     fetchTopSearchedStocks();
@@ -74,6 +82,7 @@ export default function TopSearchedStocksDropdown({ onStockClick }: TopSearchedS
   };
 
   const handleStockClick = (symbol: string) => {
+    setSelectedStock(symbol);
     if (onStockClick) {
       onStockClick(symbol);
     }
@@ -118,7 +127,30 @@ export default function TopSearchedStocksDropdown({ onStockClick }: TopSearchedS
     );
   }
 
-  // Diseño horizontal original con scroll
+  // Renderizado para móviles (dropdown)
+  if (isMobile) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger className="flex items-center gap-1 px-2 py-1 border-none transition-colors text-sm text-gray-400 hover:text-orange-400">
+          <span>{selectedStock || 'Seleccionar'}</span>
+          <ChevronDown className="w-3 h-3" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="bg-gray-800 border-gray-700 max-h-64 overflow-y-auto">
+          {topStocks.map((stock) => (
+            <DropdownMenuItem
+              key={stock.symbol}
+              onClick={() => handleStockClick(stock.symbol)}
+              className="cursor-pointer transition-colors text-gray-300 hover:bg-orange-500/10 hover:text-orange-400"
+            >
+              {stock.symbol}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  // Renderizado para desktop (horizontal con scroll)
   return (
     <>
       {topStocks.map((stock, index) => (

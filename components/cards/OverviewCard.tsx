@@ -672,31 +672,25 @@ export default function OverviewCard({
 
   return (
     <Dialog>
-      <Card className="bg-tarjetas border-none responsive-container">
-        <CardHeader className="pb-2 md:pb-4">
+      <Card className="bg-transparent border-none responsive-container">
+        <CardHeader className="p-0 flex items-center justify-start">
           <CardTitle className="space-y-2 md:space-y-3">
             {/* Company Info - Responsive Layout */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
               <div className="flex items-center gap-2">
-                {data.image ? (
-                  <img
-                    src={data.image}
-                    alt={`Logo de ${data.companyName || data.symbol}`}
-                    className="w-4 h-4 md:w-5 md:h-5 object-contain rounded"
-                    onError={(e: any) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                ) : (
+                {/* {data.image ? ( */}
+                  
+               {/*  ) : (
                   <Building2 className="w-4 h-4 md:w-5 md:h-5 text-orange-400" />
-                )}
-                <span className="text-gray-400 text-sm md:text-base">
+                )} */}
+                {/* <span className="text-gray-400 text-sm md:text-base">
                   {data.companyName || "Empresa"}
-                </span>
+                </span> */}
               </div>
               
               {/* Symbol Input - Responsive */}
               <div className="flex items-center gap-2">
+                <TextCursorInput className="w-3 h-3 md:w-4 md:h-4 text-green-400"/>
                 <Input
                   // Remove ref since tickerInputRef is not defined and not needed
                   value={tickerInput}
@@ -728,7 +722,7 @@ export default function OverviewCard({
               </div>
 
               {/* % cambio */}
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1">
                   <Percent className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
                   <span className="text-xs md:text-sm text-gray-400">Cambio</span>
@@ -738,10 +732,10 @@ export default function OverviewCard({
                 }`}>
                   {formatPercentage(data.changePercentage)}
                 </p>
-              </div>
+              </div> */}
 
               {/* Beta */}
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1">
                   <TrendingUpDown className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
                   <span className="text-xs md:text-sm text-gray-400">Beta</span>
@@ -749,10 +743,10 @@ export default function OverviewCard({
                 <p className="text-xs md:text-sm font-semibold text-green-400">
                   {Number.isFinite(Number(data.beta)) ? Number(data.beta).toFixed(2) : "N/A"}
                 </p>
-              </div>
+              </div> */}
 
               {/* Market Cap */}
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1">
                   <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
                   <span className="text-xs md:text-sm text-gray-400">Market Cap</span>
@@ -760,10 +754,10 @@ export default function OverviewCard({
                 <p className="text-xs md:text-sm font-semibold text-green-400">
                   {formatLargeNumber(data.marketCap)}
                 </p>
-              </div>
+              </div> */}
 
               {/* CEO */}
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1">
                   <User className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
                   <span className="text-xs md:text-sm text-gray-400">CEO</span>
@@ -771,18 +765,27 @@ export default function OverviewCard({
                 <p className="text-xs md:text-sm font-semibold text-green-400 truncate max-w-[120px]">
                   {data.ceo || "N/A"}
                 </p>
-              </div>
+              </div> */}
 
               {/* Modal Trigger */}
               <div className="flex items-center ml-auto">
+                <img
+                    src={data.image}
+                    alt={`Logo de ${data.companyName || data.symbol}`}
+                    className="w-10 h-10 md:w-10 md:h-10 object-contain rounded"
+                    onError={(e: any) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
                 <DialogTrigger asChild>
-                  <button className="p-1">
-                    <SquareArrowOutUpRight className="w-3 h-3 md:w-4 md:h-4 text-green-400 hover:text-green-600 cursor-pointer" />
+                  <button className="p-1">                    
+                    <p className="text-sm text-green-400 hover:text-green-600 cursor-pointer ml-2" >
+                      Overview
+                    </p>                        
                   </button>
                 </DialogTrigger>
               </div>
-
-
+              
 
             </div>            
             </div>

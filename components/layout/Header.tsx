@@ -1,7 +1,14 @@
-import { Settings, Flame } from 'lucide-react';
+import { Settings, Flame, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import TopSearchedStocksDropdown from '@/components/TopSearchedStocksDropdown';
+import { useResponsive } from '@/hooks/use-responsive';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface HeaderProps {
   user?: any;
@@ -10,6 +17,7 @@ interface HeaderProps {
 }
 
 export default function Header({ user, onAuth, onSelectSymbol }: HeaderProps) {
+  const { isMobile } = useResponsive();
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -47,9 +55,13 @@ export default function Header({ user, onAuth, onSelectSymbol }: HeaderProps) {
             <div className='flex items-center space-x-2'>
               <Flame className="w-4 h-4 text-green-400" />
               <span className="text-orange-400 text-sm font-medium flex-shrink-0">Top:</span>
-              <div className="flex space-x-1 overflow-x-auto scrollbar-thin min-w-0">
-                <TopSearchedStocksDropdown onStockClick={handleTopStockClick} />   
-              </div>
+              {isMobile ? (
+                <TopSearchedStocksDropdown onStockClick={handleTopStockClick} isMobile={true} />
+              ) : (
+                <div className="flex space-x-1 overflow-x-auto scrollbar-thin min-w-0">
+                  <TopSearchedStocksDropdown onStockClick={handleTopStockClick} isMobile={false} />   
+                </div>
+              )}
             </div>
           </div>
         </div>
