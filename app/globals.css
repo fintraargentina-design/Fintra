@@ -37,11 +37,41 @@
   .grid-rows-20 {
     grid-template-rows: repeat(20, minmax(0, 1fr));
   }
+  
+  /* Utilidades responsivas personalizadas */
+  .responsive-container {
+    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  .card-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 md:gap-4;
+  }
+  
+  .text-responsive {
+    @apply text-sm md:text-base lg:text-lg;
+  }
+  
+  .space-responsive {
+    @apply space-y-2 md:space-y-4 lg:space-y-6;
+  }
+  
+  .chart-height {
+    min-height: clamp(200px, 30vh, 400px);
+  }
+  
+  .mobile-scroll {
+    @apply overflow-x-auto scrollbar-thin;
+  }
+  
+  .mobile-stack {
+    @apply flex flex-col md:flex-row;
+  }
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -60,6 +90,7 @@
 /* Scrollbar personalizada más fina */
 .scrollbar-thin::-webkit-scrollbar {
   height: 4px;
+  width: 4px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
@@ -71,8 +102,23 @@
   border-radius: 8px;
 }
 
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(251, 146, 60, 0.7);
+/* Responsive breakpoints helpers */
+@media (max-width: 640px) {
+  .mobile-only {
+    display: block;
+  }
+  .desktop-only {
+    display: none;
+  }
+}
+
+@media (min-width: 641px) {
+  .mobile-only {
+    display: none;
+  }
+  .desktop-only {
+    display: block;
+  }
 }
 
 /* Terminal cursor animation */

@@ -28,6 +28,7 @@ import {
 
 import { fmp } from "@/lib/fmp/client";
 import { getConclusionColors } from "@/lib/conclusionColors";
+import { useResponsive } from "@/hooks/use-responsive";
 
 interface OverviewCardProps {
   selectedStock: any; // string ("AAPL") o { symbol: "AAPL", ... }
@@ -136,8 +137,11 @@ export default function OverviewCard({
   selectedStock,
   stockConclusion,
   onStockSearch,
-  isParentLoading = false, // Nueva prop con valor por defecto
+  isParentLoading = false,
 }: OverviewCardProps) {
+  // Primero declarar TODOS los hooks
+  const { isMobile, isTablet } = useResponsive();
+  
   // ── estado
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
@@ -149,8 +153,6 @@ export default function OverviewCard({
   const [searchValue, setSearchValue] = useState("");
   const [tickerInput, setTickerInput] = useState("");
   const [isTickerFocused, setIsTickerFocused] = useState(false);
-
-  // faltaban estos estados y handler en tu versión
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
@@ -165,7 +167,7 @@ export default function OverviewCard({
   const handleTickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTickerInput(e.target.value.toUpperCase());
   };
-  const handleTickerKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleTickerKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && tickerInput.trim() && onStockSearch) {
       onStockSearch(tickerInput.trim());
       setTickerInput("");
@@ -279,7 +281,7 @@ export default function OverviewCard({
       ] || "No disponible",
   };
 
-  // loading / error - Modificar esta sección
+  // AHORA sí podemos hacer returns condicionales basados en estado
   if (loading || isParentLoading) {
     return (
       <Card className="bg-tarjetas border-none flex items-center justify-center w-full h-[36px]">
@@ -670,167 +672,177 @@ export default function OverviewCard({
 
   return (
     <Dialog>
-      <Card className="w-full flex items-center bg-tarjetas border-none">
-        <CardHeader className="flex items-center flex-col w-full justify-between p-0 min-h-[36px]">
-          <CardTitle className="flex text-green-400 text-md w-full grid-cols-8 min-h-[36px] gap-6 justify-between pr-1 pl-10">
-            {/* Ticker */}
-            <div className="flex gap-3">
-              {/* Logo */}
-              <div className="flex items-center mr-4">
-                {data.image && (
+      <Card className="bg-tarjetas border-none responsive-container">
+        <CardHeader className="pb-2 md:pb-4">
+          <CardTitle className="space-y-2 md:space-y-3">
+            {/* Company Info - Responsive Layout */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <div className="flex items-center gap-2">
+                {data.image ? (
                   <img
                     src={data.image}
                     alt={`Logo de ${data.companyName || data.symbol}`}
-                    className="w-8 h-8 object-contain rounded"
+                    className="w-4 h-4 md:w-5 md:h-5 object-contain rounded"
                     onError={(e: any) => {
                       e.currentTarget.style.display = "none";
                     }}
                   />
+                ) : (
+                  <Building2 className="w-4 h-4 md:w-5 md:h-5 text-orange-400" />
                 )}
+                <span className="text-gray-400 text-sm md:text-base">
+                  {data.companyName || "Empresa"}
+                </span>
               </div>
-              <div className="flex items-center gap-2 mr-4 justify-end">
-                <TextCursorInput className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-gray-400">Ticker</span>
-              </div>
-              <div className="flex items-center text-sm font-semibold text-green-400">
-                <input
-                  type="text"
-                  value={isTickerFocused ? tickerInput : tickerInput || data.symbol || ""}
+              
+              {/* Symbol Input - Responsive */}
+              <div className="flex items-center gap-2">
+                <Input
+                  // Remove ref since tickerInputRef is not defined and not needed
+                  value={tickerInput}
                   onChange={handleTickerChange}
-                  onKeyPress={handleTickerKeyPress}
+                  onKeyDown={handleTickerKeyDown}
                   onFocus={handleTickerFocus}
                   onBlur={handleTickerBlur}
                   placeholder={data.symbol || "Buscar..."}
-                  className="focus:placeholder:text-transparent bg-transparent border-none outline-none text-orange-400 text-lg font-medium cursor-text transition-colors"
-                  style={{ width: "fit-content", minWidth: "50px", maxWidth: "70px" }}
+                  className="focus:placeholder:text-transparent bg-transparent border-none outline-none text-orange-400 text-sm md:text-lg font-medium cursor-text transition-colors"
+                  style={{ 
+                    width: "fit-content", 
+                    minWidth: isMobile ? "40px" : "50px",
+                    maxWidth: isMobile ? "60px" : "70px",
+                  }}
                 />
               </div>
-            </div>
 
-            {/* Precio */}
-            <div className="flex">
-              <div className="flex items-center gap-2 mr-4">
-                <DollarSign className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-gray-400">Precio</span>
+              {/* Metrics Layout - Horizontal */}
+            <div className="flex flex-wrap items-center gap-3 md:gap-6">
+              {/* Precio */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <DollarSign className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
+                  <span className="text-xs md:text-sm text-gray-400">Precio</span>
+                </div>
+                <div className="text-xs md:text-sm font-semibold text-green-400">
+                  {Number.isFinite(Number(data.price)) ? `${Math.round(Number(data.price))}` : "N/A"}
+                </div>
               </div>
-              <div className="flex items-center text-sm font-semibold text-green-400">
-                {Number.isFinite(Number(data.price)) ? `${Math.round(Number(data.price))}` : "N/A"}
-              </div>
-            </div>
 
-            {/* % cambio */}
-            <div className="flex">
-              <div className="flex items-center gap-2 mr-4">
-                <Percent className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-gray-400">Cambio</span>
-              </div>
-              <p
-                className={`flex items-center text-sm font-semibold ${
+              {/* % cambio */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <Percent className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
+                  <span className="text-xs md:text-sm text-gray-400">Cambio</span>
+                </div>
+                <p className={`text-xs md:text-sm font-semibold ${
                   Number(data.changePercentage) >= 0 ? "text-green-400" : "text-red-400"
-                }`}
-              >
-                {formatPercentage(data.changePercentage)}
-              </p>
-            </div>
-
-            {/* Beta */}
-            <div className="flex">
-              <div className="flex items-center gap-2 mr-4">
-                <TrendingUpDown className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-gray-400">Beta</span>
-              </div>
-              <p className="flex items-center text-sm font-semibold text-green-400">
-                {Number.isFinite(Number(data.beta)) ? Number(data.beta).toFixed(2) : "N/A"}
-              </p>
-            </div>
-
-            {/* Market Cap */}
-            <div className="flex">
-              <div className="flex items-center gap-2 mr-4">
-                <TrendingUp className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-gray-400">Market Cap</span>
-              </div>
-              <p className="flex items-center text-sm font-semibold text-green-400">
-                {formatLargeNumber(data.marketCap)}
-              </p>
-            </div>
-
-            {/* CEO */}
-            <div className="flex">
-              <div className="flex items-center gap-2 mr-4">
-                <span className="text-sm text-gray-400">CEO</span>
-                <User className="w-4 h-4 text-green-400" />
-              </div>
-              <p className="flex items-center text-sm font-semibold text-green-400">
-                {data.ceo || "N/A"}
-              </p>
-            </div>
-
-            {/* Abrir modal */}
-            <div className="flex items-center justify-end pb-3">
-              <DialogTrigger asChild>
-                <p>
-                  <SquareArrowOutUpRight className="w-4 h-4 text-green-400 hover:text-green-600 cursor-pointer" />
+                }`}>
+                  {formatPercentage(data.changePercentage)}
                 </p>
-              </DialogTrigger>
+              </div>
+
+              {/* Beta */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <TrendingUpDown className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
+                  <span className="text-xs md:text-sm text-gray-400">Beta</span>
+                </div>
+                <p className="text-xs md:text-sm font-semibold text-green-400">
+                  {Number.isFinite(Number(data.beta)) ? Number(data.beta).toFixed(2) : "N/A"}
+                </p>
+              </div>
+
+              {/* Market Cap */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
+                  <span className="text-xs md:text-sm text-gray-400">Market Cap</span>
+                </div>
+                <p className="text-xs md:text-sm font-semibold text-green-400">
+                  {formatLargeNumber(data.marketCap)}
+                </p>
+              </div>
+
+              {/* CEO */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <User className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
+                  <span className="text-xs md:text-sm text-gray-400">CEO</span>
+                </div>
+                <p className="text-xs md:text-sm font-semibold text-green-400 truncate max-w-[120px]">
+                  {data.ceo || "N/A"}
+                </p>
+              </div>
+
+              {/* Modal Trigger */}
+              <div className="flex items-center ml-auto">
+                <DialogTrigger asChild>
+                  <button className="p-1">
+                    <SquareArrowOutUpRight className="w-3 h-3 md:w-4 md:h-4 text-green-400 hover:text-green-600 cursor-pointer" />
+                  </button>
+                </DialogTrigger>
+              </div>
+
+
+
+            </div>            
             </div>
           </CardTitle>
         </CardHeader>
       </Card>
 
-      {/* Modal de detalle */}
-      <DialogContent className="bg-tarjetas border-gray-700 max-w-4xl max-h-[80vh] overflow-y-auto">
+      {/* Modal - Responsive */}
+      <DialogContent className="bg-tarjetas border-gray-700 w-[95vw] max-w-4xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-orange-400 text-xl flex items-center gap-2">
+          <DialogTitle className="text-orange-400 text-lg md:text-xl flex items-center gap-2">
             {data.image ? (
               <img
                 src={data.image}
                 alt={`Logo de ${data.companyName || data.symbol}`}
-                className="w-5 h-5 object-contain rounded"
+                className="w-4 h-4 md:w-5 md:h-5 object-contain rounded"
                 onError={(e: any) => {
                   e.currentTarget.style.display = "none";
                 }}
               />
             ) : (
-              <Building2 className="w-5 h-5" />
+              <Building2 className="w-4 h-4 md:w-5 md:h-5" />
             )}
-            {data.companyName || currentSymbol || "Empresa"}
+            <span className="truncate">{data.companyName || currentSymbol || "Empresa"}</span>
           </DialogTitle>
         </DialogHeader>
 
-        {/* Tabs */}
+        {/* Responsive Tabs */}
         <div className="border-b border-gray-700">
-          <div className="flex space-x-1">
+          <div className="flex space-x-1 overflow-x-auto">
             <button
               onClick={() => setActiveTab("overview")}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+              className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
                 activeTab === "overview"
                   ? "bg-orange-500/20 text-orange-400 border-b-2 border-orange-500"
                   : "text-gray-400 hover:text-orange-300 hover:bg-fondoDeTarjetas"
               }`}
             >
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4" />
-                Overview
+              <div className="flex items-center gap-1 md:gap-2">
+                <BarChart3 className="w-3 h-3 md:w-4 md:h-4" />
+                <span className="hidden sm:inline">Overview</span>
               </div>
             </button>
             <button
               onClick={() => setActiveTab("analysis")}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+              className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
                 activeTab === "analysis"
                   ? "bg-orange-500/20 text-orange-400 border-b-2 border-orange-500"
                   : "text-gray-400 hover:text-orange-300 hover:bg-gray-800/50"
               }`}
             >
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4" />
-                Análisis Estratégico
+              <div className="flex items-center gap-1 md:gap-2">
+                <FileText className="w-3 h-3 md:w-4 md:h-4" />
+                <span className="hidden sm:inline">Análisis</span>
               </div>
             </button>
           </div>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-4 space-responsive">
           {activeTab === "overview" && renderOverviewContent()}
           {activeTab === "analysis" && renderAnalysisContent()}
         </div>

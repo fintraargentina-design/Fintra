@@ -1,5 +1,13 @@
 import { Button } from "@/components/ui/button"
-import { BarChart3, TrendingUp } from "lucide-react"
+import { BarChart3, TrendingUp, Target, FileText } from "lucide-react"
+
+// Definir los tipos que faltan
+type TabKey = 'datos' | 'chart' | 'estimacion' | 'resumen';
+
+interface NavigationBarProps {
+  activeTab: TabKey;
+  setActiveTab: (tab: TabKey) => void;
+}
 
 const tabs = [
   { id: 'datos', label: 'Resultados', icon: BarChart3 },
@@ -7,25 +15,63 @@ const tabs = [
   { id: 'chart', label: 'Charts', icon: TrendingUp }
 ]
 
-export default function NavigationBar({ activeTab, setActiveTab }) {
+export default function NavigationBar({ activeTab, setActiveTab }: NavigationBarProps) {
+  const tabs = [
+    { key: 'datos', label: 'Datos', icon: BarChart3 },
+    { key: 'chart', label: 'Gráficos', icon: TrendingUp },
+    { key: 'estimacion', label: 'Estimación', icon: Target },
+  ];
+
   return (
-    <nav className="flex w-full flex-wrap items-end justify-between gap-2 p-1">
-      {tabs.map((tab) => (
-        <Button
-          key={tab.id}
-          variant={activeTab === tab.id ? "default" : "ghost"}
-          size="sm"
-          onClick={() => setActiveTab(tab.id)}
-          className={`flex items-center gap-2 ${
-            activeTab === tab.id 
-              ? "bg-orange-600 hover:bg-orange-700 text-white" 
-              : "hover:bg-orange-300/30 text-gray-200/70"
-          }`}
-        >
-          {tab.icon && <tab.icon className="h-4 w-4" />}
-          {tab.label}
-        </Button>
-      ))}
-    </nav>
-  )
+    <div className="w-full">
+      {/* Desktop Navigation */}
+      <div className="hidden md:flex flex-wrap gap-1 lg:gap-2">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key as TabKey)}
+            className={`
+              flex items-center gap-2 px-3 lg:px-4 py-2 
+              text-sm lg:text-base font-medium rounded-md 
+              transition-all duration-200 whitespace-nowrap
+              ${
+                activeTab === tab.key
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              }
+            `}
+          >
+            <tab.icon className="w-4 h-4" />
+            <span className="hidden lg:inline">{tab.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Mobile Navigation - Horizontal Scroll */}
+      <div className="md:hidden">
+        <div className="flex gap-2 overflow-x-auto scrollbar-thin pb-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as TabKey)}
+              className={`
+                flex flex-col items-center gap-1 px-3 py-2 
+                text-xs font-medium rounded-md 
+                transition-all duration-200 whitespace-nowrap flex-shrink-0
+                min-w-[70px]
+                ${
+                  activeTab === tab.key
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }
+              `}
+            >
+              <tab.icon className="w-4 h-4" />
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }

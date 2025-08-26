@@ -39,6 +39,37 @@ const numOrNull = (x: any): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+// Función para obtener el color del score
+const getScoreColor = (score: number | null): string => {
+  if (score == null) return "#94a3b8";
+  if (score >= 70) return "#22c55e"; // Verde
+  if (score >= 40) return "#eab308"; // Amarillo
+  return "#ef4444"; // Rojo
+};
+
+// Función para obtener el texto del nivel de score
+const getScoreLevel = (score: number | null): string => {
+  if (score == null) return "Sin datos";
+  if (score >= 70) return "Fuerte";
+  if (score >= 40) return "Medio";
+  return "Débil";
+};
+
+// Diccionario de explicaciones para las métricas de valoración
+const METRIC_EXPLANATIONS: Record<string, string> = {
+  "P/E (PER)": "Price-to-Earnings Ratio - Compara el precio de la acción con las ganancias por acción. Un P/E bajo puede indicar que la acción está infravalorada.",
+  "P/E forward": "P/E basado en ganancias futuras estimadas. Útil para evaluar el valor basado en expectativas de crecimiento.",
+  "PEG": "Price/Earnings to Growth - Relaciona el P/E con la tasa de crecimiento. Un PEG menor a 1 sugiere que la acción puede estar infravalorada.",
+  "P/Book (P/B)": "Price-to-Book Ratio - Compara el precio con el valor contable. Un P/B bajo puede indicar una oportunidad de valor.",
+  "P/S (Ventas)": "Price-to-Sales Ratio - Relaciona la capitalización con los ingresos. Útil para empresas con bajos beneficios o pérdidas.",
+  "P/FCF": "Price-to-Free Cash Flow - Compara el precio con el flujo de caja libre. Importante para evaluar la capacidad real de generar efectivo.",
+  "EV/EBITDA": "Enterprise Value to EBITDA - Múltiplo que considera la deuda. Útil para comparar empresas con diferentes estructuras de capital.",
+  "EV/Ventas": "Enterprise Value to Sales - Similar al P/S pero considerando la deuda total de la empresa.",
+  "Dividend Yield": "Rendimiento por dividendo - Porcentaje de dividendos anuales respecto al precio de la acción. Importante para inversores que buscan ingresos.",
+  "Crecimiento implícito": "Tasa de crecimiento que justificaría el precio actual de la acción según modelos de valoración.",
+  "Descuento vs. PT": "Descuento del precio actual respecto al precio objetivo de los analistas. Un descuento alto puede indicar oportunidad."
+};
+
 export default function ValoracionCard({ symbol }: { symbol: string }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -50,8 +81,16 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
       setLoading(true);
       setError(null);
       try {
+        console.log('🔍 Cargando valoración para:', symbol);
+        
         // Cambiar de fmp.ratios a fmp.valuation
         const valuation = await fmp.valuation(symbol, { period: "annual" });
+        console.log('📊 Datos de valoración recibidos:', valuation);
+        
+        // Verificar si hay error en la respuesta
+        if (valuation.error) {
+          throw new Error(valuation.error);
+        }
         
         // Los datos ya vienen procesados y normalizados
         const {
@@ -71,11 +110,12 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
         // Precio actual del perfil
         const profileArr = await fmp.profile(symbol);
         const currentPrice = Array.isArray(profileArr) && profileArr.length ? numOrNull(profileArr[0]?.price) : null;
+        console.log('💰 Precio actual:', currentPrice);
     
         const build = (
           label: string,
           val: number | null,
-          unit?: "% " | "x",
+          unit?: "%" | "x",
           score?: number | null,
           thresholds?: { poor: number; avg: number }
         ): Row => ({
@@ -107,9 +147,13 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
           build("Crecimiento implícito", impliedGrowth, "%", null, { poor: 40, avg: 70 }),
           build("Descuento vs. PT", discountVsPt, "%", null, { poor: 40, avg: 70 }),
         ];
+        
+        console.log('📈 Items procesados:', items);
+        console.log('🎯 Items con scores válidos:', items.filter(item => item.score !== null));
     
         if (alive) setRows(items);
       } catch (e: any) {
+        console.error('❌ Error cargando valoración:', e);
         if (alive) setError(e?.message ?? "Error cargando valoración");
       } finally {
         if (alive) setLoading(false);
@@ -132,17 +176,44 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
       grid: { left: 170, right: 50, top: 10, bottom: 10 },
       tooltip: {
         trigger: "axis",
-        axisPointer: { type: "shadow" },
+        axisPointer: { type: "none" },
+        backgroundColor: "rgba(248, 250, 252, 0.98)",
+        borderColor: "rgba(203, 213, 225, 0.8)",
+        borderWidth: 1,
+        textStyle: { color: "#64748b", fontSize: 11 },
+        confine: false,
+        appendToBody: true,
+        position: function (point: any, params: any, dom: any, rect: any, size: any) {
+          return [point[0] + 10, point[1] - size.contentSize[1] / 2];
+        },
         formatter: (params: any) => {
-          const p = Array.isArray(params) ? params[params.length - 1] : params;
-          const idx = p?.dataIndex ?? 0;
+          const idx = params[0]?.dataIndex;
+          if (idx == null || !rows[idx]) return "";
+          
           const row = rows[idx];
           const scoreTxt = row.score == null ? "Sin datos" : `${Math.round(row.score)} / 100`;
+          const scoreColor = getScoreColor(row.score);
+          const scoreLevel = getScoreLevel(row.score);
+          const explanation = METRIC_EXPLANATIONS[row.label] || "Métrica de valoración importante.";
+          
           return `
-            <div style="min-width:220px">
-              <div style="font-weight:600;margin-bottom:6px">${row.label}</div>
-              <div>Valor: <b>${row.display}</b></div>
-              <div>Score: <b>${scoreTxt}</b></div>
+            <div style="max-width: 320px; padding: 12px; line-height: 1.4; background-color: rgba(248, 250, 252, 0.98); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+              <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #334155;">${row.label}</div>
+              
+              <div style="margin-bottom: 6px; font-size: 11px;">
+                <span style="color: #64748b;">Valor:</span> 
+                <span style="font-weight: 600; color: #475569;">${row.display}</span>
+              </div>
+              
+              <div style="margin-bottom: 8px; font-size: 11px;">
+                <span style="color: #64748b;">Score:</span> 
+                <span style="font-weight: 600; color: ${scoreColor};">${scoreTxt}</span>
+                <span style="margin-left: 6px; padding: 2px 6px; border-radius: 3px; font-size: 9px; background-color: ${scoreColor}15; color: ${scoreColor};">${scoreLevel}</span>
+              </div>
+              
+              <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; color: #64748b; font-size: 10px; line-height: 1.5; word-wrap: break-word; overflow-wrap: break-word;">
+                ${explanation}
+              </div>
             </div>`;
         },
       },
@@ -220,7 +291,9 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="h-72 flex items-center justify-center text-gray-400">Cargando valoración…</div>
+          <div className="h-72 flex items-center justify-center text-gray-400">
+            Cargando valoración…
+          </div>
         ) : error ? (
           <div className="h-72 flex items-center justify-center text-red-400">{error}</div>
         ) : (

@@ -8,6 +8,8 @@ import { BarChart } from "echarts/charts";
 import { GridComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 import { fmp } from "@/lib/fmp/client";
 
 
@@ -141,10 +143,47 @@ function getScoreMeta(label: string, raw: number | null) {
   }
 }
 
+// Agregar interfaces para la respuesta de n8n
+interface AnalysisResponse {
+  impacto: string;
+  analisis: string;
+}
+
+interface AnalysisState {
+  isOpen: boolean;
+  isLoading: boolean;
+  data: AnalysisResponse | null;
+  error: string | null;
+}
+
+const initialAnalysisState: AnalysisState = {
+  isOpen: false,
+  isLoading: false,
+  data: null,
+  error: null
+};
+
+// Función para obtener color del impacto
+const getImpactColor = (impacto: string): string => {
+  switch (impacto?.toLowerCase()) {
+    case 'positivo':
+    case 'muy positivo':
+      return 'text-green-400';
+    case 'negativo':
+    case 'muy negativo':
+      return 'text-red-400';
+    case 'neutral':
+      return 'text-yellow-400';
+    default:
+      return 'text-gray-400';
+  }
+};
+
 export default function FundamentalCard({ symbol }: { symbol: string }) {
-  const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<MetricRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [analysisModal, setAnalysisModal] = useState<AnalysisState>(initialAnalysisState);
 
   useEffect(() => {
     if (!symbol) return;
@@ -377,44 +416,219 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
     };
   }, [rows]);
 
+  const handleAnalyzeWithAI = async () => {
+    if (!rows.length) {
+      console.warn('No hay datos para analizar');
+      return;
+    }
+
+    // Abrir modal en estado de carga
+    setAnalysisModal({
+      isOpen: true,
+      isLoading: true,
+      data: null,
+      error: null
+    });
+
+    try {
+      // Preparar los datos en formato JSON para n8n
+      const analysisData = {
+        symbol,
+        timestamp: new Date().toISOString(),
+        chartType: 'fundamental',
+        metrics: rows.map(row => ({
+          label: row.label,
+          value: row.raw,
+          unit: row.unit,
+          score: row.score,
+          display: row.display,
+          target: row.target,
+          thresholds: row.thresholds,
+          scoreLevel: getScoreLevel(row.score),
+          explanation: METRIC_EXPLANATIONS[row.label] || 'Métrica financiera importante.'
+        })),
+        summary: {
+          totalMetrics: rows.length,
+          validScores: rows.filter(r => r.score !== null).length,
+          averageScore: rows.filter(r => r.score !== null).reduce((acc, r) => acc + (r.score || 0), 0) / rows.filter(r => r.score !== null).length || 0,
+          strongMetrics: rows.filter(r => (r.score || 0) >= 70).length,
+          weakMetrics: rows.filter(r => (r.score || 0) < 40).length
+        }
+      };
+
+      console.log('📤 Enviando datos a n8n:', analysisData);
+
+      // Enviar POST a n8n
+      const response = await fetch('https://n8n.srv904355.hstgr.cloud/webhook/19d4e091-5368-4b5e-b4b3-71257abbd92d', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(analysisData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error en la respuesta: ${response.status}`);
+      }
+
+      const result: AnalysisResponse = await response.json();
+      console.log('✅ Análisis recibido:', result);
+      
+      // Actualizar modal con los datos recibidos
+      setAnalysisModal({
+        isOpen: true,
+        isLoading: false,
+        data: result,
+        error: null
+      });
+      
+    } catch (error) {
+      console.error('❌ Error enviando análisis a n8n:', error);
+      setAnalysisModal({
+        isOpen: true,
+        isLoading: false,
+        data: null,
+        error: 'No se pudo analizar los datos fundamentales'
+      });
+    }
+  };
+
+  // Función para cerrar modal
+  const closeModal = () => {
+    setAnalysisModal(initialAnalysisState);
+  };
+
   return (
-    <Card className="bg-tarjetas border-none h-[492px]">
-      <CardHeader>
-        <CardTitle className="text-orange-400 text-lg">Fundamental — {symbol}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="h-72 flex items-center justify-center text-gray-400">
-            Cargando fundamentales…
-          </div>
-        ) : error ? (
-          <div className="h-72 flex items-center justify-center text-red-400">{error}</div>
-        ) : (
-          <>
-            <div className="flex items-center gap-4 text-xs text-gray-400 mb-3">
-              <span className="inline-flex items-center gap-1">
-                <span className="w-3 h-3 bg-red-500/50 rounded-sm" /> Débil
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="w-3 h-3 bg-yellow-500/50 rounded-sm" /> A vigilar
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="w-3 h-3 bg-green-500/50 rounded-sm" /> Fuerte
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="w-[2px] h-3 bg-white inline-block" /> Target
-              </span>
+    <>
+      <Card className="bg-tarjetas border-none h-[492px]">
+        <CardHeader>
+          <CardTitle className="text-orange-400 text-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="text-gray-400">
+               Fundamental
+              </div>
+               {symbol}
             </div>
-            <ReactECharts
-              echarts={echarts as any}
-              option={option as any}
-              notMerge
-              lazyUpdate
-              style={{ height: Math.max(260, rows.length * 28), width: "100%" }}
-            />
-          </>
-        )}
-      </CardContent>
-    </Card>
+            <Button
+              onClick={handleAnalyzeWithAI}
+              disabled={loading || analysisModal.isLoading || !rows.length}
+              size="sm"
+              variant="outline"
+              className="text-xs bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30 hover:border-blue-500/50 disabled:opacity-50"
+            >
+              {analysisModal.isLoading ? (
+                <>
+                  <div className="w-3 h-3 border border-blue-300 border-t-transparent rounded-full animate-spin mr-1" />
+                  Analizando...
+                </>
+              ) : (
+                'Analizar con IA'
+              )}
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="h-72 flex items-center justify-center text-gray-400">
+              Cargando fundamentales…
+            </div>
+          ) : error ? (
+            <div className="h-72 flex items-center justify-center text-red-400">{error}</div>
+          ) : (
+            <>
+              <div className="flex items-center gap-4 text-xs text-gray-400 mb-3">
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-3 h-3 bg-red-500/50 rounded-sm" /> Débil
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-3 h-3 bg-yellow-500/50 rounded-sm" /> A vigilar
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-3 h-3 bg-green-500/50 rounded-sm" /> Fuerte
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-[2px] h-3 bg-white inline-block" /> Target
+                </span>
+              </div>
+              <ReactECharts
+                echarts={echarts as any}
+                option={option as any}
+                notMerge
+                lazyUpdate
+                style={{ height: Math.max(260, rows.length * 28), width: "100%" }}
+              />
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Modal de Análisis de IA */}
+      {analysisModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              {/* Header del modal */}
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-white">
+                  {analysisModal.error ? 'Error' : 'Análisis Fundamental con IA'}
+                </h2>
+                <button
+                  onClick={closeModal}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Contenido del modal */}
+              {analysisModal.isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+                  <span className="ml-3 text-gray-400">Analizando datos fundamentales...</span>
+                </div>
+              ) : analysisModal.error ? (
+                <div className="text-center py-8">
+                  <p className="text-red-400 mb-4">{analysisModal.error}</p>
+                  <button
+                    onClick={closeModal}
+                    className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              ) : analysisModal.data ? (
+                <div className="space-y-6">
+                  {/* Impacto */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-400 mb-2">Impacto</h3>
+                    <p className={`text-2xl font-bold ${getImpactColor(analysisModal.data.impacto)}`}>
+                      {analysisModal.data.impacto}
+                    </p>
+                  </div>
+
+                  {/* Análisis */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-400 mb-2">Análisis</h3>
+                    <p className="text-gray-300 leading-relaxed">
+                      {analysisModal.data.analisis}
+                    </p>
+                  </div>
+
+                  {/* Botón cerrar */}
+                  <div className="flex justify-end pt-4">
+                    <button
+                      onClick={closeModal}
+                      className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

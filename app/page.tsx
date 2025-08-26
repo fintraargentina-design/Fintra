@@ -131,80 +131,76 @@ export default function StockTerminal() {
   };
 
   return (
-    <div className="bg-fondoDeTarjetas">
-      {/* Header */}
-      <Header user={user} onAuth={handleAuth} onSelectSymbol={handleTopStockClick} />
+    <div className="min-h-screen bg-fondoDeTarjetas">
+      {/* Header responsivo */}
+      <div className="sticky top-0 z-50 bg-fondoDeTarjetas/95 backdrop-blur supports-[backdrop-filter]:bg-fondoDeTarjetas/60">
+        <Header user={user} onAuth={handleAuth} onSelectSymbol={handleTopStockClick} />
+      </div>
 
-      <div className="flex">
-        {/* Contenido principal */}
-        <div className="flex-1 p-2 pt-0">
-          {error && (
-            <div className="mb-4 p-3 bg-red-500/20 border-red-500/30 rounded text-red-400">
-              {error}
-            </div>
-          )}
+      {/* Contenedor principal responsivo - Ancho completo */}
+      <div className="w-full px-2 sm:px-4 lg:px-6 xl:px-8">
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded text-red-400">
+            {error}
+          </div>
+        )}
 
-          {selectedStock && (
-            <>
-              <div className="flex w-full items-center justify-between grid-cols-2">
-                <div className="flex w-full flex-col">
-                  {/* Overview */}
-                  <div className="space-y-4">
-                    <OverviewCard
-                      selectedStock={selectedStock}
-                      onStockSearch={buscarDatosAccion}
-                      isParentLoading={isLoading} // Pasar el estado de carga del padre
-                    />
-                  </div>
-                </div>
-
-                <Card className="min-w-[350px] flex justify-between bg-transparent border-none h-[36px]">
-                  <div className="flex w-full">
-                    <div className="flex w-full items-center py-2">
-                      <div className="flex w-full min-w-0">
-                        <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} />
-                      </div>
-                    </div>
+        {selectedStock && (
+          <div className="space-y-2 md:space-y-4">
+            {/* Overview y Navigation - Layout responsivo */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="flex-1">
+                <OverviewCard
+                  selectedStock={selectedStock}
+                  onStockSearch={buscarDatosAccion}
+                  isParentLoading={isLoading}
+                />
+              </div>
+              
+              {/* Navigation Bar responsiva */}
+              <div className="lg:min-w-[350px]">
+                <Card className="bg-transparent border-none">
+                  <div className="p-2">
+                    <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} />
                   </div>
                 </Card>
               </div>
+            </div>
 
-              <div className="flex gap-1">
-                {/* Izquierda */}
-                <div className="w-1/2 flex flex-col">
-                  <div className="w-full pt-1">
-                    <div className='w-full grid grid-cols-2 gap-1'>
-
-                      <div className='flex flex-col'>
-                        <RadarPeersCard symbol={selectedSymbol} />
-                      </div>
-                      <div className='flex flex-col'>
-                        <FinancialScoresCard symbol={selectedSymbol} />
-                      </div>                    
-                    </div>
-
-                    {/* Noticias debajo del radar */}
-                    <div className="w-full pt-1">
-                      <NoticiasTab
-                        stockBasicData={stockBasicData}
-                        stockAnalysis={stockAnalysis}
-                        selectedStock={selectedStock}
-                        symbol={selectedSymbol || 'N/A'}
-                      />
-                    </div>
+            {/* Layout principal responsivo */}
+            <div className="flex flex-col xl:flex-row gap-2 md:gap-4">
+              {/* Panel izquierdo */}
+              <div className="w-full xl:w-1/2 space-y-2 md:space-y-4">
+                {/* Grid responsivo para tarjetas */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4">
+                  <div className="w-full">
+                    <RadarPeersCard symbol={selectedSymbol} />
+                  </div>
+                  <div className="w-full">
+                    <FinancialScoresCard symbol={selectedSymbol} />
                   </div>
                 </div>
 
-                {/* Derecha */}
-                <div className="w-1/2 flex flex-col">
-                  <div className="w-full pt-1">
-                    <div>{renderTabContent()}</div>
-                  </div>
+                {/* Noticias - ancho completo */}
+                <div className="w-full">
+                  <NoticiasTab
+                    stockBasicData={stockBasicData}
+                    stockAnalysis={stockAnalysis}
+                    selectedStock={selectedStock}
+                    symbol={selectedSymbol || 'N/A'}
+                  />
                 </div>
               </div>
-            </>
-          )}
-        </div>
+
+              {/* Panel derecho */}
+              <div className="w-full xl:w-1/2">
+                <div className="w-full">
+                  {renderTabContent()}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
