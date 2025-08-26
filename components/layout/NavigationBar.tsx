@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { BarChart3, TrendingUp, Target, FileText } from "lucide-react"
+import AIAnalysisButton from "@/components/AIAnalysisButton"
 
 // Definir los tipos que faltan
 type TabKey = 'datos' | 'chart' | 'estimacion' | 'resumen';
@@ -7,6 +8,15 @@ type TabKey = 'datos' | 'chart' | 'estimacion' | 'resumen';
 interface NavigationBarProps {
   activeTab: TabKey;
   setActiveTab: (tab: TabKey) => void;
+  // Props para el análisis global
+  symbol?: string;
+  fundamentalData?: any;
+  valoracionData?: any;
+  financialScoresData?: any;
+  overviewData?: any;
+  estimacionData?: any;
+  dividendosData?: any;
+  desempenoData?: any;
 }
 
 const tabs = [
@@ -15,7 +25,18 @@ const tabs = [
   { id: 'chart', label: 'Charts', icon: TrendingUp }
 ]
 
-export default function NavigationBar({ activeTab, setActiveTab }: NavigationBarProps) {
+export default function NavigationBar({ 
+  activeTab, 
+  setActiveTab,
+  symbol,
+  fundamentalData,
+  valoracionData,
+  financialScoresData,
+  overviewData,
+  estimacionData,
+  dividendosData,
+  desempenoData
+}: NavigationBarProps) {
   const tabs = [
     { key: 'datos', label: 'Datos', icon: BarChart3 },
     { key: 'chart', label: 'Gráficos', icon: TrendingUp },
@@ -25,26 +46,42 @@ export default function NavigationBar({ activeTab, setActiveTab }: NavigationBar
   return (
     <div className="w-full">
       {/* Desktop Navigation */}
-      <div className="hidden md:flex flex-wrap gap-1 lg:gap-2">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key as TabKey)}
-            className={`
-              flex items-center gap-2 px-3 lg:px-4 py-2 
-              text-sm lg:text-base font-medium rounded-md 
-              transition-all duration-200 whitespace-nowrap
-              ${
-                activeTab === tab.key
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              }
-            `}
-          >
-            <tab.icon className="w-4 h-4" />
-            <span className="hidden lg:inline">{tab.label}</span>
-          </button>
-        ))}
+      <div className="hidden md:flex flex-wrap gap-1 lg:gap-2 items-center justify-between">
+        <div className="flex flex-wrap gap-1 lg:gap-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as TabKey)}
+              className={`
+                flex items-center gap-2 px-3 lg:px-4 py-2 
+                text-sm lg:text-base font-medium rounded-md 
+                transition-all duration-200 whitespace-nowrap
+                ${
+                  activeTab === tab.key
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }
+              `}
+            >
+              <tab.icon className="w-4 h-4" />
+              <span className="hidden lg:inline">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+        
+        {/* Botón de Análisis Global - Solo en Desktop */}
+        {symbol && (
+          <AIAnalysisButton
+            symbol={symbol}
+            fundamentalData={fundamentalData}
+            valoracionData={valoracionData}
+            financialScoresData={financialScoresData}
+            overviewData={overviewData}
+            estimacionData={estimacionData}
+            dividendosData={dividendosData}
+            desempenoData={desempenoData}
+          />
+        )}
       </div>
 
       {/* Mobile Navigation - Horizontal Scroll */}
@@ -70,6 +107,22 @@ export default function NavigationBar({ activeTab, setActiveTab }: NavigationBar
               <span>{tab.label}</span>
             </button>
           ))}
+          
+          {/* Botón de Análisis Global - También en Mobile */}
+          {symbol && (
+            <div className="flex-shrink-0">
+              <AIAnalysisButton
+                symbol={symbol}
+                fundamentalData={fundamentalData}
+                valoracionData={valoracionData}
+                financialScoresData={financialScoresData}
+                overviewData={overviewData}
+                estimacionData={estimacionData}
+                dividendosData={dividendosData}
+                desempenoData={desempenoData}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

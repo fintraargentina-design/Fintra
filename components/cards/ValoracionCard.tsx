@@ -9,6 +9,7 @@ import { GridComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fmp } from "@/lib/fmp/client";
+import { X } from "lucide-react";
 
 echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 const ReactECharts = dynamic(() => import("echarts-for-react/lib/core"), { ssr: false });
@@ -47,25 +48,137 @@ const getScoreLevel = (score: number | null): string => {
   return "Débil";
 };
 
-// Diccionario de explicaciones para las métricas de valoración
-const METRIC_EXPLANATIONS: Record<string, string> = {
-  "P/E (PER)": "Price-to-Earnings Ratio - Compara el precio de la acción con las ganancias por acción. Un P/E bajo puede indicar que la acción está infravalorada.",
-  "P/E forward": "P/E basado en ganancias futuras estimadas. Útil para evaluar el valor basado en expectativas de crecimiento.",
-  "PEG": "Price/Earnings to Growth - Relaciona el P/E con la tasa de crecimiento. Un PEG menor a 1 sugiere que la acción puede estar infravalorada.",
-  "P/Book (P/B)": "Price-to-Book Ratio - Compara el precio con el valor contable. Un P/B bajo puede indicar una oportunidad de valor.",
-  "P/S (Ventas)": "Price-to-Sales Ratio - Relaciona la capitalización con los ingresos. Útil para empresas con bajos beneficios o pérdidas.",
-  "P/FCF": "Price-to-Free Cash Flow - Compara el precio con el flujo de caja libre. Importante para evaluar la capacidad real de generar efectivo.",
-  "EV/EBITDA": "Enterprise Value to EBITDA - Múltiplo que considera la deuda. Útil para comparar empresas con diferentes estructuras de capital.",
-  "EV/Ventas": "Enterprise Value to Sales - Similar al P/S pero considerando la deuda total de la empresa.",
-  "Dividend Yield": "Rendimiento por dividendo - Porcentaje de dividendos anuales respecto al precio de la acción. Importante para inversores que buscan ingresos.",
-  "Crecimiento implícito": "Tasa de crecimiento que justificaría el precio actual de la acción según modelos de valoración.",
-  "Descuento vs. PT": "Descuento del precio actual respecto al precio objetivo de los analistas. Un descuento alto puede indicar oportunidad."
+// Función para obtener el color del score
+const getScoreColor = (score: number | null): string => {
+  if (score == null) return "#94a3b8";
+  if (score >= 70) return "#22c55e"; // Verde
+  if (score >= 40) return "#eab308"; // Amarillo
+  return "#ef4444"; // Rojo
+};
+
+// Agregar interfaces para el modal de explicaciones
+interface ExplanationModalState {
+  isOpen: boolean;
+  selectedMetric: string | null;
+}
+
+const initialExplanationModalState: ExplanationModalState = {
+  isOpen: false,
+  selectedMetric: null
+};
+
+
+// Actualizar METRIC_EXPLANATIONS con ejemplos detallados
+const METRIC_EXPLANATIONS: Record<string, { description: string; examples: string[] }> = {
+  "P/E (PER)": {
+    description: "Price-to-Earnings Ratio - Compara el precio de la acción con las ganancias por acción. Un P/E bajo puede indicar que la acción está infravalorada, pero también puede reflejar problemas en el negocio.",
+    examples: [
+      "P/E < 12: Potencialmente infravalorado (ej: Bancos tradicionales)",
+      "P/E 12-20: Valoración razonable (ej: S&P 500 promedio ~18)",
+      "P/E > 25: Posiblemente sobrevalorado o alto crecimiento esperado (ej: Tech stocks)"
+    ]
+  },
+  "P/E forward": {
+    description: "P/E basado en ganancias futuras estimadas por analistas. Es más relevante que el P/E histórico ya que los mercados descuentan expectativas futuras.",
+    examples: [
+      "Forward P/E < P/E histórico: Crecimiento esperado de ganancias",
+      "Forward P/E > P/E histórico: Declive esperado de ganancias",
+      "Forward P/E < 15: Atractivo para value investors"
+    ]
+  },
+  "PEG": {
+    description: "Price/Earnings to Growth - Relaciona el P/E con la tasa de crecimiento esperada. Un PEG menor a 1 sugiere que la acción puede estar infravalorada considerando su crecimiento.",
+    examples: [
+      "PEG < 1: Potencialmente infravalorado (ej: AAPL en 2016)",
+      "PEG = 1: Valoración justa según crecimiento",
+      "PEG > 2: Posiblemente sobrevalorado (ej: muchas tech en 2021)"
+    ]
+  },
+  "P/Book (P/B)": {
+    description: "Price-to-Book Ratio - Compara el precio con el valor contable por acción. Un P/B bajo puede indicar una oportunidad de valor, especialmente en sectores intensivos en activos.",
+    examples: [
+      "P/B < 1: Trading por debajo del valor contable (ej: Bancos en crisis)",
+      "P/B 1-3: Valoración típica para empresas maduras",
+      "P/B > 5: Común en empresas tech con pocos activos tangibles"
+    ]
+  },
+  "P/S (Ventas)": {
+    description: "Price-to-Sales Ratio - Relaciona la capitalización con los ingresos anuales. Útil para evaluar empresas con bajos beneficios, pérdidas temporales o modelos de negocio escalables.",
+    examples: [
+      "P/S < 2: Valoración conservadora (ej: Retail tradicional)",
+      "P/S 2-10: Rango típico para muchas industrias",
+      "P/S > 15: Común en SaaS y empresas de alto crecimiento"
+    ]
+  },
+  "P/FCF": {
+    description: "Price-to-Free Cash Flow - Compara el precio con el flujo de caja libre. Es una métrica crucial ya que el FCF representa el dinero real que la empresa puede distribuir o reinvertir.",
+    examples: [
+      "P/FCF < 15: Generación sólida de efectivo (ej: Microsoft ~20)",
+      "P/FCF 15-25: Valoración razonable",
+      "P/FCF > 30: Puede indicar baja generación de efectivo vs precio"
+    ]
+  },
+  "EV/EBITDA": {
+    description: "Enterprise Value to EBITDA - Múltiplo que considera la deuda total de la empresa. Es útil para comparar empresas con diferentes estructuras de capital y niveles de apalancamiento.",
+    examples: [
+      "EV/EBITDA < 8: Potencialmente atractivo (ej: Utilities maduras)",
+      "EV/EBITDA 8-15: Valoración típica del mercado",
+      "EV/EBITDA > 20: Alto, común en empresas de crecimiento"
+    ]
+  },
+  "EV/Ventas": {
+    description: "Enterprise Value to Sales - Similar al P/S pero considerando la deuda total. Proporciona una visión más completa del valor de la empresa respecto a sus ingresos.",
+    examples: [
+      "EV/Sales < 2: Conservador (ej: Grocery stores)",
+      "EV/Sales 2-8: Rango amplio según industria",
+      "EV/Sales > 10: Alto, típico en tech y biotech"
+    ]
+  },
+  "Dividend Yield": {
+    description: "Rendimiento por dividendo - Porcentaje de dividendos anuales respecto al precio actual. Importante para inversores que buscan ingresos regulares y empresas maduras.",
+    examples: [
+      "Yield > 4%: Alto rendimiento (ej: REITs, Utilities)",
+      "Yield 2-4%: Rendimiento moderado (ej: Dividend Aristocrats)",
+      "Yield < 2%: Bajo, común en empresas de crecimiento"
+    ]
+  },
+  "Crecimiento implícito": {
+    description: "Tasa de crecimiento anual que estaría implícita en el precio actual según modelos de valoración. Ayuda a entender qué expectativas de crecimiento están descontadas en el precio.",
+    examples: [
+      "< 5%: Expectativas conservadoras",
+      "5-15%: Crecimiento moderado esperado",
+      "> 20%: Altas expectativas de crecimiento (riesgo si no se cumple)"
+    ]
+  },
+  "Descuento vs. PT": {
+    description: "Descuento del precio actual respecto al precio objetivo promedio de los analistas. Un descuento alto puede indicar una oportunidad, pero también puede reflejar riesgos no considerados.",
+    examples: [
+      "Descuento > 20%: Potencial upside significativo",
+      "Descuento 0-20%: Precio cerca del consenso",
+      "Prima (descuento negativo): Precio por encima del consenso"
+    ]
+  }
 };
 
 export default function ValoracionCard({ symbol }: { symbol: string }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [explanationModal, setExplanationModal] = useState<ExplanationModalState>(initialExplanationModalState);
+
+  // Función para abrir modal de explicaciones
+  const openExplanationModal = (metricName: string) => {
+    setExplanationModal({
+      isOpen: true,
+      selectedMetric: metricName
+    });
+  };
+
+  // Función para cerrar modal de explicaciones
+  const closeExplanationModal = () => {
+    setExplanationModal(initialExplanationModalState);
+  };
+
 
   useEffect(() => {
     let alive = true;
@@ -216,6 +329,7 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
         axisLabel: { color: "#e2e8f0" },
         axisTick: { show: false },
         axisLine: { show: false },
+        triggerEvent: true, // Esta línea habilita los eventos de click
       },
       series: [
         {
@@ -267,53 +381,114 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
   }, [rows]);
 
   return (
-    <Card className="bg-tarjetas border-none h-[492px]">
-      <CardHeader>
-        <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
-          <div className="text-gray-400">
-           Valoración
-          </div>
-           {symbol}
-          </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="h-72 flex items-center justify-center text-gray-400">
-            Cargando valoración…
-          </div>
-        ) : error ? (
-          <div className="h-72 flex items-center justify-center text-red-400">{error}</div>
-        ) : (
-          <>
-            <div className="flex items-center gap-4 text-xs text-gray-400 mb-3">
-              <span className="inline-flex items-center gap-1">
-                <span className="w-3 h-3 bg-red-500/50 rounded-sm" /> Débil
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="w-3 h-3 bg-yellow-500/50 rounded-sm" /> A vigilar
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="w-3 h-3 bg-green-500/50 rounded-sm" /> Fuerte
-              </span>
+    <>
+      <Card className="bg-tarjetas border-none h-[492px]">
+        <CardHeader>
+          <CardTitle className="text-orange-400 text-lg flex items-center">
+            <div className="text-gray-400 mr-2">
+              Valoración
             </div>
-            <ReactECharts
-              echarts={echarts as any}
-              option={option as any}
-              notMerge
-              lazyUpdate
-              style={{ height: Math.max(260, rows.length * 28), width: "100%" }}
-            />
-          </>
-        )}
-      </CardContent>
-    </Card>
+             {symbol}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="h-72 flex items-center justify-center text-gray-400">
+              Cargando valoración…
+            </div>
+          ) : error ? (
+            <div className="h-72 flex items-center justify-center text-red-400">{error}</div>
+          ) : (
+            <>
+              <div className="flex items-center gap-4 text-xs text-gray-400 mb-3">
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-3 h-3 bg-red-500/50 rounded-sm" /> Débil
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-3 h-3 bg-yellow-500/50 rounded-sm" /> A vigilar
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-3 h-3 bg-green-500/50 rounded-sm" /> Fuerte
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-[2px] h-3 bg-white inline-block" /> Target
+                </span>
+              </div>
+              <ReactECharts
+                echarts={echarts as any}
+                option={option as any}
+                notMerge
+                lazyUpdate
+                style={{ height: Math.max(260, rows.length * 28), width: "100%" }}
+                onEvents={{
+                  'click': (params: any) => {
+                    if (params.componentType === 'yAxis') {
+                      const metricName = params.value;
+                      openExplanationModal(metricName);
+                    }
+                  }
+                }}
+              />
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Modal de Explicaciones de Métricas */}
+      {explanationModal.isOpen && explanationModal.selectedMetric && METRIC_EXPLANATIONS[explanationModal.selectedMetric] && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-100 border border-gray-300 rounded-lg max-w-lg w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              {/* Header del modal */}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  {explanationModal.selectedMetric}
+                </h2>
+                <button
+                  onClick={closeExplanationModal}
+                  className="text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Contenido del modal */}
+              <div className="space-y-4">
+                {/* Descripción */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-600 mb-2">Descripción</h3>
+                  <p className="text-gray-800 leading-relaxed">
+                    {METRIC_EXPLANATIONS[explanationModal.selectedMetric].description}
+                  </p>
+                </div>
+
+                {/* Ejemplos */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-600 mb-2">Ejemplos y Rangos</h3>
+                  <ul className="space-y-2">
+                    {METRIC_EXPLANATIONS[explanationModal.selectedMetric].examples.map((example, index) => (
+                      <li key={index} className="text-gray-700 text-sm flex items-start">
+                        <span className="w-2 h-2 bg-orange-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                        {example}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Botón cerrar */}
+                <div className="flex justify-end pt-4">
+                  <button
+                    onClick={closeExplanationModal}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
-
-// Función para obtener el color del score
-const getScoreColor = (score: number | null): string => {
-  if (score == null) return "#94a3b8";
-  if (score >= 70) return "#22c55e"; // Verde
-  if (score >= 40) return "#eab308"; // Amarillo
-  return "#ef4444"; // Rojo
-};

@@ -284,7 +284,7 @@ export default function OverviewCard({
   // AHORA sí podemos hacer returns condicionales basados en estado
   if (loading || isParentLoading) {
     return (
-      <Card className="bg-tarjetas border-none flex items-center justify-center w-full h-[36px]">
+      <Card className="bg-transparent border-none flex items-center justify-center w-full h-[52px]">
         <CardContent className="p-0 flex items-center justify-center w-full h-full">
           <div className="text-gray-400 text-sm font-medium">
             Cargando ticker...
@@ -498,7 +498,7 @@ export default function OverviewCard({
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Beta:</span>
-                <span className="text-green-400 font-mono">
+                <span className="text-orange-400 font-mono">
                   {Number.isFinite(Number(data.beta))
                     ? Number(data.beta).toFixed(3)
                     : "N/A"}
@@ -514,7 +514,7 @@ export default function OverviewCard({
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-400">Último Dividendo:</span>
-                <span className="text-green-400 font-mono">
+                <span className="text-orange-400 font-mono">
                   {Number.isFinite(Number(data.lastDividend))
                     ? `$${Number(data.lastDividend).toFixed(2)}`
                     : "N/A"}
@@ -522,7 +522,7 @@ export default function OverviewCard({
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Volumen:</span>
-                <span className="text-green-400 font-mono">
+                <span className="text-orange-400 font-mono">
                   {Number.isFinite(Number(data.volume))
                     ? Number(data.volume).toLocaleString()
                     : "N/A"}
@@ -530,7 +530,7 @@ export default function OverviewCard({
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Vol. Promedio:</span>
-                <span className="text-green-400 font-mono">
+                <span className="text-orange-400 font-mono">
                   {Number.isFinite(Number(data.averageVolume))
                     ? Number(data.averageVolume).toLocaleString()
                     : "N/A"}
@@ -538,7 +538,7 @@ export default function OverviewCard({
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Rango 52 sem:</span>
-                <span className="text-green-400 font-mono text-xs">
+                <span className="text-orange-400 font-mono text-xs">
                   {data.range || "N/A"}
                 </span>
               </div>
@@ -549,7 +549,7 @@ export default function OverviewCard({
 
       {/* Descripción */}
       <div className="bg-gray-800/30 rounded-lg p-4 border-gray-700/30">
-        <h3 className="text-green-400 text-lg font-semibold mb-3">
+        <h3 className="text-orange-400 text-lg font-semibold mb-3">
           Descripción del Negocio
         </h3>
         <p className="text-gray-200 text-sm leading-relaxed">
@@ -559,26 +559,26 @@ export default function OverviewCard({
 
       {/* Info adicional */}
       <div className="bg-gray-800/30 rounded-lg p-4 border-gray-700/30">
-        <h3 className="text-green-400 text-lg font-semibold mb-4">
+        <h3 className="text-orange-400 text-lg font-semibold mb-4">
           Información Adicional
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-gray-400">CIK:</span>
-              <span className="text-green-400 font-mono">
+              <span className="text-orange-400 font-mono">
                 {data.cik || "N/A"}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">ISIN:</span>
-              <span className="text-green-400 font-mono">
+              <span className="text-orange-400 font-mono">
                 {data.isin || "N/A"}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">CUSIP:</span>
-              <span className="text-green-400 font-mono">
+              <span className="text-orange-400 font-mono">
                 {data.cusip || "N/A"}
               </span>
             </div>
@@ -586,17 +586,17 @@ export default function OverviewCard({
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-gray-400">Teléfono:</span>
-              <span className="text-green-400">{data.phone || "N/A"}</span>
+              <span className="text-orange-400">{data.phone || "N/A"}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Es ETF:</span>
-              <span className="text-green-400">
+              <span className="text-orange-400">
                 {data.isEtf ? "Sí" : "No"}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Activamente negociado:</span>
-              <span className="text-green-400">
+              <span className="text-orange-400">
                 {data.isActivelyTrading ? "Sí" : "No"}
               </span>
             </div>
@@ -672,7 +672,7 @@ export default function OverviewCard({
 
   return (
     <Dialog>
-      <Card className="bg-transparent border-none responsive-container">
+      <Card className="flex items-center min-h-[52px] bg-transparent border-none responsive-container">
         <CardHeader className="p-0 flex items-center justify-start">
           <CardTitle className="space-y-2 md:space-y-3">
             {/* Company Info - Responsive Layout */}
@@ -690,7 +690,7 @@ export default function OverviewCard({
               
               {/* Symbol Input - Responsive */}
               <div className="flex items-center gap-2">
-                <TextCursorInput className="w-3 h-3 md:w-4 md:h-4 text-green-400"/>
+                <TextCursorInput className="w-3 h-3 md:w-4 md:h-4 text-orange-400"/>
                 <Input
                   // Remove ref since tickerInputRef is not defined and not needed
                   value={tickerInput}
@@ -702,8 +702,8 @@ export default function OverviewCard({
                   className="focus:placeholder:text-transparent bg-transparent border-none outline-none text-orange-400 text-sm md:text-lg font-medium cursor-text transition-colors"
                   style={{ 
                     width: "fit-content", 
-                    minWidth: isMobile ? "40px" : "50px",
-                    maxWidth: isMobile ? "60px" : "70px",
+                    minWidth: isMobile ? "60px" : "70px",
+                    maxWidth: isMobile ? "60px" : "90px",
                   }}
                 />
               </div>
@@ -713,10 +713,9 @@ export default function OverviewCard({
               {/* Precio */}
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1">
-                  <DollarSign className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
-                  <span className="text-xs md:text-sm text-gray-400">Precio</span>
+                  <DollarSign className="w-3 h-3 md:w-4 md:h-4 text-orange-400" />
                 </div>
-                <div className="text-xs md:text-sm font-semibold text-green-400">
+                <div className="text-lg md:text-lg font-semibold text-orange-400">
                   {Number.isFinite(Number(data.price)) ? `${Math.round(Number(data.price))}` : "N/A"}
                 </div>
               </div>
@@ -779,7 +778,7 @@ export default function OverviewCard({
                   />
                 <DialogTrigger asChild>
                   <button className="p-1">                    
-                    <p className="text-sm text-green-400 hover:text-green-600 cursor-pointer ml-2" >
+                    <p className="text-sm text-gray-400 hover:text-orange-600 cursor-pointer ml-2" >
                       Overview
                     </p>                        
                   </button>

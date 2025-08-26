@@ -53,6 +53,13 @@ export default function StockTerminal() {
     };
   }, []);
 
+  // Cargar datos automáticamente para el símbolo inicial
+  useEffect(() => {
+    if (selectedSymbol && selectedSymbol !== 'N/A' && selectedSymbol !== '') {
+      buscarDatosAccion(selectedSymbol);
+    }
+  }, [selectedSymbol]);
+
   const buscarDatosAccion = async (symbol: string) => {
     const sym = symbol?.trim().toUpperCase();
     if (!sym) return;
@@ -133,7 +140,7 @@ export default function StockTerminal() {
   return (
     <div className="min-h-screen bg-fondoDeTarjetas">
       {/* Header responsivo */}
-      <div className="sticky top-0 z-50 bg-fondoDeTarjetas/95 backdrop-blur supports-[backdrop-filter]:bg-fondoDeTarjetas/60">
+      <div className="sticky top-0 z-50 bg-fondoDeTarjetas/95 backdrop-blur supports-[backdrop-filter]:bg-fondoDeTarjetas/60 mb-2 border-b border-gray-600">
         <Header user={user} onAuth={handleAuth} onSelectSymbol={handleTopStockClick} />
       </div>
 
@@ -151,7 +158,7 @@ export default function StockTerminal() {
             {/* Layout principal responsivo */}
             <div className="flex flex-col xl:flex-row gap-2 md:gap-4">
               {/* Panel izquierdo */}
-              <div className="w-full xl:w-1/2 space-y-2 md:space-y-4">
+              <div className="w-full xl:w-1/2 space-y-2 md:space-y-1">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4">
                   <OverviewCard
                       selectedStock={selectedStock}
@@ -160,7 +167,7 @@ export default function StockTerminal() {
                     />
                 </div>
                 {/* Grid responsivo para tarjetas */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-1">
                   <div className="w-full">
                     <RadarPeersCard symbol={selectedSymbol} />
                   </div>
@@ -186,7 +193,18 @@ export default function StockTerminal() {
                 <div className="lg:min-w-[350px]">
                   <Card className="flex justify-end bg-transparent border-none">
                     <div className="p-2">
-                      <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} />
+                      <NavigationBar 
+                        activeTab={activeTab} 
+                        setActiveTab={setActiveTab}
+                        symbol={selectedSymbol}
+                        fundamentalData={stockBasicData?.datos?.fundamentales || null}
+                        valoracionData={stockBasicData?.datos?.valoracion || null}
+                        financialScoresData={stockBasicData?.datos?.financialScores || null}
+                        overviewData={stockBasicData}
+                        estimacionData={stockBasicData?.datos?.estimacion || null}
+                        dividendosData={stockBasicData?.datos?.dividendos || null}
+                        desempenoData={stockBasicData?.datos?.desempeno || null}
+                      />
                     </div>
                   </Card>
                 </div>

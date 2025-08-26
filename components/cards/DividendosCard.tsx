@@ -59,10 +59,10 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
     return {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis' as const },
-      legend: {
-        data: ['Dividendos', 'Yield'],
-        textStyle: { color: '#9ca3af' },
-      },
+      // legend: {  // <- Comentar o quitar esta sección completa
+      //   data: ['Dividendos', 'Yield'],
+      //   textStyle: { color: '#9ca3af' },
+      // },
       grid: { left: 40, right: 50, top: 32, bottom: 28 },
       xAxis: {
         type: 'category' as const,

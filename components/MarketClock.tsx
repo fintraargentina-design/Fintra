@@ -64,7 +64,7 @@ export default function MarketClock({ className = '', showMarketStatus = true }:
     <div className={`flex items-center space-x-2 ${className}`}>
   <span className="text-sm text-gray-400">{formatDate()} -</span>
   <svg
-    className={`w-4 h-4 ${marketOpen ? 'text-green-400' : 'text-red-400'}`}
+    className={`w-4 h-4 ${marketOpen ? 'text-green-100' : 'text-red-400'}`}
     fill="currentColor"
     viewBox="0 0 20 20"
   >
@@ -74,7 +74,7 @@ export default function MarketClock({ className = '', showMarketStatus = true }:
       clipRule="evenodd"
     />
   </svg>
-  <span className={`text-sm font-mono ${marketOpen ? 'text-green-400' : 'text-red-400'}`}>
+  <span className={`text-sm font-mono ${marketOpen ? 'text-green-100' : 'text-red-400'}`}>
     {formatLocalTime()}, NY {formatNYTime()}
   </span>
   {showMarketStatus && (

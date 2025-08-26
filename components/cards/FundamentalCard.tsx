@@ -50,23 +50,6 @@ const fmtLargeNumber = (v?: number | null, d = 1) => {
   return `$${v.toFixed(0)}`;
 };
 
-// Diccionario de explicaciones para las métricas financieras
-const METRIC_EXPLANATIONS: Record<string, string> = {
-  "ROE": "Return on Equity - Mide la rentabilidad que obtienen los accionistas sobre su inversión. Un ROE alto indica que la empresa genera buenos beneficios con el capital de los accionistas.",
-  "ROIC": "Return on Invested Capital - Evalúa la eficiencia con la que la empresa utiliza todo su capital invertido para generar beneficios. Es clave para valorar la calidad del negocio.",
-  "Margen bruto": "Porcentaje de ingresos que queda después de descontar el costo directo de los productos vendidos. Un margen alto indica ventaja competitiva y poder de fijación de precios.",
-  "Margen neto": "Porcentaje de ingresos que se convierte en beneficio neto después de todos los gastos. Refleja la eficiencia operativa y la rentabilidad final del negocio.",
-  "Deuda/Capital": "Ratio que mide el nivel de endeudamiento respecto al capital total. Un ratio bajo indica menor riesgo financiero y mayor solidez del balance.",
-  "Current Ratio": "Capacidad de la empresa para pagar sus deudas a corto plazo con sus activos corrientes. Un ratio entre 1.5-3 se considera saludable.",
-  "Cobertura de intereses": "Número de veces que la empresa puede pagar los intereses de su deuda con sus beneficios. Un ratio alto indica menor riesgo de impago.",
-  "Flujo de Caja Libre": "Dinero generado por las operaciones después de inversiones en capital. Es crucial para evaluar la capacidad de generar efectivo real.",
-  "CAGR ingresos": "Tasa de crecimiento anual compuesta de los ingresos durante los últimos 5 años. Indica la consistencia del crecimiento del negocio.",
-  "CAGR beneficios": "Tasa de crecimiento anual compuesta de los beneficios durante los últimos 5 años. Refleja la capacidad de convertir crecimiento en rentabilidad.",
-  "CAGR patrimonio": "Tasa de crecimiento anual compuesta del patrimonio neto. Indica cómo crece el valor contable de la empresa para los accionistas.",
-  "Book Value por acción": "Valor contable de la empresa dividido por el número de acciones. Representa el valor teórico de cada acción según los libros contables.",
-  "Capitalización de Mercado": "Valor total de la empresa en el mercado (precio por acción × número de acciones). Refleja lo que los inversores están dispuestos a pagar por la empresa."
-};
-
 // Función para obtener el color del score
 const getScoreColor = (score: number | null): string => {
   if (score == null) return "#94a3b8";
@@ -74,6 +57,7 @@ const getScoreColor = (score: number | null): string => {
   if (score >= 40) return "#eab308"; // Amarillo
   return "#ef4444"; // Rojo
 };
+
 
 // Función para obtener el texto del nivel de score
 const getScoreLevel = (score: number | null): string => {
@@ -179,11 +163,143 @@ const getImpactColor = (impacto: string): string => {
   }
 };
 
+// Agregar al inicio del archivo, después de los imports existentes
+interface ExplanationModalState {
+  isOpen: boolean;
+  selectedMetric: string | null;
+}
+
+const initialExplanationModalState: ExplanationModalState = {
+  isOpen: false,
+  selectedMetric: null
+};
+
+// Actualizar METRIC_EXPLANATIONS con ejemplos
+const METRIC_EXPLANATIONS: Record<string, { description: string; examples: string[] }> = {
+  "ROE": {
+    description: "Return on Equity - Mide la rentabilidad que obtienen los accionistas sobre su inversión. Un ROE alto indica que la empresa genera buenos beneficios con el capital de los accionistas.",
+    examples: [
+      "ROE > 15%: Excelente rentabilidad (ej: Apple ~30%)",
+      "ROE 10-15%: Buena rentabilidad (ej: Microsoft ~25%)",
+      "ROE < 10%: Rentabilidad baja (ej: Utilities ~8%)"
+    ]
+  },
+  "ROIC": {
+    description: "Return on Invested Capital - Evalúa la eficiencia con la que la empresa utiliza todo su capital invertido para generar beneficios. Es clave para valorar la calidad del negocio.",
+    examples: [
+      "ROIC > 12%: Negocio de alta calidad",
+      "ROIC 8-12%: Negocio sólido",
+      "ROIC < 8%: Negocio con baja eficiencia de capital"
+    ]
+  },
+  "Margen bruto": {
+    description: "Porcentaje de ingresos que queda después de descontar el costo directo de los productos vendidos. Un margen alto indica ventaja competitiva y poder de fijación de precios.",
+    examples: [
+      "Software: 80-90% (ej: Microsoft)",
+      "Farmacéuticas: 60-80% (ej: Pfizer)",
+      "Retail: 20-40% (ej: Walmart)"
+    ]
+  },
+  "Margen neto": {
+    description: "Porcentaje de ingresos que se convierte en beneficio neto después de todos los gastos. Refleja la eficiencia operativa y la rentabilidad final del negocio.",
+    examples: [
+      "Tech: 15-25% (ej: Apple ~23%)",
+      "Bancos: 20-30% (ej: JPMorgan ~25%)",
+      "Retail: 2-5% (ej: Amazon ~3%)"
+    ]
+  },
+  "Deuda/Capital": {
+    description: "Ratio que mide el nivel de endeudamiento respecto al capital total. Un ratio bajo indica menor riesgo financiero y mayor solidez del balance.",
+    examples: [
+      "< 0.3: Muy conservador (ej: Apple)",
+      "0.3-0.6: Equilibrado (ej: Microsoft)",
+      "> 0.6: Alto apalancamiento (ej: Utilities)"
+    ]
+  },
+  "Current Ratio": {
+    description: "Capacidad de la empresa para pagar sus deudas a corto plazo con sus activos corrientes. Un ratio entre 1.5-3 se considera saludable.",
+    examples: [
+      "< 1: Riesgo de liquidez",
+      "1.5-3: Liquidez saludable",
+      "> 3: Exceso de efectivo (puede ser ineficiente)"
+    ]
+  },
+  "Cobertura de intereses": {
+    description: "Número de veces que la empresa puede pagar los intereses de su deuda con sus beneficios. Un ratio alto indica menor riesgo de impago.",
+    examples: [
+      "> 8x: Muy seguro",
+      "4-8x: Seguro",
+      "< 4x: Riesgo de impago"
+    ]
+  },
+  "Flujo de Caja Libre": {
+    description: "Dinero generado por las operaciones después de inversiones en capital. Es crucial para evaluar la capacidad de generar efectivo real.",
+    examples: [
+      "Positivo y creciente: Ideal",
+      "Positivo pero volátil: Aceptable",
+      "Negativo: Preocupante (salvo empresas en crecimiento)"
+    ]
+  },
+  "CAGR ingresos": {
+    description: "Tasa de crecimiento anual compuesta de los ingresos durante los últimos 5 años. Indica la consistencia del crecimiento del negocio.",
+    examples: [
+      "> 15%: Crecimiento alto (ej: Tesla)",
+      "5-15%: Crecimiento sólido (ej: Microsoft)",
+      "< 5%: Crecimiento lento (ej: Utilities)"
+    ]
+  },
+  "CAGR beneficios": {
+    description: "Tasa de crecimiento anual compuesta de los beneficios durante los últimos 5 años. Refleja la capacidad de convertir crecimiento en rentabilidad.",
+    examples: [
+      "> 20%: Excelente (ej: NVIDIA)",
+      "10-20%: Muy bueno (ej: Apple)",
+      "< 10%: Moderado"
+    ]
+  },
+  "CAGR patrimonio": {
+    description: "Tasa de crecimiento anual compuesta del patrimonio neto. Indica cómo crece el valor contable de la empresa para los accionistas.",
+    examples: [
+      "> 12%: Excelente creación de valor",
+      "8-12%: Buena creación de valor",
+      "< 8%: Creación de valor limitada"
+    ]
+  },
+  "Book Value por acción": {
+    description: "Valor contable de la empresa dividido por el número de acciones. Representa el valor teórico de cada acción según los libros contables.",
+    examples: [
+      "Crecimiento constante: Buena señal",
+      "Estancado: Neutral",
+      "Decreciente: Posible destrucción de valor"
+    ]
+  },
+  "Capitalización de Mercado": {
+    description: "Valor total de la empresa en el mercado (precio por acción × número de acciones). Refleja lo que los inversores están dispuestos a pagar por la empresa.",
+    examples: [
+      "Large Cap: > $10B (ej: Apple $3T)",
+      "Mid Cap: $2-10B",
+      "Small Cap: < $2B"
+    ]
+  }
+};
+
 export default function FundamentalCard({ symbol }: { symbol: string }) {
   const [rows, setRows] = useState<MetricRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [analysisModal, setAnalysisModal] = useState<AnalysisState>(initialAnalysisState);
+  const [explanationModal, setExplanationModal] = useState<ExplanationModalState>(initialExplanationModalState);
+
+  // Función para abrir modal de explicaciones
+  const openExplanationModal = (metricName: string) => {
+    setExplanationModal({
+      isOpen: true,
+      selectedMetric: metricName
+    });
+  };
+
+  // Función para cerrar modal de explicaciones
+  const closeExplanationModal = () => {
+    setExplanationModal(initialExplanationModalState);
+  };
 
   useEffect(() => {
     if (!symbol) return;
@@ -351,9 +467,13 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
       yAxis: {
         type: "category",
         data: labels,
-        axisLabel: { color: "#e2e8f0" },
+        axisLabel: { 
+          color: "#e2e8f0",
+          formatter: (value: string) => value // Mantener el texto original
+        },
         axisTick: { show: false },
         axisLine: { show: false },
+        triggerEvent: true // Habilitar eventos en el eje Y
       },
       series: [
         {
@@ -411,114 +531,20 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
     };
   }, [rows]);
 
-  const handleAnalyzeWithAI = async () => {
-    if (!rows.length) {
-      console.warn('No hay datos para analizar');
-      return;
-    }
+  
+    
 
-    // Abrir modal en estado de carga
-    setAnalysisModal({
-      isOpen: true,
-      isLoading: true,
-      data: null,
-      error: null
-    });
-
-    try {
-      // Preparar los datos en formato JSON para n8n
-      const analysisData = {
-        symbol,
-        timestamp: new Date().toISOString(),
-        chartType: 'fundamental',
-        metrics: rows.map(row => ({
-          label: row.label,
-          value: row.raw,
-          unit: row.unit,
-          score: row.score,
-          display: row.display,
-          target: row.target,
-          thresholds: row.thresholds,
-          scoreLevel: getScoreLevel(row.score)
-        })),
-        summary: {
-          totalMetrics: rows.length,
-          validScores: rows.filter(r => r.score !== null).length,
-          averageScore: rows.filter(r => r.score !== null).reduce((acc, r) => acc + (r.score || 0), 0) / rows.filter(r => r.score !== null).length || 0,
-          strongMetrics: rows.filter(r => (r.score || 0) >= 70).length,
-          weakMetrics: rows.filter(r => (r.score || 0) < 40).length
-        }
-      };
-
-      console.log('📤 Enviando datos a n8n:', analysisData);
-
-      // Enviar POST a n8n
-      const response = await fetch('https://n8n.srv904355.hstgr.cloud/webhook/19d4e091-5368-4b5e-b4b3-71257abbd92d', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(analysisData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error en la respuesta: ${response.status}`);
-      }
-
-      const result: AnalysisResponse = await response.json();
-      console.log('✅ Análisis recibido:', result);
-      
-      // Actualizar modal con los datos recibidos
-      setAnalysisModal({
-        isOpen: true,
-        isLoading: false,
-        data: result,
-        error: null
-      });
-      
-    } catch (error) {
-      console.error('❌ Error enviando análisis a n8n:', error);
-      setAnalysisModal({
-        isOpen: true,
-        isLoading: false,
-        data: null,
-        error: 'No se pudo analizar los datos fundamentales'
-      });
-    }
-  };
-
-  // Función para cerrar modal
-  const closeModal = () => {
-    setAnalysisModal(initialAnalysisState);
-  };
+    
 
   return (
     <>
-      <Card className="bg-tarjetas border-none h-[492px]">
-        <CardHeader>
-          <CardTitle className="text-orange-400 text-lg flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="text-gray-400">
-               Fundamental
-              </div>
-               {symbol}
+      <Card className="bg-tarjetas border-none">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-orange-400 text-lg flex gap-2 flex items-center">
+            <div className="text-gray-400 mr-2">
+              Fundamental
             </div>
-            <Button
-              onClick={handleAnalyzeWithAI}
-              disabled={loading || analysisModal.isLoading || !rows.length}
-              size="sm"
-              variant="outline"
-              className="text-xs bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30 hover:border-blue-500/50 disabled:opacity-50"
-            >
-              {analysisModal.isLoading ? (
-                <>
-                  <div className="w-3 h-3 border border-blue-300 border-t-transparent rounded-full animate-spin mr-1" />
-                  Analizando...
-                </>
-              ) : (
-                'Analizar con IA'
-              )}
-            </Button>
+           {symbol}            
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -550,75 +576,71 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
                 notMerge
                 lazyUpdate
                 style={{ height: Math.max(260, rows.length * 28), width: "100%" }}
+                onEvents={{
+                  'click': (params: any) => {
+                    if (params.componentType === 'yAxis') {
+                      const metricName = params.value;
+                      openExplanationModal(metricName);
+                    }
+                  }
+                }}
               />
             </>
           )}
         </CardContent>
       </Card>
 
-      {/* Modal de Análisis de IA */}
-      {analysisModal.isOpen && (
+      {/* Modal de Explicaciones de Métricas */}
+      {explanationModal.isOpen && explanationModal.selectedMetric && METRIC_EXPLANATIONS[explanationModal.selectedMetric] && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+          <div className="bg-slate-100 border border-gray-300 rounded-lg max-w-lg w-full max-h-[80vh] overflow-y-auto">
             <div className="p-6">
               {/* Header del modal */}
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-white">
-                  {analysisModal.error ? 'Error' : 'Análisis Fundamental con IA'}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  {explanationModal.selectedMetric}
                 </h2>
                 <button
-                  onClick={closeModal}
-                  className="text-gray-400 hover:text-white transition-colors"
+                  onClick={closeExplanationModal}
+                  className="text-gray-500 hover:text-gray-700 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Contenido del modal */}
-              {analysisModal.isLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
-                  <span className="ml-3 text-gray-400">Analizando datos fundamentales...</span>
+              <div className="space-y-4">
+                {/* Descripción */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-600 mb-2">Descripción</h3>
+                  <p className="text-gray-800 leading-relaxed">
+                    {METRIC_EXPLANATIONS[explanationModal.selectedMetric].description}
+                  </p>
                 </div>
-              ) : analysisModal.error ? (
-                <div className="text-center py-8">
-                  <p className="text-red-400 mb-4">{analysisModal.error}</p>
+
+                {/* Ejemplos */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-600 mb-2">Ejemplos y Rangos</h3>
+                  <ul className="space-y-2">
+                    {METRIC_EXPLANATIONS[explanationModal.selectedMetric].examples.map((example, index) => (
+                      <li key={index} className="text-gray-700 text-sm flex items-start">
+                        <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                        {example}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Botón cerrar */}
+                <div className="flex justify-end pt-4">
                   <button
-                    onClick={closeModal}
-                    className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                    onClick={closeExplanationModal}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                   >
                     Cerrar
                   </button>
                 </div>
-              ) : analysisModal.data ? (
-                <div className="space-y-6">
-                  {/* Impacto */}
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Impacto</h3>
-                    <p className={`text-2xl font-bold ${getImpactColor(analysisModal.data.impacto)}`}>
-                      {analysisModal.data.impacto}
-                    </p>
-                  </div>
-
-                  {/* Análisis */}
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Análisis</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                      {analysisModal.data.analisis}
-                    </p>
-                  </div>
-
-                  {/* Botón cerrar */}
-                  <div className="flex justify-end pt-4">
-                    <button
-                      onClick={closeModal}
-                      className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                    >
-                      Cerrar
-                    </button>
-                  </div>
-                </div>
-              ) : null}
+              </div>
             </div>
           </div>
         </div>

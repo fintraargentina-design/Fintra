@@ -19,6 +19,7 @@ interface HeaderProps {
 export default function Header({ user, onAuth, onSelectSymbol }: HeaderProps) {
   const { isMobile } = useResponsive();
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  const [showTimes, setShowTimes] = useState(false); // Nuevo estado para mostrar/ocultar horarios
 
   useEffect(() => {
     setCurrentTime(new Date());
@@ -39,8 +40,12 @@ export default function Header({ user, onAuth, onSelectSymbol }: HeaderProps) {
     onSelectSymbol?.(symbol);
   };
 
+  const toggleTimeDisplay = () => {
+    setShowTimes(!showTimes);
+  };
+
   return (
-    <header className="bg-fondoTarjeta w-full border-gray-800 px-6 py-3">
+    <header className="bg-fondoTarjeta w-full px-6 py-3">
       <div className="flex items-center justify-between">
         {/* Lado izquierdo - Título */}
         <div className="flex items-center space-x-2 flex-1">
@@ -53,7 +58,7 @@ export default function Header({ user, onAuth, onSelectSymbol }: HeaderProps) {
         <div className="flex items-center justify-center flex-1">
           <div className="rounded-lg border text-card-foreground shadow-sm flex items-center justify-center bg-transparent border-none h-[36px] px-3">
             <div className='flex items-center space-x-2'>
-              <Flame className="w-4 h-4 text-green-400" />
+              <Flame className="w-4 h-4 text-orange-400" />
               <span className="text-orange-400 text-sm font-medium flex-shrink-0">Top:</span>
               {isMobile ? (
                 <TopSearchedStocksDropdown onStockClick={handleTopStockClick} isMobile={true} />
@@ -69,30 +74,38 @@ export default function Header({ user, onAuth, onSelectSymbol }: HeaderProps) {
         {/* Lado derecho - Controles */}
         <div className="flex items-center space-x-6 flex-1 justify-end">
           
-          {/* Tiempo Local */}
-          <div className="flex items-center space-x-2 text-sm">
-            <span className={`font-mono ${isMarketOpen() ? 'text-green-400' : 'text-red-400'}`}>
-              {currentTime
-                ? currentTime.toLocaleTimeString('es-ES', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
-                : '--:--:--'}
-            </span>
-            <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-            </svg>
-          </div>
+          {/* Horarios - Solo se muestran si showTimes es true */}
+          {showTimes && (
+            <>
+              {/* Tiempo Local */}
+              <div className="flex items-center space-x-2 text-sm">
+                <span className={`font-mono ${isMarketOpen() ? 'text-green-400' : 'text-red-400'}`}>
+                  {currentTime
+                    ? currentTime.toLocaleTimeString('es-ES', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                    : '--:--:--'}
+                </span>
+                <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                </svg>
+              </div>
 
-          {/* Tiempo NY */}
-          <div className="flex items-center space-x-2 text-sm">
-            <span className={`font-mono ${isMarketOpen() ? 'text-green-400' : 'text-red-400'}`}>
-              {currentTime
-                ? currentTime.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
-                : '--:--:--'}
-            </span>
-            <span className="text-orange-400 font-semibold">NY</span>
-          </div>
+              {/* Tiempo NY */}
+              <div className="flex items-center space-x-2 text-sm">
+                <span className={`font-mono ${isMarketOpen() ? 'text-green-400' : 'text-red-400'}`}>
+                  {currentTime
+                    ? currentTime.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                    : '--:--:--'}
+                </span>
+                <span className="text-orange-400 font-semibold">NY</span>
+              </div>
+            </>
+          )}
 
-          {/* Estado del Mercado */}
-          <div className="flex items-center space-x-2 text-sm">
+          {/* Estado del Mercado - Ahora es clickeable */}
+          <div 
+            className="flex items-center space-x-2 text-sm cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={toggleTimeDisplay}
+          >
             <span className={`font-medium ${isMarketOpen() ? 'text-green-400' : 'text-red-400'}`}>
               {isMarketOpen() ? 'Market Open' : 'Market Close'}
             </span>

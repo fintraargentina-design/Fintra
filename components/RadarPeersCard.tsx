@@ -150,11 +150,11 @@ async function fetchFactors(symbol: string, signal?: AbortSignal) {
     const radarData: Record<string, number> = {
       Rentabilidad: clamp100(((roePct ?? 0) / 40) * 100),
       Crecimiento: clamp100(((crecimientoFinal ?? 0) / 30) * 100),
-      'Solidez Financiera': solidity(numOrNull(r0.currentRatio), numOrNull(r0.debtEquityRatio), numOrNull(r0.interestCoverage)),
-      'Generación de Caja': clamp100(((fcfMarginPct ?? 0) / 30) * 100),
+      'Solidez': solidity(numOrNull(r0.currentRatio), numOrNull(r0.debtEquityRatio), numOrNull(r0.interestCoverage)),
+      'Flujo de caja': clamp100(((fcfMarginPct ?? 0) / 30) * 100),
       Margen: clamp100(((netMarginPct ?? 0) / 30) * 100),
       Valoración: valuationScore(pe, evE, pb),
-      'Riesgo / Volatilidad': riskFromBeta(numOrNull(p0.beta)),
+      'Riesgo': riskFromBeta(numOrNull(p0.beta)),
       Dividendos: clamp100(dividendYieldPct ? (dividendYieldPct / 8) * 100 : 0),
     };
 
@@ -283,11 +283,11 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
     const mainVals = indicators.map(({ name }) => main?.radarData?.[name] ?? 0);
     const peerVals = indicators.map(({ name }) => peer?.radarData?.[name] ?? 0);
 
-    // Responsive configuration
-    const radius = isMobile ? '60%' : isTablet ? '70%' : '75%';
+    // Responsive configuration - Radio más pequeño para mejor visibilidad de labels
+    const radius = isMobile ? '45%' : isTablet ? '50%' : '55%';
     const fontSize = isMobile ? 10 : isTablet ? 11 : 12;
     const legendFontSize = isMobile ? 10 : 12;
-    const centerY = isMobile ? '40%' : '45%';
+    const centerY = isMobile ? '50%' : '50%';
 
     return {
       backgroundColor: 'transparent',
@@ -309,12 +309,12 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
       radar: [
         {
           indicator: indicators,
-          center: ['50%', centerY],
+          center: ['50%', '45%'],
           radius,
           axisName: {
             color: '#9ca3af',
             borderRadius: 8,
-            padding: [1, 1],
+            padding: [3, 4], // Aumentar padding para mejor legibilidad
             fontSize,
           },
           splitArea: { areaStyle: { color: ['rgba(158,165,163,0.02)', 'rgba(158,165,163,0.04)'] } },
@@ -393,7 +393,7 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
           </div>
           {peers.length > 0 && (
             <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1 px-2 py-1 border-none transition-colors text-sm">
+              <DropdownMenuTrigger className="flex items-center gap-1 px-2 py-1 border-none transition-colors text-lg">
                 <span className="text-blue-300">{activePeer || 'Seleccionar'}</span>
                 <ChevronDown className="w-3 h-3" />
               </DropdownMenuTrigger>

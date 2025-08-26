@@ -109,7 +109,7 @@ export default function TopSearchedStocksDropdown({ onStockClick, isMobile = fal
         <div className="text-red-400 text-sm mb-2">{error}</div>
         <button
           onClick={handleRetry}
-          className="text-green-400 hover:text-green-300 text-xs flex items-center space-x-1 transition-colors"
+          className="text-orange-400 hover:text-orange-300 text-xs flex items-center space-x-1 transition-colors"
         >
           <RefreshCw className="w-3 h-3" />
           <span>Reintentar</span>
@@ -132,8 +132,8 @@ export default function TopSearchedStocksDropdown({ onStockClick, isMobile = fal
     return (
       <DropdownMenu>
         <DropdownMenuTrigger className="flex items-center gap-1 px-2 py-1 border-none transition-colors text-sm text-gray-400 hover:text-orange-400">
-          <span>{selectedStock || 'Seleccionar'}</span>
-          <ChevronDown className="w-3 h-3" />
+          <span>{selectedStock || <ChevronDown className="w-3 h-3" /> }</span>
+          {/* <ChevronDown className="w-3 h-3" /> */}
         </DropdownMenuTrigger>
         <DropdownMenuContent className="bg-gray-800 border-gray-700 max-h-64 overflow-y-auto">
           {topStocks.map((stock) => (
