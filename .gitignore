@@ -1,27 +1,36 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
+# dependencias
 /node_modules
 
 # next.js
 /.next/
 /out/
 
-# production
+# producción
 /build
+/.vercel
+/.turbo/
 
-# debug
+# logs y debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.eslintcache
 
-# env files
-.env*
+# variables de entorno
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local
 
-# vercel
-.vercel
+# configuración local de IDE
+.vscode/
+.idea/
 
-# typescript
+# informes de cobertura
+coverage/
+
+# archivos de compilación de TypeScript
 *.tsbuildinfo
 next-env.d.ts

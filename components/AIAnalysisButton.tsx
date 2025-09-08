@@ -121,7 +121,7 @@ export default function AIAnalysisButton({
 
       console.log('Sending global analysis data to n8n:', globalData);
 
-      const response = await fetch('https://n8n.srv904355.hstgr.cloud/webhook-test/19d4e091-5368-4b5e-b4b3-71257abbd92d', {
+      const response = await fetch('https://n8n.srv904355.hstgr.cloud/webhook/7fc6b803-531d-45fe-88fa-35df9f21f54d', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
