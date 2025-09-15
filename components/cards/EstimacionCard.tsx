@@ -32,12 +32,12 @@ interface ProjectionData {
 
 // Funciones de formateo
 const formatUSD = (v?: number | null) => {
-  if (!v || !Number.isFinite(v)) return "—";
+  if (!v || !Number.isFinite(v) || v === 0) return "—";
   return `$${v.toFixed(2)}`;
 };
 
 const formatBillions = (v?: number | null) => {
-  if (!v || !Number.isFinite(v)) return "—";
+  if (!v || !Number.isFinite(v) || v === 0) return "—";
   if (v >= 1e12) return `$${(v / 1e12).toFixed(1)}T`;
   if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
   if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
@@ -103,15 +103,12 @@ function calculateProjections(data: EstimationData, currentPrice?: number): Proj
   const peRatio = ratios?.[0]?.priceEarningsRatio;
   const currentEPS = (stockPrice && peRatio) ? stockPrice / peRatio : 0;
   
-  const currentNetIncome = 0; // Calcular desde EPS * shares outstanding
+  const currentNetIncome = profile[0].mktCap && ratios?.[0]?.priceEarningsRatio 
+    ? (profile[0].mktCap / ratios[0].priceEarningsRatio) 
+    : 0; // Fixed: Calculate actual net income
   
   const revenueGrowth = growth[0].revenueGrowth || 5;
-  if (!valuation?.forwardPe || !currentPrice) {
-    return [];
-  }
-  
   const epsGrowth = growth?.[0]?.epsgrowth || 0;
-  const baseMultiplier = 1 + (epsGrowth / 100);
   const netIncomeGrowth = growth[0].growthNetIncome || 6;
 
   return [
@@ -261,12 +258,24 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
       setError(null);
       
       try {
-        const symbol = selectedStock.symbol!; // Non-null assertion since we checked above
+        const symbol = selectedStock.symbol!;
         const [valuationData, ratiosData, growthData, profileData] = await Promise.all([
-          fmp.valuation(symbol).catch(() => null),
-          fmp.ratios(symbol, { limit: 1 }).catch(() => null),
-          fmp.growth(symbol, { limit: 1 }).catch(() => null),
-          fmp.profile(symbol).catch(() => null)
+          fmp.valuation(symbol).catch((err) => {
+            console.warn(`Valuation data failed for ${symbol}:`, err);
+            return null;
+          }),
+          fmp.ratios(symbol, { limit: 1 }).catch((err) => {
+            console.warn(`Ratios data failed for ${symbol}:`, err);
+            return null;
+          }),
+          fmp.growth(symbol, { limit: 1 }).catch((err) => {
+            console.warn(`Growth data failed for ${symbol}:`, err);
+            return null;
+          }),
+          fmp.profile(symbol).catch((err) => {
+            console.warn(`Profile data failed for ${symbol}:`, err);
+            return null;
+          })
         ]);
 
         setData({
@@ -276,7 +285,8 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
           profile: profileData
         });
       } catch (err: any) {
-        setError(err?.message || 'Error al obtener datos');
+        console.error('Error fetching estimation data:', err);
+        setError(err?.message || 'Error al obtener datos de estimación');
       } finally {
         setLoading(false);
       }
