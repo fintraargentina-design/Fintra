@@ -98,8 +98,8 @@ export async function GET(req: NextRequest) {
       symbol: p.symbol,
       companyName: p.companyName ?? p.company ?? null,
       price: Number.isFinite(+p.price) ? +p.price : null,
-      mktCap: Number.isFinite(+p.mktCap ?? +p.marketCap)
-        ? (+p.mktCap ?? +p.marketCap)
+      mktCap: Number.isFinite(+(p.mktCap ?? p.marketCap ?? 0))
+        ? +(p.mktCap ?? p.marketCap ?? 0)
         : null,
       beta: Number.isFinite(+p.beta) ? +p.beta : null,
       sector: p.sector ?? null,
