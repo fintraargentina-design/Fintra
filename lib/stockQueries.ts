@@ -111,13 +111,13 @@ export async function searchStockData(symbol: string) {
             company_name: profile.companyName,
             current_price: profile.price,
             market_cap: profile.mktCap,
-            pe_ratio: profile.pe,
-            volume: profile.volume,
+            pe_ratio: undefined, // profile.pe no existe en FMPCompanyProfile
+            volume: undefined, // profile.volume tampoco existe en FMPCompanyProfile
             industry: profile.industry,
-            country: profile.country,
+            country: undefined, // profile.country tampoco existe en FMPCompanyProfile
             sector: profile.sector,
             exchange: profile.exchange,
-            website: profile.website,
+            website: undefined, // profile.website tampoco existe en FMPCompanyProfile
             description: profile.description,
             // ... más campos según necesites
           };
