@@ -596,8 +596,8 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
                   />
                   <Stat 
                     label="Crecimiento FCF" 
-                    value={formatPercent(data.growth[0].growthFreeCashFlow)} 
-                    color="text-green-400"
+                    value={formatPercent(data.growth[0].growthNetIncome)} 
+                    color="text-green-400" 
                   />
                 </div>
               )}
