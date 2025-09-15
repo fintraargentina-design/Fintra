@@ -140,6 +140,11 @@ class StockService {
   async getHistoricalData(symbol: string, days = 30) {
     try {
       const timeSeries = await getDailyTimeSeries(symbol);
+      
+      if (!timeSeries) {
+        return [];
+      }
+      
       const timeSeriesData = timeSeries['Time Series (Daily)'];
       
       if (!timeSeriesData) {
