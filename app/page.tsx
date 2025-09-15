@@ -81,7 +81,10 @@ export default function StockTerminal() {
           setStockConclusion(conclusionData);
         }
       } else {
-        setError(result.error || 'Error al buscar datos');
+        const errorMessage = typeof result.error === 'string' 
+          ? result.error 
+          : result.error?.message || 'Error al buscar datos';
+        setError(errorMessage);
       }
     } catch (e) {
       console.error(e);

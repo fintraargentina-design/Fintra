@@ -140,7 +140,10 @@ export async function searchStockData(symbol: string) {
     // Si llegamos aquí, usar los datos de Supabase (datosData ya está declarado arriba)
     if (datosError) {
       console.error('Error buscando datos en Supabase:', datosError);
-      return { success: false, error: datosError };
+      return { 
+        success: false, 
+        error: datosError.message || 'Error al buscar datos en la base de datos'
+      };
     }
 
     // Remove the duplicate declaration - datosData is already available from line 89
