@@ -159,7 +159,24 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
       
       try {
         const scores = await fmp.scores(symbol);
-        const scoreData = Array.isArray(scores) && scores.length ? scores[0] : scores;
+        const rawScoreData = Array.isArray(scores) && scores.length ? scores[0] : scores;
+        
+        // Convert to FinancialScoreData format
+        const scoreData: FinancialScoreData = {
+          symbol: rawScoreData.symbol,
+          reportedCurrency: rawScoreData.reportedCurrency,
+          altmanZScore: numOrNull(rawScoreData.altmanZScore),
+          piotroskiScore: numOrNull(rawScoreData.piotroskiScore),
+          workingCapital: rawScoreData.workingCapital,
+          totalAssets: rawScoreData.totalAssets,
+          retainedEarnings: rawScoreData.retainedEarnings,
+          ebit: rawScoreData.ebit,
+          marketCap: rawScoreData.marketCap,
+          totalLiabilities: rawScoreData.totalLiabilities,
+          revenue: rawScoreData.revenue,
+          raw: rawScoreData // Store original data
+        };
+        
         setScoresData(scoreData);
       } catch (err: any) {
         setError(err?.message || "Error al cargar datos");
