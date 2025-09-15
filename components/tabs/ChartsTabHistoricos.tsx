@@ -268,15 +268,17 @@ export default function ChartsTabHistoricos({
           type: 'category',
           data: dates,
           boundaryGap: false,
-          axisLine: { onZero: false },
+          axisLine: { 
+            onZero: false,
+            lineStyle: { color: "#475569" }
+          },
           splitLine: { show: false },
           min: 'dataMin',
           max: 'dataMax',
           axisPointer: {
             z: 100
           },
-          axisLabel: { color: "#cbd5e1" },
-          axisLine: { lineStyle: { color: "#475569" } }
+          axisLabel: { color: "#cbd5e1" }
         },
         {
           type: 'category',
