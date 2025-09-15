@@ -361,7 +361,7 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
         const marketCap = numOrNull(p.mktCap);
 
         // Función helper para construir filas
-        const build = (label: string, raw: number | null, unit?: "% " | "x" | "$") => {
+        const build = (label: string, raw: number | null, unit?: "%" | "x" | "$") => {
           const meta = getScoreMeta(label, raw);
           const display = unit === "%" ? fmtPercent(raw) : unit === "x" ? fmtRatio(raw) : unit === "$" ? fmtLargeNumber(raw) : fmtRatio(raw);
           return {
