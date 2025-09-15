@@ -191,10 +191,10 @@ function calculateRiskLevel(data: EstimationData): { level: string; color: strin
     else if (valuation.pb > 2) riskScore += 1;
   }
 
-  if (ratios?.[0]?.debtToEquityRatio) {
+  if (ratios?.[0]?.debtEquityRatio) {
     factors++;
-    if (ratios[0].debtToEquityRatio > 1) riskScore += 2;
-    else if (ratios[0].debtToEquityRatio > 0.5) riskScore += 1;
+    if (ratios[0].debtEquityRatio > 1) riskScore += 2;
+    else if (ratios[0].debtEquityRatio > 0.5) riskScore += 1;
   }
 
   if (factors === 0) {
@@ -553,7 +553,7 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
                 />
                 <Stat 
                   label="Deuda/Equity" 
-                  value={formatRatio(data.ratios?.[0]?.debtToEquityRatio)} 
+                  value={formatRatio(data.ratios?.[0]?.debtEquityRatio)} 
                 />
                 <Stat 
                   label="ROE" 
