@@ -108,12 +108,16 @@ const fmtFullNumber = (v?: number | null) => {
 };
 
 const numOrNull = (x: any): number | null => {
-  if (x === null || x === undefined || x === '') {
-    return null;
-  }
-  
+  if (x === null || x === undefined) return null;
   const n = Number(x);
   return Number.isFinite(n) ? n : null;
+};
+
+// Nueva función helper para campos opcionales
+const numOrUndefined = (x: any): number | undefined => {
+  if (x === null || x === undefined) return undefined;
+  const n = Number(x);
+  return Number.isFinite(n) ? n : undefined;
 };
 
 // Tipo local para los datos financieros (siguiendo el patrón de FundamentalCard)
@@ -183,16 +187,16 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
           symbol: symbol,
           reportedCurrency: scores.raw?.reportedCurrency || 'USD',
           // Usar los nuevos nombres de campos de la API
-          altmanZScore: numOrNull(scores.altmanZ),        // ← Cambio aquí
-          piotroskiScore: numOrNull(scores.piotroski),    // ← Cambio aquí
-          // Usar datos del objeto raw para el resto
-          workingCapital: numOrNull(scores.raw?.workingCapital),
-          totalAssets: numOrNull(scores.raw?.totalAssets),
-          retainedEarnings: numOrNull(scores.raw?.retainedEarnings),
-          ebit: numOrNull(scores.raw?.ebit),
-          marketCap: numOrNull(scores.raw?.marketCap),
-          totalLiabilities: numOrNull(scores.raw?.totalLiabilities),
-          revenue: numOrNull(scores.raw?.revenue),
+          altmanZScore: numOrNull(scores.altmanZ),        // ← Mantener null para campos requeridos
+          piotroskiScore: numOrNull(scores.piotroski),    // ← Mantener null para campos requeridos
+          // Usar numOrUndefined para campos opcionales
+          workingCapital: numOrUndefined(scores.raw?.workingCapital),
+          totalAssets: numOrUndefined(scores.raw?.totalAssets),
+          retainedEarnings: numOrUndefined(scores.raw?.retainedEarnings),
+          ebit: numOrUndefined(scores.raw?.ebit),
+          marketCap: numOrUndefined(scores.raw?.marketCap),
+          totalLiabilities: numOrUndefined(scores.raw?.totalLiabilities),
+          revenue: numOrUndefined(scores.raw?.revenue),
           raw: scores.raw || scores // Mantener datos originales
         };
         
