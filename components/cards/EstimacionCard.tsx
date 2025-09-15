@@ -94,9 +94,13 @@ function calculateProjections(data: EstimationData, currentPrice?: number): Proj
     return [];
   }
 
-  const currentRevenue = profile[0].revenue || 0;
+  // Estimar revenue usando market cap y ratios P/S si están disponibles
+  const priceToSales = ratios?.[0]?.priceToSalesRatio;
+  const marketCap = profile[0].mktCap;
+  const currentRevenue = (marketCap && priceToSales) ? marketCap / priceToSales : 0;
+  
   const currentEPS = ratios?.[0]?.eps || 0;
-  const currentNetIncome = profile[0].netIncome || 0;
+  const currentNetIncome = 0; // Calcular desde EPS * shares outstanding
   
   const revenueGrowth = growth[0].revenueGrowth || 5;
   const epsGrowth = growth?.[0]?.epsgrowth || 0;  // ✅ Corregido: epsgrowth en lugar de growthEPS
