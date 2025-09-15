@@ -367,7 +367,7 @@ export async function getBasicStockData(symbol: string): Promise<StockData | nul
   try {
     const { data, error } = await supabase
       .from('datos_accion')
-      .select('*, datos->dividendos as dividendos_extracted, datos->valoracion as valoracion_extracted')
+      .select('*, datos')
       .eq('symbol', symbol.toUpperCase())
       .order('fecha_de_creacion', { ascending: false })
       .limit(1)
@@ -388,8 +388,8 @@ export async function getBasicStockData(symbol: string): Promise<StockData | nul
     const parsedData = data.datos || {};
     return {
       ...data,
-      dividendos: parsedData?.dividendos || data.dividendos_extracted || null,
-      valoracion: parsedData?.valoracion || data.valoracion_extracted || null
+      dividendos: parsedData?.dividendos || null,
+      valoracion: parsedData?.valoracion || null
     };
   } catch (error) {
     console.error('Error en getBasicStockData:', error);
