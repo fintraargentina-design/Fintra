@@ -101,10 +101,10 @@ async function fetchFactors(symbol: string, signal?: AbortSignal) {
   try {
     // Mantener la conexión como la tenés actualmente (cliente FMP):
     const [ratiosArr, profileArr, growthArrRaw, peersRes] = await Promise.all([
-      fmp.ratios(symbol, { limit: 1, period: 'annual' }, { signal }),
-      fmp.profile(symbol, undefined, { signal }),
-      fmp.growth(symbol, { period: 'annual', limit: 5 }, { signal }),
-      fmp.peers(symbol, undefined, { signal }),
+      fmp.ratios(symbol, { limit: 1, period: 'annual' }),
+      fmp.profile(symbol),
+      fmp.growth(symbol, { period: 'annual', limit: 5 }),
+      fmp.peers(symbol),
     ]);
 
     // peers list (API de FMP suele retornar { peers: [...] })
