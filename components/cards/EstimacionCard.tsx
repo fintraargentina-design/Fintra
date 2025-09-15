@@ -88,7 +88,7 @@ function ProjectionRow({ label, data, formatter }: {
 
 // Función para calcular proyecciones basadas en datos reales
 function calculateProjections(data: EstimationData, currentPrice?: number): ProjectionData[] {
-  const { growth, ratios, profile } = data;
+  const { growth, ratios, profile, valuation } = data;
   
   if (!growth?.[0] || !profile?.[0]) {
     return [];
@@ -107,7 +107,7 @@ function calculateProjections(data: EstimationData, currentPrice?: number): Proj
   
   const revenueGrowth = growth[0].revenueGrowth || 5;
   if (!valuation?.forwardPe || !currentPrice) {
-    return null;
+    return [];
   }
   
   const epsGrowth = growth?.[0]?.epsgrowth || 0;
