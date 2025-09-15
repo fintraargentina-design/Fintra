@@ -104,7 +104,7 @@ class StockService {
    * @param {string} query - Consulta de búsqueda
    * @returns {Promise<Array>} Resultados de búsqueda
    */
-  async searchStocks(query) {
+  async searchStocks(query: string) {
     try {
       const results = await searchSymbols(query);
       
