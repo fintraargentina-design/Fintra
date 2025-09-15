@@ -437,11 +437,11 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
                     {data.profile[0].companyName} ({data.profile[0].symbol})
                   </div>
                   <div className="text-xs">
-                    {data.profile[0].industry} • {data.profile[0].sector} • {data.profile[0].country}
+                    {data.profile[0].industry} • {data.profile[0].sector} • {data.profile[0].exchange}
                   </div>
-                  {data.profile[0].marketCap && (
+                  {data.profile[0].mktCap && (
                     <div className="text-xs mt-1">
-                      Market Cap: {formatBillions(data.profile[0].marketCap)}
+                      Market Cap: {formatBillions(data.profile[0].mktCap)}
                     </div>
                   )}
                 </div>
