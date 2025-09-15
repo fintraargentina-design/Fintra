@@ -203,7 +203,7 @@ export default function ChartsTabHistoricos({
           obj[['left', 'right'][+(pos[0] < size.viewSize[0] / 2)]] = 30;
           return obj;
         },
-        formatter: function (param) {
+        formatter: function (param: any[]) {
           const data0 = param[0];
           if (!data0 || !data0.data) return '';
           
