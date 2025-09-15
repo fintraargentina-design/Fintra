@@ -128,7 +128,7 @@ export async function GET(req: Request) {
           symbol: String(p.symbol ?? "").toUpperCase(),
           companyName: p.companyName ?? p.company ?? undefined,
           price: Number.isFinite(+p.price) ? +p.price : null,
-          mktCap: Number.isFinite(+p.mktCap ?? +p.marketCap) ? (+p.mktCap ?? +p.marketCap) : null,
+          mktCap: Number.isFinite(+(p.mktCap ?? p.marketCap ?? 0)) ? +(p.mktCap ?? p.marketCap ?? 0) : null,
         }))
         .filter((d) => !!d.symbol && clean.includes(d.symbol));
     }
