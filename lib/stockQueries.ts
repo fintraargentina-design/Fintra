@@ -118,7 +118,7 @@ export async function searchStockData(symbol: string) {
             sector: profile.sector,
             exchange: profile.exchange,
             website: undefined, // profile.website tampoco existe en FMPCompanyProfile
-            description: profile.description,
+            description: undefined, // profile.description tampoco existe en FMPCompanyProfile
             // ... más campos según necesites
           };
           
