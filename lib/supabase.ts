@@ -48,6 +48,25 @@ export interface StockBasicData {
 }
 
 // Actualizar la consulta en getCompleteStockData
+export interface StockAnalysisData {
+  peRatio?: number;
+  eps?: number;
+  dividendYield?: number;
+  week52High?: number;
+  week52Low?: number;
+  recommendation?: string;
+  targetPrice?: number;
+  analystRating?: string;
+  performance?: {
+    day1?: number;
+    week1?: number;
+    month1?: number;
+    month3?: number;
+    month6?: number;
+    year1?: number;
+    ytd?: number;
+  };
+}
 export async function getCompleteStockData(symbol: string) {
   try {
     const [datosResult, analisisResult] = await Promise.all([
@@ -105,14 +124,23 @@ export async function getCompleteStockData(symbol: string) {
     } : null
 
     const analysisData: StockAnalysisData | null = analisisResult.data ? {
-      peRatio: parseFloat(analisisResult.data.peRatio) || 0,
-      eps: parseFloat(analisisResult.data.eps) || 0,
-      dividendYield: parseFloat(analisisResult.data.dividendYield) || 0,
-      week52High: parseFloat(analisisResult.data.week52High) || 0,
-      week52Low: parseFloat(analisisResult.data.week52Low) || 0,
-      recommendation: analisisResult.data.recommendation || 'N/A',
-      targetPrice: parseFloat(analisisResult.data.targetPrice) || 0,
-      analystRating: analisisResult.data.analystRating || 'N/A'
+      peRatio: parseFloat(analisisResult.data.informe?.peRatio) || undefined,
+      eps: parseFloat(analisisResult.data.informe?.eps) || undefined,
+      dividendYield: parseFloat(analisisResult.data.informe?.dividendYield) || undefined,
+      week52High: parseFloat(analisisResult.data.informe?.week52High) || undefined,
+      week52Low: parseFloat(analisisResult.data.informe?.week52Low) || undefined,
+      recommendation: analisisResult.data.informe?.recommendation || undefined,
+      targetPrice: parseFloat(analisisResult.data.informe?.targetPrice) || undefined,
+      analystRating: analisisResult.data.informe?.analystRating || undefined,
+      performance: {
+        day1: parseFloat(analisisResult.data.informe?.performance?.day1) || undefined,
+        week1: parseFloat(analisisResult.data.informe?.performance?.week1) || undefined,
+        month1: parseFloat(analisisResult.data.informe?.performance?.month1) || undefined,
+        month3: parseFloat(analisisResult.data.informe?.performance?.month3) || undefined,
+        month6: parseFloat(analisisResult.data.informe?.performance?.month6) || undefined,
+        year1: parseFloat(analisisResult.data.informe?.performance?.year1) || undefined,
+        ytd: parseFloat(analisisResult.data.informe?.performance?.ytd) || undefined
+      }
     } : null
 
     const performanceData: StockPerformanceData | null = analisisResult.data ? {
