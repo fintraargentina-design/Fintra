@@ -62,65 +62,105 @@ export default function AIAnalysisButton({
     });
 
     try {
-      // Recopilar todos los datos de las tarjetas
+      // Acceder correctamente a los datos de FMP
+      const fmpData = overviewData?.datos || {};
+      const fundamentales = fundamentalData || fmpData.fundamentales || {};
+      const valoracion = valoracionData || fmpData.valoracion || {};
+      const financialScores = financialScoresData || fmpData.financialScores || {};
+      
+      // NUEVO: Acceder a los scores desde las APIs correctas
+      const scoresData = await fetch(`/api/fmp/financial-scores?symbol=${symbol}`).then(r => r.json()).catch(() => ({}));
+      const keyMetricsData = await fetch(`/api/fmp/key-metrics?symbol=${symbol}`).then(r => r.json()).catch(() => []);
+      const ratiosData = await fetch(`/api/fmp/ratios?symbol=${symbol}`).then(r => r.json()).catch(() => []);
+      
+      // Extraer datos de las respuestas de FMP
+      const latestKeyMetrics = Array.isArray(keyMetricsData) ? keyMetricsData[0] : {};
+      const latestRatios = Array.isArray(ratiosData) ? ratiosData[0] : {};
+      
+      // Debug: mostrar estructura de datos disponibles
+      console.log('Debug - overviewData:', overviewData);
+      console.log('Debug - fundamentalData:', fundamentalData);
+      console.log('Debug - valoracionData:', valoracionData);
+      console.log('Debug - financialScoresData:', financialScoresData);
+      console.log('Debug - scoresData:', scoresData);
+      console.log('Debug - keyMetricsData:', latestKeyMetrics);
+      console.log('Debug - ratiosData:', latestRatios);
+      
+      // Construir el objeto con datos financieros completos
       const globalData = {
         symbol,
         timestamp: new Date().toISOString(),
-        analysisType: 'global_comprehensive',
+        chartType: null,
         
-        // Datos fundamentales
-        fundamental: fundamentalData ? {
-          metrics: fundamentalData.metrics || {},
-          summary: fundamentalData.summary || '',
-          ratios: fundamentalData.ratios || {}
-        } : null,
+        scores: {
+          altmanZScore: scoresData?.altmanZ || financialScores?.altmanZScore || fundamentales?.altmanZScore || null,
+          altmanInterpretation: scoresData?.altmanInterpretation || financialScores?.altmanInterpretation || null,
+          piotroskiScore: scoresData?.piotroski || financialScores?.piotroskiScore || fundamentales?.piotroskiScore || null,
+          piotroskiInterpretation: scoresData?.piotroskiInterpretation || financialScores?.piotroskiInterpretation || null
+        },
         
-        // Datos de valoración
-        valoracion: valoracionData ? {
-          currentPrice: valoracionData.currentPrice || 0,
-          targetPrice: valoracionData.targetPrice || 0,
-          metrics: valoracionData.metrics || {},
-          valuation: valoracionData.valuation || {}
-        } : null,
+        financialData: {
+          // Datos de Key Metrics (donde están totalAssets, revenue, etc.)
+          totalAssets: latestKeyMetrics?.totalAssets || fundamentales?.totalAssets || null,
+          totalLiabilities: latestKeyMetrics?.totalLiabilities || fundamentales?.totalLiabilities || null,
+          revenue: latestKeyMetrics?.revenue || latestRatios?.revenue || fundamentales?.revenue || valoracion?.revenue || null,
+          ebit: latestKeyMetrics?.ebit || latestRatios?.ebit || fundamentales?.ebit || null,
+          marketCap: latestKeyMetrics?.marketCap || valoracion?.marketCap || overviewData?.market_cap || null,
+          workingCapital: latestKeyMetrics?.workingCapital || fundamentales?.workingCapital || null,
+          retainedEarnings: latestKeyMetrics?.retainedEarnings || fundamentales?.retainedEarnings || null,
+          
+          // Datos adicionales de ratios y key metrics
+          totalRevenue: latestKeyMetrics?.totalRevenue || latestKeyMetrics?.revenue || fundamentales?.totalRevenue || null,
+          operatingIncome: latestKeyMetrics?.operatingIncome || fundamentales?.operatingIncome || null,
+          netIncome: latestKeyMetrics?.netIncome || fundamentales?.netIncome || null,
+          totalDebt: latestKeyMetrics?.totalDebt || fundamentales?.totalDebt || null,
+          totalStockholderEquity: latestKeyMetrics?.totalStockholderEquity || fundamentales?.totalStockholderEquity || null,
+          freeCashFlow: latestKeyMetrics?.freeCashFlow || latestRatios?.freeCashFlow || fundamentales?.freeCashFlow || null,
+          currentRatio: latestRatios?.currentRatio || fundamentales?.currentRatio || null,
+          quickRatio: latestRatios?.quickRatio || fundamentales?.quickRatio || null,
+          debtToEquity: latestRatios?.debtToEquity || fundamentales?.debtToEquity || null,
+          roe: latestRatios?.returnOnEquity || fundamentales?.roe || null,
+          roic: latestRatios?.returnOnCapitalEmployed || fundamentales?.roic || null,
+          netMargin: latestRatios?.netProfitMargin || fundamentales?.netMargin || null,
+          grossMargin: latestRatios?.grossProfitMargin || fundamentales?.grossMargin || null,
+          
+          // Datos del dashboard que se ven en la imagen
+          bookValuePerShare: latestKeyMetrics?.bookValuePerShare || latestRatios?.bookValuePerShare || null,
+          priceToBookRatio: latestRatios?.priceToBookRatio || valoracion?.pb || null,
+          priceEarningsRatio: latestRatios?.priceEarningsRatio || valoracion?.pe || null,
+          enterpriseValue: latestKeyMetrics?.enterpriseValue || null,
+          evToEbitda: latestRatios?.enterpriseValueMultiple || valoracion?.evEbitda || null
+        },
         
-        // Scores financieros
-        financialScores: financialScoresData ? {
-          altmanZScore: financialScoresData.altmanZScore || 0,
-          piotroskiScore: financialScoresData.piotroskiScore || 0,
-          metrics: financialScoresData.metrics || {}
-        } : null,
+        summary: {
+          financialStrength: financialScores?.financialStrength || null,
+          hasAltmanScore: Boolean(scoresData?.altmanZ || financialScores?.altmanZScore || fundamentales?.altmanZScore),
+          hasPiotroskiScore: Boolean(scoresData?.piotroski || financialScores?.piotroskiScore || fundamentales?.piotroskiScore)
+        },
         
-        // Datos de overview
-        overview: overviewData ? {
-          profile: overviewData.profile || {},
-          marketData: overviewData.marketData || {},
-          keyMetrics: overviewData.keyMetrics || {}
-        } : null,
-        
-        // Datos de estimación
-        estimacion: estimacionData ? {
-          estimates: estimacionData.estimates || [],
-          consensus: estimacionData.consensus || {},
-          revisions: estimacionData.revisions || []
-        } : null,
-        
-        // Datos de dividendos
-        dividendos: dividendosData ? {
-          history: dividendosData.history || [],
-          yield: dividendosData.yield || 0,
-          growth: dividendosData.growth || 0
-        } : null,
-        
-        // Datos de desempeño
-        desempeno: desempenoData ? {
-          performance: desempenoData.performance || {},
-          returns: desempenoData.returns || {},
-          volatility: desempenoData.volatility || 0
-        } : null
+        // Agregar datos adicionales para el análisis
+        rawData: {
+          fundamentales,
+          valoracion,
+          financialScores,
+          estimacion: estimacionData,
+          dividendos: dividendosData,
+          desempeno: desempenoData,
+          // Nuevos datos de FMP APIs
+          scoresFromAPI: scoresData,
+          keyMetricsFromAPI: latestKeyMetrics,
+          ratiosFromAPI: latestRatios
+        }
       };
 
-      console.log('Sending global analysis data to n8n:', globalData);
-
+      console.log('Sending complete FMP data to n8n:', globalData);
+      console.log('Available data sources:', {
+        fundamentalData: !!fundamentalData,
+        valoracionData: !!valoracionData,
+        financialScoresData: !!financialScoresData,
+        overviewData: !!overviewData
+      });
+  
       const response = await fetch('https://n8n.srv904355.hstgr.cloud/webhook/7fc6b803-531d-45fe-88fa-35df9f21f54d', {
         method: 'POST',
         headers: {

@@ -26,7 +26,7 @@ export interface AnalysisState {
  * @returns Promise con la respuesta del análisis
  */
 export async function analyzeNewsWithAI(data: NewsAnalysisData): Promise<AnalysisResponse> {
-  const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
+  const webhookUrl = 'https://n8n.srv904355.hstgr.cloud/webhook/19d4e091-5368-4b5e-b4b3-71257abbd92d';//process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
   
   if (!webhookUrl) {
     throw new Error('URL del webhook no configurada');
