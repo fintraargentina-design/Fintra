@@ -1,9 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { BarChart3, TrendingUp, Target, FileText } from "lucide-react"
 import AIAnalysisButton from "@/components/AIAnalysisButton"
-
-// Definir los tipos que faltan
-type TabKey = 'datos' | 'chart' | 'estimacion' | 'resumen';
+import type { TabKey } from "@/app/page"
 
 interface NavigationBarProps {
   activeTab: TabKey;

@@ -15,7 +15,7 @@ import EstimacionCard from '@/components/cards/EstimacionCard';
 import Header from '@/components/layout/Header';
 import FinancialScoresCard from '@/components/cards/FinancialScoresCard';
 
-type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits';
+export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits';
 
 export default function StockTerminal() {
   const [selectedStock, setSelectedStock] = useState<any>('AAPL'); // puede ser string u objeto con {symbol}
