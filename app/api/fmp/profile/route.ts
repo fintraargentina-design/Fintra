@@ -16,7 +16,7 @@ const QuerySchema = z.object({
     .transform((s) => s.toUpperCase()),
 });
 
-export const revalidate = 60 * 60 * 12; // 12h
+export const revalidate = 43200; // 12 horas en segundos
 
 export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;

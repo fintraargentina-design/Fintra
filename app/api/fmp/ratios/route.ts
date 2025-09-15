@@ -24,7 +24,7 @@ function buildUrl(path: string, params: Record<string, string | number>) {
   return url.toString();
 }
 
-export const revalidate = 60 * 60 * 12;
+export const revalidate = 43200; // 12 horas en segundos
 
 export async function GET(req: Request) {
   if (!FMP_API_KEY) {

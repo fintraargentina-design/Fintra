@@ -5,7 +5,7 @@ import { fmpGet } from "@/lib/fmp/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 60 * 60; // 1h
+export const revalidate = 3600; // 1 hora en segundos
 
 // ─────────────────────────────────────────────
 // Tipos
