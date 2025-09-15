@@ -3,6 +3,12 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, AlertTriangle, Star, Target } from "lucide-react";
 import { useEffect, useRef } from "react";
 
+declare global {
+  interface Window {
+    Chart?: any;
+  }
+}
+
 interface EstimacionTabProps {
   selectedStock?: any;
 }
@@ -99,7 +105,7 @@ export default function EstimacionTab({ selectedStock }: EstimacionTabProps) {
 
   useEffect(() => {
     const loadChartJS = async () => {
-      if (typeof window !== 'undefined' && !window.Chart) {
+      if (typeof window !== 'undefined' && !(window as any).Chart) {
         const script = document.createElement('script');
         script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
         script.async = true;
