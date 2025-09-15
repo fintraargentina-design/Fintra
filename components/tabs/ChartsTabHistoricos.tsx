@@ -340,7 +340,7 @@ export default function ChartsTabHistoricos({
             borderColor0: undefined
           },
           tooltip: {
-            formatter: function (param) {
+            formatter: function (param: any) {
               const data = param.data;
               return [
                 param.name + '<hr size=1 style="margin: 3px 0">',
