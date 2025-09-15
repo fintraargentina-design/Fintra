@@ -57,27 +57,7 @@ export async function getCompleteStockData(symbol: string) {
         .select(`
           symbol,
           fecha_de_creacion,
-          datos->>'name' as name,
-          datos->>'price' as price,
-          datos->>'change' as change,
-          datos->>'changePercent' as changePercent,
-          datos->'desempeno'->>'averageVolume' as volume,
-          datos->>'high' as high,
-          datos->>'low' as low,
-          datos->>'open' as open,
-          datos->>'close' as close,
-          datos->'valoracion'->>'marketCap' as marketCap,
-          datos->>'industry' as industry,
-          datos->>'country' as country,
-          datos->>'sector' as sector,
-          datos->>'exchange' as exchange,
-          datos->'valoracion'->>'pe' as peRatio,
-          datos->>'website' as website,
-          datos->>'description' as description,
-          datos->>'moat' as competitive_advantage,
-          datos->>'isEasy' as business_complexity,
-          datos->'dividendos' as dividendos_data,
-          datos->'valoracion' as valoracion_data
+          datos
         `)
         .eq('symbol', symbol.toUpperCase())
         .order('fecha_de_creacion', { ascending: false })
@@ -90,21 +70,7 @@ export async function getCompleteStockData(symbol: string) {
         .select(`
           symbol,
           fecha_de_creacion,
-          informe->>'peRatio' as peRatio,
-          informe->>'eps' as eps,
-          informe->>'dividendYield' as dividendYield,
-          informe->>'week52High' as week52High,
-          informe->>'week52Low' as week52Low,
-          informe->>'recommendation' as recommendation,
-          informe->>'targetPrice' as targetPrice,
-          informe->>'analystRating' as analystRating,
-          informe->'performance'->>'day1' as perf_day1,
-          informe->'performance'->>'week1' as perf_week1,
-          informe->'performance'->>'month1' as perf_month1,
-          informe->'performance'->>'month3' as perf_month3,
-          informe->'performance'->>'month6' as perf_month6,
-          informe->'performance'->>'year1' as perf_year1,
-          informe->'performance'->>'ytd' as perf_ytd
+          informe
         `)
         .eq('symbol', symbol.toUpperCase())
         .order('fecha_de_creacion', { ascending: false })
@@ -115,27 +81,27 @@ export async function getCompleteStockData(symbol: string) {
     // Procesar y estructurar los datos
     const basicData: StockBasicData | null = datosResult.data ? {
       symbol: datosResult.data.symbol,
-      name: datosResult.data.name || symbol,
-      price: parseFloat(datosResult.data.price) || 0,
-      change: parseFloat(datosResult.data.change) || 0,
-      changePercent: parseFloat(datosResult.data.changePercent) || 0,
-      volume: parseInt(datosResult.data.volume) || 0,
-      high: parseFloat(datosResult.data.high) || 0,
-      low: parseFloat(datosResult.data.low) || 0,
-      open: parseFloat(datosResult.data.open) || 0,
-      close: parseFloat(datosResult.data.close) || 0,
-      marketCap: parseInt(datosResult.data.marketCap) || undefined,
-      industry: datosResult.data.industry || undefined,
-      country: datosResult.data.country || undefined,
-      sector: datosResult.data.sector || undefined,
-      exchange: datosResult.data.exchange || undefined,
-      peRatio: parseFloat(datosResult.data.peRatio) || undefined,
-      website: datosResult.data.website || undefined,
-      description: datosResult.data.description || undefined,
-      competitive_advantage: datosResult.data.competitive_advantage || undefined,
-      business_complexity: datosResult.data.business_complexity || undefined,
-      dividendos: datosResult.data.dividendos_data || undefined,
-      valoracion: datosResult.data.valoracion_data || undefined  // Agregar esta línea
+      name: datosResult.data.datos?.name || symbol,
+      price: parseFloat(datosResult.data.datos?.price) || 0,
+      change: parseFloat(datosResult.data.datos?.change) || 0,
+      changePercent: parseFloat(datosResult.data.datos?.changePercent) || 0,
+      volume: parseInt(datosResult.data.datos?.desempeno?.averageVolume) || 0,
+      high: parseFloat(datosResult.data.datos?.high) || 0,
+      low: parseFloat(datosResult.data.datos?.low) || 0,
+      open: parseFloat(datosResult.data.datos?.open) || 0,
+      close: parseFloat(datosResult.data.datos?.close) || 0,
+      marketCap: parseInt(datosResult.data.datos?.valoracion?.marketCap) || undefined,
+      industry: datosResult.data.datos?.industry || undefined,
+      country: datosResult.data.datos?.country || undefined,
+      sector: datosResult.data.datos?.sector || undefined,
+      exchange: datosResult.data.datos?.exchange || undefined,
+      peRatio: parseFloat(datosResult.data.datos?.valoracion?.pe) || undefined,
+      website: datosResult.data.datos?.website || undefined,
+      description: datosResult.data.datos?.description || undefined,
+      competitive_advantage: datosResult.data.datos?.moat || undefined,
+      business_complexity: datosResult.data.datos?.isEasy || undefined,
+      dividendos: datosResult.data.datos?.dividendos || undefined,
+      valoracion: datosResult.data.datos?.valoracion || undefined
     } : null
 
     const analysisData: StockAnalysisData | null = analisisResult.data ? {
