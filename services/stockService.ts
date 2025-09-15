@@ -131,7 +131,13 @@ class StockService {
    * @param {number} days - Número de días hacia atrás
    * @returns {Promise<Array>} Datos históricos
    */
-  async getHistoricalData(symbol, days = 30) {
+  /**
+   * Obtiene datos históricos de una acción
+   * @param {string} symbol - Símbolo de la acción
+   * @param {number} days - Número de días de historial
+   * @returns {Promise<Array>} Datos históricos
+   */
+  async getHistoricalData(symbol: string, days = 30) {
     try {
       const timeSeries = await getDailyTimeSeries(symbol);
       const timeSeriesData = timeSeries['Time Series (Daily)'];
