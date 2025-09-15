@@ -344,7 +344,8 @@ export async function searchStockData(symbol: string) {
       analysisData: analysisData as StockAnalysis,
       performanceData: performanceData as StockPerformance,
       reportData: processedReport,
-      success: true
+      success: true,
+      error: null
     };
 
   } catch (error) {
