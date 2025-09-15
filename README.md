@@ -3,7 +3,7 @@
 
 # Fintra: Terminal Financiero de Acciones
 
-Fintra es una aplicación web de código abierto que actúa como un *terminal financiero* para consultar, analizar y visualizar información sobre acciones. Combina datos en tiempo real de proveedores públicos (Financial Modeling Prep y Alpha Vantage) con una base de datos propia en Supabase para enriquecer la experiencia del usuario. Está construida en **Next.js 15** con TypeScript, Tailwind CSS y Radix UI, y se despliega fácilmente en Vercel.
+Fintra es una aplicación web que actúa como un *terminal financiero* para consultar, analizar y visualizar información sobre acciones. Combina datos en tiempo real de proveedores públicos (Financial Modeling Prep y Alpha Vantage) con una base de datos propia en Supabase para enriquecer la experiencia del usuario. Está construida en **Next.js 15** con TypeScript, Tailwind CSS y Radix UI, y se despliega fácilmente en Vercel.
 
 ## Tabla de contenidos
 
