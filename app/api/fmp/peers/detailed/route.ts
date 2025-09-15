@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
       price: Number.isFinite(+p.price) ? +p.price : null,
       mktCap: Number.isFinite(+(p.mktCap ?? p.marketCap ?? 0))
         ? +(p.mktCap ?? p.marketCap ?? 0)
-        : null,
+        : 0,
       beta: Number.isFinite(+p.beta) ? +p.beta : null,
       sector: p.sector ?? null,
       industry: p.industry ?? null,

@@ -410,11 +410,11 @@ export async function getStockAnalysisData(symbol: string): Promise<StockAnalysi
     // Después de la consulta de análisis, agregar:
     console.log('Resultado de análisis:', {
       symbol: symbol.toUpperCase(),
-      hasData: !!analysisData,
-      hasError: !!analysisError,
-      errorType: typeof analysisError,
-      errorCode: analysisError?.code,
-      dataKeys: analysisData ? Object.keys(analysisData) : 'No data'
+      hasData: !!data,
+      hasError: !!error,
+      errorType: typeof error,
+      errorCode: error?.code,
+      dataKeys: data ? Object.keys(data) : 'No data'
     });
     return data;
   } catch (error) {

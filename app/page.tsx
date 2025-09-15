@@ -67,7 +67,7 @@ export default function StockTerminal() {
     setError('');
     try {
       await registerStockSearch(sym);
-      const result = await searchStockData(sym, activeTab);
+      const result = await searchStockData(sym);
 
       if (result.success) {
         setStockBasicData(result.basicData);
