@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import { fmp } from './fmp/client';
 
 export { supabase, registerStockSearch, getStockProyecciones } from './supabase';
-export type { StockProyeccionData } from './supabase';
+export type { StockProyeccionRow } from './supabase';
 
 // Interfaces para los tipos de datos
 export interface StockData {
