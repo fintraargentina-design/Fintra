@@ -197,7 +197,7 @@ export default function ChartsTabHistoricos({
           color: '#000'
         },
         position: function (pos: [number, number], params: any, el: HTMLElement, elRect: DOMRect, size: { viewSize: [number, number] }) {
-          const obj: { top: number; left?: number; right?: number } = {
+          const obj: { top: number; [key: string]: number } = {
             top: 10
           };
           obj[['left', 'right'][+(pos[0] < size.viewSize[0] / 2)]] = 30;
