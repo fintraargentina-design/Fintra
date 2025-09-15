@@ -415,9 +415,6 @@ export async function getStockAnalysisData(symbol: string): Promise<StockAnalysi
     console.log('Resultado de análisis:', {
       symbol: symbol.toUpperCase(),
       hasData: !!data,
-      hasError: !!error,
-      errorType: typeof error,
-      errorCode: error?.code,
       dataKeys: data ? Object.keys(data) : 'No data'
     });
     return data;
