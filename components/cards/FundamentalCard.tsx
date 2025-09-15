@@ -357,7 +357,7 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
         const equityCagr = cagrFromGrowthSeries(equityGrowthRates);
         
         // Obtener bookValuePerShare de keyMetrics y marketCap de profile
-        const bookValuePerShare = numOrNull(km.tangibleBookValuePerShareTTM);
+        const bookValuePerShare = numOrNull(km.bookValuePerShare);
         const marketCap = numOrNull(p.mktCap);
 
         // Función helper para construir filas
