@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { fmp } from "@/lib/fmp/client";
-
+import type { FMPFinancialRatio, FMPIncomeStatementGrowth, FMPKeyMetrics, FMPCashFlowStatement, FMPCompanyProfile, FMPBalanceSheetGrowth } from "@/lib/fmp/types";
 
 echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 const ReactECharts = dynamic(() => import("echarts-for-react/lib/core"), { ssr: false });
@@ -318,13 +318,13 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
           fmp.balanceSheetGrowth(symbol, { period: "annual", limit: 5 }), // Nueva llamada para CAGR patrimonio
         ]);
 
-        // Procesar datos
-        const r = Array.isArray(ratiosData) && ratiosData.length ? ratiosData[0] : {};
-        const g = Array.isArray(growthData) ? growthData : [];
-        const km = Array.isArray(keyMetricsData) && keyMetricsData.length ? keyMetricsData[0] : {};
-        const cf = Array.isArray(cashflowData) && cashflowData.length ? cashflowData[0] : {};
-        const p = Array.isArray(profileData) && profileData.length ? profileData[0] : {};
-        const bsg = Array.isArray(balanceSheetGrowthData) ? balanceSheetGrowthData : []; // Datos de balance sheet growth
+        // Procesar datos con tipado correcto
+        const r: Partial<FMPFinancialRatio> = Array.isArray(ratiosData) && ratiosData.length ? ratiosData[0] : {};
+        const g: FMPIncomeStatementGrowth[] = Array.isArray(growthData) ? growthData : [];
+        const km: Partial<FMPKeyMetrics> = Array.isArray(keyMetricsData) && keyMetricsData.length ? keyMetricsData[0] : {};
+        const cf: Partial<FMPCashFlowStatement> = Array.isArray(cashflowData) && cashflowData.length ? cashflowData[0] : {};
+        const p: Partial<FMPCompanyProfile> = Array.isArray(profileData) && profileData.length ? profileData[0] : {};
+        const bsg: FMPBalanceSheetGrowth[] = Array.isArray(balanceSheetGrowthData) ? balanceSheetGrowthData : []; // Datos de balance sheet growth
 
         // Normalizar valores
         const roe = pctOrNull(r.returnOnEquity);
