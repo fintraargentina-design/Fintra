@@ -98,7 +98,6 @@ export default function StockTerminal() {
       if (!error) setUser(null);
     } else {
       // aquí podrías redirigir a login
-      console.log('Redirigir a login/signup');
     }
   };
 

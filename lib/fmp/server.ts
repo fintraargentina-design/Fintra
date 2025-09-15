@@ -6,9 +6,7 @@ const BASE =
   "https://financialmodelingprep.com";
 const API_KEY = process.env.FMP_API_KEY; // sólo server
 
-if (!API_KEY) {
-  console.warn("[FMP] FMP_API_KEY no configurada en el servidor (.env).");
-}
+console.warn("[FMP] FMP_API_KEY no configurada en el servidor (.env).");
 
 export type Query = Record<string, string | number | boolean | undefined>;
 

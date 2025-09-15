@@ -78,9 +78,9 @@ export default function AIAnalysisButton({
       const latestRatios = Array.isArray(ratiosData) ? ratiosData[0] : {};
       
       // Debug: mostrar estructura de datos disponibles
-      console.log('Debug - overviewData:', overviewData);
-      console.log('Debug - fundamentalData:', fundamentalData);
-      console.log('Debug - valoracionData:', valoracionData);
+      // console.log('Debug - overviewData:', overviewData); // Eliminar en producción
+      // console.log('Debug - fundamentalData:', fundamentalData);
+      // console.log('Debug - valoracionData:', valoracionData);
       console.log('Debug - financialScoresData:', financialScoresData);
       console.log('Debug - scoresData:', scoresData);
       console.log('Debug - keyMetricsData:', latestKeyMetrics);
