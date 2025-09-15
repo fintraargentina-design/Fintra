@@ -261,11 +261,12 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
       setError(null);
       
       try {
+        const symbol = selectedStock.symbol!; // Non-null assertion since we checked above
         const [valuationData, ratiosData, growthData, profileData] = await Promise.all([
-          fmp.valuation(selectedStock.symbol).catch(() => null),
-          fmp.ratios(selectedStock.symbol, { limit: 1 }).catch(() => null),
-          fmp.growth(selectedStock.symbol, { limit: 1 }).catch(() => null),
-          fmp.profile(selectedStock.symbol).catch(() => null)
+          fmp.valuation(symbol).catch(() => null),
+          fmp.ratios(symbol, { limit: 1 }).catch(() => null),
+          fmp.growth(symbol, { limit: 1 }).catch(() => null),
+          fmp.profile(symbol).catch(() => null)
         ]);
 
         setData({
