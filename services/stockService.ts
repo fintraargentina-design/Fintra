@@ -152,7 +152,7 @@ class StockService {
       }
 
       const dates = Object.keys(timeSeriesData)
-        .sort((a, b) => new Date(b) - new Date(a))
+        .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
         .slice(0, days);
 
       return dates.map(date => ({
