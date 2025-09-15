@@ -591,7 +591,7 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
                   />
                   <Stat 
                     label="Crecimiento EBITDA" 
-                    value={formatPercent(data.growth[0].growthEBITDA)} 
+                    value={formatPercent(data.growth[0].growthOperatingIncome)} 
                     color="text-green-400"
                   />
                   <Stat 
