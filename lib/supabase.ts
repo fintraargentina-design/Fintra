@@ -67,6 +67,16 @@ export interface StockAnalysisData {
     ytd?: number;
   };
 }
+
+export interface StockPerformanceData {
+  day1?: number;
+  week1?: number;
+  month1?: number;
+  month3?: number;
+  month6?: number;
+  year1?: number;
+  ytd?: number;
+}
 export async function getCompleteStockData(symbol: string) {
   try {
     const [datosResult, analisisResult] = await Promise.all([
@@ -144,13 +154,13 @@ export async function getCompleteStockData(symbol: string) {
     } : null
 
     const performanceData: StockPerformanceData | null = analisisResult.data ? {
-      day1: parseFloat(analisisResult.data.perf_day1) || 0,
-      week1: parseFloat(analisisResult.data.perf_week1) || 0,
-      month1: parseFloat(analisisResult.data.perf_month1) || 0,
-      month3: parseFloat(analisisResult.data.perf_month3) || 0,
-      month6: parseFloat(analisisResult.data.perf_month6) || 0,
-      year1: parseFloat(analisisResult.data.perf_year1) || 0,
-      ytd: parseFloat(analisisResult.data.perf_ytd) || 0
+      day1: parseFloat(analisisResult.data.informe?.performance?.day1) || undefined,
+      week1: parseFloat(analisisResult.data.informe?.performance?.week1) || undefined,
+      month1: parseFloat(analisisResult.data.informe?.performance?.month1) || undefined,
+      month3: parseFloat(analisisResult.data.informe?.performance?.month3) || undefined,
+      month6: parseFloat(analisisResult.data.informe?.performance?.month6) || undefined,
+      year1: parseFloat(analisisResult.data.informe?.performance?.year1) || undefined,
+      ytd: parseFloat(analisisResult.data.informe?.performance?.ytd) || undefined
     } : null
 
     return {
