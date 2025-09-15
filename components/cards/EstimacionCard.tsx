@@ -106,7 +106,7 @@ function calculateProjections(data: EstimationData, currentPrice?: number): Proj
   const currentNetIncome = 0; // Calcular desde EPS * shares outstanding
   
   const revenueGrowth = growth[0].revenueGrowth || 5;
-  const epsGrowth = growth?.[0]?.epsgrowth || 0;  // ✅ Corregido: epsgrowth en lugar de growthEPS
+  const epsGrowth = growth?.[0]?.epsgrowth || 0;
   const baseMultiplier = 1 + (epsGrowth / 100);
   const netIncomeGrowth = growth[0].growthNetIncome || 6;
 
