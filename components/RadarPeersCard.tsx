@@ -191,7 +191,7 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
   // Estados
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const chartRef = useRef<any>(null);
+  const [chartInstance, setChartInstance] = useState<any>(null);
 
   const [main, setMain] = useState<{ symbol: string; label: string; radarData: Record<string, number> } | null>(null);
   const [peer, setPeer] = useState<{ symbol: string; label: string; radarData: Record<string, number> } | null>(null);
@@ -421,13 +421,13 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
         {main ? (
           <div className="h-96">
             <ReactEChartsCore
-              ref={chartRef}
               echarts={echarts as any}
               option={option as any}
               notMerge
               lazyUpdate
               style={{ height: '100%', width: '100%' }}
               opts={{ renderer: 'canvas' }}
+              onChartReady={(chart: any) => setChartInstance(chart)}
             />
           </div>
         ) : (
