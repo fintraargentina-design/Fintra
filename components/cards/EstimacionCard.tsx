@@ -224,7 +224,7 @@ function calculateTargetPrices(data: EstimationData, currentPrice?: number) {
     return { conservative: null, base: null, optimistic: null };
   }
 
-  const epsGrowth = growth?.[0]?.growthEPS || 0;
+  const epsGrowth = growth?.[0]?.epsgrowth || 0;
   const baseMultiplier = 1 + (epsGrowth / 100);
   
   const conservative = currentPrice * baseMultiplier * 0.9;
