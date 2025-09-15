@@ -73,7 +73,7 @@ class StockService {
    * @param {Object} rawData - Datos sin procesar
    * @returns {Object} Datos procesados y normalizados
    */
-  processStockData(rawData) {
+  processStockData(rawData: { quote?: any; overview?: any }) {
     const { quote, overview } = rawData;
     
     return {
