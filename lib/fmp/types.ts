@@ -227,4 +227,12 @@ export type CashFlowResponse = FMPCashFlowStatement[];
 export type PeersResponseArray = PeersResponse[];
 export type DetailedPeersResponseArray = DetailedPeersResponse[];
 export type PerformanceResponseArray = PerformanceResponse[];
+// Cambiar esta línea:
+export type FinancialScoreResponse = {
+  symbol: string;
+  date?: string;
+  altmanZ: number | null;
+  piotroski: number | null;
+  raw?: FMPFinancialScore; // Los datos originales están en raw
+};
 export type FinancialScoreResponse = FMPFinancialScore[];

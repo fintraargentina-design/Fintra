@@ -1,7 +1,7 @@
 // components/cards/FinancialScoresCard.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import * as echarts from "echarts/core";
 import { BarChart } from "echarts/charts";
@@ -138,98 +138,140 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
   const [error, setError] = useState<string | null>(null);
   const [explanationModal, setExplanationModal] = useState<ExplanationModalState>(initialExplanationModalState);
 
-  // Función para abrir modal de explicaciones
-  const openExplanationModal = (metricName: string) => {
-    setExplanationModal({
-      isOpen: true,
-      selectedMetric: metricName
-    });
+  const openExplanationModal = (metric: string) => {
+    setExplanationModal({ isOpen: true, selectedMetric: metric });
   };
 
-  // Función para cerrar modal de explicaciones
   const closeExplanationModal = () => {
     setExplanationModal(initialExplanationModalState);
   };
 
+  // Funciones helper con useCallback para estabilidad
+  const getSafeValue = useCallback((key: keyof FinancialScoreData): number | null => {
+    if (!scoresData) return null;
+    const value = scoresData[key];
+    return numOrNull(value);
+  }, [scoresData]);
+
+  const getSafeRawValue = useCallback((key: string): number | null => {
+    if (!scoresData || !scoresData.raw) return null;
+    return numOrNull(scoresData.raw[key]);
+  }, [scoresData]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      
+    const fetchScores = async () => {
+      if (!symbol) {
+        setError("Símbolo no válido");
+        setLoading(false);
+        return;
+      }
+
       try {
-        const scores = await fmp.scores(symbol);
-        const rawScoreData = Array.isArray(scores) && scores.length ? scores[0] : scores;
+        setLoading(true);
+        setError(null);
         
-        // Convert to FinancialScoreData format
+        const scores = await fmp.scores(symbol);
+        
+        console.log('API Response:', scores); // Para debug
+        
+        if (!scores) {
+          throw new Error("No se pudieron obtener los datos de scores");
+        }
+
+        // Adaptar a la nueva estructura de la API
         const scoreData: FinancialScoreData = {
-          symbol: rawScoreData.symbol,
-          reportedCurrency: rawScoreData.reportedCurrency,
-          altmanZScore: numOrNull(rawScoreData.altmanZScore),
-          piotroskiScore: numOrNull(rawScoreData.piotroskiScore),
-          workingCapital: rawScoreData.workingCapital,
-          totalAssets: rawScoreData.totalAssets,
-          retainedEarnings: rawScoreData.retainedEarnings,
-          ebit: rawScoreData.ebit,
-          marketCap: rawScoreData.marketCap,
-          totalLiabilities: rawScoreData.totalLiabilities,
-          revenue: rawScoreData.revenue,
-          raw: rawScoreData // Store original data
+          symbol: symbol,
+          reportedCurrency: scores.raw?.reportedCurrency || 'USD',
+          // Usar los nuevos nombres de campos de la API
+          altmanZScore: numOrNull(scores.altmanZ),        // ← Cambio aquí
+          piotroskiScore: numOrNull(scores.piotroski),    // ← Cambio aquí
+          // Usar datos del objeto raw para el resto
+          workingCapital: numOrNull(scores.raw?.workingCapital),
+          totalAssets: numOrNull(scores.raw?.totalAssets),
+          retainedEarnings: numOrNull(scores.raw?.retainedEarnings),
+          ebit: numOrNull(scores.raw?.ebit),
+          marketCap: numOrNull(scores.raw?.marketCap),
+          totalLiabilities: numOrNull(scores.raw?.totalLiabilities),
+          revenue: numOrNull(scores.raw?.revenue),
+          raw: scores.raw || scores // Mantener datos originales
         };
         
+        console.log('Processed Score Data:', scoreData); // Para debug
         setScoresData(scoreData);
-      } catch (err: any) {
-        setError(err?.message || "Error al cargar datos");
+      } catch (err) {
+        console.error("Error fetching financial scores:", err);
+        const errorMessage = err instanceof Error ? err.message : "Error desconocido al cargar datos financieros";
+        setError(errorMessage);
+        setScoresData(null);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    fetchScores();
   }, [symbol]);
 
   // Configuración del gráfico de barras horizontales combinado
   const combinedOption = useMemo(() => {
-    if (!scoresData) {
-      return null;
-    }
-
-    // Los datos están en scoresData.raw, no directamente en scoresData
-    const rawData = scoresData.raw || scoresData;
-
-    // Preparar datos de scores (normalizados a escala 0-100)
-    const altmanZ = numOrNull(rawData.altmanZScore);
-    const piotroski = numOrNull(rawData.piotroskiScore);
-    
-    const normalizedAltman = altmanZ ? Math.min(Math.max((altmanZ / 10) * 100, 0), 100) : 0;
-    const normalizedPiotroski = piotroski ? (piotroski / 9) * 100 : 0;
-
-    // Preparar datos financieros (en billones para normalizar)
-    const totalAssets = numOrNull(rawData.totalAssets);
-    const totalLiabilities = numOrNull(rawData.totalLiabilities);
-    const revenue = numOrNull(rawData.revenue);
-    const ebit = numOrNull(rawData.ebit);
-    const marketCap = numOrNull(rawData.marketCap);
-
-    const categories = [
-      'Altman Z-Score',
-      'Piotroski Score',
-      'Total Assets',
-      'Total Liabilities', 
-      'Revenue',
-      'EBIT',
-      'Market Cap'
-    ];
+    if (!scoresData) return null;
 
     const chartData = [
-      { value: normalizedAltman, original: altmanZ, unit: '', color: '#10B981' },
-      { value: normalizedPiotroski, original: piotroski, unit: '/9', color: '#3B82F6' },
-      { value: totalAssets ? (totalAssets / 1e12) * 10 : 0, original: totalAssets, unit: '', color: '#8B5CF6' },
-      { value: totalLiabilities ? (totalLiabilities / 1e12) * 10 : 0, original: totalLiabilities, unit: '', color: '#EF4444' },
-      { value: revenue ? (revenue / 1e12) * 10 : 0, original: revenue, unit: '', color: '#F59E0B' },
-      { value: ebit ? Math.max((ebit / 1e11) * 10, 0) : 0, original: ebit, unit: '', color: '#06B6D4' },
-      { value: marketCap ? (marketCap / 1e12) * 10 : 0, original: marketCap, unit: '', color: '#F97316' }
-    ];
+      {
+        name: "Altman Z-Score",
+        value: Math.min(getSafeRawValue('altmanZScore') || 0, 10),
+        original: getSafeRawValue('altmanZScore'),
+        color: (getSafeRawValue('altmanZScore') || 0) > 3 ? "#10B981" : (getSafeRawValue('altmanZScore') || 0) > 1.8 ? "#F59E0B" : "#EF4444",
+        unit: ""
+      },
+      {
+        name: "Piotroski Score",
+        value: getSafeRawValue('piotroskiScore') || 0,
+        original: getSafeRawValue('piotroskiScore'),
+        color: (getSafeRawValue('piotroskiScore') || 0) >= 7 ? "#10B981" : (getSafeRawValue('piotroskiScore') || 0) >= 5 ? "#3B82F6" : "#EF4444",
+        unit: "/9"
+      },
+      {
+        name: "Total Assets",
+        value: Math.log10(Math.max(getSafeValue('totalAssets') || 1, 1)),
+        original: getSafeValue('totalAssets'),
+        color: "#8B5CF6",
+        unit: ""
+      },
+      {
+        name: "Total Liabilities",
+        value: Math.log10(Math.max(getSafeValue('totalLiabilities') || 1, 1)),
+        original: getSafeValue('totalLiabilities'),
+        color: "#F59E0B",
+        unit: ""
+      },
+      {
+        name: "Revenue",
+        value: Math.log10(Math.max(getSafeValue('revenue') || 1, 1)),
+        original: getSafeValue('revenue'),
+        color: "#06B6D4",
+        unit: ""
+      },
+      {
+        name: "EBIT",
+        value: Math.log10(Math.max(getSafeValue('ebit') || 1, 1)),
+        original: getSafeValue('ebit'),
+        color: "#84CC16",
+        unit: ""
+      },
+      {
+        name: "Market Cap",
+        value: Math.log10(Math.max(getSafeValue('marketCap') || 1, 1)),
+        original: getSafeValue('marketCap'),
+        color: "#EC4899",
+        unit: ""
+      }
+    ].filter(item => item.original !== null && item.original !== undefined);
+
+    if (chartData.length === 0) {
+      return null;
+    }
+    
+    const categories = chartData.map(item => item.name);
 
     const option = {
       backgroundColor: "transparent",
@@ -322,7 +364,7 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
     };
 
     return option;
-  }, [scoresData]);
+  }, [scoresData, getSafeValue, getSafeRawValue]);
 
   if (loading) {
     return (
@@ -408,21 +450,35 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
               <div className="bg-gray-800/50 rounded p-3">
                 <div className="text-gray-400">Altman Z-Score</div>
                 <div className="text-green-400 font-mono text-lg">
-                  {numOrNull((scoresData.raw || scoresData).altmanZScore)?.toFixed(2) || "N/A"}
+                  {(() => {
+                    const altmanScore = getSafeRawValue('altmanZScore');
+                    return altmanScore !== null ? altmanScore.toFixed(2) : "N/A";
+                  })()}
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
-                  {(numOrNull((scoresData.raw || scoresData).altmanZScore) || 0) > 3 ? "Zona Segura" : 
-                   (numOrNull((scoresData.raw || scoresData).altmanZScore) || 0) > 1.8 ? "Zona Gris" : "Zona de Riesgo"}
+                  {(() => {
+                    const altmanScore = getSafeRawValue('altmanZScore');
+                    if (altmanScore === null) return "Sin datos";
+                    return altmanScore > 3 ? "Zona Segura" : 
+                           altmanScore > 1.8 ? "Zona Gris" : "Zona de Riesgo";
+                  })()}
                 </div>
               </div>
               <div className="bg-gray-800/50 rounded p-3">
                 <div className="text-gray-400">Piotroski Score</div>
                 <div className="text-blue-400 font-mono text-lg">
-                  {numOrNull((scoresData.raw || scoresData).piotroskiScore) || "N/A"}/9
+                  {(() => {
+                    const piotroskiScore = getSafeRawValue('piotroskiScore');
+                    return piotroskiScore !== null ? `${piotroskiScore}/9` : "N/A";
+                  })()}
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
-                  {(numOrNull((scoresData.raw || scoresData).piotroskiScore) || 0) >= 7 ? "Excelente" : 
-                   (numOrNull((scoresData.raw || scoresData).piotroskiScore) || 0) >= 5 ? "Bueno" : "Débil"}
+                  {(() => {
+                    const piotroskiScore = getSafeRawValue('piotroskiScore');
+                    if (piotroskiScore === null) return "Sin datos";
+                    return piotroskiScore >= 7 ? "Excelente" : 
+                           piotroskiScore >= 5 ? "Bueno" : "Débil";
+                  })()}
                 </div>
               </div>
             </div>
