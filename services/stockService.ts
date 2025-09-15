@@ -9,6 +9,9 @@ import {
  * Servicio principal que orquesta múltiples APIs para obtener datos de acciones
  */
 class StockService {
+  private cache: Map<string, any>;
+  private cacheTimeout: number;
+
   constructor() {
     this.cache = new Map();
     this.cacheTimeout = 5 * 60 * 1000; // 5 minutos
@@ -19,7 +22,7 @@ class StockService {
    * @param {string} symbol - Símbolo de la acción
    * @returns {Promise<Object>} Datos completos de la acción
    */
-  async getCompleteStockData(symbol) {
+  async getCompleteStockData(symbol: string) {
     const cacheKey = `complete_${symbol}`;
     
     // Verificar cache
