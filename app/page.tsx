@@ -10,9 +10,11 @@ import NoticiasTab from '@/components/tabs/NoticiasTab';
 import { supabase, registerStockSearch } from '@/lib/supabase';
 import RadarPeersCard from '@/components/RadarPeersCard';
 import ConclusionRapidaCard from '@/components/cards/ConclusionRapidaCard';
+import CompetidoresCard from '@/components/cards/CompetidoresCard';
 import OverviewCard from '@/components/cards/OverviewCard';
 import EstimacionCard from '@/components/cards/EstimacionCard';
 import Header from '@/components/layout/Header';
+
 import FinancialScoresCard from '@/components/cards/FinancialScoresCard';
 
 export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits';
@@ -25,9 +27,10 @@ export default function StockTerminal() {
   const [stockReport, setStockReport] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<TabKey>('datos');
+  const [activeTab, setActiveTab] = useState<TabKey>('chart');
   const [user, setUser] = useState<any>(null);
   const [stockConclusion, setStockConclusion] = useState<any>(null);
+  const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
 
   // símbolo actual (string) sin importar si selectedStock es string u objeto
   const selectedSymbol = useMemo(() => {
@@ -126,6 +129,8 @@ export default function StockTerminal() {
         );
       case 'estimacion':
         return <EstimacionCard selectedStock={selectedStock} />;
+      case 'noticias':
+        return <NoticiasTab symbol={selectedSymbol} />;
       default:
         return (
           <ConclusionRapidaCard
@@ -159,32 +164,33 @@ export default function StockTerminal() {
             <div className="flex flex-col xl:flex-row gap-2 md:gap-4">
               {/* Panel izquierdo */}
               <div className="w-full xl:w-1/2 space-y-2 md:space-y-1">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4">
+                <div className="grid grid-cols-1 gap-2 md:gap-4">
                   <OverviewCard
                       selectedStock={selectedStock}
                       onStockSearch={buscarDatosAccion}
                       isParentLoading={isLoading}
                     />
                 </div>
-                {/* Grid responsivo para tarjetas */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-1">
-                  <div className="w-full">
-                    <RadarPeersCard symbol={selectedSymbol} />
-                  </div>
-                  <div className="w-full">
-                    <FinancialScoresCard symbol={selectedSymbol} />
-                  </div>
-                </div>
-
-                {/* Noticias - ancho completo */}
                 <div className="w-full">
-                  <NoticiasTab
-                    stockBasicData={stockBasicData}
-                    stockAnalysis={stockAnalysis}
-                    selectedStock={selectedStock}
-                    symbol={selectedSymbol || 'N/A'}
-                  />
+                    <FinancialScoresCard symbol={selectedSymbol} />
                 </div>
+                {/* Grid responsivo para tarjetas */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-1 md:gap-1">
+                  <div className="w-full">
+                    <CompetidoresCard 
+                      symbol={selectedSymbol} 
+                      onCompetitorSelect={setSelectedCompetitor}
+                      selectedCompetitor={selectedCompetitor}
+                    />
+                  </div>
+                  <div className="w-full">
+                    <RadarPeersCard 
+                      symbol={selectedSymbol} 
+                      selectedCompetitor={selectedCompetitor}
+                    />
+                  </div>
+                </div>
+                
               </div>
 
               {/* Panel derecho */}

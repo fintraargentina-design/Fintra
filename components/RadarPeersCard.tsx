@@ -9,13 +9,7 @@ import { TooltipComponent, LegendComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import { graphic } from 'echarts/core';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChartNoAxesCombined, ChevronDown } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { ChartNoAxesCombined } from 'lucide-react';
 import { fmp } from '@/lib/fmp/client';
 import { useResponsive } from '@/hooks/use-responsive';
 
@@ -169,9 +163,17 @@ async function fetchFactors(symbol: string, signal?: AbortSignal) {
 }
 
 // ─────────────────────────────────────────────
+// Interfaz para las props del componente
+// ─────────────────────────────────────────────
+interface RadarPeersCardProps {
+  symbol?: string;
+  selectedCompetitor?: string | null;
+}
+
+// ─────────────────────────────────────────────
 // Componente Principal (único)
 // ─────────────────────────────────────────────
-export default function RadarPeersCard({ symbol }: { symbol?: string }) {
+export default function RadarPeersCard({ symbol, selectedCompetitor }: RadarPeersCardProps) {
   // Primero verificar condiciones que podrían causar return temprano
   if (!symbol?.trim()) {
     return (
@@ -221,7 +223,11 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
         );
 
         setPeers(cleaned);
-        setActivePeer(cleaned.length ? cleaned[0] : null);
+        // Usar selectedCompetitor si está disponible y es válido, sino usar el primero
+        const initialPeer = selectedCompetitor && cleaned.includes(selectedCompetitor.toUpperCase()) 
+          ? selectedCompetitor.toUpperCase() 
+          : (cleaned.length ? cleaned[0] : null);
+        setActivePeer(initialPeer);
       } catch (e: any) {
         if (mounted) {
           setError(e?.message || 'Error desconocido');
@@ -237,7 +243,14 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
       mounted = false;
       ac.abort();
     };
-  }, [symbol]);
+  }, [symbol, selectedCompetitor]);
+
+  // Efecto adicional para actualizar activePeer cuando cambie selectedCompetitor
+  useEffect(() => {
+    if (selectedCompetitor && peers.includes(selectedCompetitor.toUpperCase())) {
+      setActivePeer(selectedCompetitor.toUpperCase());
+    }
+  }, [selectedCompetitor, peers]);
 
   // carga peer activo (con cache)
   useEffect(() => {
@@ -390,30 +403,8 @@ export default function RadarPeersCard({ symbol }: { symbol?: string }) {
             </div>
             {main && <span className="text-orange-400 text-lg">{main.symbol}</span>}
             <span className="text-gray-400">vs</span>
+            {peer && <span className="text-blue-300 text-lg">{peer.symbol}</span>}
           </div>
-          {peers.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1 px-2 py-1 border-none transition-colors text-lg">
-                <span className="text-blue-300">{activePeer || 'Seleccionar'}</span>
-                <ChevronDown className="w-3 h-3" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-gray-800 border-gray-700 max-h-64 overflow-y-auto">
-                {peers.map((p) => (
-                  <DropdownMenuItem
-                    key={p}
-                    onClick={() => setActivePeer(p)}
-                    className={`cursor-pointer transition-colors ${
-                      p === activePeer
-                        ? 'bg-orange-500/20 text-orange-300'
-                        : 'text-gray-300 hover:bg-orange-500/10 hover:text-orange-400'
-                    }`}
-                  >
-                    {p}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
         </CardTitle>
       </CardHeader>
 

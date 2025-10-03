@@ -389,7 +389,7 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
           build("CAGR beneficios", epsCagr, "%"),
           build("CAGR patrimonio", equityCagr, "%"),
           build("Book Value por acción", bookValuePerShare, "$"),
-          build("Capitalización de Mercado", marketCap, "$"),
+          // build("Capitalización de Mercado", marketCap, "$"),
         ];
 
         setRows(metrics);
@@ -543,8 +543,7 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
           <CardTitle className="text-orange-400 text-lg flex gap-2 flex items-center">
             <div className="text-gray-400 mr-2">
               Fundamental
-            </div>
-           {symbol}            
+            </div>          
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -556,35 +555,52 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
             <div className="h-72 flex items-center justify-center text-red-400">{error}</div>
           ) : (
             <>
-              <div className="flex items-center gap-4 text-xs text-gray-400 mb-3">
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-3 h-3 bg-red-500/50 rounded-sm" /> Débil
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-3 h-3 bg-yellow-500/50 rounded-sm" /> A vigilar
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-3 h-3 bg-green-500/50 rounded-sm" /> Fuerte
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-[2px] h-3 bg-white inline-block" /> Target
-                </span>
+              {/* Métricas fundamentales en formato de tarjetas */}
+              <div className="grid grid-cols-6 gap-4 text-sm">
+                {rows.map((row, index) => {
+                  // Función para obtener el color basado en el score
+                  const getScoreColor = (score: number | null) => {
+                    if (score === null || score === undefined) return "#64748b";
+                    if (score >= 70) return "#22c55e"; // Verde para scores altos
+                    if (score >= 40) return "#eab308"; // Amarillo para scores medios
+                    return "#ef4444"; // Rojo para scores bajos
+                  };
+
+                  // Función para obtener el nivel del score
+                  const getScoreLevel = (score: number | null) => {
+                    if (score === null || score === undefined) return "Sin datos";
+                    if (score >= 70) return "Fuerte";
+                    if (score >= 40) return "A vigilar";
+                    return "Débil";
+                  };
+
+                  const scoreColor = getScoreColor(row.score);
+                  const scoreLevel = getScoreLevel(row.score);
+
+                  return (
+                    <div 
+                      key={index} 
+                      className="bg-gray-800/50 rounded p-3 cursor-pointer hover:bg-gray-800/70 transition-colors"
+                      onClick={() => openExplanationModal(row.label)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="text-gray-400 text-xs">{row.label}</div>
+                        <div 
+                          className="text-xs text-gray-500" 
+                          style={{ color: scoreColor }}>
+                          {scoreLevel}
+                        </div>
+                      </div>
+                      <div 
+                        className="font-mono text-lg mt-1"
+                        style={{ color: scoreColor }}
+                      >
+                        {row.display || "N/A"}
+                      </div>                    
+                    </div>
+                  );
+                })}
               </div>
-              <ReactECharts
-                echarts={echarts as any}
-                option={option as any}
-                notMerge
-                lazyUpdate
-                style={{ height: Math.max(260, rows.length * 28), width: "100%" }}
-                onEvents={{
-                  'click': (params: any) => {
-                    if (params.componentType === 'yAxis') {
-                      const metricName = params.value;
-                      openExplanationModal(metricName);
-                    }
-                  }
-                }}
-              />
             </>
           )}
         </CardContent>

@@ -1,18 +1,12 @@
 // components/cards/ValoracionCard.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
-import * as echarts from "echarts/core";
-import { BarChart } from "echarts/charts";
-import { GridComponent, TooltipComponent } from "echarts/components";
-import { CanvasRenderer } from "echarts/renderers";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Info } from "lucide-react";
 import { fmp } from "@/lib/fmp/client";
 import { X } from "lucide-react";
-
-echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
-const ReactECharts = dynamic(() => import("echarts-for-react/lib/core"), { ssr: false });
 
 type Row = {
   label: string;
@@ -269,126 +263,16 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
     };
   }, [symbol]);
 
-  const option = useMemo(() => {
-    const labels = rows.map((r) => r.label);
-    const poor = rows.map((r) => r.thresholds.poor);
-    const mid = rows.map((r) => Math.max(r.thresholds.avg - r.thresholds.poor, 0));
-    const good = rows.map((r) => Math.max(100 - r.thresholds.avg, 0));
-    const scores = rows.map((r) => (Number.isFinite(r.score as number) ? (r.score as number) : 0));
 
-    return {
-      backgroundColor: "transparent",
-      grid: { left: 170, right: 50, top: 10, bottom: 10 },
-      tooltip: {
-        trigger: "axis",
-        axisPointer: { type: "none" },
-        backgroundColor: "rgba(248, 250, 252, 0.98)",
-        borderColor: "rgba(203, 213, 225, 0.8)",
-        borderWidth: 1,
-        textStyle: { color: "#64748b", fontSize: 11 },
-        confine: false,
-        appendToBody: true,
-        position: function (point: any, params: any, dom: any, rect: any, size: any) {
-          return [point[0] + 10, point[1] - size.contentSize[1] / 2];
-        },
-        formatter: (params: any) => {
-          const idx = params[0]?.dataIndex;
-          if (idx == null || !rows[idx]) return "";
-          
-          const row = rows[idx];
-          const scoreTxt = row.score == null ? "Sin datos" : `${Math.round(row.score)} / 100`;
-          const scoreColor = getScoreColor(row.score);
-          const scoreLevel = getScoreLevel(row.score);
-          
-          return `
-            <div style="max-width: 320px; padding: 12px; line-height: 1.4; background-color: rgba(248, 250, 252, 0.98); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-              <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #334155;">${row.label}</div>
-              
-              <div style="margin-bottom: 6px; font-size: 11px;">
-                <span style="color: #64748b;">Valor:</span> 
-                <span style="font-weight: 600; color: #475569;">${row.display}</span>
-              </div>
-              
-              <div style="margin-bottom: 8px; font-size: 11px;">
-                <span style="color: #64748b;">Score:</span> 
-                <span style="font-weight: 600; color: ${scoreColor};">${scoreTxt}</span>
-                <span style="margin-left: 6px; padding: 2px 6px; border-radius: 3px; font-size: 9px; background-color: ${scoreColor}15; color: ${scoreColor};">${scoreLevel}</span>
-              </div>
-            </div>`;
-        },
-      },
-      xAxis: {
-        type: "value",
-        max: 100,
-        axisLabel: { color: "#94a3b8" },
-        splitLine: { lineStyle: { color: "rgba(255,255,255,0.06)" } },
-      },
-      yAxis: {
-        type: "category",
-        data: labels,
-        axisLabel: { color: "#e2e8f0" },
-        axisTick: { show: false },
-        axisLine: { show: false },
-        triggerEvent: true, // Esta línea habilita los eventos de click
-      },
-      series: [
-        {
-          name: "débil",
-          type: "bar",
-          stack: "range",
-          data: poor,
-          barWidth: 14,
-          itemStyle: { color: "rgba(239,68,68,0.30)" },
-          emphasis: { disabled: true },
-          tooltip: { show: false },
-        },
-        {
-          name: "medio",
-          type: "bar",
-          stack: "range",
-          data: mid,
-          barWidth: 14,
-          itemStyle: { color: "rgba(234,179,8,0.30)" },
-          emphasis: { disabled: true },
-          tooltip: { show: false },
-        },
-        {
-          name: "fuerte",
-          type: "bar",
-          stack: "range",
-          data: good,
-          barWidth: 14,
-          itemStyle: { color: "rgba(34,197,94,0.30)" },
-          emphasis: { disabled: true },
-          tooltip: { show: false },
-        },
-        {
-          name: "valor",
-          type: "bar",
-          data: scores,
-          barWidth: 8,
-          z: 5,
-          itemStyle: { color: "#ffffff" },
-          label: {
-            show: true,
-            position: "right",
-            color: "#cbd5e1",
-            formatter: (p: any) => rows[p.dataIndex]?.display ?? "",
-          },
-        },
-      ],
-    };
-  }, [rows]);
 
   return (
     <>
-      <Card className="bg-tarjetas border-none h-[492px]">
+      <Card className="bg-tarjetas border-none">
         <CardHeader>
           <CardTitle className="text-orange-400 text-lg flex items-center">
             <div className="text-gray-400 mr-2">
               Valoración
             </div>
-             {symbol}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -400,35 +284,39 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
             <div className="h-72 flex items-center justify-center text-red-400">{error}</div>
           ) : (
             <>
-              <div className="flex items-center gap-4 text-xs text-gray-400 mb-3">
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-3 h-3 bg-red-500/50 rounded-sm" /> Débil
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-3 h-3 bg-yellow-500/50 rounded-sm" /> A vigilar
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-3 h-3 bg-green-500/50 rounded-sm" /> Fuerte
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-[2px] h-3 bg-white inline-block" /> Target
-                </span>
+              {/* Métricas de valoración en formato de tarjetas */}
+              <div className="grid grid-cols-6 gap-4 text-sm">
+                {rows.map((row, index) => {
+                  const scoreColor = getScoreColor(row.score);
+                  const scoreLevel = getScoreLevel(row.score);
+
+                  return (
+                    <div 
+                      key={index} 
+                      className="bg-gray-800/50 rounded p-3 cursor-pointer hover:bg-gray-800/70 transition-colors"
+                      onClick={() => openExplanationModal(row.label)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="text-gray-400 text-xs">{row.label}</div>
+                        
+                      </div>
+                        <div className="flex items-center justify-between">
+                        <div 
+                        className="font-mono text-lg"
+                        style={{ color: scoreColor }}
+                      >
+                        {row.display || "N/A"}
+                      </div>
+                      <div 
+                          className="text-xs" 
+                          style={{ color: scoreColor }}>
+                          {scoreLevel}
+                        </div>
+                      </div>                     
+                    </div>
+                  );
+                })}
               </div>
-              <ReactECharts
-                echarts={echarts as any}
-                option={option as any}
-                notMerge
-                lazyUpdate
-                style={{ height: Math.max(260, rows.length * 28), width: "100%" }}
-                onEvents={{
-                  'click': (params: any) => {
-                    if (params.componentType === 'yAxis') {
-                      const metricName = params.value;
-                      openExplanationModal(metricName);
-                    }
-                  }
-                }}
-              />
             </>
           )}
         </CardContent>

@@ -248,7 +248,7 @@ export default function NoticiasTab({
 
   return (
     <>
-      <Card className="flex-1 bg-tarjetas bg-tarjetas border-none h-[360px]">
+      <Card className="flex-1 bg-tarjetas bg-tarjetas border-none h-[calc(100vh-200px)]">
         <CardHeader>
           <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
           <div className="text-gray-400">
@@ -260,7 +260,7 @@ export default function NoticiasTab({
             </Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex-1  h-[280px] overflow-y-auto space-y-4">
+        <CardContent className="flex-1 h-[calc(100vh-280px)] overflow-y-auto space-y-4">
           {news.length === 0 ? (
             <p className="text-gray-400 text-center py-8">
               No hay noticias disponibles para {symbol}
