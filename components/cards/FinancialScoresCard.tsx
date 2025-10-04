@@ -411,14 +411,14 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
   return (
     <>
       <Card className="bg-tarjetas border-none">
-        {/* <CardHeader>
+        <CardHeader>
           <CardTitle className="text-orange-400 text-lg flex items-center">
-            <div className="text-gray-400 mr-2">
+            {/* <div className="text-gray-400 mr-2">
               Financial Scores 
             </div>
-            {symbol}
+            {symbol} */}
           </CardTitle>
-        </CardHeader> */}
+        </CardHeader>
         <CardContent className="space-y-6">
           {/* Métricas financieras en formato de tarjetas */}
           <div>

@@ -242,7 +242,7 @@ export default function AIAnalysisButton({
         ) : (
           <>
             <Brain className="w-3 h-3" />
-            Análisis Global IA
+            {/* Análisis IA */}
           </>
         )}
       </Button>

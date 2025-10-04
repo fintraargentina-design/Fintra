@@ -18,9 +18,10 @@ interface SearchedStock {
 interface TopSearchedStocksDropdownProps {
   onStockClick?: (symbol: string) => void;
   isMobile?: boolean;
+  isQuickSearch?: boolean;
 }
 
-export default function TopSearchedStocksDropdown({ onStockClick, isMobile = false }: TopSearchedStocksDropdownProps) {
+export default function TopSearchedStocksDropdown({ onStockClick, isMobile = false, isQuickSearch = false }: TopSearchedStocksDropdownProps) {
   const [topStocks, setTopStocks] = useState<SearchedStock[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +125,24 @@ export default function TopSearchedStocksDropdown({ onStockClick, isMobile = fal
       <div className="px-3 py-2 text-gray-400 text-sm">
         No hay datos disponibles
       </div>
+    );
+  }
+
+  // Renderizado para búsqueda rápida (lista vertical)
+  if (isQuickSearch) {
+    return (
+      <>
+        {topStocks.map((stock) => (
+          <button
+            key={stock.symbol}
+            onClick={() => handleStockClick(stock.symbol)}
+            className="w-full px-3 py-2 text-left text-gray-300 hover:bg-orange-500/10 hover:text-orange-400 cursor-pointer transition-colors duration-200 text-sm font-medium flex justify-between items-center"
+          >
+            <span>{stock.symbol}</span>
+            {/* <span className="text-xs text-gray-400">{stock.busquedas} búsquedas</span> */}
+          </button>
+        ))}
+      </>
     );
   }
 

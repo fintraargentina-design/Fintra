@@ -686,153 +686,126 @@ export default function OverviewCard({
 
   return (
     <Dialog>
-      <Card className="flex items-center min-h-[52px] bg-tarjetas border-none responsive-container">
-        <CardHeader className="p-0 flex items-center justify-start">
+      <Card className="flex flex-col max-h-[500px] bg-tarjetas border-none responsive-container">
+        <CardHeader className="pb-2">
           <CardTitle className="space-y-2 md:space-y-3">
             {/* Company Info - Responsive Layout */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-              <div className="flex items-center gap-2">
-                {/* {data.image ? ( */}
-                  
-               {/*  ) : (
-                  <Building2 className="w-4 h-4 md:w-5 md:h-5 text-orange-400" />
-                )} */}
-                {/* <span className="text-gray-400 text-sm md:text-base">
-                  {data.companyName || "Empresa"}
-                </span> */}
-              </div>
-              
-              {/* Symbol Input - Responsive */}
-              <div className="flex items-center gap-2">
-                <TextCursorInput className="w-3 h-3 md:w-4 md:h-4 text-orange-400"/>
-                <Input
-                  // Remove ref since tickerInputRef is not defined and not needed
-                  value={tickerInput}
-                  onChange={handleTickerChange}
-                  onKeyDown={handleTickerKeyDown}
-                  onFocus={handleTickerFocus}
-                  onBlur={handleTickerBlur}
-                  placeholder={data.symbol || "Buscar..."}
-                  className="focus:placeholder:text-transparent bg-transparent border-none outline-none text-orange-400 text-sm md:text-lg font-medium cursor-text transition-colors"
-                  style={{ 
-                    width: "fit-content", 
-                    minWidth: isMobile ? "60px" : "70px",
-                    maxWidth: isMobile ? "60px" : "90px",
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-4">
+                <div className="flex items-center gap-2">
+                   {data.companyName || "Empresa"}
+                </div>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        
+        <CardContent className="flex-1 overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 h-full">
+            {/* Left Column - Company Data */}
+            <div className="lg:col-span-2 bg-gray-800/30 rounded-lg p-4 border-gray-700/30 space-y-4">
+              {/* Company Logo */}
+              <div className="flex justify-center">
+                <img
+                  src={data.image}
+                  alt={`Logo de ${data.companyName || data.symbol}`}
+                  className="w-16 h-16 md:w-30 md:h-30 object-contain rounded"
+                  onError={(e: any) => {
+                    e.currentTarget.style.display = "none";
                   }}
                 />
               </div>
-
-              {/* Metrics Layout - Horizontal */}
-            <div className="flex flex-wrap items-center gap-3 md:gap-6">
-              {/* Precio */}
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <DollarSign className="w-3 h-3 md:w-4 md:h-4 text-orange-400" />
-                </div>
-                <div className="text-lg md:text-lg font-semibold text-orange-400">
-                  {Number.isFinite(Number(data.price)) ? `${Math.round(Number(data.price))}` : "N/A"}
-                </div>
-              </div>
-
-              {/* % cambio */}
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <Percent className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
-                  <span className="text-xs md:text-sm text-gray-400">Cambio</span>
-                </div>
-                <p className={`text-xs md:text-sm font-semibold ${
-                  Number(data.changePercentage) >= 0 ? "text-green-400" : "text-red-400"
-                }`}>
-                  {formatPercentage(data.changePercentage)}
-                </p>
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-gray-400">Cambio Diario:</span>
-                <span
-                  className={`font-mono ${
-                    Number(data.change) >= 0 ? "text-green-400" : "text-red-400"
-                  }`}
-                >
-                  {Number.isFinite(data.change)
-                    ? `$${Number(data.change).toFixed(2)}`
-                    : "N/A"}
-                </span>
-              </div>
-
-              {/* Beta */}
-              {/* <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <TrendingUpDown className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
-                  <span className="text-xs md:text-sm text-gray-400">Beta</span>
-                </div>
-                <p className="text-xs md:text-sm font-semibold text-green-400">
-                  {Number.isFinite(Number(data.beta)) ? Number(data.beta).toFixed(2) : "N/A"}
-                </p>
-              </div> */}
-
-              {/* Market Cap */}
-              {/* <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
-                  <span className="text-xs md:text-sm text-gray-400">Market Cap</span>
-                </div>
-                <p className="text-xs md:text-sm font-semibold text-green-400">
-                  {formatLargeNumber(data.marketCap)}
-                </p>
-              </div> */}
-
-              {/* CEO */}
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <User className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
-                  <span className="text-xs md:text-sm text-gray-400">CEO</span>
-                </div>
-                <p className="text-xs md:text-sm font-semibold text-green-400 truncate max-w-[120px]">
-                  {data.ceo || "N/A"}
-                </p>
-              </div>
-
               
+              {/* Financial Metrics */}
+              <div className="space-y-3">
+                {/* Precio */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-400">Precio</span>
+                  </div>
+                  <div className="text-lg font-semibold text-orange-400">
+                    {Number.isFinite(Number(data.price)) ? `$${Math.round(Number(data.price))}` : "N/A"}
+                  </div>
+                </div>
 
-              {/* Modal Trigger */}
-              <div className="flex items-center ml-auto">
-                <img
-                    src={data.image}
-                    alt={`Logo de ${data.companyName || data.symbol}`}
-                    className="w-10 h-10 md:w-10 md:h-10 object-contain rounded"
-                    onError={(e: any) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
+                {/* % cambio */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-400">Cambio %</span>
+                  </div>
+                  <p className={`text-sm font-semibold ${
+                    Number(data.changePercentage) >= 0 ? "text-green-400" : "text-red-400"
+                  }`}>
+                    {formatPercentage(data.changePercentage)}
+                  </p>
+                </div>
+
+                {/* Cambio Diario */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-400">Cambio Diario $</span>
+                  <span
+                    className={`text-sm font-mono ${
+                      Number(data.change) >= 0 ? "text-green-400" : "text-red-400"
+                    }`}
+                  >
+                    {Number.isFinite(data.change)
+                      ? `${Number(data.change).toFixed(2)}`
+                      : "N/A"}
+                  </span>
+                </div>
+
+                {/* Beta */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">                  
+                    <span className="text-sm text-gray-400">Beta</span>
+                  </div>
+                  <p className="text-sm font-semibold text-green-400">
+                    {Number.isFinite(Number(data.beta)) ? Number(data.beta).toFixed(2) : "N/A"}
+                  </p>
+                </div>
+
+                {/* CEO */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">                    
+                    <span className="text-sm text-gray-400">CEO</span>
+                  </div>
+                  <p className="text-sm font-semibold text-green-400 truncate max-w-[120px]">
+                    {data.ceo || "N/A"}
+                  </p>
+                </div>
               </div>
               
-
-            </div>            
-            </div>
-          </CardTitle>
-          <CardContent>
-            <div className="bg-gray-800/30 rounded-lg p-4 border-gray-700/30">
-              <h3 className="text-orange-400 text-lg font-semibold mb-3">
-                Descripción del Negocio
-              </h3>
-              <p className="text-gray-200 text-sm leading-relaxed">
-                {data.description || "No hay descripción disponible para esta empresa."}
-              </p>
             </div>
             
-            {/* Modal Trigger */}
-            <div className="flex items-center ml-auto mt-4">
-              <DialogTrigger asChild>
-                <button className="p-1">                    
-                  <p className="text-sm text-gray-400 hover:text-orange-600 cursor-pointer ml-2" >
-                    Ver más datos de la empresa
-                  </p>                        
-                </button>
-              </DialogTrigger>
+            {/* Right Column - Company Description */}
+            <div className="lg:col-span-5 bg-gray-800/30 rounded-lg border-gray-700/30 flex flex-col">
+            
+              <div className="flex-1 overflow-hidden">
+                <div 
+                  className="p-4 h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800"
+                  style={{
+                    maxHeight: '30vh'
+                  }}
+                >
+                  <p className="text-gray-200 text-sm leading-relaxed">
+                    {data.description || "No hay descripción disponible para esta empresa."}
+                  </p>
+                </div>
+              </div>
+              {/* Modal Trigger */}
+              <div className="flex justify-center mt-2 mb-2">
+                <DialogTrigger asChild>
+                  <button className="px-2 py-1 bg-transparent hover: transition-colors">
+                    <p className="text-sm text-gray-400 hover:text-orange-400">
+                      Ver más datos de la empresa
+                    </p>
+                  </button>
+                </DialogTrigger>
+              </div>
             </div>
-          </CardContent>
-        </CardHeader>
+          </div>
+          
+          
+        </CardContent>
+        
       </Card>
 
       {/* Modal - Responsive */}

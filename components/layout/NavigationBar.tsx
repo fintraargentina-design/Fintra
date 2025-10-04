@@ -63,7 +63,7 @@ export default function NavigationBar({
               `}
             >
               <tab.icon className="w-4 h-4" />
-              <span className="hidden lg:inline">{tab.label}</span>
+              {/* <span className="hidden lg:inline">{tab.label}</span> */}
             </button>
           ))}
         </div>

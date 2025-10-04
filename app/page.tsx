@@ -146,7 +146,22 @@ export default function StockTerminal() {
     <div className="min-h-screen bg-fondoDeTarjetas">
       {/* Header responsivo */}
       <div className="sticky top-0 z-50 bg-fondoDeTarjetas/95 backdrop-blur supports-[backdrop-filter]:bg-fondoDeTarjetas/60 mb-2 border-b border-gray-600">
-        <Header user={user} onAuth={handleAuth} onSelectSymbol={handleTopStockClick} />
+        <Header 
+  user={user}
+  onAuth={handleAuth}
+  onSelectSymbol={handleTopStockClick}
+  showTimes={true}
+  activeTab={activeTab}
+  setActiveTab={setActiveTab}
+  symbol={selectedSymbol}
+  fundamentalData={stockBasicData?.datos?.fundamentales}
+  valoracionData={stockBasicData?.datos?.valoracion}
+  financialScoresData={stockBasicData?.datos?.financialScores}
+  overviewData={stockBasicData}
+  estimacionData={stockBasicData?.datos?.estimacion}
+  dividendosData={stockBasicData?.datos?.dividendos}
+  desempenoData={stockBasicData?.datos?.desempeno}
+/>
       </div>
 
       {/* Contenedor principal responsivo - Ancho completo */}
@@ -161,10 +176,10 @@ export default function StockTerminal() {
           <div className="space-y-1 md:space-y-1">
 
             {/* Layout principal responsivo */}
-            <div className="flex flex-col xl:flex-row gap-2 md:gap-4">
+            <div className="flex flex-col xl:flex-row gap-2 md:gap-1">
               {/* Panel izquierdo */}
               <div className="w-full xl:w-1/2 space-y-2 md:space-y-1">
-                <div className="grid grid-cols-1 gap-2 md:gap-4">
+                <div className="w-full">
                   <OverviewCard
                       selectedStock={selectedStock}
                       onStockSearch={buscarDatosAccion}
@@ -195,25 +210,7 @@ export default function StockTerminal() {
 
               {/* Panel derecho */}
               <div className="w-full xl:w-1/2">
-                {/* Navigation Bar responsiva */}
-                <div className="lg:min-w-[350px]">
-                  <Card className="flex justify-end bg-transparent border-none">
-                    <div className="p-2">
-                      <NavigationBar 
-                        activeTab={activeTab} 
-                        setActiveTab={setActiveTab}
-                        symbol={selectedSymbol}
-                        fundamentalData={stockBasicData?.datos?.fundamentales || null}
-                        valoracionData={stockBasicData?.datos?.valoracion || null}
-                        financialScoresData={stockBasicData?.datos?.financialScores || null}
-                        overviewData={stockBasicData}
-                        estimacionData={stockBasicData?.datos?.estimacion || null}
-                        dividendosData={stockBasicData?.datos?.dividendos || null}
-                        desempenoData={stockBasicData?.datos?.desempeno || null}
-                      />
-                    </div>
-                  </Card>
-                </div>
+                {/* Navigation Bar responsiva (removida, ahora está en Header) */}
                 <div className="w-full">
                   {renderTabContent()}
                 </div>
