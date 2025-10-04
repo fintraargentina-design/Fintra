@@ -410,47 +410,22 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
 
   return (
     <>
-      <Card className="h-[492px] bg-tarjetas border-none">
-        <CardHeader>
+      <Card className="bg-tarjetas border-none">
+        {/* <CardHeader>
           <CardTitle className="text-orange-400 text-lg flex items-center">
             <div className="text-gray-400 mr-2">
               Financial Scores 
             </div>
             {symbol}
           </CardTitle>
-        </CardHeader>
+        </CardHeader> */}
         <CardContent className="space-y-6">
-          {/* Gráfico combinado */}
+          {/* Métricas financieras en formato de tarjetas */}
           <div>
-            <h3 className="text-gray-300 text-sm font-medium mb-3 flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />
-              Análisis Financiero Completo
-            </h3>
-            <div className="h-60">
-              {combinedOption ? (
-                <ReactECharts
-                  echarts={echarts}
-                  option={combinedOption}
-                  style={{ height: "80%", width: "100%" }}
-                  opts={{ renderer: "canvas" }}
-                  onEvents={{
-                    'click': (params: any) => {
-                      if (params.componentType === 'yAxis') {
-                        const metricName = params.value;
-                        openExplanationModal(metricName);
-                      }
-                    }
-                  }}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-400">
-                  No hay datos suficientes para mostrar el gráfico
-                </div>
-              )}
-            </div>
-            
-            {/* Resumen de scores */}
-            <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
+                  
+            {/* Grid de métricas financieras */}
+            <div className="grid grid-cols-4 gap-4 text-sm">
+              {/* Altman Z-Score */}
               <div className="bg-gray-800/50 rounded p-3">
                 <div className="text-gray-400">Altman Z-Score</div>
                 <div className="text-green-400 font-mono text-lg">
@@ -468,6 +443,8 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
                   })()}
                 </div>
               </div>
+
+              {/* Piotroski Score */}
               <div className="bg-gray-800/50 rounded p-3">
                 <div className="text-gray-400">Piotroski Score</div>
                 <div className="text-blue-400 font-mono text-lg">
@@ -483,6 +460,90 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
                     return piotroskiScore >= 7 ? "Excelente" : 
                            piotroskiScore >= 5 ? "Bueno" : "Débil";
                   })()}
+                </div>
+              </div>
+
+              {/* Total Assets */}
+              <div className="bg-gray-800/50 rounded p-3">
+                <div className="text-gray-400">Total Assets</div>
+                <div className="text-purple-400 font-mono text-lg">
+                  {(() => {
+                    const totalAssets = getSafeValue('totalAssets');
+                    return totalAssets !== null ? fmtLargeNumber(totalAssets) : "N/A";
+                  })()}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Activos totales
+                </div>
+              </div>
+
+              {/* Total Liabilities */}
+              <div className="bg-gray-800/50 rounded p-3">
+                <div className="text-gray-400">Total Liabilities</div>
+                <div className="text-yellow-400 font-mono text-lg">
+                  {(() => {
+                    const totalLiabilities = getSafeValue('totalLiabilities');
+                    return totalLiabilities !== null ? fmtLargeNumber(totalLiabilities) : "N/A";
+                  })()}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Pasivos totales
+                </div>
+              </div>
+
+              {/* Revenue */}
+              <div className="bg-gray-800/50 rounded p-3">
+                <div className="text-gray-400">Revenue</div>
+                <div className="text-cyan-400 font-mono text-lg">
+                  {(() => {
+                    const revenue = getSafeValue('revenue');
+                    return revenue !== null ? fmtLargeNumber(revenue) : "N/A";
+                  })()}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Ingresos totales
+                </div>
+              </div>
+
+              {/* EBIT */}
+              <div className="bg-gray-800/50 rounded p-3">
+                <div className="text-gray-400">EBIT</div>
+                <div className="text-lime-400 font-mono text-lg">
+                  {(() => {
+                    const ebit = getSafeValue('ebit');
+                    return ebit !== null ? fmtLargeNumber(ebit) : "N/A";
+                  })()}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Ganancias antes de intereses e impuestos
+                </div>
+              </div>
+
+              {/* Market Cap */}
+              <div className="bg-gray-800/50 rounded p-3">
+                <div className="text-gray-400">Market Cap</div>
+                <div className="text-pink-400 font-mono text-lg">
+                  {(() => {
+                    const marketCap = getSafeValue('marketCap');
+                    return marketCap !== null ? fmtLargeNumber(marketCap) : "N/A";
+                  })()}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Capitalización de mercado
+                </div>
+              </div>
+
+              {/* Working Capital */}
+              <div className="bg-gray-800/50 rounded p-3">
+                <div className="text-gray-400">Working Capital</div>
+                <div className="text-indigo-400 font-mono text-lg">
+                  {(() => {
+                    const workingCapital = getSafeValue('workingCapital');
+                    return workingCapital !== null ? fmtLargeNumber(workingCapital) : "N/A";
+                  })()}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Capital de trabajo
                 </div>
               </div>
             </div>

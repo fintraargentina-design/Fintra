@@ -36,9 +36,10 @@ export default function NavigationBar({
   desempenoData
 }: NavigationBarProps) {
   const tabs = [
-    { key: 'datos', label: 'Datos', icon: BarChart3 },
     { key: 'chart', label: 'Gráficos', icon: TrendingUp },
+    { key: 'datos', label: 'Datos', icon: BarChart3 },
     { key: 'estimacion', label: 'Estimación', icon: Target },
+    { key: 'noticias', label: 'Noticias', icon: FileText },
   ];
 
   return (

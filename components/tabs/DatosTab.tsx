@@ -27,7 +27,7 @@ export default function DatosTab({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+      <div className="flex flex-col gap-1">
         <FundamentalCard symbol={symbol} />
         <ValoracionCard  symbol={symbol} />
         <DesempenoCard symbol={symbol} />

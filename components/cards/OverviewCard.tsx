@@ -231,6 +231,10 @@ export default function OverviewCard({
     setEditingField(fieldName);
     setSearchValue("");
   };
+  
+  /**
+   * Maneja la búsqueda de acciones con mejor manejo de errores
+   */
   const handleSearch = async () => {
     if (searchValue.trim() && onStockSearch) {
       setSearchLoading(true);
@@ -239,8 +243,27 @@ export default function OverviewCard({
         await onStockSearch(searchValue.trim().toUpperCase());
         setEditingField(null);
         setSearchValue("");
-      } catch (_e) {
-        setSearchError("Ticker no encontrado");
+      } catch (error) {
+        console.error('Error en búsqueda de ticker:', error);
+        
+        // Proporcionar mensajes de error más específicos
+        let errorMessage = "Error al buscar el ticker";
+        
+        if (error instanceof Error) {
+          if (error.message.includes('API key')) {
+            errorMessage = "Error de configuración de API";
+          } else if (error.message.includes('network') || error.message.includes('fetch')) {
+            errorMessage = "Error de conexión";
+          } else if (error.message.includes('not found') || error.message.includes('no encontrado')) {
+            errorMessage = "Ticker no encontrado";
+          } else if (error.message.includes('rate limit') || error.message.includes('límite')) {
+            errorMessage = "Límite de consultas excedido";
+          } else {
+            errorMessage = error.message;
+          }
+        }
+        
+        setSearchError(errorMessage);
       } finally {
         setSearchLoading(false);
       }
@@ -547,15 +570,6 @@ export default function OverviewCard({
         </div>
       </div>
 
-      {/* Descripción */}
-      <div className="bg-gray-800/30 rounded-lg p-4 border-gray-700/30">
-        <h3 className="text-orange-400 text-lg font-semibold mb-3">
-          Descripción del Negocio
-        </h3>
-        <p className="text-gray-200 text-sm leading-relaxed">
-          {data.description || "No hay descripción disponible para esta empresa."}
-        </p>
-      </div>
 
       {/* Info adicional */}
       <div className="bg-gray-800/30 rounded-lg p-4 border-gray-700/30">
@@ -672,7 +686,7 @@ export default function OverviewCard({
 
   return (
     <Dialog>
-      <Card className="flex items-center min-h-[52px] bg-transparent border-none responsive-container">
+      <Card className="flex items-center min-h-[52px] bg-tarjetas border-none responsive-container">
         <CardHeader className="p-0 flex items-center justify-start">
           <CardTitle className="space-y-2 md:space-y-3">
             {/* Company Info - Responsive Layout */}
@@ -721,7 +735,7 @@ export default function OverviewCard({
               </div>
 
               {/* % cambio */}
-              {/* <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1">
                   <Percent className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
                   <span className="text-xs md:text-sm text-gray-400">Cambio</span>
@@ -731,7 +745,20 @@ export default function OverviewCard({
                 }`}>
                   {formatPercentage(data.changePercentage)}
                 </p>
-              </div> */}
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-gray-400">Cambio Diario:</span>
+                <span
+                  className={`font-mono ${
+                    Number(data.change) >= 0 ? "text-green-400" : "text-red-400"
+                  }`}
+                >
+                  {Number.isFinite(data.change)
+                    ? `$${Number(data.change).toFixed(2)}`
+                    : "N/A"}
+                </span>
+              </div>
 
               {/* Beta */}
               {/* <div className="flex items-center gap-2">
@@ -756,7 +783,7 @@ export default function OverviewCard({
               </div> */}
 
               {/* CEO */}
-              {/* <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1">
                   <User className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
                   <span className="text-xs md:text-sm text-gray-400">CEO</span>
@@ -764,7 +791,9 @@ export default function OverviewCard({
                 <p className="text-xs md:text-sm font-semibold text-green-400 truncate max-w-[120px]">
                   {data.ceo || "N/A"}
                 </p>
-              </div> */}
+              </div>
+
+              
 
               {/* Modal Trigger */}
               <div className="flex items-center ml-auto">
@@ -776,19 +805,33 @@ export default function OverviewCard({
                       e.currentTarget.style.display = "none";
                     }}
                   />
-                <DialogTrigger asChild>
-                  <button className="p-1">                    
-                    <p className="text-sm text-gray-400 hover:text-orange-600 cursor-pointer ml-2" >
-                      Overview
-                    </p>                        
-                  </button>
-                </DialogTrigger>
               </div>
               
 
             </div>            
             </div>
           </CardTitle>
+          <CardContent>
+            <div className="bg-gray-800/30 rounded-lg p-4 border-gray-700/30">
+              <h3 className="text-orange-400 text-lg font-semibold mb-3">
+                Descripción del Negocio
+              </h3>
+              <p className="text-gray-200 text-sm leading-relaxed">
+                {data.description || "No hay descripción disponible para esta empresa."}
+              </p>
+            </div>
+            
+            {/* Modal Trigger */}
+            <div className="flex items-center ml-auto mt-4">
+              <DialogTrigger asChild>
+                <button className="p-1">                    
+                  <p className="text-sm text-gray-400 hover:text-orange-600 cursor-pointer ml-2" >
+                    Ver más datos de la empresa
+                  </p>                        
+                </button>
+              </DialogTrigger>
+            </div>
+          </CardContent>
         </CardHeader>
       </Card>
 
