@@ -215,7 +215,6 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
           <div className="text-gray-400">
            Dividendos
           </div>
-           {symbol}
           </CardTitle>
         <div className="flex gap-2" role="tablist" aria-label="Vistas de dividendos">
           <button

@@ -686,15 +686,15 @@ export default function OverviewCard({
 
   return (
     <Dialog>
-      <Card className="flex flex-col max-h-[500px] bg-tarjetas border-none responsive-container">
+      <Card className=" max-h-[500px] bg-tarjetas border-none responsive-container">
         <CardHeader className="pb-2">
           <CardTitle className="space-y-2 md:space-y-3">
             {/* Company Info - Responsive Layout */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-4">
+            {/* <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-4">
                 <div className="flex items-center gap-2">
                    {data.companyName || "Empresa"}
                 </div>
-            </div>
+            </div> */}
           </CardTitle>
         </CardHeader>
         
@@ -713,6 +713,9 @@ export default function OverviewCard({
                   }}
                 />
               </div>
+              <div className="flex items-center gap-2">
+                   {data.companyName || "Empresa"}
+                </div>
               
               {/* Financial Metrics */}
               <div className="space-y-3">

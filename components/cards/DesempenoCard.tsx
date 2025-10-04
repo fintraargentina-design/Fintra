@@ -78,7 +78,7 @@ export default function DesempenoCard({ symbol }: { symbol: string }) {
       const score = gradeFromReturn(period, ret);
       
       return {
-        label: `Desempeño ${period}`,
+        label: `${period}`,
         value: ret,
         display: ret != null ? `${ret.toFixed(2)}%` : 'N/A',
         score,
@@ -96,7 +96,6 @@ export default function DesempenoCard({ symbol }: { symbol: string }) {
           <div className="text-gray-400">
            Desempeño
           </div>
-           {symbol}
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
