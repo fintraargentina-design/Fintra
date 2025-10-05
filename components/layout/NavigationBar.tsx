@@ -4,6 +4,7 @@ import AIAnalysisButton from "@/components/AIAnalysisButton"
 import type { TabKey } from "@/app/page"
 
 interface NavigationBarProps {
+  orientation?: 'horizontal' | 'vertical';
   activeTab: TabKey;
   setActiveTab: (tab: TabKey) => void;
   // Props para el análisis global
@@ -33,7 +34,8 @@ export default function NavigationBar({
   overviewData,
   estimacionData,
   dividendosData,
-  desempenoData
+  desempenoData,
+  orientation = 'horizontal'
 }: NavigationBarProps) {
   const tabs = [
     { key: 'chart', label: 'Gráficos', icon: TrendingUp },
@@ -42,6 +44,44 @@ export default function NavigationBar({
     { key: 'noticias', label: 'Noticias', icon: FileText },
   ];
 
+  if (orientation === 'vertical') {
+    return (
+      <div className="hidden xl:flex flex-col items-center gap-2 w-8 overflow-visible">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key as TabKey)}
+            className={`
+              relative group flex items-center justify-center w-8 h-8 rounded-md transition-colors
+              ${activeTab === tab.key ? 'bg-white text-black shadow-sm' : 'text-gray-300 hover:bg-gray-700'}
+            `}
+          >
+            <tab.icon className="w-4 h-4" />
+            <span className="pointer-events-none absolute top-1/2 right-full -translate-y-1/2 mr-2 px-2 py-1 rounded-md bg-gray-800 text-gray-200 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 shadow-lg z-20">
+              {tab.label}
+            </span>
+          </button>
+        ))}
+        {symbol && (
+          <div className="relative group flex-shrink-0">
+            <AIAnalysisButton
+              symbol={symbol}
+              fundamentalData={fundamentalData}
+              valoracionData={valoracionData}
+              financialScoresData={financialScoresData}
+              overviewData={overviewData}
+              estimacionData={estimacionData}
+              dividendosData={dividendosData}
+              desempenoData={desempenoData}
+            />
+            <span className="pointer-events-none absolute top-1/2 right-full -translate-y-1/2 mr-2 px-2 py-1 rounded-md bg-gray-800 text-gray-200 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 shadow-lg z-20">
+              Análisis IA
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="w-full">
       {/* Desktop Navigation */}

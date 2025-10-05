@@ -338,7 +338,7 @@ export default function OverviewCard({
         return (
           <div className="px-3 py-2 text-orange-400 text-sm flex items-center space-x-2">
             <RefreshCw className="w-3 h-3 animate-spin" />
-            <span>Cargando...</span>
+            <span>Cargando Ticker...</span>
           </div>
         );
       }
@@ -350,7 +350,7 @@ export default function OverviewCard({
               onChange={(e) => setSearchValue(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder="Buscar ticker..."
-              className="h-8 w-32 bg-tarjetas text-orange-400"
+              className="h-32 grid place-items-center text-gray-500 text-sm"
               autoFocus
             />
             <Search
@@ -620,15 +620,15 @@ export default function OverviewCard({
     </div>
   );
 
-  
+
   return (
     <Dialog>
       <Card className="max-h-[500px] bg-tarjetas border-none responsive-container px-6 sm:px-6 lg:px-6 xl:px-6">
                 
         <CardContent className="flex-1 overflow-hidden pl-0 pr-0 pt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 h-full">
+          <div className="grid grid-cols-1 lg:grid-cols-7 gap-0 h-full">
             {/* Left Column - Company Data */}
-            <div className="lg:col-span-2 bg-gray-800/30 rounded-lg p-4 border-gray-700/30 space-y-4">
+            <div className="lg:col-span-2 bg-transparent rounded-lg p-4 border-gray-700/30 space-y-4">
               {/* Company Logo */}
               <div className="flex justify-center">
                 <img

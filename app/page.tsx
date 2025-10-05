@@ -2,18 +2,18 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { searchStockData, getStockConclusionData } from '@/lib/stockQueries';
-import { Card } from '@/components/ui/card';
 import NavigationBar from '@/components/layout/NavigationBar';
 import DatosTab from '@/components/tabs/DatosTab';
 import ChartsTabHistoricos from '@/components/tabs/ChartsTabHistoricos';
 import NoticiasTab from '@/components/tabs/NoticiasTab';
 import { supabase, registerStockSearch } from '@/lib/supabase';
-import RadarPeersCard from '@/components/RadarPeersCard';
 import ConclusionRapidaCard from '@/components/cards/ConclusionRapidaCard';
 import CompetidoresCard from '@/components/cards/CompetidoresCard';
 import OverviewCard from '@/components/cards/OverviewCard';
 import EstimacionCard from '@/components/cards/EstimacionCard';
 import Header from '@/components/layout/Header';
+import { Button } from '@/components/ui/button';
+import { Settings } from 'lucide-react';
 
 import FinancialScoresCard from '@/components/cards/FinancialScoresCard';
 
@@ -145,27 +145,27 @@ export default function StockTerminal() {
   return (
     <div className="min-h-screen bg-fondoDeTarjetas">
       {/* Header responsivo */}
-      <div className="sticky top-0 z-50 bg-fondoDeTarjetas/95 backdrop-blur supports-[backdrop-filter]:bg-fondoDeTarjetas/60 mb-2 border-b border-gray-600">
+      <div className="sticky top-0 z-50 bg-fondoDeTarjetas/95 backdrop-blur supports-[backdrop-filter]:bg-fondoDeTarjetas/60 border-b border-gray-600">
         <Header 
-  user={user}
-  onAuth={handleAuth}
-  onSelectSymbol={handleTopStockClick}
-  showTimes={true}
-  activeTab={activeTab}
-  setActiveTab={setActiveTab}
-  symbol={selectedSymbol}
-  fundamentalData={stockBasicData?.datos?.fundamentales}
-  valoracionData={stockBasicData?.datos?.valoracion}
-  financialScoresData={stockBasicData?.datos?.financialScores}
-  overviewData={stockBasicData}
-  estimacionData={stockBasicData?.datos?.estimacion}
-  dividendosData={stockBasicData?.datos?.dividendos}
-  desempenoData={stockBasicData?.datos?.desempeno}
-/>
+          user={user}
+          onAuth={handleAuth}
+          onSelectSymbol={handleTopStockClick}
+          showTimes={true}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          symbol={selectedSymbol}
+          fundamentalData={stockBasicData?.datos?.fundamentales}
+          valoracionData={stockBasicData?.datos?.valoracion}
+          financialScoresData={stockBasicData?.datos?.financialScores}
+          overviewData={stockBasicData}
+          estimacionData={stockBasicData?.datos?.estimacion}
+          dividendosData={stockBasicData?.datos?.dividendos}
+          desempenoData={stockBasicData?.datos?.desempeno}
+        />
       </div>
 
       {/* Contenedor principal responsivo - Ancho completo */}
-      <div className="w-full px-2 sm:px-4 lg:px-6 xl:px-8">
+      <div className="w-full px-2 sm:px-2 lg:px-2 xl:px-2 pt-2 pb-2 sm:pb-2 lg:pb-2 xl:pb-2 h-[calc(100vh-72px)] overflow-hidden">
         {error && (
           <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded text-red-400">
             {error}
@@ -176,9 +176,9 @@ export default function StockTerminal() {
           <div className="space-y-1 md:space-y-1">
 
             {/* Layout principal responsivo */}
-            <div className="flex flex-col xl:flex-row gap-2 md:gap-1">
+            <div className="grid grid-cols-1 xl:grid-cols-[1fr_1fr_auto] gap-2 md:gap-1 items-start h-full">
               {/* Panel izquierdo */}
-              <div className="w-full xl:w-1/2 space-y-2 md:space-y-1">
+              <div className="w-full xl:w-auto space-y-2 md:space-y-1 min-h-0 max-h-[calc(100vh-64px)] overflow-y-auto scrollbar-thin">
                 <div className="w-full">
                   <OverviewCard
                       selectedStock={selectedStock}
@@ -195,6 +195,7 @@ export default function StockTerminal() {
                     <CompetidoresCard 
                       symbol={selectedSymbol} 
                       onCompetitorSelect={setSelectedCompetitor}
+                      onCompetitorSearch={buscarDatosAccion}
                       selectedCompetitor={selectedCompetitor}
                     />
                   </div>
@@ -209,11 +210,38 @@ export default function StockTerminal() {
               </div>
 
               {/* Panel derecho */}
-              <div className="w-full xl:w-1/2">
+              <div className="w-full xl:w-auto min-h-0 max-h-[calc(100vh-64px)] overflow-y-auto scrollbar-thin">
                 {/* Navigation Bar responsiva (removida, ahora está en Header) */}
                 <div className="w-full">
                   {renderTabContent()}
                 </div>
+              </div>
+
+              {/* Tercera columna: NavigationBar vertical */}
+              <div className="hidden xl:flex xl:flex-col items-start justify-start gap-2 overflow-visible">
+                <NavigationBar
+                  orientation="vertical"
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                  symbol={selectedSymbol}
+                  fundamentalData={stockBasicData?.datos?.fundamentales}
+                  valoracionData={stockBasicData?.datos?.valoracion}
+                  financialScoresData={stockBasicData?.datos?.financialScores}
+                  overviewData={stockBasicData}
+                  estimacionData={stockBasicData?.datos?.estimacion}
+                  dividendosData={stockBasicData?.datos?.dividendos}
+                  desempenoData={stockBasicData?.datos?.desempeno}
+                />
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="relative group text-gray-400 hover:text-white hover:bg-gray-800 p-2 w-8 h-8 flex items-center justify-center"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span className="pointer-events-none absolute top-1/2 right-full -translate-y-1/2 mr-2 px-2 py-1 rounded-md bg-gray-800 text-gray-200 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 shadow-lg z-20">
+                    Configuración
+                  </span>
+                </Button>
               </div>
             </div>
           </div>

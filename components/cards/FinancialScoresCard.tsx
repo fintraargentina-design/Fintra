@@ -373,15 +373,9 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
   if (loading) {
     return (
       <Card className="bg-tarjetas border-gray-700/30">
-        <CardHeader>
-          <CardTitle className="text-orange-400 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5" />
-            Financial Scores — {symbol}
-          </CardTitle>
-        </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-64">
-            <div className="text-gray-400">Cargando datos financieros...</div>
+            <div className="h-32 grid place-items-center text-gray-500 text-sm">Cargando datos financieros...</div>
           </div>
         </CardContent>
       </Card>
@@ -391,12 +385,6 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
   if (error || !scoresData) {
     return (
       <Card className="bg-tarjetas border-gray-700/30">
-        <CardHeader>
-          <CardTitle className="text-orange-400 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5" />
-            Financial Scores — {symbol}
-          </CardTitle>
-        </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-64">
             <div className="text-red-400">

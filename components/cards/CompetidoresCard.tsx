@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { fmp } from '@/lib/fmp/client';
@@ -24,6 +24,7 @@ interface CompetitorData {
 interface CompetidoresCardProps {
   symbol?: string;
   onCompetitorSelect?: (competitor: string) => void;
+  onCompetitorSearch?: (competitor: string) => void;
   selectedCompetitor?: string | null;
 }
 
@@ -34,6 +35,7 @@ interface CompetidoresCardProps {
 export default function CompetidoresCard({ 
   symbol, 
   onCompetitorSelect, 
+  onCompetitorSearch,
   selectedCompetitor 
 }: CompetidoresCardProps) {
   const [loading, setLoading] = useState(true);
@@ -41,6 +43,19 @@ export default function CompetidoresCard({
   const [competitors, setCompetitors] = useState<CompetitorData[]>([]);
   const [sector, setSector] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const lastClickRef = useRef<{ symbol: string | null; time: number }>({ symbol: null, time: 0 });
+
+  const handleCompetitorClick = (sym: string) => {
+    const now = Date.now();
+    const last = lastClickRef.current;
+    if (last.symbol === sym && now - last.time < 400) {
+      onCompetitorSearch?.(sym);
+      lastClickRef.current = { symbol: null, time: 0 };
+    } else {
+      onCompetitorSelect?.(sym);
+      lastClickRef.current = { symbol: sym, time: now };
+    }
+  };
 
   /**
    * Obtiene los datos de los competidores usando la API de FMP
@@ -175,7 +190,7 @@ export default function CompetidoresCard({
       <Card className="bg-tarjetas border-none min-h-[300px]">
         <CardContent className="p-6">
           <div className="flex items-center justify-center h-64">
-            <div className="text-gray-400">No hay símbolo disponible</div>
+            <div className="h-32 grid place-items-center text-gray-500 text-sm">No hay símbolo disponible</div>
           </div>
         </CardContent>
       </Card>
@@ -185,15 +200,9 @@ export default function CompetidoresCard({
   if (loading) {
     return (
       <Card className="bg-tarjetas border-none min-h-[300px]">
-        <CardHeader>
-          <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
-            <Building2 className="w-5 h-5" />
-            Competidores Principales
-          </CardTitle>
-        </CardHeader>
         <CardContent className="p-6">
           <div className="flex items-center justify-center h-64">
-            <div className="text-gray-400">Cargando competidores...</div>
+            <div className="h-32 grid place-items-center text-gray-500 text-sm">Cargando competidores...</div>
           </div>
         </CardContent>
       </Card>
@@ -203,15 +212,9 @@ export default function CompetidoresCard({
   if (error) {
     return (
       <Card className="bg-tarjetas border-none h-[492px]">
-        <CardHeader>
-          <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
-            <Building2 className="w-5 h-5" />
-            Competidores Principales
-          </CardTitle>
-        </CardHeader>
         <CardContent className="p-6">
           <div className="flex items-center justify-center h-64">
-            <div className="text-red-400">{error}</div>
+            <div className="h-32 grid place-items-center text-gray-500 text-sm">{error}</div>
           </div>
         </CardContent>
       </Card>
@@ -221,15 +224,9 @@ export default function CompetidoresCard({
   if (competitors.length === 0) {
     return (
       <Card className="bg-tarjetas border-none h-[492px]">
-        <CardHeader>
-          <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
-            <Building2 className="w-5 h-5" />
-            Competidores Principales
-          </CardTitle>
-        </CardHeader>
         <CardContent className="p-6">
           <div className="flex items-center justify-center h-64">
-            <div className="text-gray-400">No se encontraron competidores</div>
+            <div className="h-32 grid place-items-center text-gray-500 text-sm">No se encontraron competidores</div>
           </div>
         </CardContent>
       </Card>
@@ -254,7 +251,7 @@ export default function CompetidoresCard({
                     ? 'border-orange-500 bg-orange-500/10' 
                     : 'border-gray-700/50 hover:border-orange-500/30'
                 }`}
-                onClick={() => onCompetitorSelect?.(competitor.symbol)}
+                onClick={() => handleCompetitorClick(competitor.symbol)}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">
