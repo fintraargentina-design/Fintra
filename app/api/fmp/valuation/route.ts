@@ -92,18 +92,115 @@ export async function GET(req: NextRequest) {
       { period, limit: 5 }
     );
 
+    // Nuevo: fallback de forward P/E usando crecimiento de EPS
+    const peValue = num(r?.priceEarningsRatio);
+    const epsGrowthRate =
+      Array.isArray(growth) && growth.length
+        ? num((growth[0] as any)?.epsGrowth ?? (growth[0] as any)?.epsgrowth)
+        : null;
+    const forwardPeFallback =
+      peValue != null && epsGrowthRate != null && (1 + epsGrowthRate) > 0
+        ? +((peValue as number) / (1 + (epsGrowthRate as number))).toFixed(2)
+        : null;
+
+    // Segundo fallback: consenso analistas (estimatedEPSNextYear)
+    const forwardPeDirect = num(r?.forwardPE);
+    let forwardPeAnalyst: number | null = null;
+    // Cálculo de crecimiento implícito basado en PEG y forward P/E
+    const pegValue = num(r?.pegRatio ?? r?.priceToEarningsGrowthRatio ?? r?.priceEarningsToGrowthRatio);
+    const peForGrowth = (forwardPeDirect ?? forwardPeFallback ?? forwardPeAnalyst ?? peValue) ?? null;
+    const impliedGrowthCalc =
+      pegValue != null && pegValue > 0 && peForGrowth != null && peForGrowth > 0
+        ? +((peForGrowth as number) / (pegValue as number)).toFixed(2) // %
+        : (peForGrowth != null && peForGrowth > 0 ? +(peForGrowth as number).toFixed(2) : null); // asumiendo PEG≈1
+    if (forwardPeDirect == null && forwardPeFallback == null) {
+      try {
+        const analysts = await fmpGet<any[]>(
+          `/api/v3/analyst-estimates/${symbol}`,
+          { period, limit: 1 }
+        );
+        const a = Array.isArray(analysts) && analysts.length ? analysts[0] : {};
+        const estNextEPS =
+          num(a?.estimatedEPSNextYear ?? a?.estimatedEpsNextYear ?? a?.estimateEPSNextYear);
+
+        if (estNextEPS != null && estNextEPS > 0) {
+          const prof = await fmpGet<any[]>(`/api/v3/profile/${symbol}`);
+          const p = Array.isArray(prof) && prof.length ? num(prof[0]?.price) : null;
+          forwardPeAnalyst = p != null && p > 0 ? +(p / estNextEPS).toFixed(2) : null;
+        }
+      } catch (_) {
+        forwardPeAnalyst = null;
+      }
+    }
+
+    // EV/Sales: directo desde ratios + fallback desde key-metrics
+    const evSalesDirect = num(r?.evToSales ?? r?.enterpriseValueToSales);
+    let evSalesFallback: number | null = null;
+    if (evSalesDirect == null) {
+      try {
+        const keyMetrics = await fmpGet<any[]>(`/api/v3/key-metrics/${symbol}`, { period, limit: 1 });
+        const km = Array.isArray(keyMetrics) && keyMetrics.length ? keyMetrics[0] : {};
+        evSalesFallback = num(km?.evToSales ?? km?.enterpriseValueToSales);
+      } catch (_) {
+        evSalesFallback = null;
+      }
+    }
+
+    // Nuevo: cálculo de "Descuento vs. PT" (precio objetivo analistas vs precio actual)
+    let currentPrice: number | null = null;
+    try {
+      const prof = await fmpGet<any[]>(`/api/v3/profile/${symbol}`);
+      currentPrice = Array.isArray(prof) && prof.length ? num(prof[0]?.price) : null;
+    } catch (_) {
+      currentPrice = null;
+    }
+
+    let targetAvg: number | null = null;
+    try {
+      const pt = await fmpGet<any>(`/stable/price-target-consensus/${symbol}`);
+      const node = Array.isArray(pt) && pt.length ? pt[0] : (pt ?? {});
+      targetAvg = num(
+        node?.targetConsensus ??
+      node?.priceTargetAverage ??
+        node?.targetPriceAverage ??
+        node?.targetMean ??
+        node?.targetMedian ??
+        node?.targetAvg ??
+        node?.targetAverage ??
+        node?.averagePriceTarget ??
+        node?.consensusPriceTarget ??
+        node?.analystTargetPrice ??
+        node?.priceTarget
+      );
+
+      // Fallback: si existen High/Low, promediar
+      if (targetAvg == null) {
+        const high = num(node?.priceTargetHigh ?? node?.targetHigh);
+        const low = num(node?.priceTargetLow ?? node?.targetLow);
+        if (high != null && low != null && high > 0 && low > 0) {
+          targetAvg = +(((high + low) / 2)).toFixed(2);
+        }
+      }
+    } catch (_) {
+      targetAvg = null;
+    }
+
+    const discountVsPtCalc = (
+      currentPrice != null && currentPrice > 0 && targetAvg != null && targetAvg > 0
+    ) ? +((((targetAvg as number) / (currentPrice as number)) - 1) * 100).toFixed(2) : null;
+
     const out: ValuationOut = {
       symbol,
       date: r?.date ?? null,
 
-      pe: num(r?.priceEarningsRatio),
-      forwardPe: num(r?.forwardPE),
-      peg: num(r?.pegRatio),
+      pe: peValue,
+      forwardPe: forwardPeDirect ?? forwardPeFallback ?? forwardPeAnalyst,
+      peg: pegValue,
       pb: num(r?.priceToBookRatio),
       ps: num(r?.priceToSalesRatio),
       pfcf: num(r?.priceToFreeCashFlowsRatio ?? r?.priceToFreeCashFlowRatio),
       evEbitda: num(r?.enterpriseValueMultiple),
-      evSales: num(r?.evToSales ?? r?.enterpriseValueToSales),
+      evSales: evSalesDirect ?? evSalesFallback,
 
       // dividendYield suele venir como fracción (0.0123 = 1.23%)
       dividendYield:
@@ -111,8 +208,8 @@ export async function GET(req: NextRequest) {
 
       pePercentile5y: null,
       peZscorePeers: null,
-      impliedGrowth: null,
-      discountVsPt: null,
+      impliedGrowth: impliedGrowthCalc,
+      discountVsPt: discountVsPtCalc,
 
       rawRatios: r ?? {},
       rawGrowth: Array.isArray(growth) ? growth : [],

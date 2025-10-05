@@ -551,7 +551,7 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
         <CardContent>
           {loading ? (
             <div className="h-32 grid place-items-center text-gray-500 text-sm"> 
-              Cargando fundamentales…
+              Cargando datos de Fundamentales…
             </div>
           ) : error ? (
             <div className="h-72 flex items-center justify-center text-red-400">{error}</div>

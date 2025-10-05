@@ -307,9 +307,9 @@ export default function OverviewCard({
   // AHORA sí podemos hacer returns condicionales basados en estado
   if (loading || isParentLoading) {
     return (
-      <Card className="bg-transparent border-none flex items-center justify-center w-full h-[52px]">
+      <Card className="bg-tarjetas border-none flex items-center justify-center w-full h-[52px]">
         <CardContent className="p-0 flex items-center justify-center w-full h-full">
-          <div className="text-gray-400 text-sm font-medium">
+          <div className="h-32 grid place-items-center text-gray-500 text-sm">
             Cargando ticker...
           </div>
         </CardContent>
@@ -336,7 +336,7 @@ export default function OverviewCard({
     if (editingField === fieldName) {
       if (searchLoading) {
         return (
-          <div className="px-3 py-2 text-orange-400 text-sm flex items-center space-x-2">
+          <div className="px-3 py-2 bg-Tarjeta text-orange-400 text-sm flex items-center space-x-2">
             <RefreshCw className="w-3 h-3 animate-spin" />
             <span>Cargando Ticker...</span>
           </div>
@@ -646,12 +646,23 @@ export default function OverviewCard({
               
               {/* Financial Metrics */}
               <div className="space-y-3">
+
+                {/* Ticker */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-400">Ticker</span>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-300 truncate max-w-[120px]">
+                    {data.symbol || "N/A"}
+                  </p>
+                </div>
+
                 {/* Precio */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-400">Precio</span>
                   </div>
-                  <div className="text-lg font-semibold text-orange-400">
+                  <div className="text-lg font-semibold text-gray-300">
                     {Number.isFinite(Number(data.price)) ? `$${Math.round(Number(data.price))}` : "N/A"}
                   </div>
                 </div>
@@ -697,7 +708,7 @@ export default function OverviewCard({
                   <div className="flex items-center gap-2">                    
                     <span className="text-sm text-gray-400">CEO</span>
                   </div>
-                  <p className="text-sm font-semibold text-green-400 truncate max-w-[120px]">
+                  <p className="text-sm font-semibold text-gray-300 truncate max-w-[120px]">
                     {data.ceo || "N/A"}
                   </p>
                 </div>

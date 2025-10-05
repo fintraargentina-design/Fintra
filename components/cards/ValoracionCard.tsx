@@ -183,7 +183,7 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
         console.log('🔍 Cargando valoración para:', symbol);
         
         // Cambiar de fmp.ratios a fmp.valuation
-        const valuation = await fmp.valuation(symbol, { period: "annual" });
+        const valuation = await fmp.valuation(symbol, { period: "annual", cache: "no-store" });
         console.log('📊 Datos de valoración recibidos:', valuation);
         
         // Verificar si hay error en la respuesta
@@ -278,7 +278,7 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
         <CardContent>
           {loading ? (
             <div className="h-32 grid place-items-center text-gray-500 text-sm">
-              Cargando valoración…
+              Cargando datos de Valoración…
             </div>
           ) : error ? (
             <div className="h-72 flex items-center justify-center text-red-400">{error}</div>

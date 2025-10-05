@@ -267,7 +267,7 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
       <CardContent className="pt-0">
         <div style={{ height: 260, width: '100%' }}>
           {loading ? (
-            <div className="h-full grid place-items-center text-gray-500 text-sm">Cargando…</div>
+            <div className="h-32 grid place-items-center text-gray-500 text-sm">Cargando datos de Dividendos...</div>
           ) : (
             <ReactECharts
               key={view}                // <- fuerza crear una instancia nueva al cambiar de vista
