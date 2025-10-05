@@ -746,6 +746,10 @@ export default function OverviewCard({
 
       {/* Modal - Responsive */}
       <DialogContent className="bg-tarjetas border-gray-700 w-[95vw] max-w-4xl max-h-[85vh] overflow-y-auto">
+        {/* Hidden accessible title to satisfy Radix requirement */}
+        <DialogHeader className="sr-only">
+          <DialogTitle>Datos de la empresa</DialogTitle>
+        </DialogHeader>
         <div className="mt-4 space-responsive">
           {renderOverviewContent()}
         </div>

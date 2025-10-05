@@ -145,7 +145,7 @@ export default function StockTerminal() {
   return (
     <div className="min-h-screen bg-fondoDeTarjetas">
       {/* Header responsivo */}
-      <div className="sticky top-0 z-50 bg-fondoDeTarjetas/95 backdrop-blur supports-[backdrop-filter]:bg-fondoDeTarjetas/60 border-b border-gray-600">
+      <div className="sticky top-0 z-50 bg-fondoDeTarjetas/95 backdrop-blur supports-[backdrop-filter]:bg-fondoDeTarjetas/60 border-b border-orange-400/50">
         <Header 
           user={user}
           onAuth={handleAuth}
