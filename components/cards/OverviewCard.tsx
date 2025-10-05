@@ -730,7 +730,7 @@ export default function OverviewCard({
                 </div>
               </div>
               {/* Modal Trigger */}
-              <div className="flex justify-center mt-2 mb-2">
+              <div className="flex justify-center mt-2 mb-2 border-t border-gray-700/30 pt-2">
                 <DialogTrigger asChild>
                   <button className="px-2 py-1 bg-transparent hover: transition-colors">
                     <p className="text-sm text-gray-400 hover:text-orange-400">
