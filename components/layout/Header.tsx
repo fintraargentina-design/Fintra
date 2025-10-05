@@ -61,7 +61,48 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
   const [tickerInput, setTickerInput] = useState("");
   const [isTickerFocused, setIsTickerFocused] = useState(false);
   const [showQuickSearch, setShowQuickSearch] = useState(false);
-  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // NUEVO: estados de búsqueda FMP
+  const [searchResults, setSearchResults] = useState<Array<{ symbol: string; name: string; exchangeShortName?: string }>>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  useEffect(() => {
+    const q = tickerInput.trim();
+    if (!isTickerFocused || q.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    let active = true;
+    setSearchLoading(true);
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        // Intenta usar la ruta interna si existe
+        const internal = `/api/fmp/search?query=${encodeURIComponent(q)}&limit=8`;
+        const res = await fetch(internal, { signal: controller.signal });
+        let data: any[] = [];
+        if (res.ok) {
+          data = await res.json();
+        } else if (process.env.NEXT_PUBLIC_FMP_API_KEY) {
+          // Fallback directo a FMP si no hay route
+          const ext = `https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(q)}&limit=8&apikey=${process.env.NEXT_PUBLIC_FMP_API_KEY}`;
+          const r2 = await fetch(ext, { signal: controller.signal });
+          if (r2.ok) data = await r2.json();
+        }
+        if (active) setSearchResults(Array.isArray(data) ? data : []);
+      } catch (_) {
+        if (active) setSearchResults([]);
+      } finally {
+        if (active) setSearchLoading(false);
+      }
+    }, 250); // debounce
+    return () => {
+      active = false;
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [tickerInput, isTickerFocused]);
+  const searchContainerRef = useRef<HTMLInputElement | HTMLDivElement>(null as any);
 
   useEffect(() => {
     setCurrentTime(new Date());
@@ -90,6 +131,7 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
   const handleTickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.toUpperCase();
     setTickerInput(value);
+    setShowQuickSearch(true);
   };
   
   const handleTickerKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -140,7 +182,8 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
           <div
             ref={searchContainerRef}
             className="relative flex items-center gap-2 flex-1 min-w-0"
-            style={{ maxWidth: maxWidthPx ? `${maxWidthPx}px` : undefined }}
+            /* style={{ maxWidth: maxWidthPx ? `${maxWidthPx}px` : undefined }} */
+            style={{ maxWidth: "500px" }}
           >
             <Input
               ref={inputRef}
@@ -153,15 +196,49 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
             />
             {showQuickSearch && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-fondoDeTarjetas border border-gray-700 shadow-lg z-50 max-h-64 overflow-y-auto">
-                <div className="p-2 border-b border-gray-700">
-                  <span className="text-xs text-gray-400 font-medium">Más buscadas</span>
-                </div>
-                <div className="py-1">
-                  <TopSearchedStocksDropdown 
-                    onStockClick={handleQuickSearchStockClick} 
-                    isMobile={false}
-                    isQuickSearch={true}
-                  />
+                <div className="grid grid-cols-7 divide-x divide-gray-700">
+                  {/* Columna 1: Resultados (5/7) */}
+                  <div className="col-span-5">
+                    <div className="p-2">  {/* border-b border-gray-700 */}
+                      <span className="text-xs text-gray-400 font-medium">Resultados</span>
+                    </div>
+                    <div className="py-1">
+                      {searchLoading && (
+                        <div className="px-3 py-2 text-xs text-gray-400">Buscando...</div>
+                      )}
+                      {!searchLoading && searchResults.length === 0 && tickerInput.trim().length >= 2 && (
+                        <div className="px-3 py-2 text-xs text-gray-500">Sin resultados</div>
+                      )}
+                      {searchResults.map((r) => (
+                        <button
+                          key={`${r.symbol}-${r.name}`}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-800/40 transition-colors"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => handleQuickSearchStockClick(r.symbol)}
+                        >
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-orange-400 font-mono">{r.symbol}</span>
+                            <span className="text-xs text-gray-500">{r.exchangeShortName || ""}</span>
+                          </div>
+                          <div className="text-xs text-gray-300 truncate">{r.name}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Columna 2: Más buscadas (2/7) */}
+                  <div className="col-span-2">
+                    <div className="p-2">
+                      <span className="text-xs text-gray-400 font-medium">Top</span>
+                    </div>
+                    <div className="py-1">
+                      <TopSearchedStocksDropdown 
+                        onStockClick={handleQuickSearchStockClick} 
+                        isMobile={false}
+                        isQuickSearch={true}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
