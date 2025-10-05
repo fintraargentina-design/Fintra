@@ -125,7 +125,7 @@ export default function AIAnalysisButton({
           grossMargin: latestRatios?.grossProfitMargin || fundamentales?.grossMargin || null,
           
           // Datos del dashboard que se ven en la imagen
-          bookValuePerShare: latestKeyMetrics?.bookValuePerShare || latestRatios?.bookValuePerShare || null,
+          bookValuePerShare: latestKeyMetrics?.bookValuePerShare ?? (latestKeyMetrics as any)?.bookValuePerShareTTM ?? (latestRatios as any)?.bookValuePerShareTTM ?? latestRatios?.bookValuePerShare ?? null,
           priceToBookRatio: latestRatios?.priceToBookRatio || valoracion?.pb || null,
           priceEarningsRatio: latestRatios?.priceEarningsRatio || valoracion?.pe || null,
           enterpriseValue: latestKeyMetrics?.enterpriseValue || null,

@@ -93,6 +93,8 @@ export type FMPKeyMetrics = {
   date: string;
   period: string;
   bookValuePerShare?: number;
+  // Alias TTM si FMP lo devuelve con sufijo
+  bookValuePerShareTTM?: number;
   sharesOutstanding?: number;
   freeCashFlowPerShare?: number;
 };

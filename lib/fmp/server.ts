@@ -5,8 +5,9 @@ const BASE =
   (process.env.FMP_BASE_URL?.replace(/\/$/, "") as string) ||
   "https://financialmodelingprep.com";
 const API_KEY = process.env.FMP_API_KEY; // sólo server
-
-console.warn("[FMP] FMP_API_KEY no configurada en el servidor (.env).");
+if (!API_KEY) {
+  console.warn("[FMP] FMP_API_KEY no configurada en el servidor (.env).");
+}
 
 export type Query = Record<string, string | number | boolean | undefined>;
 
