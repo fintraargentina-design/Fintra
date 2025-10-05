@@ -38,7 +38,7 @@ const numOrNull = (x: any): number | null => {
 const getScoreLevel = (score: number | null): string => {
   if (score == null) return "Sin datos";
   if (score >= 70) return "Fuerte";
-  if (score >= 40) return "Medio";
+  if (score >= 40) return "A vigilar";
   return "Débil";
 };
 

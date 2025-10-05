@@ -157,11 +157,11 @@ export async function GET(req: NextRequest) {
 
     let targetAvg: number | null = null;
     try {
-      const pt = await fmpGet<any>(`/stable/price-target-consensus/${symbol}`);
+      const pt = await fmpGet<any>("/stable/price-target-consensus", { symbol });
       const node = Array.isArray(pt) && pt.length ? pt[0] : (pt ?? {});
       targetAvg = num(
         node?.targetConsensus ??
-      node?.priceTargetAverage ??
+        node?.priceTargetAverage ??
         node?.targetPriceAverage ??
         node?.targetMean ??
         node?.targetMedian ??
@@ -176,13 +176,63 @@ export async function GET(req: NextRequest) {
       // Fallback: si existen High/Low, promediar
       if (targetAvg == null) {
         const high = num(node?.priceTargetHigh ?? node?.targetHigh);
-        const low = num(node?.priceTargetLow ?? node?.targetLow);
+        const low  = num(node?.priceTargetLow  ?? node?.targetLow);
         if (high != null && low != null && high > 0 && low > 0) {
           targetAvg = +(((high + low) / 2)).toFixed(2);
         }
       }
     } catch (_) {
       targetAvg = null;
+    }
+
+    // NUEVO: fallback al endpoint v3 si consenso no trajo datos
+    if (targetAvg == null) {
+      try {
+        const ptv3 = await fmpGet<any[]>(`/api/v3/price-target/${symbol}`);
+        const node2 = Array.isArray(ptv3) && ptv3.length ? ptv3[0] : {};
+        targetAvg = num(
+          node2?.targetMean ??
+          node2?.targetMedian ??
+          node2?.targetAverage ??
+          node2?.priceTargetAverage ??
+          node2?.averagePriceTarget ??
+          node2?.targetAvg
+        );
+        if (targetAvg == null) {
+          const high2 = num(node2?.targetHigh);
+          const low2  = num(node2?.targetLow);
+          if (high2 != null && low2 != null && high2 > 0 && low2 > 0) {
+            targetAvg = +(((high2 + low2) / 2)).toFixed(2);
+          }
+        }
+      } catch (_) {
+        // sin datos
+      }
+    }
+
+    // NUEVO: fallback al endpoint v3 si consenso no trajo datos
+    if (targetAvg == null) {
+      try {
+        const ptv3 = await fmpGet<any[]>(`/api/v3/price-target/${symbol}`);
+        const node2 = Array.isArray(ptv3) && ptv3.length ? ptv3[0] : {};
+        targetAvg = num(
+          node2?.targetMean ??
+          node2?.targetMedian ??
+          node2?.targetAverage ??
+          node2?.priceTargetAverage ??
+          node2?.averagePriceTarget ??
+          node2?.targetAvg
+        );
+        if (targetAvg == null) {
+          const high2 = num(node2?.targetHigh);
+          const low2 = num(node2?.targetLow);
+          if (high2 != null && low2 != null && high2 > 0 && low2 > 0) {
+            targetAvg = +(((high2 + low2) / 2)).toFixed(2);
+          }
+        }
+      } catch (_) {
+        // sin datos
+      }
     }
 
     const discountVsPtCalc = (
