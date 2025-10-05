@@ -242,9 +242,10 @@ export default function CompetidoresCard({
       </CardHeader>
       <CardContent className="h-[400px]">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-2 h-full">
-          <div className="overflow-y-auto h-full">
-            {competitors.map((competitor) => (
-              <div
+          <div className="overflow-y-auto h-full bg-transparent peers-scroll">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {competitors.map((competitor) => (
+                <div
                 key={competitor.symbol}
                 className={`bg-gray-800/50 rounded-lg p-4 border transition-all cursor-pointer ${
                   selectedCompetitor === competitor.symbol 
@@ -294,6 +295,7 @@ export default function CompetidoresCard({
                 </div>
               </div>
             ))}
+            </div>
           </div>
 
           <div className="h-full overflow-hidden">

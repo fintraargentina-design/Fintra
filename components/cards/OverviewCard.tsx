@@ -708,7 +708,7 @@ export default function OverviewCard({
                   <div className="flex items-center gap-2">                    
                     <span className="text-sm text-gray-400">CEO</span>
                   </div>
-                  <p className="text-sm font-semibold text-gray-300 truncate max-w-[120px]">
+                  <p className="text-sm font-semibold text-gray-300 truncate max-w-[300px]">
                     {data.ceo || "N/A"}
                   </p>
                 </div>

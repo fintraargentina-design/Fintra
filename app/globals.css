@@ -187,3 +187,23 @@
 .text-yellow-400 {
   color: rgb(170, 104, 38) !important;
 }
+
+/* Fondo y scrollbar transparentes para el contenedor de competidores */
+.peers-scroll {
+  background-color: transparent !important;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(234, 88, 12, 0.4) transparent; /* thumb | track */
+}
+
+/* WebKit (Chrome, Edge, Safari) */
+.peers-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.peers-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.peers-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(234, 88, 12, 0.4);
+  border-radius: 8px;
+  border: 2px solid transparent;
+}
