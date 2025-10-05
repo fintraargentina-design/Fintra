@@ -168,12 +168,13 @@ async function fetchFactors(symbol: string, signal?: AbortSignal) {
 interface RadarPeersCardProps {
   symbol?: string;
   selectedCompetitor?: string | null;
+  embedded?: boolean;
 }
 
 // ─────────────────────────────────────────────
 // Componente Principal (único)
 // ─────────────────────────────────────────────
-export default function RadarPeersCard({ symbol, selectedCompetitor }: RadarPeersCardProps) {
+export default function RadarPeersCard({ symbol, selectedCompetitor, embedded = false }: RadarPeersCardProps) {
   // Primero verificar condiciones que podrían causar return temprano
   if (!symbol?.trim()) {
     return (
@@ -311,9 +312,11 @@ export default function RadarPeersCard({ symbol, selectedCompetitor }: RadarPeer
         textStyle: { color: '#e5e7eb', fontSize },
       },
       legend: {
-        bottom: isMobile ? 5 : 10,
-        left: isMobile ? 'center' : 20,
-        orient: isMobile ? 'horizontal' : 'vertical',
+        top: 6,
+        left: 'center',
+        orient: 'horizontal',
+        itemGap: 16,
+        formatter: (name: string) => (name.length > 26 ? name.slice(0, 26) + '…' : name),
         data: [main?.label || 'Empresa Principal', peer?.label || 'Competidor'],
         textStyle: { color: '#9ca3af', fontSize: legendFontSize },
         itemWidth: isMobile ? 12 : 14,
@@ -322,7 +325,7 @@ export default function RadarPeersCard({ symbol, selectedCompetitor }: RadarPeer
       radar: [
         {
           indicator: indicators,
-          center: ['50%', '45%'],
+          center: ['50%', '55%'],
           radius,
           axisName: {
             color: '#9ca3af',
@@ -365,11 +368,18 @@ export default function RadarPeersCard({ symbol, selectedCompetitor }: RadarPeer
   }, [main, peer, isMobile, isTablet]);
 
   // Calculate responsive height
-  const chartHeight = isMobile ? '300px' : isTablet ? '400px' : '500px';
-  const cardHeight = isMobile ? 'min-h-[300px]' : isTablet ? 'min-h-[400px]' : 'min-h-[500px]';
+  const chartHeight = embedded ? '100%' : (isMobile ? '300px' : isTablet ? '400px' : '500px');
+  const cardHeight = embedded ? 'h-full' : (isMobile ? 'min-h-[300px]' : isTablet ? 'min-h-[400px]' : 'min-h-[500px]');
 
   // AHORA sí podemos hacer returns condicionales basados en estado
   if (loading) {
+    if (embedded) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-gray-400">Evaluando competidores...</div>
+        </div>
+      );
+    }
     return (
       <Card className={`bg-tarjetas border-none ${cardHeight} responsive-container`}>
         <CardContent className={`${isMobile ? 'p-3' : 'p-6'}`}>
@@ -382,6 +392,13 @@ export default function RadarPeersCard({ symbol, selectedCompetitor }: RadarPeer
   }
 
   if (error) {
+    if (embedded) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-red-400">Error: {error}</div>
+        </div>
+      );
+    }
     return (
       <Card className={`bg-tarjetas border-none ${cardHeight} responsive-container`}>
         <CardContent className={`${isMobile ? 'p-3' : 'p-6'}`}>
@@ -393,11 +410,29 @@ export default function RadarPeersCard({ symbol, selectedCompetitor }: RadarPeer
     );
   }
 
+  if (embedded) {
+    return (
+      <div className="h-full">
+        <div style={{ height: chartHeight, width: '100%' }}>
+          <ReactEChartsCore
+            echarts={echarts as any}
+            option={option as any}
+            notMerge
+            lazyUpdate
+            style={{ height: '100%', width: '100%' }}
+            opts={{ renderer: 'canvas' }}
+            onChartReady={(chart: any) => setChartInstance(chart)}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Card className="bg-tarjetas border-none h-[492px] responsive-container">
       <CardHeader>
-        <CardTitle className="text-orange-400 text-lg flex items-center">
-          <div className="flex items-center gap-2">
+        {/* <CardTitle className="text-orange-400 text-lg flex items-center justify-center">
+          <div className="flex items-center justify-center gap-2">
             <div className="text-gray-400">
               Comparativo
             </div>
@@ -405,12 +440,22 @@ export default function RadarPeersCard({ symbol, selectedCompetitor }: RadarPeer
             <span className="text-gray-400">vs</span>
             {peer && <span className="text-blue-300 text-lg">{peer.symbol}</span>}
           </div>
-        </CardTitle>
+        </CardTitle> */}
       </CardHeader>
 
-      <CardContent>
+      <CardContent className='pl-0 pr-0 pb-0'>
+        {/* <CardTitle className="text-orange-400 text-lg flex items-center justify-center">
+          <div className="flex items-center justify-center gap-2">
+            <div className="text-gray-400">
+              Comparativo
+            </div>
+            {main && <span className="text-orange-400 text-lg">{main.symbol}</span>}
+            <span className="text-gray-400">vs</span>
+            {peer && <span className="text-blue-300 text-lg">{peer.symbol}</span>}
+          </div>
+        </CardTitle> */}
         {main ? (
-          <div className="h-96">
+          <div className="h-96 pl-0 pr-0">
             <ReactEChartsCore
               echarts={echarts as any}
               option={option as any}

@@ -45,41 +45,49 @@ export default function NavigationBar({
   return (
     <div className="w-full">
       {/* Desktop Navigation */}
-      <div className="hidden md:flex flex-wrap gap-1 lg:gap-2 items-center justify-between">
-        <div className="flex flex-wrap gap-1 lg:gap-2">
+      <div className="hidden md:flex flex-wrap gap-2 items-center justify-start">
+        <div className="flex flex-wrap gap-2">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as TabKey)}
               className={`
-                flex items-center gap-2 px-3 lg:px-4 py-2 
-                text-sm lg:text-base font-medium rounded-md 
-                transition-all duration-200 whitespace-nowrap
+                relative group flex items-center justify-center w-8 h-8 rounded-md 
+                transition-colors duration-200
                 ${
                   activeTab === tab.key
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    ? 'bg-white text-black shadow-sm'
+                    : 'text-gray-300 hover:bg-gray-700'
                 }
               `}
             >
               <tab.icon className="w-4 h-4" />
-              {/* <span className="hidden lg:inline">{tab.label}</span> */}
+              <span
+                className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 rounded-md bg-gray-800 text-gray-200 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 shadow-lg"
+              >
+                {tab.label}
+              </span>
             </button>
           ))}
         </div>
         
         {/* Botón de Análisis Global - Solo en Desktop */}
         {symbol && (
-          <AIAnalysisButton
-            symbol={symbol}
-            fundamentalData={fundamentalData}
-            valoracionData={valoracionData}
-            financialScoresData={financialScoresData}
-            overviewData={overviewData}
-            estimacionData={estimacionData}
-            dividendosData={dividendosData}
-            desempenoData={desempenoData}
-          />
+          <div className="relative group flex-shrink-0">
+            <AIAnalysisButton
+              symbol={symbol}
+              fundamentalData={fundamentalData}
+              valoracionData={valoracionData}
+              financialScoresData={financialScoresData}
+              overviewData={overviewData}
+              estimacionData={estimacionData}
+              dividendosData={dividendosData}
+              desempenoData={desempenoData}
+            />
+            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 rounded-md bg-gray-800 text-gray-200 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 shadow-lg">
+              Análisis IA
+            </span>
+          </div>
         )}
       </div>
 

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { fmp } from '@/lib/fmp/client';
+import RadarPeersCard from '@/components/RadarPeersCard';
 
 /**
  * Interfaz para los datos de un competidor
@@ -38,6 +39,8 @@ export default function CompetidoresCard({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [competitors, setCompetitors] = useState<CompetitorData[]>([]);
+  const [sector, setSector] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
 
   /**
    * Obtiene los datos de los competidores usando la API de FMP
@@ -53,6 +56,12 @@ export default function CompetidoresCard({
       setError(null);
 
       try {
+        // Cargar sector de la empresa seleccionada
+        const companyProfileData = await fmp.profile(symbol);
+        const companyProfile = Array.isArray(companyProfileData) ? companyProfileData[0] : companyProfileData;
+        setSector(companyProfile?.sector ?? null);
+        setCompanyName(companyProfile?.companyName ?? symbol);
+
         // Obtener la lista de peers
         const peersResponse = await fmp.peers(symbol);
         const peersList: string[] = Array.isArray((peersResponse as any)?.peers) 
@@ -230,65 +239,73 @@ export default function CompetidoresCard({
   return (
     <Card className="bg-tarjetas border-none h-[492px]">
       <CardHeader>
-        <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
-          <Building2 className="w-5 h-5" />
-          Competidores Principales
+        <CardTitle className="text-gray-400 text-lg flex items-center gap-2 justify-center">
+          Competidores de {companyName ?? symbol} en el sector {sector ?? 'N/A'}
         </CardTitle>
       </CardHeader>
-      <CardContent className="h-[400px] overflow-y-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-2">
-          {competitors.map((competitor) => (
-            <div
-              key={competitor.symbol}
-              className={`bg-gray-800/50 rounded-lg p-4 border transition-all cursor-pointer ${
-                selectedCompetitor === competitor.symbol 
-                  ? 'border-orange-500 bg-orange-500/10' 
-                  : 'border-gray-700/50 hover:border-orange-500/30'
-              }`}
-              onClick={() => onCompetitorSelect?.(competitor.symbol)}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-orange-300 font-semibold text-sm truncate">
-                    {competitor.symbol}
-                  </h3>
-                  <p className="text-gray-400 text-xs truncate mt-1">
-                    {competitor.companyName}
-                  </p>
+      <CardContent className="h-[400px]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-2 h-full">
+          <div className="overflow-y-auto h-full">
+            {competitors.map((competitor) => (
+              <div
+                key={competitor.symbol}
+                className={`bg-gray-800/50 rounded-lg p-4 border transition-all cursor-pointer ${
+                  selectedCompetitor === competitor.symbol 
+                    ? 'border-orange-500 bg-orange-500/10' 
+                    : 'border-gray-700/50 hover:border-orange-500/30'
+                }`}
+                onClick={() => onCompetitorSelect?.(competitor.symbol)}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-orange-300 font-semibold text-sm truncate">
+                      {competitor.symbol}
+                    </h3>
+                    <p className="text-gray-400 text-xs truncate mt-1">
+                      {competitor.companyName}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 ml-2">
+                    {getChangeIcon(competitor.changesPercentage)}
+                    <span className={`text-xs font-medium ${getChangeColor(competitor.changesPercentage)}`}>
+                      {competitor.changesPercentage !== null 
+                        ? `${competitor.changesPercentage > 0 ? '+' : ''}${competitor.changesPercentage.toFixed(2)}%`
+                        : 'N/A'
+                      }
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 ml-2">
-                  {getChangeIcon(competitor.changesPercentage)}
-                  <span className={`text-xs font-medium ${getChangeColor(competitor.changesPercentage)}`}>
-                    {competitor.changesPercentage !== null 
-                      ? `${competitor.changesPercentage > 0 ? '+' : ''}${competitor.changesPercentage.toFixed(2)}%`
-                      : 'N/A'
-                    }
-                  </span>
+                <div className="grid grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <p className="text-gray-500 mb-1">Precio</p>
+                    <p className="text-white font-medium">
+                      {formatPrice(competitor.price)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 mb-1">Market Cap</p>
+                    <p className="text-white font-medium">
+                      {formatMarketCap(competitor.marketCap)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 mb-1">P/E</p>
+                    <p className="text-white font-medium">
+                      {formatPE(competitor.pe)}
+                    </p>
+                  </div>
                 </div>
               </div>
-              
-              <div className="grid grid-cols-3 gap-3 text-xs">
-                <div>
-                  <p className="text-gray-500 mb-1">Precio</p>
-                  <p className="text-white font-medium">
-                    {formatPrice(competitor.price)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-500 mb-1">Market Cap</p>
-                  <p className="text-white font-medium">
-                    {formatMarketCap(competitor.marketCap)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-500 mb-1">P/E</p>
-                  <p className="text-white font-medium">
-                    {formatPE(competitor.pe)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
+
+          <div className="h-full overflow-hidden">
+            <RadarPeersCard 
+              symbol={symbol} 
+              selectedCompetitor={selectedCompetitor}
+              embedded
+            />
+          </div>
         </div>
       </CardContent>
     </Card>

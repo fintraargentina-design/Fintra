@@ -190,7 +190,7 @@ export default function StockTerminal() {
                     <FinancialScoresCard symbol={selectedSymbol} />
                 </div>
                 {/* Grid responsivo para tarjetas */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-1 md:gap-1">
+                <div className="gap-1 md:gap-1">     {/* grid grid-cols-1 lg:grid-cols-2 */}
                   <div className="w-full">
                     <CompetidoresCard 
                       symbol={selectedSymbol} 
@@ -198,12 +198,12 @@ export default function StockTerminal() {
                       selectedCompetitor={selectedCompetitor}
                     />
                   </div>
-                  <div className="w-full">
+                  {/* <div className="w-full">
                     <RadarPeersCard 
                       symbol={selectedSymbol} 
                       selectedCompetitor={selectedCompetitor}
                     />
-                  </div>
+                  </div> */}
                 </div>
                 
               </div>

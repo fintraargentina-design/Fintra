@@ -105,31 +105,34 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
 
   return (
     <header className="w-full">
-      <div className="flex items-center justify-between">
-        {/* Lado izquierdo - Título */}
-        <div className="flex items-center space-x-2 flex-1 ml-4">
-          <h1 className="text-lg font-medium text-white">
-            Dashboard - Bienvenido a Fintra
+      <div className="w-full flex flex-wrap items-center justify-between gap-2 md:gap-3 pr-4 pl-4">
+        {/* Izquierda: botón + título */}
+        <div className="flex items-center gap-2 flex-[1_1_220px] min-w-0">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-gray-400 hover:text-white hover:bg-gray-800 p-2"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+          <h1 className="text-lg font-medium text-white truncate">
+            Fintra - Dashboard 
           </h1>
         </div>
 
-        {/* Centro - Input de búsqueda con dropdown de sugerencias */}
-        <div className="flex items-center justify-center flex-1 space-x-4">
-          {/* Input de búsqueda de símbolos con dropdown */}
-          <div ref={searchContainerRef} className="relative flex items-center gap-2">
+        {/* Centro: buscador + tabs */}
+        <div className="flex items-center justify-center gap-2 flex-[2_1_420px] min-w-0">
+          <div ref={searchContainerRef} className="relative flex items-center gap-2 flex-1 min-w-0 max-w-[350px]">
             <Input
-              /* value={tickerInput} */
               onChange={handleTickerChange}
               onKeyDown={handleTickerKeyDown}
               onFocus={handleTickerFocus}
               onBlur={handleTickerBlur}
-              placeholder="Buscar símbolo..."
-              className="focus:placeholder:text-transparent bg-transparent border border-gray-600 outline-none text-orange-400 text-sm font-medium cursor-text transition-colors w-80 h-8"
+              placeholder="Buscar símbolo... (AAPL, MSFT, AMZN)"
+              className="focus:placeholder:text-transparent bg-tarjetas border border-gray-600 outline-none text-orange-400 text-sm font-medium transition-colors w-full h-8 focus-visible:ring-1 focus-visible:ring-orange-500 focus-visible:ring-offset-0 uppercase"
             />
-            
-            {/* Dropdown de búsqueda rápida */}
             {showQuickSearch && (
-              <div className="absolute top-full  mt-1 w-80 bg-fondoDeTarjetas border border-gray-700  shadow-lg z-50 max-h-64 overflow-y-auto">
+              <div className="absolute top-full left-0 right-0 mt-1 bg-fondoDeTarjetas border border-gray-700 shadow-lg z-50 max-h-64 overflow-y-auto">
                 <div className="p-2 border-b border-gray-700">
                   <span className="text-xs text-gray-400 font-medium">Más buscadas</span>
                 </div>
@@ -143,38 +146,31 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
               </div>
             )}
           </div>
-          
-          {/* Separador */}
-          <div className="h-6 w-px bg-gray-600"></div>
-          {/* Navigation Bar responsiva */}
-          <div className="lg:min-w-[350px]">
+          <div className="hidden md:block flex-shrink-0">
             <Card className="flex justify-end bg-transparent border-none">
               <div className="p-2">
                 <NavigationBar 
-                  activeTab={activeTab}
-                  setActiveTab={setActiveTab}
-                  symbol={symbol}
-                  fundamentalData={fundamentalData || null}
-                  valoracionData={valoracionData || null}
-                  financialScoresData={financialScoresData || null}
-                  overviewData={overviewData}
-                  estimacionData={estimacionData || null}
-                  dividendosData={dividendosData || null}
-                  desempenoData={desempenoData || null}
-                />
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              symbol={symbol}
+              fundamentalData={fundamentalData || null}
+              valoracionData={valoracionData || null}
+              financialScoresData={financialScoresData || null}
+              overviewData={overviewData}
+              estimacionData={estimacionData || null}
+              dividendosData={dividendosData || null}
+              desempenoData={desempenoData || null}
+            />
               </div>
             </Card>
           </div>
         </div>
 
-        {/* Lado derecho - Controles */}
-        <div className="flex items-center space-x-6 flex-1 justify-end">
-          
-          {/* Horarios - Solo se muestran si showTimes es true */}
+        {/* Derecha: tiempos y estado del mercado */}
+        <div className="flex items-center gap-4 flex-[1_1_240px] justify-end min-w-0">
           {showTimesEnabled && (
             <>
-              {/* Tiempo Local */}
-              <div className="flex items-center space-x-2 text-sm">
+              <div className="hidden sm:flex items-center gap-2 text-sm">
                 <span className={`font-mono ${isMarketOpen() ? 'text-green-400' : 'text-red-400'}`}>
                   {currentTime
                     ? currentTime.toLocaleTimeString('es-ES', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -185,8 +181,7 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
                 </svg>
               </div>
 
-              {/* Tiempo NY */}
-              <div className="flex items-center space-x-2 text-sm">
+              <div className="hidden sm:flex items-center gap-2 text-sm">
                 <span className={`font-mono ${isMarketOpen() ? 'text-green-400' : 'text-red-400'}`}>
                   {currentTime
                     ? currentTime.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -197,27 +192,14 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
             </>
           )}
 
-          {/* Estado del Mercado - Ahora es clickeable */}
           <div 
-            className="flex items-center space-x-2 text-sm cursor-pointer hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 text-sm cursor-pointer hover:opacity-80 transition-opacity"
             onClick={toggleTimeDisplay}
           >
             <span className={`font-medium ${isMarketOpen() ? 'text-green-400' : 'text-red-400'}`}>
               {isMarketOpen() ? 'Market Open' : 'Market Close'}
             </span>
           </div>
-
-          {/* Separador vertical */}
-          <div className="h-5 w-px bg-gray-700"></div>
-
-          {/* Configuración */}
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-gray-400 mr-4 hover:text-white hover:bg-gray-800 p-2"
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
         </div>
       </div>
     </header>

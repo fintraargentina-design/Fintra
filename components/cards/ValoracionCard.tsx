@@ -277,7 +277,7 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="h-72 flex items-center justify-center text-gray-400">
+            <div className="h-32 grid place-items-center text-gray-500 text-sm">
               Cargando valoración…
             </div>
           ) : error ? (
@@ -298,21 +298,18 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
                     >
                       <div className="flex items-center justify-between">
                         <div className="text-gray-400 text-xs">{row.label}</div>
-                        
-                      </div>
-                        <div className="flex items-center justify-between">
                         <div 
-                        className="font-mono text-lg"
-                        style={{ color: scoreColor }}
-                      >
-                        {row.display || "N/A"}
-                      </div>
-                      <div 
-                          className="text-xs" 
+                          className="text-xs text-gray-500" 
                           style={{ color: scoreColor }}>
                           {scoreLevel}
                         </div>
-                      </div>                     
+                      </div>
+                      <div 
+                        className="font-mono text-lg mt-1"
+                        style={{ color: scoreColor }}
+                      >
+                        {row.display || "N/A"}
+                      </div>                    
                     </div>
                   );
                 })}

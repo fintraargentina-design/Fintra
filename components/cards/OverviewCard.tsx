@@ -620,85 +620,12 @@ export default function OverviewCard({
     </div>
   );
 
-  const renderAnalysisContent = () => {
-    if (!stockConclusion) {
-      return (
-        <div className="text-gray-400 text-center py-8">
-          No hay información de análisis disponible
-        </div>
-      );
-    }
-    return (
-      <div className="space-y-6">
-        <div className={`${colors.bgColor} ${colors.borderColor} p-6 rounded-lg border-2`}>
-          <h3 className={`${colors.textColor} text-xl font-bold mb-4`}>
-            ¿Es una buena compra?
-          </h3>
-          <div className={`${colors.textColor} text-lg leading-relaxed`}>
-            {conclusion || "No hay conclusión disponible"}
-          </div>
-        </div>
-        <div className="space-y-4">
-          <div className="bg-tarjetas p-4 rounded border-l-4 border-green-500/50">
-            <h4 className="text-green-400 text-lg font-semibold mb-3">
-              ¿Qué hace la empresa?
-            </h4>
-            <p className="text-gray-200 leading-relaxed">
-              {analysisData.queHace}
-            </p>
-          </div>
-          <div className="bg-tarjetas p-4 rounded border-l-4 border-blue-500/50">
-            <h4 className="text-blue-400 text-lg font-semibold mb-3">
-              ¿Tiene una ventaja clara frente a la competencia?
-            </h4>
-            <p className="text-gray-200 leading-relaxed">
-              {analysisData.ventajaCompetitiva}
-            </p>
-          </div>
-          <div className="bg-tarjetas p-4 rounded border-l-4 border-yellow-500/50">
-            <h4 className="text-yellow-400 text-lg font-semibold mb-3">
-              ¿Gana dinero de verdad y lo sigue haciendo crecer?
-            </h4>
-            <p className="text-gray-200 leading-relaxed">
-              {analysisData.ganaDinero}
-            </p>
-          </div>
-          <div className="bg-tarjetas p-4 rounded border-l-4 border-purple-500/50">
-            <h4 className="text-purple-400 text-lg font-semibold mb-3">
-              ¿El negocio puede seguir creciendo en 5 o 10 años?
-            </h4>
-            <p className="text-gray-200 leading-relaxed">
-              {analysisData.crecimientoFuturo}
-            </p>
-          </div>
-          <div className="bg-tarjetas p-4 rounded border-l-4 border-red-500/50">
-            <h4 className="text-red-400 text-lg font-semibold mb-3">
-              ¿El precio tiene sentido o está inflado?
-            </h4>
-            <p className="text-gray-200 leading-relaxed">
-              {analysisData.precioSentido}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
+  
   return (
     <Dialog>
-      <Card className=" max-h-[500px] bg-tarjetas border-none responsive-container">
-        <CardHeader className="pb-2">
-          <CardTitle className="space-y-2 md:space-y-3">
-            {/* Company Info - Responsive Layout */}
-            {/* <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-4">
-                <div className="flex items-center gap-2">
-                   {data.companyName || "Empresa"}
-                </div>
-            </div> */}
-          </CardTitle>
-        </CardHeader>
-        
-        <CardContent className="flex-1 overflow-hidden">
+      <Card className="max-h-[500px] bg-tarjetas border-none responsive-container px-6 sm:px-6 lg:px-6 xl:px-6">
+                
+        <CardContent className="flex-1 overflow-hidden pl-0 pr-0 pt-6">
           <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 h-full">
             {/* Left Column - Company Data */}
             <div className="lg:col-span-2 bg-gray-800/30 rounded-lg p-4 border-gray-700/30 space-y-4">
@@ -774,13 +701,11 @@ export default function OverviewCard({
                     {data.ceo || "N/A"}
                   </p>
                 </div>
-              </div>
-              
+              </div>              
             </div>
             
             {/* Right Column - Company Description */}
-            <div className="lg:col-span-5 bg-gray-800/30 rounded-lg border-gray-700/30 flex flex-col">
-            
+            <div className="lg:col-span-5 bg-gray-800/30 rounded-lg border-gray-700/30 flex flex-col">            
               <div className="flex-1 overflow-hidden">
                 <div 
                   className="p-4 h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800"
@@ -805,67 +730,13 @@ export default function OverviewCard({
               </div>
             </div>
           </div>
-          
-          
-        </CardContent>
-        
+        </CardContent>        
       </Card>
 
       {/* Modal - Responsive */}
       <DialogContent className="bg-tarjetas border-gray-700 w-[95vw] max-w-4xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-orange-400 text-lg md:text-xl flex items-center gap-2">
-            {data.image ? (
-              <img
-                src={data.image}
-                alt={`Logo de ${data.companyName || data.symbol}`}
-                className="w-4 h-4 md:w-5 md:h-5 object-contain rounded"
-                onError={(e: any) => {
-                  e.currentTarget.style.display = "none";
-                }}
-              />
-            ) : (
-              <Building2 className="w-4 h-4 md:w-5 md:h-5" />
-            )}
-            <span className="truncate">{data.companyName || currentSymbol || "Empresa"}</span>
-          </DialogTitle>
-        </DialogHeader>
-
-        {/* Responsive Tabs */}
-        <div className="border-b border-gray-700">
-          <div className="flex space-x-1 overflow-x-auto">
-            <button
-              onClick={() => setActiveTab("overview")}
-              className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                activeTab === "overview"
-                  ? "bg-orange-500/20 text-orange-400 border-b-2 border-orange-500"
-                  : "text-gray-400 hover:text-orange-300 hover:bg-fondoDeTarjetas"
-              }`}
-            >
-              <div className="flex items-center gap-1 md:gap-2">
-                <BarChart3 className="w-3 h-3 md:w-4 md:h-4" />
-                <span className="hidden sm:inline">Overview</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab("analysis")}
-              className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                activeTab === "analysis"
-                  ? "bg-orange-500/20 text-orange-400 border-b-2 border-orange-500"
-                  : "text-gray-400 hover:text-orange-300 hover:bg-gray-800/50"
-              }`}
-            >
-              <div className="flex items-center gap-1 md:gap-2">
-                <FileText className="w-3 h-3 md:w-4 md:h-4" />
-                <span className="hidden sm:inline">Análisis</span>
-              </div>
-            </button>
-          </div>
-        </div>
-
         <div className="mt-4 space-responsive">
-          {activeTab === "overview" && renderOverviewContent()}
-          {activeTab === "analysis" && renderAnalysisContent()}
+          {renderOverviewContent()}
         </div>
       </DialogContent>
     </Dialog>

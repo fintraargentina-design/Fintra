@@ -232,7 +232,7 @@ export default function AIAnalysisButton({
         disabled={globalAnalysis.isLoading || !symbol}
         size="sm"
         variant="outline"
-        className="text-xs bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30 hover:border-purple-500/50 disabled:opacity-50 flex items-center gap-2"
+        className="text-xs bg-transparent text-purple-300 hover:bg-purple-600/30 hover:border-purple-500/50 disabled:opacity-50 flex items-center gap-2"
       >
         {globalAnalysis.isLoading ? (
           <>
