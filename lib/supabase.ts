@@ -329,3 +329,15 @@ export async function getStockProyecciones(symbol: string): Promise<StockProyecc
     resumen_llm: p?.resumen_llm,
   };
 }
+// Guardar selección de periodo y fecha de actualización
+export async function savePeriodSelection(symbol: string, period: string, updatedAt: string) {
+  try {
+    const payload = { symbol: symbol.toUpperCase(), period, updated_at: updatedAt };
+    const { error } = await supabase
+      .from('periodos_accion')
+      .upsert(payload, { onConflict: 'symbol' });
+    if (error) console.warn('[savePeriodSelection] Supabase error:', error.message);
+  } catch (e: any) {
+    console.warn('[savePeriodSelection] error:', e?.message || e);
+  }
+}

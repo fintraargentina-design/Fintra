@@ -498,7 +498,7 @@ export default function OverviewCard({
             </h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-400">Cambio Diario:</span>
+                <span className="text-gray-400">Variación en $:</span>
                 <span
                   className={`font-mono ${
                     Number(data.change) >= 0 ? "text-green-400" : "text-red-400"
@@ -510,7 +510,7 @@ export default function OverviewCard({
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400">% Cambio:</span>
+                <span className="text-gray-400">Variación en %:</span>
                 <span
                   className={`font-mono ${
                     Number(data.changePercentage) >= 0 ? "text-green-400" : "text-red-400"
@@ -757,3 +757,4 @@ export default function OverviewCard({
     </Dialog>
   );
 }
+

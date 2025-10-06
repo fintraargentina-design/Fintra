@@ -12,7 +12,7 @@ const QuerySchema = z.object({
     .min(1, "Símbolo requerido")
     .regex(/^[A-Za-z0-9.\-\^]+$/, "Símbolo inválido") // ← valida ANTES
     .transform((s) => s.toUpperCase()),               // ← transforma DESPUÉS
-  period: z.enum(["annual", "quarter"]).default("annual"),
+  period: z.enum(["annual","quarter","ttm","FY","Q1","Q2","Q3","Q4"]).default("annual"),
   limit: z.coerce.number().int().positive().max(40).default(1),
 });
 
@@ -46,14 +46,37 @@ export async function GET(req: Request) {
   }
 
   const { symbol, period, limit } = parsed.data;
+let data: any = [];
+
+if (period === "ttm") {
+  const urlTTM = buildUrl(`/v3/ratios-ttm/${symbol}`, {});
+  const resTTM = await fetch(urlTTM, { cache: "no-store" });
+  if (!resTTM.ok) return NextResponse.json({ error: `FMP ${resTTM.status}` }, { status: resTTM.status });
+  data = await resTTM.json();
+} else if (["Q1","Q2","Q3","Q4"].includes(period as any)) {
+  const urlQ = buildUrl(`/v3/ratios/${symbol}`, { period: "quarter", limit: 8 });
+  const resQ = await fetch(urlQ, { cache: "no-store" });
+  if (!resQ.ok) return NextResponse.json({ error: `FMP ${resQ.status}` }, { status: resQ.status });
+  const arr = await resQ.json();
+  const want = String(period);
+  const filtered = Array.isArray(arr) ? arr.filter((r: any) => {
+    const d = String(r?.date || "");
+    const m = Number(d.slice(5, 7));
+    const q = m >= 1 && m <= 3 ? "Q1" : m <= 6 ? "Q2" : m <= 9 ? "Q3" : "Q4";
+    return q === want;
+  }) : [];
+  data = filtered.slice(0, 1);
+} else if (period === "FY") {
+  const urlFY = buildUrl(`/v3/ratios/${symbol}`, { period: "annual", limit: 1 });
+  const resFY = await fetch(urlFY, { cache: "no-store" });
+  if (!resFY.ok) return NextResponse.json({ error: `FMP ${resFY.status}` }, { status: resFY.status });
+  data = await resFY.json();
+} else {
   const url = buildUrl(`/v3/ratios/${symbol}`, { period, limit });
-
   const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) {
-    return NextResponse.json({ error: `FMP ${res.status}` }, { status: res.status });
-  }
-
-  const data = await res.json();
+  if (!res.ok) return NextResponse.json({ error: `FMP ${res.status}` }, { status: res.status });
+  data = await res.json();
+}
   return new NextResponse(JSON.stringify(data), {
     status: 200,
     headers: {

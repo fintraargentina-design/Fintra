@@ -132,7 +132,10 @@ export const fmp = {
   },
 
   /** Valuation (múltiplos consolidados) */
-  valuation(symbol: string, opts?: { period?: "annual" | "quarter"; cache?: CacheOpt }) {
+  valuation(
+    symbol: string,
+    opts?: { period?: "annual" | "quarter" | "ttm" | "FY" | "Q1" | "Q2" | "Q3" | "Q4"; cache?: CacheOpt }
+  ) {
     return get<ValuationResponse>("/valuation", {
       params: { symbol, period: opts?.period ?? "annual" },
       cache: opts?.cache ?? "force-cache",

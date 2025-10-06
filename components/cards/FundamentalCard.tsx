@@ -11,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { fmp } from "@/lib/fmp/client";
+import { savePeriodSelection } from "@/lib/supabase";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import type { FMPFinancialRatio, FMPIncomeStatementGrowth, FMPKeyMetrics, FMPCashFlowStatement, FMPCompanyProfile, FMPBalanceSheetGrowth } from "@/lib/fmp/types";
 
 echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
@@ -107,13 +109,15 @@ function getScoreMeta(label: string, raw: number | null) {
     case "Margen neto":
       return { score: pctCap(raw, 30), target: (15 / 30) * 100, thresholds: { poor: (7 / 30) * 100, avg: (12 / 30) * 100 } };
     case "Deuda/Capital":
-      return { score: inverseRatio(raw, 0.3, 1.5), target: inverseRatio(0.6, 0.3, 1.5), thresholds: { poor: 40, avg: 70 } };
+      // Convertir D/E a D/(D+E)
+      const debtToCapital = raw == null ? null : raw / (1 + raw);
+      return { score: inverseRatio(debtToCapital, 0.3, 0.6), target: inverseRatio(0.45, 0.3, 0.6), thresholds: { poor: 40, avg: 70 } };
     case "Current Ratio":
       return { score: sweetSpot(raw, 2, 1.5), target: sweetSpot(2, 2, 1.5), thresholds: { poor: 40, avg: 70 } };
     case "Cobertura de intereses":
       return { score: logSaturate(raw, 20), target: logSaturate(8, 20), thresholds: { poor: 40, avg: 70 } };
-    case "Flujo de Caja Libre":
-      return { score: null, target: null, thresholds: { poor: 40, avg: 70 } };
+    case "Flujo de Caja Libre (%)":
+      return { score: pctCap(raw, 30), target: (10 / 30) * 100, thresholds: { poor: (5 / 30) * 100, avg: (12 / 30) * 100 } };
     case "CAGR ingresos":
       return { score: pctCap(raw, 30), target: (10 / 30) * 100, thresholds: { poor: (5 / 30) * 100, avg: (12 / 30) * 100 } };
     case "CAGR beneficios":
@@ -282,11 +286,19 @@ const METRIC_EXPLANATIONS: Record<string, { description: string; examples: strin
   }
 };
 
-export default function FundamentalCard({ symbol }: { symbol: string }) {
+type PeriodSel = "ttm" | "FY" | "Q1" | "Q2" | "Q3" | "Q4" | "annual" | "quarter";
+
+export default function FundamentalCard({ symbol, period = "annual", onPeriodChange }: { symbol: string; period?: PeriodSel; onPeriodChange?: (p: PeriodSel) => void }) {
   const [rows, setRows] = useState<MetricRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [explanationModal, setExplanationModal] = useState<ExplanationModalState>(initialExplanationModalState);
+  const [localPeriod, setLocalPeriod] = useState<PeriodSel>(period);
+
+  // Sincronizar el estado local si cambia el prop
+  useEffect(() => {
+    setLocalPeriod(period);
+  }, [period]);
 
   // Función para abrir modal de explicaciones
   const openExplanationModal = (metricName: string) => {
@@ -307,94 +319,148 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
-      
       try {
-        const [ratiosData, growthData, keyMetricsData, cashflowData, profileData, balanceSheetGrowthData] = await Promise.all([
-          fmp.ratios(symbol, { limit: 1, period: "annual" }),
-          fmp.growth(symbol, { period: "annual", limit: 5 }),
+        // Usar el periodo local para todas las consultas
+        const period = localPeriod;
+        // Selección de periodo para ratios
+        const quarterMap: Record<Exclude<PeriodSel, "ttm" | "FY" | "annual" | "quarter">, string> = {
+          Q1: "-03-31",
+          Q2: "-06-30",
+          Q3: "-09-30",
+          Q4: "-12-31",
+        } as const;
+
+        let r: Partial<FMPFinancialRatio> = {};
+        if (period === "ttm") {
+          const ratiosData = await fmp.ratiosTTM(symbol);
+          r = Array.isArray(ratiosData) && ratiosData.length ? ratiosData[0] : {};
+        } else if (period === "FY") {
+          const ratiosAnnual = await fmp.ratios(symbol, { period: "annual", limit: 1 });
+          r = Array.isArray(ratiosAnnual) && ratiosAnnual.length ? ratiosAnnual[0] : {};
+        } else if (period === "Q1" || period === "Q2" || period === "Q3" || period === "Q4") {
+          const ratiosQuarter = await fmp.ratios(symbol, { period: "quarter", limit: 8 });
+          const key = quarterMap[period];
+          const match = Array.isArray(ratiosQuarter)
+            ? ratiosQuarter.find((row: any) => String(row?.date ?? "").includes(key))
+            : undefined;
+          r = match ?? (Array.isArray(ratiosQuarter) && ratiosQuarter.length ? ratiosQuarter[0] : {});
+        } else {
+          const ratiosAny = await fmp.ratios(symbol, { period: period as "annual" | "quarter", limit: 1 });
+          r = Array.isArray(ratiosAny) && ratiosAny.length ? ratiosAny[0] : {};
+        }
+
+        // Growth según periodo (TTM usa annual)
+        const growthPeriod: "annual" | "quarter" = period === "quarter" || period === "Q1" || period === "Q2" || period === "Q3" || period === "Q4" ? "quarter" : "annual";
+        const [growthData, keyMetricsData, profileData, balanceSheetGrowthData] = await Promise.all([
+          fmp.growth(symbol, { period: growthPeriod, limit: 5 }),
           fmp.keyMetricsTTM(symbol),
-          fmp.cashflow(symbol, { period: "annual", limit: 1 }),
-          fmp.profile(symbol), // Agregar profile para obtener marketCap
-          fmp.balanceSheetGrowth(symbol, { period: "annual", limit: 5 }), // Nueva llamada para CAGR patrimonio
+          fmp.profile(symbol),
+          fmp.balanceSheetGrowth(symbol, { period: "annual", limit: 5 }),
         ]);
 
-        // Procesar datos con tipado correcto
-        const r: Partial<FMPFinancialRatio> = Array.isArray(ratiosData) && ratiosData.length ? ratiosData[0] : {};
+        // Cashflow según periodo
+        const cashflowPeriod: "annual" | "quarter" = period === "FY" || period === "annual" ? "annual" : "quarter";
+        const cashflowLimit = cashflowPeriod === "quarter" ? 8 : 1;
+        const cashflowData = await fmp.cashflow(symbol, { period: cashflowPeriod, limit: cashflowLimit });
+
         const g: FMPIncomeStatementGrowth[] = Array.isArray(growthData) ? growthData : [];
         const km: Partial<FMPKeyMetrics> = Array.isArray(keyMetricsData) && keyMetricsData.length ? keyMetricsData[0] : {};
-        const cf: Partial<FMPCashFlowStatement> = Array.isArray(cashflowData) && cashflowData.length ? cashflowData[0] : {};
+        const cfItems: Partial<FMPCashFlowStatement>[] = Array.isArray(cashflowData) ? cashflowData : [];
         const p: Partial<FMPCompanyProfile> = Array.isArray(profileData) && profileData.length ? profileData[0] : {};
-        const bsg: FMPBalanceSheetGrowth[] = Array.isArray(balanceSheetGrowthData) ? balanceSheetGrowthData : []; // Datos de balance sheet growth
+        const bsg: FMPBalanceSheetGrowth[] = Array.isArray(balanceSheetGrowthData) ? balanceSheetGrowthData : [];
 
-        // Normalizar valores
         const roe = pctOrNull(r.returnOnEquity);
         const roic = pctOrNull(r.returnOnCapitalEmployed);
         const grossMargin = pctOrNull(r.grossProfitMargin);
         const netMargin = pctOrNull(r.netProfitMargin);
-        const debtToEquity = numOrNull(r.debtEquityRatio);
         const currentRatio = numOrNull(r.currentRatio);
         const interestCoverage = numOrNull(r.interestCoverage);
-        const freeCashFlow = numOrNull(cf.freeCashFlow);
-        
-        // Calcular CAGRs de crecimiento
-        const revGrowthRates = g.map((item, index) => {
-          const rate = numOrNull(item.revenueGrowth);
-          return rate || 0;
-        });
-        
-        const epsGrowthRates = g.map((item, index) => {
-          const rate = numOrNull(item.epsgrowth);
-          return rate || 0;
-        });
-        
-        const equityGrowthRates = bsg.map((item, index) => {
-          const rate = numOrNull(item.growthTotalStockholdersEquity);
-          return rate || 0;
-        });
-        
+
+        // Deuda/Capital desde Deuda/Equity: D/(D+E) = (D/E)/(1 + D/E)
+        const debtToEquity = numOrNull(r.debtEquityRatio);
+        const debtToCapital = debtToEquity != null ? +(debtToEquity / (1 + debtToEquity)).toFixed(4) : null;
+
+        // FCF según periodo seleccionado
+        const fcfFromCashflow = (() => {
+          if (!cfItems.length) return null;
+          if (cashflowPeriod === "annual") {
+            const item = cfItems[0];
+            const fcf = numOrNull(item.freeCashFlow);
+            const ocf = numOrNull(item.netCashProvidedByOperatingActivities ?? (item as any)?.operatingCashFlow);
+            const capex = numOrNull(item.capitalExpenditure);
+            return fcf != null ? fcf : ocf != null && capex != null ? +((ocf as number) - Math.abs(capex as number)).toFixed(2) : null;
+          }
+          // quarter: si Qx, tomar ese trimestre, si "quarter" genérico, sumar últimos 4
+          if (period === "Q1" || period === "Q2" || period === "Q3" || period === "Q4") {
+            const key = quarterMap[period];
+            const q = cfItems.find((row: any) => String(row?.date ?? "").includes(key));
+            if (!q) return null;
+            const fcf = numOrNull(q.freeCashFlow);
+            const ocf = numOrNull(q.netCashProvidedByOperatingActivities ?? (q as any)?.operatingCashFlow);
+            const capex = numOrNull(q.capitalExpenditure);
+            return fcf != null ? fcf : ocf != null && capex != null ? +((ocf as number) - Math.abs(capex as number)).toFixed(2) : null;
+          }
+          // quarter agregado: TTM por últimos 4
+          const sum = cfItems.slice(-4).reduce((acc, item) => {
+            const fcf = numOrNull(item.freeCashFlow);
+            const ocf = numOrNull(item.netCashProvidedByOperatingActivities ?? (item as any)?.operatingCashFlow);
+            const capex = numOrNull(item.capitalExpenditure);
+            const calc = fcf != null ? fcf : ocf != null && capex != null ? (ocf as number) - Math.abs(capex as number) : null;
+            return acc + (calc ?? 0);
+          }, 0);
+          return Number.isFinite(sum) && sum !== 0 ? +sum.toFixed(2) : null;
+        })();
+
+        const fcfFromKM = (() => {
+          const fcfps = numOrNull(km.freeCashFlowPerShare);
+          const shares = numOrNull(km.sharesOutstanding);
+          return fcfps != null && shares != null ? +((fcfps as number) * (shares as number)).toFixed(2) : null;
+        })();
+
+        const fcfSelected = fcfFromCashflow ?? fcfFromKM;
+
+        // Revenue aproximado desde P/S y market cap (según periodo)
+        const ps = numOrNull(r.priceToSalesRatio);
+        const marketCap = numOrNull(p.mktCap);
+        const revenueApprox = marketCap != null && ps != null && ps > 0 ? +((marketCap as number) / (ps as number)).toFixed(2) : null;
+        const freeCashFlowMarginPct = fcfSelected != null && revenueApprox != null && revenueApprox > 0 ? +(((fcfSelected as number) / (revenueApprox as number)) * 100).toFixed(2) : null;
+
+        // CAGRs
+        const revGrowthRates = g.map((item) => numOrNull(item.revenueGrowth) || 0);
+        const epsGrowthRates = g.map((item) => numOrNull(item.epsgrowth) || 0);
+        const equityGrowthRates = bsg.map((item) => numOrNull(item.growthTotalStockholdersEquity) || 0);
         const revCagr = cagrFromGrowthSeries(revGrowthRates);
         const epsCagr = cagrFromGrowthSeries(epsGrowthRates);
         const equityCagr = cagrFromGrowthSeries(equityGrowthRates);
-        
-        // Obtener bookValuePerShare de keyMetrics y marketCap de profile
-        const bookValuePerShare = numOrNull(
-          km.bookValuePerShare ?? (km as any).bookValuePerShareTTM
-        );
-        const marketCap = numOrNull(p.mktCap);
 
-        // Función helper para construir filas
+        const bookValuePerShare = numOrNull(km.bookValuePerShare ?? (km as any).bookValuePerShareTTM);
+
         const build = (label: string, raw: number | null, unit?: "%" | "x" | "$") => {
           const meta = getScoreMeta(label, raw);
           const display = unit === "%" ? fmtPercent(raw) : unit === "x" ? fmtRatio(raw) : unit === "$" ? fmtLargeNumber(raw) : fmtRatio(raw);
-          return {
-            label,
-            unit,
-            raw,
-            score: meta.score,
-            target: meta.target,
-            thresholds: meta.thresholds,
-            display,
-          };
+          return { label, unit, raw, score: meta.score, target: meta.target, thresholds: meta.thresholds, display };
         };
 
-        // Construir lista de métricas
         const metrics: MetricRow[] = [
           build("ROE", roe, "%"),
           build("ROIC", roic, "%"),
           build("Margen bruto", grossMargin, "%"),
           build("Margen neto", netMargin, "%"),
-          build("Deuda/Capital", debtToEquity, "x"),
+          build("Deuda/Capital", debtToCapital, "x"),
           build("Current Ratio", currentRatio, "x"),
           build("Cobertura de intereses", interestCoverage, "x"),
-          build("Flujo de Caja Libre", freeCashFlow, "$"),
+          build("Flujo de Caja Libre (%)", freeCashFlowMarginPct, "%"),
           build("CAGR ingresos", revCagr, "%"),
           build("CAGR beneficios", epsCagr, "%"),
           build("CAGR patrimonio", equityCagr, "%"),
           build("Book Value por acción", bookValuePerShare, "$"),
-          // build("Capitalización de Mercado", marketCap, "$"),
         ];
 
         setRows(metrics);
+
+        // Persistir selección de periodo y fecha
+        const updatedAt = (r as any)?.date ?? new Date().toISOString();
+        savePeriodSelection(symbol, period, String(updatedAt)).catch(() => {});
       } catch (error) {
         console.error("Error fetching fundamental data:", error);
         setError("Error cargando datos fundamentales");
@@ -404,7 +470,7 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
     };
 
     fetchData();
-  }, [symbol]);
+  }, [symbol, localPeriod]);
 
   const option = useMemo(() => {
     const labels = rows.map((r) => r.label);
@@ -542,10 +608,34 @@ export default function FundamentalCard({ symbol }: { symbol: string }) {
     <>
       <Card className="bg-tarjetas border-none">
         <CardHeader className="pb-3">
-          <CardTitle className="text-orange-400 text-lg flex gap-2 flex items-center">
-            <div className="text-gray-400 mr-2">
-              Fundamental
-            </div>          
+          <CardTitle className="text-orange-400 text-lg flex gap-2 items-center">
+            <div className="text-gray-400 mr-2">Fundamental</div>
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-xs text-gray-400">Periodo</span>
+              <Select value={localPeriod} onValueChange={(v) => {
+                const next = v as PeriodSel;
+                setLocalPeriod(next);
+                // Notificar al padre si provee manejador para sincronización global
+                if (onPeriodChange) {
+                  onPeriodChange(next);
+                }
+                savePeriodSelection(symbol, next, new Date().toISOString()).catch(() => {});
+              }}>
+                <SelectTrigger className="w-32 h-8 bg-tarjetas border border-gray-600 text-orange-400">
+                  <SelectValue placeholder="annual" />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectItem value="ttm">TTM</SelectItem>
+                  <SelectItem value="FY">FY</SelectItem>
+                  <SelectItem value="Q1">Q1</SelectItem>
+                  <SelectItem value="Q2">Q2</SelectItem>
+                  <SelectItem value="Q3">Q3</SelectItem>
+                  <SelectItem value="Q4">Q4</SelectItem>
+                  <SelectItem value="annual">Anual</SelectItem>
+                  <SelectItem value="quarter">Trimestral</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>

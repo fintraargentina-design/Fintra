@@ -114,7 +114,7 @@ export async function apiEod(
 
 export async function apiValuation(
   symbol: string,
-  opts?: { period?: "annual" | "quarter"; cache?: CacheOpt }
+  opts?: { period?: "annual" | "quarter" | "ttm" | "FY" | "Q1" | "Q2" | "Q3" | "Q4"; cache?: CacheOpt }
 ): Promise<ValuationResponse> {
   return get<ValuationResponse>(
     "/valuation",

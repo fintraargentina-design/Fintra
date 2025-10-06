@@ -251,7 +251,7 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
                       )}
                       {searchResults.map((r, idx) => (
                         <button
-                          ref={(el) => (resultsRefs.current[idx] = el)}
+                          ref={(el) => { resultsRefs.current[idx] = el; }}
                           key={`${r.symbol}-${r.name}`}
                           className={`w-full text-left px-3 py-2 transition-colors ${idx === activeResultIndex ? 'bg-gray-800/60' : 'hover:bg-gray-800/40'}`}
                           onMouseDown={(e) => e.preventDefault()}

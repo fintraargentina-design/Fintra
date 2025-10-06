@@ -111,7 +111,7 @@ export const fmp = {
 
   valuation(
     symbol: string,
-    opts?: { period?: "annual" | "quarter"; cache?: CacheOpt }
+    opts?: { period?: "annual" | "quarter" | "ttm" | "FY" | "Q1" | "Q2" | "Q3" | "Q4"; cache?: CacheOpt }
   ) {
     return getJSON<ValuationResponse>(
       "/valuation",

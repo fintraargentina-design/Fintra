@@ -16,7 +16,7 @@ const Query = z.object({
     .min(1, "Símbolo requerido")
     .regex(/^[A-Z0-9.\-\^]+$/i, "Símbolo inválido")
     .transform((s) => s.toUpperCase()),
-  period: z.enum(["annual", "quarter"]).default("annual"),
+  period: z.enum(["annual","quarter","ttm","FY","Q1","Q2","Q3","Q4"]).default("ttm"),
 });
 
 // ─────────────────────────────────────────────
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
   const sp = new URL(req.url).searchParams;
   const parsed = Query.safeParse({
     symbol: sp.get("symbol") ?? "",
-    period: sp.get("period") ?? "annual",
+    period: sp.get("period") ?? "ttm",
   });
 
   if (!parsed.success) {
@@ -79,18 +79,32 @@ export async function GET(req: NextRequest) {
   const { symbol, period } = parsed.data;
 
   try {
-    // 1) ratios (último)
-    const ratios = await fmpGet<any[]>(`/api/v3/ratios/${symbol}`, {
-      limit: 1,
-      period,
-    });
-    const r = Array.isArray(ratios) && ratios.length ? ratios[0] : {};
-
-    // 2) growth (consistencia con el resto del proyecto)
-    const growth = await fmpGet<any[]>(
-      `/api/v3/financial-growth/${symbol}`,
-      { period, limit: 5 }
-    );
+        // Ratios: soporte TTM, Q1–Q4 y FY
+    let r: any = {};
+    if (period === "ttm") {
+      const ratiosTTM = await fmpGet<any>(`/api/v3/ratios-ttm/${symbol}`);
+      r = Array.isArray(ratiosTTM) ? (ratiosTTM[0] ?? {}) : (ratiosTTM ?? {});
+    } else if (["Q1","Q2","Q3","Q4"].includes(period as any)) {
+      const raw = await fmpGet<any[]>(`/api/v3/ratios/${symbol}`, { limit: 8, period: "quarter" });
+      const arr = Array.isArray(raw) ? raw : [];
+      const want = String(period);
+      const filtered = arr.filter((node) => {
+        const d = String(node?.date || "");
+        const m = Number(d.slice(5, 7));
+        const q = m >= 1 && m <= 3 ? "Q1" : m <= 6 ? "Q2" : m <= 9 ? "Q3" : "Q4";
+        return q === want;
+      });
+      r = filtered.length ? filtered[0] : {};
+    } else if (period === "FY") {
+      // Usamos el último anual directo de FMP
+      const raw = await fmpGet<any[]>(`/api/v3/ratios/${symbol}`, { limit: 1, period: "annual" });
+      r = Array.isArray(raw) && raw.length ? raw[0] : {};
+    } else {
+      const ratios = await fmpGet<any[]>(`/api/v3/ratios/${symbol}`, { limit: 1, period });
+      r = Array.isArray(ratios) && ratios.length ? ratios[0] : {};
+    }// Growth (sin TTM en API): usa annual/quarter según periodo
+    const growthPeriod = period === "ttm" ? "annual" : period;
+    const growth = await fmpGet<any[]>(`/api/v3/financial-growth/${symbol}`, { period: growthPeriod, limit: 5 });
 
     // Nuevo: fallback de forward P/E usando crecimiento de EPS
     const peValue = num(r?.priceEarningsRatio);

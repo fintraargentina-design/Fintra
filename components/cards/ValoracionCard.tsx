@@ -154,7 +154,9 @@ const METRIC_EXPLANATIONS: Record<string, { description: string; examples: strin
   }
 };
 
-export default function ValoracionCard({ symbol }: { symbol: string }) {
+type PeriodSel = "ttm" | "FY" | "Q1" | "Q2" | "Q3" | "Q4" | "annual" | "quarter";
+
+export default function ValoracionCard({ symbol, period = "ttm" }: { symbol: string; period?: PeriodSel }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -183,7 +185,7 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
         console.log('🔍 Cargando valoración para:', symbol);
         
         // Cambiar de fmp.ratios a fmp.valuation
-        const valuation = await fmp.valuation(symbol, { period: "annual", cache: "no-store" });
+        const valuation = await fmp.valuation(symbol, { period, cache: "no-store" });
         console.log('📊 Datos de valoración recibidos:', valuation);
         
         // Verificar si hay error en la respuesta
@@ -261,7 +263,7 @@ export default function ValoracionCard({ symbol }: { symbol: string }) {
     return () => {
       alive = false;
     };
-  }, [symbol]);
+  }, [symbol, period]);
 
 
 
