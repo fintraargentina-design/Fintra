@@ -667,10 +667,10 @@ export default function OverviewCard({
                   </div>
                 </div>
 
-                {/* % cambio */}
+                {/* % Variación en % */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-400">Cambio %</span>
+                    <span className="text-sm text-gray-400">Variación en %</span>
                   </div>
                   <p className={`text-sm font-semibold ${
                     Number(data.changePercentage) >= 0 ? "text-green-400" : "text-red-400"
@@ -679,9 +679,9 @@ export default function OverviewCard({
                   </p>
                 </div>
 
-                {/* Cambio Diario */}
+                {/* Variación en $ */}
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-400">Cambio Diario $</span>
+                  <span className="text-sm text-gray-400">Variación en $</span>
                   <span
                     className={`text-sm font-mono ${
                       Number(data.change) >= 0 ? "text-green-400" : "text-red-400"

@@ -61,6 +61,8 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
   const [tickerInput, setTickerInput] = useState("");
   const [isTickerFocused, setIsTickerFocused] = useState(false);
   const [showQuickSearch, setShowQuickSearch] = useState(false);
+  const [activeResultIndex, setActiveResultIndex] = useState<number>(-1);
+  const resultsRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // NUEVO: estados de búsqueda FMP
   const [searchResults, setSearchResults] = useState<Array<{ symbol: string; name: string; exchangeShortName?: string }>>([]);
@@ -132,12 +134,42 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
     const value = e.target.value.toUpperCase();
     setTickerInput(value);
     setShowQuickSearch(true);
+    setActiveResultIndex(-1);
   };
   
   const handleTickerKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && tickerInput.trim()) {
-      handleTopStockClick(tickerInput.trim());
-      setShowQuickSearch(false);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setShowQuickSearch(true);
+      setActiveResultIndex((prev) => {
+        const next = prev < 0 ? 0 : Math.min(prev + 1, searchResults.length - 1);
+        return next;
+      });
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveResultIndex((prev) => {
+        const next = prev <= 0 ? -1 : prev - 1;
+        return next;
+      });
+      return;
+    }
+    if (e.key === 'Enter') {
+      if (activeResultIndex >= 0 && searchResults[activeResultIndex]) {
+        e.preventDefault();
+        const sym = searchResults[activeResultIndex].symbol;
+        handleQuickSearchStockClick(sym);
+        return;
+      }
+      if (tickerInput.trim()) {
+        handleTopStockClick(tickerInput.trim());
+        setTickerInput("");
+        setActiveResultIndex(-1);
+        setSearchResults([]);
+        setShowQuickSearch(false);
+        setIsTickerFocused(false);
+      }
     }
     if (e.key === 'Escape') {
       setShowQuickSearch(false);
@@ -160,11 +192,18 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
     }, 150);
   };
 
+  useEffect(() => {
+    const el = resultsRefs.current[activeResultIndex];
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }, [activeResultIndex]);
+
   const handleQuickSearchStockClick = (symbol: string) => {
-    setTickerInput(symbol);
+    handleTopStockClick(symbol);
+    setTickerInput("");
+    setActiveResultIndex(-1);
+    setSearchResults([]);
     setShowQuickSearch(false);
     setIsTickerFocused(false);
-    handleTopStockClick(symbol);
   };
 
   return (
@@ -187,6 +226,7 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
           >
             <Input
               ref={inputRef}
+              value={tickerInput}
               onChange={handleTickerChange}
               onKeyDown={handleTickerKeyDown}
               onFocus={handleTickerFocus}
@@ -202,18 +242,20 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
                     <div className="p-2">  {/* border-b border-gray-700 */}
                       <span className="text-xs text-gray-400 font-medium">Resultados</span>
                     </div>
-                    <div className="py-1">
+                    <div className="py-1" role="listbox" id="quicksearch-results">
                       {searchLoading && (
                         <div className="px-3 py-2 text-xs text-gray-400">Buscando...</div>
                       )}
                       {!searchLoading && searchResults.length === 0 && tickerInput.trim().length >= 2 && (
                         <div className="px-3 py-2 text-xs text-gray-500">Sin resultados</div>
                       )}
-                      {searchResults.map((r) => (
+                      {searchResults.map((r, idx) => (
                         <button
+                          ref={(el) => (resultsRefs.current[idx] = el)}
                           key={`${r.symbol}-${r.name}`}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-800/40 transition-colors"
+                          className={`w-full text-left px-3 py-2 transition-colors ${idx === activeResultIndex ? 'bg-gray-800/60' : 'hover:bg-gray-800/40'}`}
                           onMouseDown={(e) => e.preventDefault()}
+                          onMouseEnter={() => setActiveResultIndex(idx)}
                           onClick={() => handleQuickSearchStockClick(r.symbol)}
                         >
                           <div className="flex justify-between items-center">
@@ -229,7 +271,7 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
                   {/* Columna 2: Más buscadas (2/7) */}
                   <div className="col-span-2">
                     <div className="p-2">
-                      <span className="text-xs text-gray-400 font-medium">Top</span>
+                      <span className="text-xs text-gray-400 font-medium">Más buscadas</span>
                     </div>
                     <div className="py-1">
                       <TopSearchedStocksDropdown 
