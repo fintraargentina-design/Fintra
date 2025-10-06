@@ -8,11 +8,9 @@ import { BarChart } from "echarts/charts";
 import { GridComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { fmp } from "@/lib/fmp/client";
 import { savePeriodSelection } from "@/lib/supabase";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import type { FMPFinancialRatio, FMPIncomeStatementGrowth, FMPKeyMetrics, FMPCashFlowStatement, FMPCompanyProfile, FMPBalanceSheetGrowth } from "@/lib/fmp/types";
 
 echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
@@ -609,36 +607,47 @@ export default function FundamentalCard({ symbol, period = "annual", onPeriodCha
       <Card className="bg-tarjetas border-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-orange-400 text-lg flex gap-2 items-center">
-            <div className="text-gray-400 mr-2">Fundamental</div>
+            <div className="text-gray-400 mr-2">Datos Financieros</div>
             <div className="ml-auto flex items-center gap-2">
               <span className="text-xs text-gray-400">Periodo</span>
-              <Select value={localPeriod} onValueChange={(v) => {
-                const next = v as PeriodSel;
-                setLocalPeriod(next);
-                // Notificar al padre si provee manejador para sincronización global
-                if (onPeriodChange) {
-                  onPeriodChange(next);
-                }
-                savePeriodSelection(symbol, next, new Date().toISOString()).catch(() => {});
-              }}>
-                <SelectTrigger className="w-32 h-8 bg-tarjetas border border-gray-600 text-orange-400">
-                  <SelectValue placeholder="annual" />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  <SelectItem value="ttm">TTM</SelectItem>
-                  <SelectItem value="FY">FY</SelectItem>
-                  <SelectItem value="Q1">Q1</SelectItem>
-                  <SelectItem value="Q2">Q2</SelectItem>
-                  <SelectItem value="Q3">Q3</SelectItem>
-                  <SelectItem value="Q4">Q4</SelectItem>
-                  <SelectItem value="annual">Anual</SelectItem>
-                  <SelectItem value="quarter">Trimestral</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex flex-wrap gap-2" role="tablist" aria-label="Seleccionar periodo">
+                {[
+                  { label: "TTM", value: "ttm" },
+                  { label: "FY", value: "FY" },
+                  { label: "Q1", value: "Q1" },
+                  { label: "Q2", value: "Q2" },
+                  { label: "Q3", value: "Q3" },
+                  { label: "Q4", value: "Q4" },
+                  { label: "Anual", value: "annual" },
+                  { label: "Trimestral", value: "quarter" },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={localPeriod === (opt.value as PeriodSel)}
+                    onClick={() => {
+                      const next = opt.value as PeriodSel;
+                      setLocalPeriod(next);
+                      if (onPeriodChange) onPeriodChange(next);
+                      savePeriodSelection(symbol, next, new Date().toISOString()).catch(() => {});
+                    }}
+                    className={[
+                      "px-3 py-1 text-xs rounded transition-colors",
+                      localPeriod === (opt.value as PeriodSel)
+                        ? "bg-orange-500/20 text-orange-300"
+                        : "text-gray-300 hover:bg-gray-700/40",
+                    ].join(" ")}
+                    title={opt.label}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pb-2">
           {loading ? (
             <div className="h-32 grid place-items-center text-gray-500 text-sm"> 
               Cargando datos de Fundamentales…
@@ -648,7 +657,7 @@ export default function FundamentalCard({ symbol, period = "annual", onPeriodCha
           ) : (
             <>
               {/* Métricas fundamentales en formato de tarjetas */}
-              <div className="grid grid-cols-6 gap-4 text-sm">
+              <div className="grid grid-cols-4 gap-2 text-sm">
                 {rows.map((row, index) => {
                   // Función para obtener el color basado en el score
                   const getScoreColor = (score: number | null) => {

@@ -108,7 +108,7 @@ export default function DesempenoCard({ symbol }: { symbol: string }) {
             No hay datos disponibles
           </div>
         ) : (
-          <div className="grid grid-cols-6 gap-3">
+          <div className="grid grid-cols-6 gap-2">
             {performanceMetrics.map((metric, index) => {
               const scoreColor = getScoreColor(metric.score);
               const scoreLevel = getScoreLevel(metric.score);

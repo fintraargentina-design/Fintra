@@ -6,6 +6,7 @@ import NavigationBar from '@/components/layout/NavigationBar';
 import DatosTab from '@/components/tabs/DatosTab';
 import ChartsTabHistoricos from '@/components/tabs/ChartsTabHistoricos';
 import NoticiasTab from '@/components/tabs/NoticiasTab';
+import MetodologiaTab from '../components/tabs/MetodologiaTab';
 import { supabase, registerStockSearch } from '@/lib/supabase';
 import ConclusionRapidaCard from '@/components/cards/ConclusionRapidaCard';
 import CompetidoresCard from '@/components/cards/CompetidoresCard';
@@ -17,7 +18,7 @@ import { Settings } from 'lucide-react';
 
 import FinancialScoresCard from '@/components/cards/FinancialScoresCard';
 
-export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits';
+export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'metodologia';
 
 export default function StockTerminal() {
   const [selectedStock, setSelectedStock] = useState<any>('AAPL'); // puede ser string u objeto con {symbol}
@@ -131,6 +132,8 @@ export default function StockTerminal() {
         return <EstimacionCard selectedStock={selectedStock} />;
       case 'noticias':
         return <NoticiasTab symbol={selectedSymbol} />;
+      case 'metodologia':
+        return <MetodologiaTab />;
       default:
         return (
           <ConclusionRapidaCard

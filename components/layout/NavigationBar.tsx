@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button"
-import { BarChart3, TrendingUp, Target, FileText } from "lucide-react"
+import { BarChart3, TrendingUp, Target, FileText, BookOpen } from "lucide-react"
 import AIAnalysisButton from "@/components/AIAnalysisButton"
 import type { TabKey } from "@/app/page"
 
@@ -42,6 +42,7 @@ export default function NavigationBar({
     { key: 'datos', label: 'Datos', icon: BarChart3 },
     { key: 'estimacion', label: 'Estimación', icon: Target },
     { key: 'noticias', label: 'Noticias', icon: FileText },
+    { key: 'metodologia', label: 'Metodología', icon: BookOpen },
   ];
 
   if (orientation === 'vertical') {
@@ -154,6 +155,7 @@ export default function NavigationBar({
               <span>{tab.label}</span>
             </button>
           ))}
+          {/* Tab: Metodología (interno) */}
           
           {/* Botón de Análisis Global - También en Mobile */}
           {symbol && (

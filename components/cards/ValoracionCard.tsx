@@ -269,15 +269,15 @@ export default function ValoracionCard({ symbol, period = "ttm" }: { symbol: str
 
   return (
     <>
-      <Card className="bg-tarjetas border-none">
-        <CardHeader>
+      <Card className="bg-tarjetas border-none ">
+        {/* <CardHeader>
           <CardTitle className="text-orange-400 text-lg flex items-center">
             <div className="text-gray-400 mr-2">
               Valoración
             </div>
           </CardTitle>
-        </CardHeader>
-        <CardContent>
+        </CardHeader> */}
+        <CardContent className="pb-0">
           {loading ? (
             <div className="h-32 grid place-items-center text-gray-500 text-sm">
               Cargando datos de Valoración…
@@ -287,7 +287,7 @@ export default function ValoracionCard({ symbol, period = "ttm" }: { symbol: str
           ) : (
             <>
               {/* Métricas de valoración en formato de tarjetas */}
-              <div className="grid grid-cols-6 gap-4 text-sm">
+              <div className="grid grid-cols-4 gap-2 text-sm">
                 {rows.map((row, index) => {
                   const scoreColor = getScoreColor(row.score);
                   const scoreLevel = getScoreLevel(row.score);
