@@ -607,7 +607,7 @@ export default function FundamentalCard({ symbol, period = "annual", onPeriodCha
       <Card className="bg-tarjetas border-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-orange-400 text-lg flex gap-2 items-center">
-            <div className="text-gray-400 mr-2">Datos Financieros</div>
+            <div className="text-gray-400 mr-2">Análisis Financiero</div>
             <div className="ml-auto flex items-center gap-2">
               <span className="text-xs text-gray-400">Periodo</span>
               <div className="flex flex-wrap gap-2" role="tablist" aria-label="Seleccionar periodo">

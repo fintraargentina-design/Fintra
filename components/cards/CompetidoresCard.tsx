@@ -241,7 +241,7 @@ export default function CompetidoresCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="h-[400px]">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-2 h-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 pr-2 h-full">
           <div className="overflow-y-auto h-full bg-transparent peers-scroll">
             <div className="grid grid-cols-1 sm:grid-cols-1 gap-2">
               {competitors.map((competitor) => (
