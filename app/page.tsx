@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { searchStockData, getStockConclusionData } from '@/lib/stockQueries';
+import { searchStockData, getStockConclusionData, getFgosData } from '@/lib/stockQueries';
 import NavigationBar from '@/components/layout/NavigationBar';
 import DatosTab from '@/components/tabs/DatosTab';
 import ChartsTabHistoricos from '@/components/tabs/ChartsTabHistoricos';
@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Settings } from 'lucide-react';
 
 import FinancialScoresCard from '@/components/cards/FinancialScoresCard';
+import FgosScoreCard from '@/components/cards/FgosScoreCard';
 
 export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'metodologia';
 
@@ -26,6 +27,7 @@ export default function StockTerminal() {
   const [stockAnalysis, setStockAnalysis] = useState<any>(null);
   const [stockPerformance, setStockPerformance] = useState<any>(null);
   const [stockReport, setStockReport] = useState<any>(null);
+  const [fgosData, setFgosData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<TabKey>('chart');

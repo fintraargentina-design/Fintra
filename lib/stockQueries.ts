@@ -156,8 +156,8 @@ export async function searchStockData(symbol: string) {
       .eq('symbol', symbol.toUpperCase())
       .single();
 
-    // Only log if there's actually an error and it's not the "no rows" error
-    if (analysisError && analysisError.code && analysisError.code !== 'PGRST116') {
+    // Only log if there's actually an error and it's not the "no rows" error or "table missing" error
+    if (analysisError && analysisError.code && analysisError.code !== 'PGRST116' && analysisError.code !== '42P01') {
       console.error('Error en análisis:', {
         message: analysisError.message || 'Sin mensaje',
         details: analysisError.details || 'Sin detalles',
@@ -194,8 +194,8 @@ export async function searchStockData(symbol: string) {
 
     // Mejorar el manejo de errores de performance
     if (performanceError) {
-      // Solo hacer log si hay un error real (no "no rows found")
-      if (performanceError.code && performanceError.code !== 'PGRST116') {
+      // Solo hacer log si hay un error real (no "no rows found" ni "undefined table")
+      if (performanceError.code && performanceError.code !== 'PGRST116' && performanceError.code !== '42P01') {
         console.error('Error en rendimiento:', {
           message: performanceError.message || 'Sin mensaje',
           details: performanceError.details || 'Sin detalles',
@@ -363,7 +363,32 @@ export async function searchStockData(symbol: string) {
 
 // Función para buscar solo datos básicos
 
+export async function getFgosData(symbol: string) {
+  try {
+    const { data, error } = await supabase
+      .from('fintra_snapshots')
+      .select('*')
+      .eq('ticker', symbol.toUpperCase())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) {
+      if (error.code !== 'PGRST116') { // Ignore no rows found
+        console.error('Error fetching FGOS data:', error);
+      }
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in getFgosData:', error);
+    return null;
+  }
+}
+
 export async function getBasicStockData(symbol: string): Promise<StockData | null> {
+
   try {
     const { data, error } = await supabase
       .from('datos_accion')
