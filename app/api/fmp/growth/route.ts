@@ -30,8 +30,8 @@ export async function GET(req: Request) {
     // FMP: financial-growth
     // Devolvemos el payload tal cual (tu UI ya espera keys como growthRevenue, growthEPS, etc.)
     const data = await fmpGet<any[]>(
-      `/api/v3/financial-growth/${symbol}`,
-      { period, limit }
+      `/stable/financial-growth`,
+      { symbol, period, limit }
     );
 
     return NextResponse.json(data ?? [], {

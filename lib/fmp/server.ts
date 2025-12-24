@@ -1,5 +1,5 @@
 // /lib/fmp/server.ts
-import "server-only";
+// import "server-only";
 
 const BASE =
   (process.env.FMP_BASE_URL?.replace(/\/$/, "") as string) ||

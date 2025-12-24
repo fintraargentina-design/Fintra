@@ -30,8 +30,8 @@ export async function GET(req: Request) {
   const { symbol } = parsed.data;
 
   try {
-    // FMP: /api/v3/quote/{symbol} — devuelve array con datos de cotización
-    const data = await fmpGet<any[]>(`/api/v3/quote/${symbol}`);
+    // FMP: /stable/quote?symbol={symbol} — devuelve array con datos de cotización
+    const data = await fmpGet<any[]>(`/stable/quote`, { symbol });
 
     return NextResponse.json(data ?? [], {
       status: 200,

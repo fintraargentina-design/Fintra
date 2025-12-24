@@ -1,7 +1,13 @@
-import "server-only";
+// import "server-only";
 import { FgosResult, FgosBreakdown } from './types';
 import { getBenchmarksForSector } from './benchmarks';
-import { fmp } from '@/lib/fmp/client';
+import { fmpDirect as fmp } from '@/lib/fmp/direct';
+import { 
+  FMPFinancialRatio, 
+  FMPKeyMetrics, 
+  FMPIncomeStatementGrowth, 
+  FMPCompanyProfile 
+} from '@/lib/fmp/types';
 
 // Pesos definidos
 const WEIGHTS = {
@@ -39,6 +45,12 @@ export async function calculateFGOS(ticker: string): Promise<FgosResult | null> 
       fmp.growth(ticker),
       fmp.quote(ticker)
     ]);
+
+    if (profileRes.status === 'rejected') console.error('Profile Fetch Error:', profileRes.reason);
+    if (ratiosRes.status === 'rejected') console.error('Ratios Fetch Error:', ratiosRes.reason);
+    if (metricsRes.status === 'rejected') console.error('Metrics Fetch Error:', metricsRes.reason);
+    if (growthRes.status === 'rejected') console.error('Growth Fetch Error:', growthRes.reason);
+    if (quoteRes.status === 'rejected') console.error('Quote Fetch Error:', quoteRes.reason);
 
     const profile = profileRes.status === 'fulfilled' && profileRes.value?.[0] ? profileRes.value[0] : null;
     const ratios: Partial<FMPFinancialRatio> = ratiosRes.status === 'fulfilled' && ratiosRes.value?.[0] ? ratiosRes.value[0] : {};

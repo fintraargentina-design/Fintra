@@ -30,8 +30,8 @@ export async function GET(req: Request) {
   const { symbol } = parsed.data;
 
   try {
-    // FMP: /api/v3/profile/{symbol} — devuelve array
-    const data = await fmpGet<any[]>(`/api/v3/profile/${symbol}`);
+    // FMP: /stable/profile?symbol={symbol}
+    const data = await fmpGet<any[]>(`/stable/profile`, { symbol });
 
     return NextResponse.json(data ?? [], {
       status: 200,

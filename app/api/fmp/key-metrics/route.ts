@@ -27,12 +27,12 @@ export async function GET(req: NextRequest) {
 
     if (q.scope === "ttm") {
       // Devuelve típicamente un array con 1 objeto TTM
-      data = await fmpGet<any[]>(`/api/v3/key-metrics-ttm/${q.symbol}`);
+      data = await fmpGet<any[]>(`/stable/key-metrics-ttm`, { symbol: q.symbol });
     } else {
       // Histórico anual (period=annual, limit configurable)
       data = await fmpGet<any[]>(
-        `/api/v3/key-metrics/${q.symbol}`,
-        { period: "annual", limit: q.limit }
+        `/stable/key-metrics`,
+        { symbol: q.symbol, period: "annual", limit: q.limit }
       );
     }
 
