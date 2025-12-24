@@ -58,7 +58,7 @@ export default function PeersAnalysisPanel({ symbol }: PeersAnalysisPanelProps) 
     "text-red-400";
 
   return (
-    <div className="w-full bg-tarjetas border border-white/5 rounded-xl overflow-hidden mb-4 mt-0 w-sm">
+    <div className="w-full bg-tarjetas border border-white/5 rounded-none overflow-hidden mt-0 w-sm">
             
       <div className="px-4 py-2 border-b border-white/5 bg-white/[0.02]">
         <h4 className="text-xs font-medium text-gray-400">
@@ -66,9 +66,9 @@ export default function PeersAnalysisPanel({ symbol }: PeersAnalysisPanelProps) 
         </h4>
       </div>
 
-      <div className="p-0">
+      <div className="p-0 max-h-[155px] overflow-y-auto scrollbar-thin relative">
         <Table>
-          <TableHeader className="bg-white/5">
+          <TableHeader className="bg-[#111] sticky top-0 z-10">
             <TableRow className="border-white/10 hover:bg-transparent">
               <TableHead className="text-[10px] uppercase text-gray-500 h-8 font-bold">Ticker</TableHead>
               <TableHead className="text-[10px] uppercase text-gray-500 h-8 text-center font-bold">FGOS</TableHead>

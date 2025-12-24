@@ -13,6 +13,8 @@ import type {
   KeyMetricsResponse,
   CashFlowResponse,
   ValuationResponse,
+  InstitutionalHoldersResponse,
+  InsiderTradingResponse,
 } from "@/lib/fmp/types";
 
 export type CacheOpt = RequestCache | undefined;
@@ -136,6 +138,17 @@ export function createFmpClient(get: FetcherFunction) {
     balanceSheetGrowth(symbol: string, opts?: { period?: "annual" | "quarter"; limit?: number; cache?: CacheOpt }) {
       return get<BalanceSheetGrowthResponse>("/balance-sheet-growth", {
         params: { symbol, period: opts?.period || "annual", limit: opts?.limit || 5 },
+        cache: opts?.cache,
+      });
+    },
+
+    institutionalHolders(symbol: string, cache: CacheOpt = "force-cache") {
+      return get<InstitutionalHoldersResponse>("/institutional-holders", { params: { symbol }, cache });
+    },
+
+    insiderTrading(symbol: string, opts?: { limit?: number; cache?: CacheOpt }) {
+      return get<InsiderTradingResponse>("/insider-trading", {
+        params: { symbol, ...(opts?.limit ? { limit: opts.limit } : {}) },
         cache: opts?.cache,
       });
     },

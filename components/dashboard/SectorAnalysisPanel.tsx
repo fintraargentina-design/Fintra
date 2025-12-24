@@ -67,7 +67,7 @@ export default function SectorAnalysisPanel() {
     "text-red-400";
 
   return (
-    <div className="w-full bg-tarjetas border border-white/5 rounded-xl overflow-hidden mb-4 shadow-sm">
+    <div className="w-full bg-tarjetas border border-white/5 border-b-0 rounded-none overflow-hidden shadow-sm">
       {/* <div className="p-3 border-b border-white/10 bg-white/5">
         <h3 className="text-orange-400 font-semibold flex items-center gap-2 text-sm">
           <Activity className="w-4 h-4" /> Scanner de Oportunidades
@@ -98,9 +98,9 @@ export default function SectorAnalysisPanel() {
           </h4>
         </div>
 
-        <div className="p-0">
+        <div className="p-0 max-h-[155px] overflow-y-auto scrollbar-thin relative">
           <Table>
-            <TableHeader className="bg-white/5">
+            <TableHeader className="bg-[#111] sticky top-0 z-10">
               <TableRow className="border-white/10 hover:bg-transparent">
                 <TableHead className="text-[10px] uppercase text-gray-500 h-8 font-bold">Ticker</TableHead>
                 <TableHead className="text-[10px] uppercase text-gray-500 h-8 text-center font-bold">FGOS</TableHead>

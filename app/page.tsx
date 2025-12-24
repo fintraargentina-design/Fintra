@@ -8,6 +8,8 @@ import ChartsTabHistoricos from '@/components/tabs/ChartsTabHistoricos';
 import NoticiasTab from '@/components/tabs/NoticiasTab';
 import MetodologiaTab from '../components/tabs/MetodologiaTab';
 import { supabase, registerStockSearch } from '@/lib/supabase';
+import { fmp } from '@/lib/fmp/client';
+import EcosystemCard from '@/components/cards/EcosystemCard';
 import ConclusionRapidaCard from '@/components/cards/ConclusionRapidaCard';
 import CompetidoresCard from '@/components/cards/CompetidoresCard';
 import OverviewCard from '@/components/cards/OverviewCard';
@@ -21,7 +23,7 @@ import FGOSRadarChart from '@/components/charts/FGOSRadarChart';
 import SectorAnalysisPanel from '@/components/dashboard/SectorAnalysisPanel';
 import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
 
-export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'metodologia';
+export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'metodologia' | 'ecosistema';
 
 export default function StockTerminal() {
   const [selectedStock, setSelectedStock] = useState<any>('AAPL'); // puede ser string u objeto con {symbol}
@@ -29,9 +31,10 @@ export default function StockTerminal() {
   const [stockAnalysis, setStockAnalysis] = useState<any>(null);
   const [stockPerformance, setStockPerformance] = useState<any>(null);
   const [stockReport, setStockReport] = useState<any>(null);
+  const [stockEcosystem, setStockEcosystem] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<TabKey>('chart');
+  const [activeTab, setActiveTab] = useState<TabKey>('ecosistema');
   const [user, setUser] = useState<any>(null);
   const [stockConclusion, setStockConclusion] = useState<any>(null);
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
@@ -81,6 +84,7 @@ export default function StockTerminal() {
         setStockAnalysis(result.analysisData);
         setStockPerformance(result.performanceData);
         setStockReport(result.reportData);
+        setStockEcosystem(result.ecosystemData);
         setSelectedStock(result.basicData || sym); // mantiene objeto con {symbol} si viene
 
         if (activeTab !== 'noticias') {
@@ -114,6 +118,14 @@ export default function StockTerminal() {
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'ecosistema':
+        return (
+          <EcosystemCard 
+            symbol={selectedSymbol}
+            holders={stockEcosystem?.holders}
+            insiders={stockEcosystem?.insiders}
+          />
+        );
       case 'datos':
         return (
           <DatosTab
@@ -132,7 +144,18 @@ export default function StockTerminal() {
           />
         );
       case 'estimacion':
-        return <EstimacionCard selectedStock={selectedStock} />;
+        return (
+          <EstimacionCard 
+            selectedStock={selectedStock}
+            fundamentalData={stockBasicData?.datos?.fundamentales}
+            valoracionData={stockBasicData?.datos?.valoracion}
+            financialScoresData={stockBasicData?.datos?.financialScores}
+            overviewData={stockBasicData}
+            estimacionData={stockBasicData?.datos?.estimacion}
+            dividendosData={stockBasicData?.datos?.dividendos}
+            desempenoData={stockBasicData?.datos?.desempeno}
+          />
+        );
       case 'noticias':
         return <NoticiasTab symbol={selectedSymbol} />;
       case 'metodologia':
@@ -182,13 +205,11 @@ export default function StockTerminal() {
           <div className="space-y-1 md:space-y-1">
 
             {/* Layout principal responsivo */}
-            <div className="grid grid-cols-1 xl:grid-cols-[45%_55%] gap-2 md:gap-1 items-start h-full">
+            <div className="grid grid-cols-1 xl:grid-cols-[55%_45%] gap-2 md:gap-1 items-start h-full">
               {/* Panel izquierdo */}
               <div className="w-full xl:w-auto space-y-2 md:space-y-1 min-h-0 max-h-[calc(100vh-64px)] overflow-y-auto scrollbar-thin">
-                <div className="w-full">
+                <div className="w-full flex flex-col gap-0 space-y-0">
                   <SectorAnalysisPanel />
-                </div>
-                <div className="w-full">
                   <PeersAnalysisPanel symbol={selectedSymbol} />
                 </div>
                 <div className="w-full">
@@ -249,13 +270,6 @@ export default function StockTerminal() {
                       activeTab={activeTab}
                       setActiveTab={setActiveTab}
                       symbol={selectedSymbol}
-                      fundamentalData={stockBasicData?.datos?.fundamentales}
-                      valoracionData={stockBasicData?.datos?.valoracion}
-                      financialScoresData={stockBasicData?.datos?.financialScores}
-                      overviewData={stockBasicData}
-                      estimacionData={stockBasicData?.datos?.estimacion}
-                      dividendosData={stockBasicData?.datos?.dividendos}
-                      desempenoData={stockBasicData?.datos?.desempeno}
                     />
                   </div>
                   <Button 

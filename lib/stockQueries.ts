@@ -339,11 +339,24 @@ export async function searchStockData(symbol: string) {
       }
     }
 
+    // Buscar datos del ecosistema (holders e insiders) desde FMP
+    let ecosystemData: any = null;
+    try {
+      const [holders, insiders] = await Promise.all([
+        fmp.institutionalHolders(symbol.toUpperCase()),
+        fmp.insiderTrading(symbol.toUpperCase(), { limit: 20 })
+      ]);
+      ecosystemData = { holders, insiders };
+    } catch (e) {
+      console.warn('Error fetching ecosystem data:', e);
+    }
+
     return {
       basicData: processedData,
       analysisData: analysisData as StockAnalysis,
       performanceData: performanceData as StockPerformance,
       reportData: processedReport,
+      ecosystemData,
       success: true,
       error: null
     };

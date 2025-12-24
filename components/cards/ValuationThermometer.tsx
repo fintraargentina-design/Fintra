@@ -87,7 +87,7 @@ export default function ValuationThermometer({ symbol }: { symbol: string }) {
         <div className="space-y-4"> 
           {/* Barra Visual */} 
           <div className="relative pt-2"> 
-            <div className="h-3 w-full rounded-full" style={{ background: getGradient() }} /> 
+            <div className="h-3 w-full rounded-none" style={{ background: getGradient() }} /> 
             {/* Indicador Triangular */} 
             <div 
               className="absolute top-0 -mt-1 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-white shadow-sm transition-all duration-1000" 

@@ -1,46 +1,23 @@
 import { Button } from "@/components/ui/button"
-import { BarChart3, TrendingUp, Target, FileText, BookOpen } from "lucide-react"
-import AIAnalysisButton from "@/components/AIAnalysisButton"
 import type { TabKey } from "@/app/page"
 
 interface NavigationBarProps {
   orientation?: 'horizontal' | 'vertical';
   activeTab: TabKey;
   setActiveTab: (tab: TabKey) => void;
-  // Props para el análisis global
   symbol?: string;
-  fundamentalData?: any;
-  valoracionData?: any;
-  financialScoresData?: any;
-  overviewData?: any;
-  estimacionData?: any;
-  dividendosData?: any;
-  desempenoData?: any;
 }
-
-const tabs = [
-  { id: 'datos', label: 'Resultados', icon: BarChart3 },
-  { id: 'estimacion', label: 'Analistas' },
-  { id: 'chart', label: 'Charts', icon: TrendingUp }
-]
 
 export default function NavigationBar({ 
   activeTab, 
   setActiveTab,
   symbol,
-  fundamentalData,
-  valoracionData,
-  financialScoresData,
-  overviewData,
-  estimacionData,
-  dividendosData,
-  desempenoData,
   orientation = 'horizontal'
 }: NavigationBarProps) {
   const tabs = [
-    /* { key: 'chart', label: 'Gráficos' }, */
+    { key: 'ecosistema', label: 'Ecosistema' },
     { key: 'datos', label: 'Datos' },
-    { key: 'estimacion', label: 'Estimación' },
+    { key: 'estimacion', label: 'Estimación y Análisis IA' },
     { key: 'noticias', label: 'Noticias' },
     { key: 'metodologia', label: 'Metodología' },
   ];
@@ -65,19 +42,7 @@ export default function NavigationBar({
         ))}
         {symbol && (
           <div className="relative group flex-shrink-0">
-            <AIAnalysisButton
-              symbol={symbol}
-              fundamentalData={fundamentalData}
-              valoracionData={valoracionData}
-              financialScoresData={financialScoresData}
-              overviewData={overviewData}
-              estimacionData={estimacionData}
-              dividendosData={dividendosData}
-              desempenoData={desempenoData}
-            />
-            <span className="pointer-events-none absolute top-1/2 right-full -translate-y-1/2 mr-2 px-2 py-1 rounded-md bg-gray-800 text-gray-200 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 shadow-lg z-20">
-              Análisis IA
-            </span>
+            {/* AI Analysis Button removed */}
           </div>
         )}
       </div>
@@ -107,23 +72,6 @@ export default function NavigationBar({
         </div>
         
         {/* Botón de Análisis Global - Solo en Desktop */}
-        {symbol && (
-          <div className="relative group flex-shrink-0 ml-2">
-            <AIAnalysisButton
-              symbol={symbol}
-              fundamentalData={fundamentalData}
-              valoracionData={valoracionData}
-              financialScoresData={financialScoresData}
-              overviewData={overviewData}
-              estimacionData={estimacionData}
-              dividendosData={dividendosData}
-              desempenoData={desempenoData}
-            />
-             <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 rounded-md bg-gray-800 text-gray-200 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 shadow-lg z-20">
-              Análisis IA
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Mobile Navigation - Horizontal Scroll */}
@@ -148,22 +96,6 @@ export default function NavigationBar({
             </button>
           ))}
           {/* Tab: Metodología (interno) */}
-          
-          {/* Botón de Análisis Global - También en Mobile */}
-          {symbol && (
-            <div className="flex-shrink-0">
-              <AIAnalysisButton
-                symbol={symbol}
-                fundamentalData={fundamentalData}
-                valoracionData={valoracionData}
-                financialScoresData={financialScoresData}
-                overviewData={overviewData}
-                estimacionData={estimacionData}
-                dividendosData={dividendosData}
-                desempenoData={desempenoData}
-              />
-            </div>
-          )}
         </div>
       </div>
     </div>

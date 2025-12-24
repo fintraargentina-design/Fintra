@@ -9,11 +9,19 @@ import {
   TrendingUp, AlertTriangle, Target, BarChart3, DollarSign, 
   TrendingDown, Users, Calendar, Brain
 } from "lucide-react";
+import AIAnalysisButton from "@/components/AIAnalysisButton";
 import { fmp } from "@/lib/fmp/client";
 import type { ValuationResponse, RatiosResponse, GrowthResponse, ProfileResponse } from "@/lib/fmp/types";
 
 interface EstimacionCardProps {
   selectedStock?: { symbol?: string; name?: string; price?: number } | null;
+  fundamentalData?: any;
+  valoracionData?: any;
+  financialScoresData?: any;
+  overviewData?: any;
+  estimacionData?: any;
+  dividendosData?: any;
+  desempenoData?: any;
 }
 
 interface EstimationData {
@@ -235,7 +243,16 @@ function calculateTargetPrices(data: EstimationData, currentPrice?: number) {
   };
 }
 
-export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
+export default function EstimacionCard({
+  selectedStock,
+  fundamentalData,
+  valoracionData,
+  financialScoresData,
+  overviewData,
+  estimacionData,
+  dividendosData,
+  desempenoData
+}: EstimacionCardProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<EstimationData>({
@@ -633,9 +650,9 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
               </Card>
             </TabsContent>
 
-            <TabsContent value="analysis" className="space-y-4">
+            <TabsContent value="analysis" className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Drivers de crecimiento */}
-              <Card className="bg-gray-800/30">
+              <Card className="bg-gray-800/30 h-full">
                 <CardHeader>
                   <CardTitle className="text-green-400 flex items-center gap-2 text-base">
                     <TrendingUp className="h-4 w-4" />
@@ -655,7 +672,7 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
               </Card>
 
               {/* Factores de riesgo */}
-              <Card className="bg-gray-800/30">
+              <Card className="bg-gray-800/30 h-full">
                 <CardHeader>
                   <CardTitle className="text-red-400 flex items-center gap-2 text-base">
                     <AlertTriangle className="h-4 w-4" />
@@ -675,7 +692,7 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
               </Card>
 
               {/* Consenso de analistas simulado */}
-              <Card className="bg-gray-800/30">
+              <Card className="bg-gray-800/30 h-full">
                 <CardHeader>
                   <CardTitle className="text-blue-400 flex items-center gap-2 text-base">
                     <Users className="h-4 w-4" />
@@ -703,12 +720,24 @@ export default function EstimacionCard({ selectedStock }: EstimacionCardProps) {
               </Card>
 
               {/* Resumen de IA */}
-              <Card className="bg-gray-800/30">
+              <Card className="bg-gray-800/30 h-full">
                 <CardHeader>
-                  <CardTitle className="text-purple-400 flex items-center gap-2 text-base">
-                    <Brain className="h-4 w-4" />
-                    Resumen de IA
-                  </CardTitle>
+                  <AIAnalysisButton
+                    symbol={selectedStock?.symbol || ""}
+                    fundamentalData={fundamentalData}
+                    valoracionData={valoracionData}
+                    financialScoresData={financialScoresData}
+                    overviewData={overviewData}
+                    estimacionData={estimacionData}
+                    dividendosData={dividendosData}
+                    desempenoData={desempenoData}
+                    customTrigger={
+                      <CardTitle className="text-purple-400 flex items-center gap-2 text-base cursor-pointer hover:text-purple-300 transition-colors">
+                        <Brain className="h-4 w-4" />
+                        Resumen de IA (Click para analizar)
+                      </CardTitle>
+                    }
+                  />
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-gray-300 leading-relaxed">

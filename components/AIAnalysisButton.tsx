@@ -44,8 +44,9 @@ export default function AIAnalysisButton({
   overviewData,
   estimacionData,
   dividendosData,
-  desempenoData
-}: AIAnalysisButtonProps) {
+  desempenoData,
+  customTrigger
+}: AIAnalysisButtonProps & { customTrigger?: React.ReactNode }) {
   const [globalAnalysis, setGlobalAnalysis] = useState<GlobalAnalysisState>(initialGlobalAnalysisState);
 
   const handleGlobalAnalyzeWithAI = async () => {
@@ -227,25 +228,31 @@ export default function AIAnalysisButton({
 
   return (
     <>
-      <Button
-        onClick={handleGlobalAnalyzeWithAI}
-        disabled={globalAnalysis.isLoading || !symbol}
-        size="sm"
-        variant="outline"
-        className="text-xs bg-transparent text-purple-300 hover:bg-purple-600/30 hover:border-purple-500/50 disabled:opacity-50 flex items-center gap-2"
-      >
-        {globalAnalysis.isLoading ? (
-          <>
-            <div className="w-3 h-3 border border-purple-300 border-t-transparent rounded-full animate-spin" />
-            Analizando...
-          </>
-        ) : (
-          <>
-            <Brain className="w-3 h-3" />
-            {/* Análisis IA */}
-          </>
-        )}
-      </Button>
+      {customTrigger ? (
+        <div onClick={handleGlobalAnalyzeWithAI} className="cursor-pointer">
+          {customTrigger}
+        </div>
+      ) : (
+        <Button
+          onClick={handleGlobalAnalyzeWithAI}
+          disabled={globalAnalysis.isLoading || !symbol}
+          size="sm"
+          variant="outline"
+          className="text-xs bg-transparent text-purple-300 hover:bg-purple-600/30 hover:border-purple-500/50 disabled:opacity-50 flex items-center gap-2"
+        >
+          {globalAnalysis.isLoading ? (
+            <>
+              <div className="w-3 h-3 border border-purple-300 border-t-transparent rounded-full animate-spin" />
+              Analizando...
+            </>
+          ) : (
+            <>
+              <Brain className="w-3 h-3" />
+              {/* Análisis IA */}
+            </>
+          )}
+        </Button>
+      )}
 
       {/* Modal de Análisis Global */}
       {globalAnalysis.isOpen && (
