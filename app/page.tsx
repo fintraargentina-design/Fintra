@@ -191,6 +191,9 @@ export default function StockTerminal() {
                   <SectorAnalysisPanel />
                 </div>
                 <div className="w-full">
+                  <PeersAnalysisPanel symbol={selectedSymbol} />
+                </div>
+                <div className="w-full">
                   <OverviewCard
                       selectedStock={selectedStock}
                       onStockSearch={buscarDatosAccion}
