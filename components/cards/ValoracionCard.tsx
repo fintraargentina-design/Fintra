@@ -269,15 +269,8 @@ export default function ValoracionCard({ symbol, period = "ttm" }: { symbol: str
 
   return (
     <>
-      <Card className="bg-tarjetas border-none ">
-        {/* <CardHeader>
-          <CardTitle className="text-orange-400 text-lg flex items-center">
-            <div className="text-gray-400 mr-2">
-              Valoración
-            </div>
-          </CardTitle>
-        </CardHeader> */}
-        <CardContent className="pb-0">
+      <div className="bg-tarjetas border-none">
+        <div className="pb-0 px-6">
           {loading ? (
             <div className="h-32 grid place-items-center text-gray-500 text-sm">
               Cargando datos de Valoración…
@@ -318,8 +311,8 @@ export default function ValoracionCard({ symbol, period = "ttm" }: { symbol: str
               </div>
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Modal de Explicaciones de Métricas */}
       {explanationModal.isOpen && explanationModal.selectedMetric && METRIC_EXPLANATIONS[explanationModal.selectedMetric] && (

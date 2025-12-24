@@ -18,8 +18,7 @@ export default function NavigationBar({
     { key: 'ecosistema', label: 'Ecosistema' },
     { key: 'datos', label: 'Datos' },
     { key: 'estimacion', label: 'Estimación y Análisis IA' },
-    { key: 'noticias', label: 'Noticias' },
-    { key: 'metodologia', label: 'Metodología' },
+    { key: 'mercados', label: 'Mercados' },
   ];
 
   if (orientation === 'vertical') {
@@ -49,29 +48,31 @@ export default function NavigationBar({
     );
   }
   return (
-    <div className="w-full border-b border-white/10">
-      {/* Desktop Navigation */}
-      <div className="hidden md:flex flex-wrap items-center justify-start">
-        <div className="flex">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key as TabKey)}
-              className={`
-                rounded-none border-b-2 border-transparent px-4 py-2 text-xs font-medium transition-colors
-                ${
-                  activeTab === tab.key
-                    ? 'border-orange-400 text-orange-400'
-                    : 'text-gray-400 hover:text-gray-200'
-                }
-              `}
-            >
-              {tab.label}
-            </button>
-          ))}
+    <div className="w-full border-b border-white/5 bg-tarjetas shadow-sm">
+      <div className="w-full overflow-x-auto scrollbar-thin whitespace-nowrap">
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex flex-nowrap items-center justify-start h-auto p-0 w-max">
+          <div className="flex">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key as TabKey)}
+                className={`
+                  rounded-none border-b-2 border-transparent px-2 py-1 text-xs transition-colors
+                  ${
+                    activeTab === tab.key
+                      ? 'border-orange-400 text-orange-400'
+                      : 'text-gray-400 hover:text-gray-200'
+                  }
+                `}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          
+          {/* Botón de Análisis Global - Solo en Desktop */}
         </div>
-        
-        {/* Botón de Análisis Global - Solo en Desktop */}
       </div>
 
       {/* Mobile Navigation - Horizontal Scroll */}
@@ -82,13 +83,12 @@ export default function NavigationBar({
               key={tab.key}
               onClick={() => setActiveTab(tab.key as TabKey)}
               className={`
-                flex items-center justify-center px-3 py-2 
-                text-xs font-medium rounded-md 
-                transition-all duration-200 whitespace-nowrap flex-shrink-0
+                rounded-none border-b-2 border-white/10 px-2 py-1 
+                text-xs transition-colors whitespace-nowrap flex-shrink-0
                 ${
                   activeTab === tab.key
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    ? 'border-orange-400 text-orange-400'
+                    : 'text-gray-400 hover:text-gray-200'
                 }
               `}
             >

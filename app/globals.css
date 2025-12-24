@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 16.9%;
+    --background: 0 0% 5.9%;
     --foreground: 0 0% 98%;
     --card: 0 0% 0.8%;
     --card-foreground: 0 0% 98%;
@@ -27,6 +27,13 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
     --radius: 0.4rem;
+  }
+ 
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }
 
@@ -171,7 +178,7 @@
 }
 
 .bg-fondoDeTarjetas {
-  background-color: #222427 !important;
+  background-color: #080707 !important;
   backdrop-filter: none !important;
 }
 

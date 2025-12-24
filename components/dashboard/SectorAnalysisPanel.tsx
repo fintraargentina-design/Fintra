@@ -77,12 +77,12 @@ export default function SectorAnalysisPanel() {
       <Tabs defaultValue="Technology" onValueChange={setSelectedSector} className="w-full">
         <div className="border-b border-white/10">
           <ScrollArea className="w-full whitespace-nowrap">
-            <TabsList className="bg-transparent h-auto p-0 flex w-max">
+            <TabsList className="bg-transparent h-auto p-0 flex min-w-full w-max">
               {SECTORS.map((sector) => (
                 <TabsTrigger 
                   key={sector} 
                   value={sector} 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-400 data-[state=active]:text-orange-400 text-xs px-4 py-2 text-gray-400 hover:text-gray-200 transition-colors"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-400 data-[state=active]:text-orange-400 text-xs px-2 py-1 text-gray-400 hover:text-gray-200 transition-colors flex-1"
                 >
                   {sector}
                 </TabsTrigger>
@@ -92,14 +92,14 @@ export default function SectorAnalysisPanel() {
           </ScrollArea>
         </div>
 
-        <div className="px-4 py-2 border-b border-white/5 bg-white/[0.02]">
-          <h4 className="text-xs font-medium text-gray-400">
+        <div className="py-1 border-b border-white/5 bg-white/[0.02]">
+          <h4 className="text-xs font-medium text-gray-400 text-center">
             Acciones del sector <span className="text-orange-400">"{selectedSector}"</span>
           </h4>
         </div>
 
         <div className="p-0 max-h-[155px] overflow-y-auto scrollbar-thin relative">
-          <Table>
+          <table className="w-full caption-bottom text-sm">
             <TableHeader className="bg-[#111] sticky top-0 z-10">
               <TableRow className="border-white/10 hover:bg-transparent">
                 <TableHead className="text-[10px] uppercase text-gray-500 h-8 font-bold">Ticker</TableHead>
@@ -137,7 +137,7 @@ export default function SectorAnalysisPanel() {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+          </table>
         </div>
       </Tabs>
     </div>

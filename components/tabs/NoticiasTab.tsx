@@ -249,7 +249,7 @@ export default function NoticiasTab({
   return (
     <>
       <Card className="flex-1 bg-tarjetas bg-tarjetas border-none h-[calc(100vh-200px)]">
-        <CardHeader>
+        {/* <CardHeader>
           <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
           <div className="text-gray-400">
            Noticias
@@ -259,7 +259,7 @@ export default function NoticiasTab({
               - {news.length} artículos
             </Badge>
           </CardTitle>
-        </CardHeader>
+        </CardHeader> */}
         <CardContent className="flex-1 h-[calc(100vh-280px)] overflow-y-auto space-y-4">
           {news.length === 0 ? (
             <p className="text-gray-400 text-center py-8">
@@ -296,11 +296,6 @@ export default function NoticiasTab({
                     </div>
                   </div>
 
-                  {/* Resumen */}
-                  <p className="text-gray-300 text-sm mb-3 line-clamp-3">
-                    {newsItem.summary}
-                  </p>
-
                   {/* Metadata */}
                   <div className="flex items-center justify-between text-xs text-gray-400 mb-3">
                     <div className="flex items-center gap-4">
@@ -313,6 +308,13 @@ export default function NoticiasTab({
                       )}
                     </div>
                   </div>
+
+                  {/* Resumen */}
+                  <p className="text-gray-300 text-sm mb-3 line-clamp-3">
+                    {newsItem.summary}
+                  </p>
+
+                  
 
                   {/* Topics y relevancia */}
                   {newsItem.topics && newsItem.topics.length > 0 && (

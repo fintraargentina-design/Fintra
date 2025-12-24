@@ -352,7 +352,7 @@ export default function EstimacionCard({
 
   return (
     <Card className="bg-gray-900/50 border-blue-500/30 transition-all duration-300 hover:border-[#00BFFF] hover:shadow-lg hover:shadow-[#00BFFF]/20">
-      <CardHeader>
+      {/* <CardHeader>
         <CardTitle className="text-blue-400 text-lg flex items-center gap-2">
           <Target className="h-5 w-5" />
           Análisis Completo de Estimaciones
@@ -366,7 +366,7 @@ export default function EstimacionCard({
             Riesgo: {riskAssessment.level}
           </Badge>
         </CardTitle>
-      </CardHeader>
+      </CardHeader> */}
       
       <CardContent className="space-y-6">
         {loading ? (

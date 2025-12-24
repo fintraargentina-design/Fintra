@@ -1,16 +1,13 @@
-// components/cards/FundamentalCard.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import * as echarts from "echarts/core";
 import { BarChart } from "echarts/charts";
 import { GridComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { X } from "lucide-react";
 import { fmp } from "@/lib/fmp/client";
-import { savePeriodSelection } from "@/lib/supabase";
 import type { FMPFinancialRatio, FMPIncomeStatementGrowth, FMPKeyMetrics, FMPCashFlowStatement, FMPCompanyProfile, FMPBalanceSheetGrowth } from "@/lib/fmp/types";
 
 echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
@@ -36,8 +33,9 @@ const logSaturate = (x?: number | null, cap = 20) => {
   return clamp((Math.log(1 + v) / Math.log(1 + cap)) * 100);
 };
 const linearCap = (x?: number | null, cap = 60) => (x == null ? null : clamp((x / cap) * 100));
+
 const fmtPercent = (v?: number | null, d = 1) => (v == null ? "N/A" : `${v.toFixed(d)}%`);
-const fmtRatio = (v?: number | null, d = 2) => (v == null ? "N/A" : v.toFixed(d));
+const fmtRatio = (v?: number | null, d = 2) => (v == null ? "N/A" : `${v.toFixed(d)}x`);
 
 // Función para formatear números grandes con T/B/M
 const fmtLargeNumber = (v?: number | null, d = 1) => {
@@ -286,17 +284,11 @@ const METRIC_EXPLANATIONS: Record<string, { description: string; examples: strin
 
 type PeriodSel = "ttm" | "FY" | "Q1" | "Q2" | "Q3" | "Q4" | "annual" | "quarter";
 
-export default function FundamentalCard({ symbol, period = "annual", onPeriodChange }: { symbol: string; period?: PeriodSel; onPeriodChange?: (p: PeriodSel) => void }) {
+export default function FundamentalCard({ symbol, period = "annual" }: { symbol: string; period?: PeriodSel }) {
   const [rows, setRows] = useState<MetricRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [explanationModal, setExplanationModal] = useState<ExplanationModalState>(initialExplanationModalState);
-  const [localPeriod, setLocalPeriod] = useState<PeriodSel>(period);
-
-  // Sincronizar el estado local si cambia el prop
-  useEffect(() => {
-    setLocalPeriod(period);
-  }, [period]);
 
   // Función para abrir modal de explicaciones
   const openExplanationModal = (metricName: string) => {
@@ -318,8 +310,6 @@ export default function FundamentalCard({ symbol, period = "annual", onPeriodCha
       setLoading(true);
       setError(null);
       try {
-        // Usar el periodo local para todas las consultas
-        const period = localPeriod;
         // Selección de periodo para ratios
         const quarterMap: Record<Exclude<PeriodSel, "ttm" | "FY" | "annual" | "quarter">, string> = {
           Q1: "-03-31",
@@ -347,120 +337,115 @@ export default function FundamentalCard({ symbol, period = "annual", onPeriodCha
           r = Array.isArray(ratiosAny) && ratiosAny.length ? ratiosAny[0] : {};
         }
 
-        // Growth según periodo (TTM usa annual)
-        const growthPeriod: "annual" | "quarter" = period === "quarter" || period === "Q1" || period === "Q2" || period === "Q3" || period === "Q4" ? "quarter" : "annual";
-        const [growthData, keyMetricsData, profileData, balanceSheetGrowthData] = await Promise.all([
-          fmp.growth(symbol, { period: growthPeriod, limit: 5 }),
-          fmp.keyMetricsTTM(symbol),
-          fmp.profile(symbol),
-          fmp.balanceSheetGrowth(symbol, { period: "annual", limit: 5 }),
-        ]);
+        // Key Metrics
+        let k: Partial<FMPKeyMetrics> = {};
+        if (period === "ttm") {
+          const keyMetrics = await fmp.keyMetricsTTM(symbol);
+          k = Array.isArray(keyMetrics) && keyMetrics.length ? keyMetrics[0] : {};
+        } else if (period === "FY") {
+          const kmAnnual = await fmp.keyMetrics(symbol, { period: "annual", limit: 1 });
+          k = Array.isArray(kmAnnual) && kmAnnual.length ? kmAnnual[0] : {};
+        } else if (period === "Q1" || period === "Q2" || period === "Q3" || period === "Q4") {
+          const kmQuarter = await fmp.keyMetrics(symbol, { period: "quarter", limit: 8 });
+          const key = quarterMap[period];
+          const match = Array.isArray(kmQuarter)
+            ? kmQuarter.find((row: any) => String(row?.date ?? "").includes(key))
+            : undefined;
+          k = match ?? (Array.isArray(kmQuarter) && kmQuarter.length ? kmQuarter[0] : {});
+        } else {
+          const kmAny = await fmp.keyMetrics(symbol, { period: period as "annual" | "quarter", limit: 1 });
+          k = Array.isArray(kmAny) && kmAny.length ? kmAny[0] : {};
+        }
 
-        // Cashflow según periodo
-        const cashflowPeriod: "annual" | "quarter" = period === "FY" || period === "annual" ? "annual" : "quarter";
-        const cashflowLimit = cashflowPeriod === "quarter" ? 8 : 1;
-        const cashflowData = await fmp.cashflow(symbol, { period: cashflowPeriod, limit: cashflowLimit });
+        // Profile (para market cap si no está en key metrics)
+        const profile = await fmp.profile(symbol);
+        const p: Partial<FMPCompanyProfile> = Array.isArray(profile) && profile.length ? profile[0] : {};
 
-        const g: FMPIncomeStatementGrowth[] = Array.isArray(growthData) ? growthData : [];
-        const km: Partial<FMPKeyMetrics> = Array.isArray(keyMetricsData) && keyMetricsData.length ? keyMetricsData[0] : {};
-        const cfItems: Partial<FMPCashFlowStatement>[] = Array.isArray(cashflowData) ? cashflowData : [];
-        const p: Partial<FMPCompanyProfile> = Array.isArray(profileData) && profileData.length ? profileData[0] : {};
-        const bsg: FMPBalanceSheetGrowth[] = Array.isArray(balanceSheetGrowthData) ? balanceSheetGrowthData : [];
+        // Growth (5y) -> Tomamos 6 para calcular 5 CAGRs? O simplemente 5 periodos anuales.
+        // CAGR = (End/Start)^(1/n) - 1. Para 5 años, necesitamos dato hoy y dato hace 5 años.
+        const incomeGrowth = await fmp.incomeStatementGrowth(symbol, { period: "annual", limit: 6 });
+        const balanceGrowth = await fmp.balanceSheetGrowth(symbol, { period: "annual", limit: 6 });
+        // const cashGrowth = await fmp.cashFlowStatementGrowth(symbol, { period: "annual", limit: 6 });
 
-        const roe = pctOrNull(r.returnOnEquity);
-        const roic = pctOrNull(r.returnOnCapitalEmployed);
-        const grossMargin = pctOrNull(r.grossProfitMargin);
-        const netMargin = pctOrNull(r.netProfitMargin);
+        // Helpers para extraer arrays de crecimiento
+        const revenueGrowthSeries = Array.isArray(incomeGrowth) ? incomeGrowth.map((x) => x.growthRevenue) : [];
+        const netIncomeGrowthSeries = Array.isArray(incomeGrowth) ? incomeGrowth.map((x) => x.growthNetIncome) : [];
+        // No hay growthEquity directo en balanceSheetGrowth, calcular a mano desde balanceSheet?
+        // FMP tiene "balance-sheet-statement-growth" pero a veces es limitado.
+        // Usemos growthShareholdersEquity si existe o calcular.
+        // En FMP BalanceSheetGrowth existe "growthShareholdersEquity"? Revisar tipos.
+        // Si no, ignoramos o usamos book value growth.
+        // Vamos a asumir que balanceGrowth tiene growthShareholdersEquity (si no, null).
+        const equityGrowthSeries = Array.isArray(balanceGrowth) ? balanceGrowth.map((x: any) => x.growthShareholdersEquity) : [];
+
+        // Construir filas
+        const newRows: MetricRow[] = [];
+
+        // 1. Rentabilidad
+        const roe = numOrNull(r.returnOnEquity);
+        newRows.push({ label: "ROE", unit: "%", raw: roe, ...getScoreMeta("ROE", roe), display: fmtPercent(pctOrNull(roe)) });
+
+        const roic = numOrNull(r.returnOnCapitalEmployed); // FMP usa returnOnCapitalEmployed como proxy de ROIC a veces
+        newRows.push({ label: "ROIC", unit: "%", raw: roic, ...getScoreMeta("ROIC", roic), display: fmtPercent(pctOrNull(roic)) });
+
+        const grossMargin = numOrNull(r.grossProfitMargin);
+        newRows.push({ label: "Margen bruto", unit: "%", raw: grossMargin, ...getScoreMeta("Margen bruto", grossMargin), display: fmtPercent(pctOrNull(grossMargin)) });
+
+        const netMargin = numOrNull(r.netProfitMargin);
+        newRows.push({ label: "Margen neto", unit: "%", raw: netMargin, ...getScoreMeta("Margen neto", netMargin), display: fmtPercent(pctOrNull(netMargin)) });
+
+        // 2. Salud Financiera
+        const debtEq = numOrNull(r.debtEquityRatio);
+        newRows.push({ label: "Deuda/Capital", unit: "x", raw: debtEq, ...getScoreMeta("Deuda/Capital", debtEq), display: fmtRatio(debtEq) });
+
         const currentRatio = numOrNull(r.currentRatio);
-        const interestCoverage = numOrNull(r.interestCoverage);
+        newRows.push({ label: "Current Ratio", unit: "x", raw: currentRatio, ...getScoreMeta("Current Ratio", currentRatio), display: fmtRatio(currentRatio) });
 
-        // Deuda/Capital desde Deuda/Equity: D/(D+E) = (D/E)/(1 + D/E)
-        const debtToEquity = numOrNull(r.debtEquityRatio);
-        const debtToCapital = debtToEquity != null ? +(debtToEquity / (1 + debtToEquity)).toFixed(4) : null;
+        const interestCov = numOrNull(r.interestCoverage);
+        newRows.push({ label: "Cobertura de intereses", unit: "x", raw: interestCov, ...getScoreMeta("Cobertura de intereses", interestCov), display: fmtRatio(interestCov) });
 
-        // FCF según periodo seleccionado
-        const fcfFromCashflow = (() => {
-          if (!cfItems.length) return null;
-          if (cashflowPeriod === "annual") {
-            const item = cfItems[0];
-            const fcf = numOrNull(item.freeCashFlow);
-            const ocf = numOrNull(item.netCashProvidedByOperatingActivities ?? (item as any)?.operatingCashFlow);
-            const capex = numOrNull(item.capitalExpenditure);
-            return fcf != null ? fcf : ocf != null && capex != null ? +((ocf as number) - Math.abs(capex as number)).toFixed(2) : null;
-          }
-          // quarter: si Qx, tomar ese trimestre, si "quarter" genérico, sumar últimos 4
-          if (period === "Q1" || period === "Q2" || period === "Q3" || period === "Q4") {
-            const key = quarterMap[period];
-            const q = cfItems.find((row: any) => String(row?.date ?? "").includes(key));
-            if (!q) return null;
-            const fcf = numOrNull(q.freeCashFlow);
-            const ocf = numOrNull(q.netCashProvidedByOperatingActivities ?? (q as any)?.operatingCashFlow);
-            const capex = numOrNull(q.capitalExpenditure);
-            return fcf != null ? fcf : ocf != null && capex != null ? +((ocf as number) - Math.abs(capex as number)).toFixed(2) : null;
-          }
-          // quarter agregado: TTM por últimos 4
-          const sum = cfItems.slice(-4).reduce((acc, item) => {
-            const fcf = numOrNull(item.freeCashFlow);
-            const ocf = numOrNull(item.netCashProvidedByOperatingActivities ?? (item as any)?.operatingCashFlow);
-            const capex = numOrNull(item.capitalExpenditure);
-            const calc = fcf != null ? fcf : ocf != null && capex != null ? (ocf as number) - Math.abs(capex as number) : null;
-            return acc + (calc ?? 0);
-          }, 0);
-          return Number.isFinite(sum) && sum !== 0 ? +sum.toFixed(2) : null;
-        })();
+        // Free Cash Flow Yield? O FCF/Sales?
+        // Usemos FCF / Revenue (Margin) o FCF Yield.
+        // Aquí "Flujo de Caja Libre (%)" suele referirse a FCF Margin.
+        // FCF = operatingCashFlow - capitalExpenditure
+        // FMP keyMetrics tiene freeCashFlowPerShare?
+        // Calculemos FCF Margin usando ratiosTTM o similar. ratios tiene operatingCashFlowPerShare / revenuePerShare?
+        // Mejor usar keyMetrics.freeCashFlowYield o calcular FCF/Revenue.
+        // Usemos operatingCashFlow - capex.
+        // Si no tenemos raw values, busquemos en ratios. cashFlowToDebtRatio? No.
+        // keyMetrics tiene freeCashFlowYield.
+        // Vamos a usar "FCF Margin" si podemos, o "FCF Yield".
+        // Para simplificar, usemos freeCashFlowYield de keyMetrics como "Flujo de Caja Libre (%)" (Yield).
+        // Ojo, FCF Yield es sobre Market Cap.
+        // Si el usuario quiere "Margen FCF", sería FCF/Sales.
+        // FMP ratios tiene "freeCashFlowOperatingCashFlowRatio"? No.
+        // Vamos a intentar calcular FCF Margin desde Key Metrics (Revenue per share / FCF per share)?
+        // keyMetrics: revenuePerShare, freeCashFlowPerShare.
+        const revPerShare = numOrNull(k.revenuePerShare);
+        const fcfPerShare = numOrNull(k.freeCashFlowPerShare);
+        let fcfMargin: number | null = null;
+        if (revPerShare && fcfPerShare && revPerShare !== 0) {
+          fcfMargin = fcfPerShare / revPerShare;
+        }
+        newRows.push({ label: "Flujo de Caja Libre (%)", unit: "%", raw: fcfMargin, ...getScoreMeta("Flujo de Caja Libre (%)", fcfMargin), display: fmtPercent(pctOrNull(fcfMargin)) });
 
-        const fcfFromKM = (() => {
-          const fcfps = numOrNull(km.freeCashFlowPerShare);
-          const shares = numOrNull(km.sharesOutstanding);
-          return fcfps != null && shares != null ? +((fcfps as number) * (shares as number)).toFixed(2) : null;
-        })();
+        // 3. Crecimiento (5y CAGR)
+        const cagrRev = cagrFromGrowthSeries(revenueGrowthSeries.map(numOrNull).filter(x => x !== null) as number[]);
+        newRows.push({ label: "CAGR ingresos", unit: "%", raw: cagrRev, ...getScoreMeta("CAGR ingresos", cagrRev), display: fmtPercent(cagrRev) });
 
-        const fcfSelected = fcfFromCashflow ?? fcfFromKM;
+        const cagrNet = cagrFromGrowthSeries(netIncomeGrowthSeries.map(numOrNull).filter(x => x !== null) as number[]);
+        newRows.push({ label: "CAGR beneficios", unit: "%", raw: cagrNet, ...getScoreMeta("CAGR beneficios", cagrNet), display: fmtPercent(cagrNet) });
 
-        // Revenue aproximado desde P/S y market cap (según periodo)
-        const ps = numOrNull(r.priceToSalesRatio);
-        const marketCap = numOrNull(p.mktCap);
-        const revenueApprox = marketCap != null && ps != null && ps > 0 ? +((marketCap as number) / (ps as number)).toFixed(2) : null;
-        const freeCashFlowMarginPct = fcfSelected != null && revenueApprox != null && revenueApprox > 0 ? +(((fcfSelected as number) / (revenueApprox as number)) * 100).toFixed(2) : null;
+        const cagrEq = cagrFromGrowthSeries(equityGrowthSeries.map(numOrNull).filter(x => x !== null) as number[]);
+        newRows.push({ label: "CAGR patrimonio", unit: "%", raw: cagrEq, ...getScoreMeta("CAGR patrimonio", cagrEq), display: fmtPercent(cagrEq) });
 
-        // CAGRs
-        const revGrowthRates = g.map((item) => numOrNull(item.revenueGrowth) || 0);
-        const epsGrowthRates = g.map((item) => numOrNull(item.epsgrowth) || 0);
-        const equityGrowthRates = bsg.map((item) => numOrNull(item.growthTotalStockholdersEquity) || 0);
-        const revCagr = cagrFromGrowthSeries(revGrowthRates);
-        const epsCagr = cagrFromGrowthSeries(epsGrowthRates);
-        const equityCagr = cagrFromGrowthSeries(equityGrowthRates);
+        // 4. Valoración / Otros
+        const bookVal = numOrNull(k.bookValuePerShare);
+        newRows.push({ label: "Book Value por acción", unit: "$", raw: bookVal, ...getScoreMeta("Book Value por acción", bookVal), display: bookVal ? `$${bookVal.toFixed(2)}` : "N/A" });
 
-        const bookValuePerShare = numOrNull(km.bookValuePerShare ?? (km as any).bookValuePerShareTTM);
-
-        const build = (label: string, raw: number | null, unit?: "%" | "x" | "$") => {
-          const meta = getScoreMeta(label, raw);
-          const display = unit === "%" ? fmtPercent(raw) : unit === "x" ? fmtRatio(raw) : unit === "$" ? fmtLargeNumber(raw) : fmtRatio(raw);
-          return { label, unit, raw, score: meta.score, target: meta.target, thresholds: meta.thresholds, display };
-        };
-
-        const metrics: MetricRow[] = [
-          build("ROE", roe, "%"),
-          build("ROIC", roic, "%"),
-          build("Margen bruto", grossMargin, "%"),
-          build("Margen neto", netMargin, "%"),
-          build("Deuda/Capital", debtToCapital, "x"),
-          build("Current Ratio", currentRatio, "x"),
-          build("Cobertura de intereses", interestCoverage, "x"),
-          build("Flujo de Caja Libre (%)", freeCashFlowMarginPct, "%"),
-          build("CAGR ingresos", revCagr, "%"),
-          build("CAGR beneficios", epsCagr, "%"),
-          build("CAGR patrimonio", equityCagr, "%"),
-          build("Book Value por acción", bookValuePerShare, "$"),
-        ];
-
-        setRows(metrics);
-
-        // Persistir selección de periodo y fecha
-        const updatedAt = (r as any)?.date ?? new Date().toISOString();
-        savePeriodSelection(symbol, period, String(updatedAt)).catch(() => {});
-      } catch (error) {
-        console.error("Error fetching fundamental data:", error);
+        setRows(newRows);
+      } catch (err) {
+        console.error(err);
         setError("Error cargando datos fundamentales");
       } finally {
         setLoading(false);
@@ -468,244 +453,52 @@ export default function FundamentalCard({ symbol, period = "annual", onPeriodCha
     };
 
     fetchData();
-  }, [symbol, localPeriod]);
-
-  const option = useMemo(() => {
-    const labels = rows.map((r) => r.label);
-    const poor = rows.map((r) => r.thresholds.poor);
-    const mid = rows.map((r) => Math.max(r.thresholds.avg - r.thresholds.poor, 0));
-    const good = rows.map((r) => Math.max(100 - r.thresholds.avg, 0));
-    const scores = rows.map((r) => (Number.isFinite(r.score as number) ? (r.score as number) : 0));
-
-    // sin anidación extra
-    const targets = rows.flatMap((r) =>
-      r.target == null ? [] : [{ xAxis: r.target, yAxis: r.label }]
-    );
-
-    return {
-      backgroundColor: "transparent",
-      grid: { left: 170, right: 50, top: 10, bottom: 10 },
-      tooltip: {
-        trigger: "axis",
-        axisPointer: { type: "none" },
-        backgroundColor: "rgba(248, 250, 252, 0.98)",
-        borderColor: "rgba(203, 213, 225, 0.8)",
-        borderWidth: 1,
-        textStyle: { color: "#64748b", fontSize: 11 },
-        confine: false, // Permite que el tooltip salga del contenedor
-        appendToBody: true, // Renderiza el tooltip en el body del documento
-        position: function (point: any, params: any, dom: any, rect: any, size: any) {
-          // Posicionamiento inteligente para evitar que se corte
-          return [point[0] + 10, point[1] - size.contentSize[1] / 2];
-        },
-        formatter: (params: any) => {
-          const idx = params[0]?.dataIndex;
-          if (idx == null || !rows[idx]) return "";
-          
-          const row = rows[idx];
-          const scoreTxt = row.score == null ? "Sin datos" : `${Math.round(row.score)} / 100`;
-          const scoreColor = getScoreColor(row.score);
-          const scoreLevel = getScoreLevel(row.score);
-          
-          return `
-            <div style="max-width: 320px; padding: 12px; line-height: 1.4; background-color: rgba(248, 250, 252, 0.98); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-              <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #334155;">${row.label}</div>
-              
-              <div style="margin-bottom: 6px; font-size: 11px;">
-                <span style="color: #64748b;">Valor:</span> 
-                <span style="font-weight: 600; color: #475569;">${row.display}</span>
-              </div>
-              
-              <div style="margin-bottom: 8px; font-size: 11px;">
-                <span style="color: #64748b;">Score:</span> 
-                <span style="font-weight: 600; color: ${scoreColor};">${scoreTxt}</span>
-                <span style="margin-left: 6px; padding: 2px 6px; border-radius: 3px; font-size: 9px; background-color: ${scoreColor}15; color: ${scoreColor};">${scoreLevel}</span>
-              </div>
-            </div>`;
-        },
-      },
-      xAxis: {
-        type: "value",
-        max: 100,
-        axisLabel: { color: "#94a3b8" },
-        splitLine: { lineStyle: { color: "rgba(255,255,255,0.06)" } },
-      },
-      yAxis: {
-        type: "category",
-        data: labels,
-        axisLabel: { 
-          color: "#e2e8f0",
-          formatter: (value: string) => value // Mantener el texto original
-        },
-        axisTick: { show: false },
-        axisLine: { show: false },
-        triggerEvent: true // Habilitar eventos en el eje Y
-      },
-      series: [
-        {
-          name: "débil",
-          type: "bar",
-          stack: "range",
-          data: poor,
-          barWidth: 14,
-          itemStyle: { color: "rgba(239,68,68,0.30)" },
-          emphasis: { disabled: true },
-          tooltip: { show: false },
-        },
-        {
-          name: "medio",
-          type: "bar",
-          stack: "range",
-          data: mid,
-          barWidth: 14,
-          itemStyle: { color: "rgba(234,179,8,0.30)" },
-          emphasis: { disabled: true },
-          tooltip: { show: false },
-        },
-        {
-          name: "fuerte",
-          type: "bar",
-          stack: "range",
-          data: good,
-          barWidth: 14,
-          itemStyle: { color: "rgba(34,197,94,0.30)" },
-          emphasis: { disabled: true },
-          tooltip: { show: false },
-        },
-        {
-          name: "valor",
-          type: "bar",
-          data: scores,
-          barWidth: 8,
-          z: 5,
-          itemStyle: { color: "#ffffff" },
-          label: {
-            show: true,
-            position: "right",
-            color: "#cbd5e1",
-            formatter: (p: any) => rows[p.dataIndex]?.display ?? "",
-          },
-          markLine: {
-            symbol: ["none", "none"],
-            animation: false,
-            label: { show: false },
-            lineStyle: { color: "#ffffff", width: 1.5, opacity: 0.9 },
-            data: targets,
-          },
-        },
-      ],
-    };
-  }, [rows]);
-
-  
-    
-
-    
+  }, [symbol, period]);
 
   return (
     <>
-      <Card className="bg-tarjetas border-none">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-orange-400 text-lg flex gap-2 items-center">
-            <div className="text-gray-400 mr-2">Datos Financieros</div>
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-xs text-gray-400">Periodo</span>
-              <div className="flex flex-wrap gap-2" role="tablist" aria-label="Seleccionar periodo">
-                {[
-                  { label: "TTM", value: "ttm" },
-                  { label: "FY", value: "FY" },
-                  { label: "Q1", value: "Q1" },
-                  { label: "Q2", value: "Q2" },
-                  { label: "Q3", value: "Q3" },
-                  { label: "Q4", value: "Q4" },
-                  { label: "Anual", value: "annual" },
-                  { label: "Trimestral", value: "quarter" },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    role="tab"
-                    aria-selected={localPeriod === (opt.value as PeriodSel)}
-                    onClick={() => {
-                      const next = opt.value as PeriodSel;
-                      setLocalPeriod(next);
-                      if (onPeriodChange) onPeriodChange(next);
-                      savePeriodSelection(symbol, next, new Date().toISOString()).catch(() => {});
-                    }}
-                    className={[
-                      "px-3 py-1 text-xs rounded transition-colors",
-                      localPeriod === (opt.value as PeriodSel)
-                        ? "bg-orange-500/20 text-orange-300"
-                        : "text-gray-300 hover:bg-gray-700/40",
-                    ].join(" ")}
-                    title={opt.label}
+      <div className="bg-tarjetas border-none px-6 pb-6">
+        {loading ? (
+          <div className="h-32 grid place-items-center text-gray-500 text-sm"> 
+            Cargando datos de Fundamentales…
+          </div>
+        ) : error ? (
+          <div className="h-72 flex items-center justify-center text-red-400">{error}</div>
+        ) : (
+          <>
+            {/* Métricas fundamentales en formato de tarjetas */}
+            <div className="grid grid-cols-4 gap-2 text-sm">
+              {rows.map((row, index) => {
+                const scoreColor = getScoreColor(row.score);
+                const scoreLevel = getScoreLevel(row.score);
+
+                return (
+                  <div 
+                    key={index} 
+                    className="bg-gray-800/50 rounded p-3 cursor-pointer hover:bg-gray-800/70 transition-colors"
+                    onClick={() => openExplanationModal(row.label)}
                   >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pb-2">
-          {loading ? (
-            <div className="h-32 grid place-items-center text-gray-500 text-sm"> 
-              Cargando datos de Fundamentales…
-            </div>
-          ) : error ? (
-            <div className="h-72 flex items-center justify-center text-red-400">{error}</div>
-          ) : (
-            <>
-              {/* Métricas fundamentales en formato de tarjetas */}
-              <div className="grid grid-cols-4 gap-2 text-sm">
-                {rows.map((row, index) => {
-                  // Función para obtener el color basado en el score
-                  const getScoreColor = (score: number | null) => {
-                    if (score === null || score === undefined) return "#64748b";
-                    if (score >= 70) return "#22c55e"; // Verde para scores altos
-                    if (score >= 40) return "#eab308"; // Amarillo para scores medios
-                    return "#ef4444"; // Rojo para scores bajos
-                  };
-
-                  // Función para obtener el nivel del score
-                  const getScoreLevel = (score: number | null) => {
-                    if (score === null || score === undefined) return "Sin datos";
-                    if (score >= 70) return "Fuerte";
-                    if (score >= 40) return "A vigilar";
-                    return "Débil";
-                  };
-
-                  const scoreColor = getScoreColor(row.score);
-                  const scoreLevel = getScoreLevel(row.score);
-
-                  return (
-                    <div 
-                      key={index} 
-                      className="bg-gray-800/50 rounded p-3 cursor-pointer hover:bg-gray-800/70 transition-colors"
-                      onClick={() => openExplanationModal(row.label)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="text-gray-400 text-xs">{row.label}</div>
-                        <div 
-                          className="text-xs text-gray-500" 
-                          style={{ color: scoreColor }}>
-                          {scoreLevel}
-                        </div>
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-gray-400 text-xs">{row.label}</div>
                       <div 
-                        className="font-mono text-lg mt-1"
-                        style={{ color: scoreColor }}
-                      >
-                        {row.display || "N/A"}
-                      </div>                    
+                        className="text-xs text-gray-500" 
+                        style={{ color: scoreColor }}>
+                        {scoreLevel}
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+                    <div 
+                      className="font-mono text-lg mt-1"
+                      style={{ color: scoreColor }}
+                    >
+                      {row.display || "N/A"}
+                    </div>                    
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Modal de Explicaciones de Métricas */}
       {explanationModal.isOpen && explanationModal.selectedMetric && METRIC_EXPLANATIONS[explanationModal.selectedMetric] && (
@@ -746,16 +539,6 @@ export default function FundamentalCard({ symbol, period = "annual", onPeriodCha
                       </li>
                     ))}
                   </ul>
-                </div>
-
-                {/* Botón cerrar */}
-                <div className="flex justify-end pt-4">
-                  <button
-                    onClick={closeExplanationModal}
-                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                  >
-                    Cerrar
-                  </button>
                 </div>
               </div>
             </div>

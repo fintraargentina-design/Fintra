@@ -185,3 +185,10 @@ export type InsiderTrading = {
 
 export type InstitutionalHoldersResponse = InstitutionalHolder[];
 export type InsiderTradingResponse = InsiderTrading[];
+
+export type MarketHours = {
+  openingHour: string;
+  closingHour: string;
+  isTheStockMarketOpen: boolean;
+};
+export type MarketHoursResponse = Record<string, MarketHours>;

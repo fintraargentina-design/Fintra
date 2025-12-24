@@ -209,13 +209,13 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
     optionPayout;
 
   return (
-    <Card className="h-[360px] bg-tarjetas border-none">
-      <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
+    <div className="h-[360px] bg-tarjetas border-none">
+      <div className="pb-2 px-6 pt-6 flex flex-row items-center justify-between">
+        <div className="text-orange-400 text-lg flex items-center gap-2">
           <div className="text-gray-400">
            Dividendos
           </div>
-          </CardTitle>
+          </div>
         <div className="flex gap-2" role="tablist" aria-label="Vistas de dividendos">
           <button
             onClick={() => setView('historico')}
@@ -262,9 +262,9 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
             <BanknoteIcon className="h-4 w-4" />
           </button>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="pt-0">
+      <div className="pt-0 px-6 pb-6">
         <div style={{ height: 260, width: '100%' }}>
           {loading ? (
             <div className="h-32 grid place-items-center text-gray-500 text-sm">Cargando datos de Dividendos...</div>
@@ -285,7 +285,7 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
             Yield TTM: {data?.yieldTTM == null ? 'N/A' : `${data.yieldTTM}%`}.  Años: {data?.dpsByYear?.length ?? 0}.
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

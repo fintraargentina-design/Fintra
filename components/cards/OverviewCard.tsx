@@ -36,6 +36,7 @@ interface OverviewCardProps {
   selectedStock: any; // string ("AAPL") o { symbol: "AAPL", ... }
   stockConclusion?: any;
   onStockSearch?: (symbol: string) => Promise<any> | any;
+  onOpenSearchModal?: () => void;
   isParentLoading?: boolean; // Nueva prop para el estado de carga del padre
   analysisData?: any;
 }
@@ -140,7 +141,8 @@ export default function OverviewCard({
   selectedStock,
   stockConclusion,
   onStockSearch,
-  isParentLoading = false,
+  onOpenSearchModal,
+  isParentLoading,
   analysisData,
 }: OverviewCardProps) {
   // Primero declarar TODOS los hooks
@@ -413,29 +415,29 @@ export default function OverviewCard({
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-3">
-            <div className="flex justify-between">
+            <div className="flex justify-start gap-2">
               <span className="text-gray-400">Nombre:</span>
               {renderEditableField(data.companyName, "companyName")}
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-start gap-2">
               <span className="text-gray-400">Sector:</span>
               {renderEditableField(data.sector, "sector")}
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-start gap-2">
               <span className="text-gray-400">Industria:</span>
               {renderEditableField(data.industry, "industry")}
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-start gap-2">
               <span className="text-gray-400">CEO:</span>
               {renderEditableField(data.ceo, "ceo")}
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-start gap-2">
               <span className="text-gray-400">Fundada (IPO):</span>
               {renderEditableField(data.ipoDate, "ipoDate")}
             </div>
           </div>
           <div className="space-y-3">
-            <div className="flex justify-between">
+            <div className="flex justify-start gap-2">
               <span className="text-gray-400">Empleados:</span>
               {renderEditableField(
                 Number.isFinite(Number(data.fullTimeEmployees))
@@ -444,7 +446,7 @@ export default function OverviewCard({
                 "employees",
               )}
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-start gap-2">
               <span className="text-gray-400">Sitio web:</span>
               {data.website ? (
                 <span className="text-orange-400">
@@ -465,11 +467,11 @@ export default function OverviewCard({
                 renderEditableField(null, "website")
               )}
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-start gap-2">
               <span className="text-gray-400">Intercambio:</span>
               {renderEditableField(data.exchange, "exchange")}
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-start gap-2">
               <span className="text-gray-400">País:</span>
               {renderEditableField(data.country, "country")}
             </div>
@@ -483,7 +485,7 @@ export default function OverviewCard({
           <FileText className="w-5 h-5" />
           Descripción
         </h3>
-        <p className="text-gray-300 text-sm leading-relaxed text-justify">
+        <p className="text-gray-300 text-sm leading-relaxed text-left">
           {data.description || "No hay descripción disponible."}
         </p>
       </div>
@@ -500,22 +502,22 @@ export default function OverviewCard({
               Valoración
             </h4>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Cap. de Mercado:</span>
+              <div className="flex justify-start gap-4">
+                <span className="text-gray-400 min-w-[100px]">Cap. de Mercado:</span>
                 <span className="text-orange-400 font-mono">
                   {formatLargeNumber(data.marketCap)}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Precio Actual:</span>
+              <div className="flex justify-start gap-4">
+                <span className="text-gray-400 min-w-[100px]">Precio Actual:</span>
                 <span className="text-orange-400 font-mono">
                   {Number.isFinite(Number(data.price))
                     ? `$${Number(data.price).toFixed(2)}`
                     : "N/A"}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Moneda:</span>
+              <div className="flex justify-start gap-4">
+                <span className="text-gray-400 min-w-[100px]">Moneda:</span>
                 <span className="text-orange-400 font-mono">
                   {data.currency || "N/A"}
                 </span>
@@ -528,8 +530,8 @@ export default function OverviewCard({
               Rendimiento
             </h4>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Variación en $:</span>
+              <div className="flex justify-start gap-4">
+                <span className="text-gray-400 min-w-[100px]">Variación en $:</span>
                 <span
                   className={`font-mono ${
                     Number(data.change) >= 0 ? "text-green-400" : "text-red-400"
@@ -540,8 +542,8 @@ export default function OverviewCard({
                     : "N/A"}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Variación en %:</span>
+              <div className="flex justify-start gap-4">
+                <span className="text-gray-400 min-w-[100px]">Variación en %:</span>
                 <span
                   className={`font-mono ${
                     Number(data.changePercentage) >= 0 ? "text-green-400" : "text-red-400"
@@ -550,8 +552,8 @@ export default function OverviewCard({
                   {formatPercentage(data.changePercentage)}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Beta:</span>
+              <div className="flex justify-start gap-4">
+                <span className="text-gray-400 min-w-[100px]">Beta:</span>
                 <span className="text-orange-400 font-mono">
                   {Number.isFinite(Number(data.beta))
                     ? Number(data.beta).toFixed(3)
@@ -566,32 +568,32 @@ export default function OverviewCard({
               Volumen y Dividendos
             </h4>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Último Dividendo:</span>
+              <div className="flex justify-start gap-4">
+                <span className="text-gray-400 min-w-[100px]">Último Dividendo:</span>
                 <span className="text-orange-400 font-mono">
                   {Number.isFinite(Number(data.lastDividend))
                     ? `$${Number(data.lastDividend).toFixed(2)}`
                     : "N/A"}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Volumen:</span>
+              <div className="flex justify-start gap-4">
+                <span className="text-gray-400 min-w-[100px]">Volumen:</span>
                 <span className="text-orange-400 font-mono">
                   {Number.isFinite(Number(data.volume))
                     ? Number(data.volume).toLocaleString()
                     : "N/A"}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Vol. Promedio:</span>
+              <div className="flex justify-start gap-4">
+                <span className="text-gray-400 min-w-[100px]">Vol. Promedio:</span>
                 <span className="text-orange-400 font-mono">
                   {Number.isFinite(Number(data.averageVolume))
                     ? Number(data.averageVolume).toLocaleString()
                     : "N/A"}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Rango 52 sem:</span>
+              <div className="flex justify-start gap-4">
+                <span className="text-gray-400 min-w-[100px]">Rango 52 sem:</span>
                 <span className="text-orange-400 font-mono text-xs">
                   {data.range || "N/A"}
                 </span>
@@ -753,56 +755,67 @@ export default function OverviewCard({
 
   return (
     <Dialog>
-      <Card className="w-full bg-tarjetas border-none px-4 py-3">
+      <Card className="w-full bg-tarjetas border border-white/5 rounded-none overflow-hidden shadow-sm px-0 py-0">
         <CardContent className="p-0">
-           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center h-full">
+          {/* Header Row - Visible on Desktop */}
+          <div className="hidden md:grid grid-cols-5 gap-2 items-center bg-[#111] px-4 py-1 border-b border-white/10 sticky top-0 z-10">
+            <div className="text-[10px] uppercase text-gray-500 font-bold">Ticker</div>
+            <div className="text-[10px] uppercase text-gray-500 font-bold text-center">FGOS Score</div>
+            <div className="text-[10px] uppercase text-gray-500 font-bold text-center">Valuación</div>
+            <div className="text-[10px] uppercase text-gray-500 font-bold text-center">Verdict Fintra</div>
+            <div className="text-[10px] uppercase text-gray-500 font-bold text-center">E.H.S.</div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-center h-full p-1 md:p-1 md:px-1 md:py-1">
               {/* 1. STOCK: Logo, Ticker, Nombre, CEO */}
               <div className="flex items-center gap-3">
                   <DialogTrigger asChild>
                     <img 
                       src={data.image} 
                       alt={data.symbol} 
-                      className="w-12 h-12 object-contain cursor-pointer hover:opacity-80 transition-opacity rounded-md bg-white/5 p-1"
+                      className="w-12 h-12 object-contain cursor-pointer hover:opacity-80 transition-opacity border-none bg-white/5"
                       onError={(e: any) => e.currentTarget.style.display = 'none'}
                     />
                   </DialogTrigger>
-                  <div className="flex flex-col min-w-0">
+                  <div className="flex flex-col min-w-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={onOpenSearchModal}>
                       <div className="flex items-center gap-2">
                           <span className="font-bold text-white text-xl leading-none">{data.symbol}</span>
                       </div>
                       <span className="text-gray-400 text-xs truncate max-w-[140px] leading-tight font-medium" title={data.companyName}>
                           {data.companyName}
                       </span>
-                       <span className="text-[10px] text-gray-500 uppercase tracking-wider truncate max-w-[140px]">
-                          {data.ceo || "CEO N/A"}
-                       </span>
+                      <span className="text-[10px] text-gray-500 flex items-center gap-1 mt-0.5">
+                        <User className="w-3 h-3" />
+                        {data.ceo || "CEO N/A"}
+                      </span>
                   </div>
               </div>
 
               {/* 2. FGOS */}
               <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
-                  <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-0.5">FGOS</span>
-                  <div className={`text-2xl font-black ${getScoreColor(fgos)}`}>{fgos}</div>
+                  <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-0.5">FGOS SCORE</span>
+                  <div className={`text-3xl font-black ${getScoreColor(fgos)}`}>{fgos}</div>
               </div>
 
               {/* 3. VALUACIÓN */}
               <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
-                  <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-1.5">Valuación</span>
+                  <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-1.5">VALUACIÓN</span>
                   {getValBadge(valStatus)}
               </div>
 
               {/* 4. VEREDICTO */}
               <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4 text-center">
-                  <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-1">Veredicto</span>
-                  <span className="text-white font-medium text-xs leading-tight max-w-[180px]">{verdict}</span>
+                  <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-1">VERDICT FINTRA</span>
+                  <span className="text-white font-medium text-sm leading-tight max-w-[180px]">{verdict}</span>
               </div>
 
               {/* 5. EHS */}
               <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
-                  <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest flex items-center gap-1 mb-0.5">
+                  <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest flex items-center gap-1 mb-0.5">
                       E.H.S. <Activity className="w-3 h-3 text-blue-400"/>
                   </span>
-                  <div className="text-2xl font-mono text-blue-400 font-bold">{ehs}</div>
+                  <div className="text-3xl font-mono text-blue-400 font-bold">{ehs}</div>
+                  <span className="text-[9px] text-gray-500 font-medium mt-[-2px]">Health Score</span>
               </div>
            </div>
         </CardContent>

@@ -90,15 +90,15 @@ export default function DesempenoCard({ symbol }: { symbol: string }) {
   const performanceMetrics = buildPerformanceMetrics();
 
   return (
-    <Card className="bg-tarjetas border-none">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
+    <div className="bg-tarjetas border-none">
+      <div className="pb-2 px-6 pt-6">
+        <div className="text-orange-400 text-lg flex items-center gap-2">
           <div className="text-gray-400">
            Desempeño
           </div>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-0">
+        </div>
+      </div>
+      <div className="pt-0 px-6 pb-6">
         {loading ? (
           <div className="h-32 grid place-items-center text-gray-500 text-sm">
             Cargando datos de desempeño...
@@ -138,7 +138,7 @@ export default function DesempenoCard({ symbol }: { symbol: string }) {
             })}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

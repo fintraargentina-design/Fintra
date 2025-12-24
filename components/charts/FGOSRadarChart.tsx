@@ -17,13 +17,7 @@ export default function FGOSRadarChart({ symbol, data }: { symbol: string, data:
   ];
 
   return (
-    <Card className="bg-tarjetas border-none h-full shadow-lg">
-      <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <CardTitle className="text-orange-400 text-lg flex gap-2">
-          <Target className="w-5" /> Análisis FGOS
-        </CardTitle>
-        <Badge variant="outline" className="text-lg">{symbol}</Badge>
-      </CardHeader>
+    <Card className="bg-tarjetas border-none h-full shadow-lg py-0">
       <CardContent className="h-[300px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chartData}>

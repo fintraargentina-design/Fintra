@@ -22,8 +22,10 @@ import { MOCK_AAPL_SNAPSHOT } from '@/lib/demo/aapl-snapshot';
 import FGOSRadarChart from '@/components/charts/FGOSRadarChart';
 import SectorAnalysisPanel from '@/components/dashboard/SectorAnalysisPanel';
 import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
+import StockSearchModal from '@/components/modals/StockSearchModal';
+import MercadosTab from '@/components/tabs/MercadosTab';
 
-export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'metodologia' | 'ecosistema';
+export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'mercados';
 
 export default function StockTerminal() {
   const [selectedStock, setSelectedStock] = useState<any>('AAPL'); // puede ser string u objeto con {symbol}
@@ -38,6 +40,7 @@ export default function StockTerminal() {
   const [user, setUser] = useState<any>(null);
   const [stockConclusion, setStockConclusion] = useState<any>(null);
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // símbolo actual (string) sin importar si selectedStock es string u objeto
   const selectedSymbol = useMemo(() => {
@@ -87,10 +90,8 @@ export default function StockTerminal() {
         setStockEcosystem(result.ecosystemData);
         setSelectedStock(result.basicData || sym); // mantiene objeto con {symbol} si viene
 
-        if (activeTab !== 'noticias') {
-          const conclusionData = await getStockConclusionData(sym);
-          setStockConclusion(conclusionData);
-        }
+        const conclusionData = await getStockConclusionData(sym);
+        setStockConclusion(conclusionData);
       } else {
         const errorMessage = result.error || 'Error al buscar datos';
         setError(errorMessage);
@@ -156,10 +157,8 @@ export default function StockTerminal() {
             desempenoData={stockBasicData?.datos?.desempeno}
           />
         );
-      case 'noticias':
-        return <NoticiasTab symbol={selectedSymbol} />;
-      case 'metodologia':
-        return <MetodologiaTab />;
+      case 'mercados':
+        return <MercadosTab />;
       default:
         return (
           <ConclusionRapidaCard
@@ -174,7 +173,7 @@ export default function StockTerminal() {
   return (
     <div className="min-h-screen bg-fondoDeTarjetas">
       {/* Header responsivo */}
-      <div className="sticky top-0 z-50 bg-fondoDeTarjetas/95 backdrop-blur supports-[backdrop-filter]:bg-fondoDeTarjetas/60 border-b border-orange-400/50">
+      <div className="sticky top-0 z-50 bg-fondoDeTarjetas/95 backdrop-blur supports-[backdrop-filter]:bg-fondoDeTarjetas/60 pt-1">
         <Header 
           user={user}
           onAuth={handleAuth}
@@ -183,13 +182,6 @@ export default function StockTerminal() {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           symbol={selectedSymbol}
-          fundamentalData={stockBasicData?.datos?.fundamentales}
-          valoracionData={stockBasicData?.datos?.valoracion}
-          financialScoresData={stockBasicData?.datos?.financialScores}
-          overviewData={stockBasicData}
-          estimacionData={stockBasicData?.datos?.estimacion}
-          dividendosData={stockBasicData?.datos?.dividendos}
-          desempenoData={stockBasicData?.datos?.desempeno}
         />
       </div>
 
@@ -217,6 +209,7 @@ export default function StockTerminal() {
                       selectedStock={selectedStock}
                       stockConclusion={stockConclusion}
                       onStockSearch={buscarDatosAccion}
+                      onOpenSearchModal={() => setIsSearchOpen(true)}
                       isParentLoading={isLoading}
                       analysisData={stockAnalysis || MOCK_AAPL_SNAPSHOT}
                     />
@@ -261,37 +254,44 @@ export default function StockTerminal() {
               </div>
 
               {/* Panel derecho */}
-              <div className="w-full xl:w-auto min-h-0 max-h-[calc(100vh-64px)] overflow-y-auto scrollbar-thin flex flex-col gap-2">
-                {/* Navigation Bar responsiva y Settings */}
-                <div className="w-full flex items-center justify-between px-1">
-                  <div className="flex-1">
-                    <NavigationBar
-                      orientation="horizontal"
-                      activeTab={activeTab}
-                      setActiveTab={setActiveTab}
-                      symbol={selectedSymbol}
-                    />
+              <div className="w-full xl:w-auto h-[calc(100vh-64px)] flex flex-col">
+                {/* Mitad Superior: Navigation Bar y Contenido de Tabs */}
+                <div className="h-1/2 flex flex-col min-h-0 border-b border-white/5">
+                  <div className="w-full flex items-center justify-between shrink-0">
+                    <div className="flex-1">
+                      <NavigationBar
+                        orientation="horizontal"
+                        activeTab={activeTab}
+                        setActiveTab={setActiveTab}
+                        symbol={selectedSymbol}
+                      />
+                    </div>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="relative group text-gray-400 hover:text-white hover:bg-gray-800 p-2 w-8 h-8 flex items-center justify-center ml-2"
-                  >
-                    <Settings className="h-4 w-4" />
-                    <span className="pointer-events-none absolute top-full right-0 mt-2 px-2 py-1 rounded-md bg-gray-800 text-gray-200 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 shadow-lg z-20">
-                      Configuración
-                    </span>
-                  </Button>
+                  
+                  <div className={`w-full flex-1 scrollbar-thin ${activeTab === 'datos' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+                    {renderTabContent()}
+                  </div>
                 </div>
-                
-                <div className="w-full">
-                  {renderTabContent()}
+
+                {/* Mitad Inferior: Noticias */}
+                <div className="h-1/2 flex flex-col min-h-0 bg-tarjetas">
+                  <div className="p-2 border-b border-white/5 bg-white/[0.02]">
+                    <h3 className="text-orange-400 font-medium text-center text-sm">Noticias</h3>
+                  </div>
+                  <div className="flex-1 overflow-y-auto scrollbar-thin p-2">
+                    <NoticiasTab symbol={selectedSymbol} />
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         )}
       </div>
+      <StockSearchModal 
+        isOpen={isSearchOpen} 
+        onClose={() => setIsSearchOpen(false)} 
+        onSelectSymbol={handleTopStockClick} 
+      />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import type {
   ValuationResponse,
   InstitutionalHoldersResponse,
   InsiderTradingResponse,
+  MarketHoursResponse,
 } from "@/lib/fmp/types";
 
 export type CacheOpt = RequestCache | undefined;
@@ -151,6 +152,9 @@ export function createFmpClient(get: FetcherFunction) {
         params: { symbol, ...(opts?.limit ? { limit: opts.limit } : {}) },
         cache: opts?.cache,
       });
+    },
+    marketHours(opts?: { cache?: CacheOpt }) {
+      return get<MarketHoursResponse>("/market-hours", { cache: opts?.cache ?? "force-cache" });
     },
   };
 }
