@@ -101,6 +101,7 @@ export default function SectorAnalysisPanel() {
                 <TableHead className="text-[10px] uppercase text-gray-500 h-8 font-bold hidden sm:table-cell">Valuación</TableHead>
                 <TableHead className="text-[10px] uppercase text-gray-500 h-8 text-center font-bold">Eco</TableHead>
                 <TableHead className="text-[10px] uppercase text-gray-500 h-8 text-right font-bold">Price</TableHead>
+                <TableHead className="text-[10px] uppercase text-gray-500 h-8 text-right font-bold">Var %</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -119,13 +120,13 @@ export default function SectorAnalysisPanel() {
                     <span className="text-xs text-gray-400 font-mono">{stock.ecoScore}</span>
                   </TableCell>
                   <TableCell className="text-right py-2">
-                    <div className="flex flex-col items-end leading-none">
-                      <span className="text-xs text-gray-200 font-medium">${Number(stock.price).toFixed(2)}</span>
-                      <span className={`text-[10px] flex items-center ${Number(stock.change) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    <span className="text-xs text-gray-200 font-medium">${Number(stock.price).toFixed(2)}</span>
+                  </TableCell>
+                  <TableCell className="text-right py-2">
+                      <span className={`text-[10px] flex items-center justify-end ${Number(stock.change) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         {Number(stock.change) >= 0 ? <TrendingUp className="w-3 h-3 mr-0.5" /> : <TrendingDown className="w-3 h-3 mr-0.5" />}
                         {Math.abs(Number(stock.change))}%
                       </span>
-                    </div>
                   </TableCell>
                 </TableRow>
               ))}
