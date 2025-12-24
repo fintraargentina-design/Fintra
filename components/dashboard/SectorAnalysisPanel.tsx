@@ -68,11 +68,11 @@ export default function SectorAnalysisPanel() {
 
   return (
     <div className="w-full bg-tarjetas border border-white/5 rounded-xl overflow-hidden mb-4 shadow-sm">
-      <div className="p-3 border-b border-white/10 bg-white/5">
+      {/* <div className="p-3 border-b border-white/10 bg-white/5">
         <h3 className="text-orange-400 font-semibold flex items-center gap-2 text-sm">
           <Activity className="w-4 h-4" /> Scanner de Oportunidades
         </h3>
-      </div>
+      </div> */}
       
       <Tabs defaultValue="Technology" onValueChange={setSelectedSector} className="w-full">
         <div className="border-b border-white/10">

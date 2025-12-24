@@ -36,6 +36,7 @@ export type FMPFinancialRatio = {
   priceToSalesRatio?: number;          // P/S
   priceToFreeCashFlowsRatio?: number;  // P/FCF (a veces)
   priceToFreeCashFlowRatio?: number;   // alias alternativo
+  priceEarningsToGrowthRatio?: number; // PEG Ratio
 
   // Otros
   freeCashFlowOperatingCashFlowRatio?: number;
@@ -97,6 +98,16 @@ export type FMPBalanceSheetGrowth = {
 
 export type BalanceSheetGrowthResponse = FMPBalanceSheetGrowth[];
 /** ───────────── Key Metrics (api/v3/key-metrics-ttm / key-metrics) ───────────── */
+
+export type OHLC = {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+};
+
 export type FMPKeyMetrics = {
   symbol: string;
   date: string;

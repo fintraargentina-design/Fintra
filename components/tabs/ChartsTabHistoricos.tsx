@@ -120,14 +120,14 @@ export default function ChartsTabHistoricos({
       try {
         const benchTicker = getBenchmarkTicker(market);
         const [a, b] = await Promise.all([
-          fmp.eod(symbol, { limit: 8000, cache: "no-store" }).then((r) => r.candles),
+          fmp.eod(symbol, { limit: 8000, cache: "no-store" }),
           showBenchmark
-            ? fmp.eod(benchTicker, { limit: 8000, cache: "force-cache" }).then((r) => r.candles)
+            ? fmp.eod(benchTicker, { limit: 8000, cache: "force-cache" })
             : Promise.resolve([] as OHLC[]),
         ]);
         if (!alive) return;
-        setPx(a);
-        setBm(b);
+        setPx(Array.isArray(a) ? a : []);
+        setBm(Array.isArray(b) ? b : []);
       } finally {
         if (alive) setLoading(false);
       }

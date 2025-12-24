@@ -38,11 +38,11 @@ export default function NavigationBar({
   orientation = 'horizontal'
 }: NavigationBarProps) {
   const tabs = [
-    { key: 'chart', label: 'Gráficos', icon: TrendingUp },
-    { key: 'datos', label: 'Datos', icon: BarChart3 },
-    { key: 'estimacion', label: 'Estimación', icon: Target },
-    { key: 'noticias', label: 'Noticias', icon: FileText },
-    { key: 'metodologia', label: 'Metodología', icon: BookOpen },
+    /* { key: 'chart', label: 'Gráficos' }, */
+    { key: 'datos', label: 'Datos' },
+    { key: 'estimacion', label: 'Estimación' },
+    { key: 'noticias', label: 'Noticias' },
+    { key: 'metodologia', label: 'Metodología' },
   ];
 
   if (orientation === 'vertical') {
@@ -57,7 +57,7 @@ export default function NavigationBar({
               ${activeTab === tab.key ? 'bg-white text-black shadow-sm' : 'text-gray-300 hover:bg-gray-700'}
             `}
           >
-            <tab.icon className="w-4 h-4" />
+            <span className="text-[10px]">{tab.label.substring(0, 2)}</span>
             <span className="pointer-events-none absolute top-1/2 right-full -translate-y-1/2 mr-2 px-2 py-1 rounded-md bg-gray-800 text-gray-200 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 shadow-lg z-20">
               {tab.label}
             </span>
@@ -84,37 +84,31 @@ export default function NavigationBar({
     );
   }
   return (
-    <div className="w-full">
+    <div className="w-full border-b border-white/10">
       {/* Desktop Navigation */}
-      <div className="hidden md:flex flex-wrap gap-2 items-center justify-start">
-        <div className="flex flex-wrap gap-2">
+      <div className="hidden md:flex flex-wrap items-center justify-start">
+        <div className="flex">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as TabKey)}
               className={`
-                relative group flex items-center justify-center w-8 h-8 rounded-md 
-                transition-colors duration-200
+                rounded-none border-b-2 border-transparent px-4 py-2 text-xs font-medium transition-colors
                 ${
                   activeTab === tab.key
-                    ? 'bg-white text-black shadow-sm'
-                    : 'text-gray-300 hover:bg-gray-700'
+                    ? 'border-orange-400 text-orange-400'
+                    : 'text-gray-400 hover:text-gray-200'
                 }
               `}
             >
-              <tab.icon className="w-4 h-4" />
-              <span
-                className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 rounded-md bg-gray-800 text-gray-200 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 shadow-lg"
-              >
-                {tab.label}
-              </span>
+              {tab.label}
             </button>
           ))}
         </div>
         
         {/* Botón de Análisis Global - Solo en Desktop */}
         {symbol && (
-          <div className="relative group flex-shrink-0">
+          <div className="relative group flex-shrink-0 ml-2">
             <AIAnalysisButton
               symbol={symbol}
               fundamentalData={fundamentalData}
@@ -125,7 +119,7 @@ export default function NavigationBar({
               dividendosData={dividendosData}
               desempenoData={desempenoData}
             />
-            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 rounded-md bg-gray-800 text-gray-200 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 shadow-lg">
+             <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 rounded-md bg-gray-800 text-gray-200 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 shadow-lg z-20">
               Análisis IA
             </span>
           </div>
@@ -140,10 +134,9 @@ export default function NavigationBar({
               key={tab.key}
               onClick={() => setActiveTab(tab.key as TabKey)}
               className={`
-                flex flex-col items-center gap-1 px-3 py-2 
+                flex items-center justify-center px-3 py-2 
                 text-xs font-medium rounded-md 
                 transition-all duration-200 whitespace-nowrap flex-shrink-0
-                min-w-[70px]
                 ${
                   activeTab === tab.key
                     ? 'bg-primary text-primary-foreground shadow-sm'
@@ -151,7 +144,6 @@ export default function NavigationBar({
                 }
               `}
             >
-              <tab.icon className="w-4 h-4" />
               <span>{tab.label}</span>
             </button>
           ))}

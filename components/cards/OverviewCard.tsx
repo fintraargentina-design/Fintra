@@ -10,8 +10,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, useMemo } from "react";
 import {
+  Activity,
   TrendingUp,
   DollarSign,
   TrendingUpDown,
@@ -35,6 +37,7 @@ interface OverviewCardProps {
   stockConclusion?: any;
   onStockSearch?: (symbol: string) => Promise<any> | any;
   isParentLoading?: boolean; // Nueva prop para el estado de carga del padre
+  analysisData?: any;
 }
 
 type Profile = Record<string, any>;
@@ -138,12 +141,14 @@ export default function OverviewCard({
   stockConclusion,
   onStockSearch,
   isParentLoading = false,
+  analysisData,
 }: OverviewCardProps) {
   // Primero declarar TODOS los hooks
   const { isMobile, isTablet } = useResponsive();
   
   // ── estado
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [scoresData, setScoresData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "analysis">(
@@ -183,6 +188,40 @@ export default function OverviewCard({
     if (!tickerInput.trim()) setTickerInput("");
   };
 
+  const [chartType, setChartType] = useState<"line" | "area">("area");
+  const [chartRange, setChartRange] = useState<"1D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "5Y" | "ALL">("1Y");
+
+  // Helper functions for analysis display
+  const fgos = analysisData?.fgos_score || 0;
+  const valStatus = (analysisData?.valuation_status || "Fair").toLowerCase();
+  const ehs = analysisData?.ecosystem_score || 0;
+
+  const getVerdict = (score: number, v: string) => {
+    const isCheap = v.includes("under") || v.includes("barata");
+    const isFair = v.includes("fair") || v.includes("justa");
+    
+    if (score >= 70) { // Calidad Alta
+        if (isCheap) return "⭐ Alta oportunidad a largo plazo";
+        if (isFair) return "Empresa sólida, buen negocio";
+        return "Excelente empresa, precio exigente";
+    }
+    if (score >= 40) { // Calidad Media
+        if (isCheap) return "Potencial selectivo, requiere análisis";
+        return "Sin ventaja clara";
+    }
+    // Calidad Baja
+    if (isCheap) return "Barata por una razón (Cuidado)";
+    return "❌ Riesgo elevado";
+  };
+
+  const verdict = getVerdict(fgos, valStatus);
+  const getScoreColor = (s: number) => s >= 70 ? "text-green-400" : s >= 40 ? "text-yellow-400" : "text-red-400";
+  const getValBadge = (v: string) => {
+    if (v.includes("under") || v.includes("barata")) return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-xs" variant="outline">Infravalorada</Badge>;
+    if (v.includes("over") || v.includes("cara")) return <Badge className="text-red-400 bg-red-400/10 border-red-400 px-2 py-0.5 text-xs" variant="outline">Sobrevalorada</Badge>;
+    return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-xs" variant="outline">Justa</Badge>;
+  };
+
   // carga profile desde /api/fmp/profile
   useEffect(() => {
     let active = true;
@@ -191,10 +230,11 @@ export default function OverviewCard({
       setLoading(true);
       setError(null);
       try {
-        // Obtener profile y quote en paralelo
-        const [profileArr, quoteArr] = await Promise.all([
+        // Obtener profile, quote y scores en paralelo
+        const [profileArr, quoteArr, scores] = await Promise.all([
           fmp.profile(currentSymbol),
-          fmp.quote(currentSymbol)
+          fmp.quote(currentSymbol),
+          fmp.scores(currentSymbol)
         ]);
         
         const rawProfile = Array.isArray(profileArr) && profileArr.length ? profileArr[0] : null;
@@ -214,6 +254,7 @@ export default function OverviewCard({
         
         if (!active) return;
         setProfile(normalizeProfile(combinedData));
+        setScoresData(scores);
       } catch (err: any) {
         console.error("Error fetching company data:", err);
         if (active) setError("Error al cargar los datos de la empresa");
@@ -282,27 +323,6 @@ export default function OverviewCard({
   // análisis IA
   const conclusion = stockConclusion?.conclusion?.Conclusión;
   const colors = getConclusionColors(conclusion);
-
-  const analysisData = {
-    queHace:
-      stockConclusion?.conclusion?.["¿Qué hace la empresa?"] || "No disponible",
-    ventajaCompetitiva:
-      stockConclusion?.conclusion?.[
-        "¿Tiene una ventaja clara frente a la competencia?"
-      ] || "No disponible",
-    ganaDinero:
-      stockConclusion?.conclusion?.[
-        "¿Gana dinero de verdad y lo sigue haciendo crecer?"
-      ] || "No disponible",
-    crecimientoFuturo:
-      stockConclusion?.conclusion?.[
-        "¿El negocio puede seguir creciendo en 5 o 10 años?"
-      ] || "No disponible",
-    precioSentido:
-      stockConclusion?.conclusion?.[
-        "¿El precio tiene sentido o está inflado?"
-      ] || "No disponible",
-  };
 
   // AHORA sí podemos hacer returns condicionales basados en estado
   if (loading || isParentLoading) {
@@ -457,6 +477,17 @@ export default function OverviewCard({
         </div>
       </div>
 
+      {/* Descripción */}
+      <div className="bg-tarjetas rounded-lg p-4 border-gray-700/30">
+        <h3 className="text-orange-400 text-lg font-semibold mb-4 flex items-center gap-2">
+          <FileText className="w-5 h-5" />
+          Descripción
+        </h3>
+        <p className="text-gray-300 text-sm leading-relaxed text-justify">
+          {data.description || "No hay descripción disponible."}
+        </p>
+      </div>
+
       {/* Métricas */}
       <div className="bg-tarjetas rounded-lg p-4 border-gray-700/30">
         <h3 className="text-orange-400 text-lg font-semibold mb-4 flex items-center gap-2">
@@ -571,6 +602,105 @@ export default function OverviewCard({
       </div>
 
 
+      {/* Scores Financieros */}
+      {scoresData && (
+        <div className="bg-tarjetas rounded-lg p-4 border-gray-700/30">
+          <h3 className="text-orange-400 text-lg font-semibold mb-4 flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            Scores Financieros y Activos
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            {/* Altman Z-Score */}
+            <div className="bg-gray-800/50 rounded p-3">
+              <div className="text-gray-400">Altman Z-Score</div>
+              <div className="text-green-400 font-mono text-lg">
+                {scoresData.altmanZ !== undefined && scoresData.altmanZ !== null
+                  ? Number(scoresData.altmanZ).toFixed(2)
+                  : "N/A"}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {(() => {
+                  const val = Number(scoresData.altmanZ);
+                  if (!scoresData.altmanZ && scoresData.altmanZ !== 0) return "Sin datos";
+                  return val > 3 ? "Zona Segura" : val > 1.8 ? "Zona Gris" : "Zona de Riesgo";
+                })()}
+              </div>
+            </div>
+
+            {/* Piotroski Score */}
+            <div className="bg-gray-800/50 rounded p-3">
+              <div className="text-gray-400">Piotroski Score</div>
+              <div className="text-blue-400 font-mono text-lg">
+                {scoresData.piotroski !== undefined && scoresData.piotroski !== null
+                  ? `${scoresData.piotroski}/9`
+                  : "N/A"}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {(() => {
+                  const val = Number(scoresData.piotroski);
+                  if (!scoresData.piotroski && scoresData.piotroski !== 0) return "Sin datos";
+                  return val >= 7 ? "Excelente" : val >= 5 ? "Bueno" : "Débil";
+                })()}
+              </div>
+            </div>
+
+            {/* Total Assets */}
+            <div className="bg-gray-800/50 rounded p-3">
+              <div className="text-gray-400">Total Assets</div>
+              <div className="text-purple-400 font-mono text-lg">
+                {formatLargeNumber(scoresData.raw?.totalAssets)}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">Activos totales</div>
+            </div>
+
+            {/* Total Liabilities */}
+            <div className="bg-gray-800/50 rounded p-3">
+              <div className="text-gray-400">Total Liabilities</div>
+              <div className="text-yellow-400 font-mono text-lg">
+                {formatLargeNumber(scoresData.raw?.totalLiabilities)}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">Pasivos totales</div>
+            </div>
+
+            {/* Revenue */}
+            <div className="bg-gray-800/50 rounded p-3">
+              <div className="text-gray-400">Revenue</div>
+              <div className="text-cyan-400 font-mono text-lg">
+                {formatLargeNumber(scoresData.raw?.revenue)}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">Ingresos totales</div>
+            </div>
+
+            {/* EBIT */}
+            <div className="bg-gray-800/50 rounded p-3">
+              <div className="text-gray-400">EBIT</div>
+              <div className="text-lime-400 font-mono text-lg">
+                {formatLargeNumber(scoresData.raw?.ebit)}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">Ganancias operativas</div>
+            </div>
+
+            {/* Market Cap (desde scores) */}
+            <div className="bg-gray-800/50 rounded p-3">
+              <div className="text-gray-400">Market Cap</div>
+              <div className="text-pink-400 font-mono text-lg">
+                {formatLargeNumber(scoresData.raw?.marketCap)}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">Capitalización</div>
+            </div>
+
+            {/* Working Capital */}
+            <div className="bg-gray-800/50 rounded p-3">
+              <div className="text-gray-400">Working Capital</div>
+              <div className="text-indigo-400 font-mono text-lg">
+                {formatLargeNumber(scoresData.raw?.workingCapital)}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">Capital de trabajo</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Info adicional */}
       <div className="bg-gray-800/30 rounded-lg p-4 border-gray-700/30">
         <h3 className="text-orange-400 text-lg font-semibold mb-4">
@@ -623,125 +753,59 @@ export default function OverviewCard({
 
   return (
     <Dialog>
-      <Card className="max-h-[500px] bg-tarjetas border-none responsive-container px-6 sm:px-6 lg:px-6 xl:px-6">
-                
-        <CardContent className="flex-1 overflow-hidden pl-0 pr-0 pt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-7 gap-0 h-full">
-            {/* Left Column - Company Data */}
-            <div className="lg:col-span-2 bg-transparent rounded-lg p-4 border-gray-700/30 space-y-4">
-              {/* Company Logo */}
-              <div className="flex justify-center">
-                <img
-                  src={data.image}
-                  alt={`Logo de ${data.companyName || data.symbol}`}
-                  className="w-16 h-16 md:w-30 md:h-30 object-contain rounded"
-                  onError={(e: any) => {
-                    e.currentTarget.style.display = "none";
-                  }}
-                />
+      <Card className="w-full bg-tarjetas border-none px-4 py-3">
+        <CardContent className="p-0">
+           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center h-full">
+              {/* 1. STOCK: Logo, Ticker, Nombre, CEO */}
+              <div className="flex items-center gap-3">
+                  <DialogTrigger asChild>
+                    <img 
+                      src={data.image} 
+                      alt={data.symbol} 
+                      className="w-12 h-12 object-contain cursor-pointer hover:opacity-80 transition-opacity rounded-md bg-white/5 p-1"
+                      onError={(e: any) => e.currentTarget.style.display = 'none'}
+                    />
+                  </DialogTrigger>
+                  <div className="flex flex-col min-w-0">
+                      <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-xl leading-none">{data.symbol}</span>
+                      </div>
+                      <span className="text-gray-400 text-xs truncate max-w-[140px] leading-tight font-medium" title={data.companyName}>
+                          {data.companyName}
+                      </span>
+                       <span className="text-[10px] text-gray-500 uppercase tracking-wider truncate max-w-[140px]">
+                          {data.ceo || "CEO N/A"}
+                       </span>
+                  </div>
               </div>
-              <div className="flex items-center gap-2">
-                   {data.companyName || "Empresa"}
-                </div>
-              
-              {/* Financial Metrics */}
-              <div className="space-y-3">
 
-                {/* Ticker */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-400">Ticker</span>
-                  </div>
-                  <p className="text-sm font-semibold text-gray-300 truncate max-w-[120px]">
-                    {data.symbol || "N/A"}
-                  </p>
-                </div>
+              {/* 2. FGOS */}
+              <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
+                  <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-0.5">FGOS</span>
+                  <div className={`text-2xl font-black ${getScoreColor(fgos)}`}>{fgos}</div>
+              </div>
 
-                {/* Precio */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-400">Precio</span>
-                  </div>
-                  <div className="text-lg font-semibold text-gray-300">
-                    {Number.isFinite(Number(data.price)) ? `$${Math.round(Number(data.price))}` : "N/A"}
-                  </div>
-                </div>
+              {/* 3. VALUACIÓN */}
+              <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
+                  <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-1.5">Valuación</span>
+                  {getValBadge(valStatus)}
+              </div>
 
-                {/* % Variación en % */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-400">Variación en %</span>
-                  </div>
-                  <p className={`text-sm font-semibold ${
-                    Number(data.changePercentage) >= 0 ? "text-green-400" : "text-red-400"
-                  }`}>
-                    {formatPercentage(data.changePercentage)}
-                  </p>
-                </div>
+              {/* 4. VEREDICTO */}
+              <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4 text-center">
+                  <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-1">Veredicto</span>
+                  <span className="text-white font-medium text-xs leading-tight max-w-[180px]">{verdict}</span>
+              </div>
 
-                {/* Variación en $ */}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-400">Variación en $</span>
-                  <span
-                    className={`text-sm font-mono ${
-                      Number(data.change) >= 0 ? "text-green-400" : "text-red-400"
-                    }`}
-                  >
-                    {Number.isFinite(data.change)
-                      ? `${Number(data.change).toFixed(2)}`
-                      : "N/A"}
+              {/* 5. EHS */}
+              <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
+                  <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest flex items-center gap-1 mb-0.5">
+                      E.H.S. <Activity className="w-3 h-3 text-blue-400"/>
                   </span>
-                </div>
-
-                {/* Beta */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">                  
-                    <span className="text-sm text-gray-400">Beta</span>
-                  </div>
-                  <p className="text-sm font-semibold text-green-400">
-                    {Number.isFinite(Number(data.beta)) ? Number(data.beta).toFixed(2) : "N/A"}
-                  </p>
-                </div>
-
-                {/* CEO */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">                    
-                    <span className="text-sm text-gray-400">CEO</span>
-                  </div>
-                  <p className="text-sm font-semibold text-gray-300 truncate max-w-[300px]">
-                    {data.ceo || "N/A"}
-                  </p>
-                </div>
-              </div>              
-            </div>
-            
-            {/* Right Column - Company Description */}
-            <div className="lg:col-span-5 bg-gray-800/30 rounded-lg border-gray-700/30 flex flex-col">            
-              <div className="flex-1 overflow-hidden">
-                <div 
-                  className="p-4 h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800"
-                  style={{
-                    maxHeight: '30vh'
-                  }}
-                >
-                  <p className="text-gray-200 text-sm leading-relaxed">
-                    {data.description || "No hay descripción disponible para esta empresa."}
-                  </p>
-                </div>
+                  <div className="text-2xl font-mono text-blue-400 font-bold">{ehs}</div>
               </div>
-              {/* Modal Trigger */}
-              <div className="flex justify-center mt-2 mb-2 border-t border-gray-700/30 pt-2">
-                <DialogTrigger asChild>
-                  <button className="px-2 py-1 bg-transparent hover: transition-colors">
-                    <p className="text-sm text-gray-400 hover:text-orange-400">
-                      Ver más datos de la empresa
-                    </p>
-                  </button>
-                </DialogTrigger>
-              </div>
-            </div>
-          </div>
-        </CardContent>        
+           </div>
+        </CardContent>
       </Card>
 
       {/* Modal - Responsive */}

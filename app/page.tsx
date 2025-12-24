@@ -17,11 +17,9 @@ import { Button } from '@/components/ui/button';
 import { Settings } from 'lucide-react';
 
 import { MOCK_AAPL_SNAPSHOT } from '@/lib/demo/aapl-snapshot';
-import EcosystemCard from '@/components/cards/EcosystemCard';
 import FGOSRadarChart from '@/components/charts/FGOSRadarChart';
-import FinancialScoresCard from '@/components/cards/FinancialScoresCard';
-import ValuationThermometer from '@/components/cards/ValuationThermometer';
 import SectorAnalysisPanel from '@/components/dashboard/SectorAnalysisPanel';
+import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
 
 export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'metodologia';
 
@@ -184,7 +182,7 @@ export default function StockTerminal() {
           <div className="space-y-1 md:space-y-1">
 
             {/* Layout principal responsivo */}
-            <div className="grid grid-cols-1 xl:grid-cols-[1fr_1fr_auto] gap-2 md:gap-1 items-start h-full">
+            <div className="grid grid-cols-1 xl:grid-cols-[45%_55%] gap-2 md:gap-1 items-start h-full">
               {/* Panel izquierdo */}
               <div className="w-full xl:w-auto space-y-2 md:space-y-1 min-h-0 max-h-[calc(100vh-64px)] overflow-y-auto scrollbar-thin">
                 <div className="w-full">
@@ -196,41 +194,41 @@ export default function StockTerminal() {
                 <div className="w-full">
                   <OverviewCard
                       selectedStock={selectedStock}
+                      stockConclusion={stockConclusion}
                       onStockSearch={buscarDatosAccion}
                       isParentLoading={isLoading}
+                      analysisData={stockAnalysis || MOCK_AAPL_SNAPSHOT}
                     />
                 </div>
-                <div className="w-full">
-                    <FinancialScoresCard symbol={selectedSymbol} />
-                </div>
 
-                {/* 2. NUEVO: Termómetro Independiente */}
-                <div className="w-full mb-2">
-                    <ValuationThermometer symbol={selectedSymbol} />
-                </div>
-                
-                {/* SECCIÓN DEMO: LA FOTO COMPLETA */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 mb-2 h-[380px]">
-                  <div className="w-full h-full">
-                    {/* Pasa los datos del Mock al Radar */}
-                    <FGOSRadarChart symbol={selectedSymbol} data={MOCK_AAPL_SNAPSHOT.fgos_breakdown} />
-                  </div>
-                  <div className="w-full h-full">
-                    {/* Pasa los datos del Mock al Ecosistema */}
-                    <EcosystemCard symbol={selectedSymbol} data={MOCK_AAPL_SNAPSHOT.ecosystem_details} />
-                  </div>
+                {/* Charts & Radar Row */}
+                <div className="flex flex-col lg:flex-row gap-2 w-full h-[500px]">
+                    {/* Chart 3/5 */}
+                    <div className="w-full lg:w-3/5 h-full">
+                        <ChartsTabHistoricos
+                          symbol={selectedSymbol}
+                          companyName={stockBasicData?.companyName}
+                        />
+                    </div>
+                    {/* Radar 2/5 */}
+                    <div className="w-full lg:w-2/5 h-full">
+                         <FGOSRadarChart 
+                            symbol={selectedSymbol} 
+                            data={stockAnalysis?.fgos_breakdown || MOCK_AAPL_SNAPSHOT.fgos_breakdown} 
+                         />
+                    </div>
                 </div>
 
                 {/* Grid responsivo para tarjetas */}
                 <div className="gap-1 md:gap-1">     {/* grid grid-cols-1 lg:grid-cols-2 */}
-                  <div className="w-full">
+                  {/* <div className="w-full">
                     <CompetidoresCard 
                       symbol={selectedSymbol} 
                       onCompetitorSelect={setSelectedCompetitor}
                       onCompetitorSearch={buscarDatosAccion}
                       selectedCompetitor={selectedCompetitor}
                     />
-                  </div>
+                  </div> */}
                   {/* <div className="w-full">
                     <RadarPeersCard 
                       symbol={selectedSymbol} 
@@ -242,38 +240,39 @@ export default function StockTerminal() {
               </div>
 
               {/* Panel derecho */}
-              <div className="w-full xl:w-auto min-h-0 max-h-[calc(100vh-64px)] overflow-y-auto scrollbar-thin">
-                {/* Navigation Bar responsiva (removida, ahora está en Header) */}
+              <div className="w-full xl:w-auto min-h-0 max-h-[calc(100vh-64px)] overflow-y-auto scrollbar-thin flex flex-col gap-2">
+                {/* Navigation Bar responsiva y Settings */}
+                <div className="w-full flex items-center justify-between px-1">
+                  <div className="flex-1">
+                    <NavigationBar
+                      orientation="horizontal"
+                      activeTab={activeTab}
+                      setActiveTab={setActiveTab}
+                      symbol={selectedSymbol}
+                      fundamentalData={stockBasicData?.datos?.fundamentales}
+                      valoracionData={stockBasicData?.datos?.valoracion}
+                      financialScoresData={stockBasicData?.datos?.financialScores}
+                      overviewData={stockBasicData}
+                      estimacionData={stockBasicData?.datos?.estimacion}
+                      dividendosData={stockBasicData?.datos?.dividendos}
+                      desempenoData={stockBasicData?.datos?.desempeno}
+                    />
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="relative group text-gray-400 hover:text-white hover:bg-gray-800 p-2 w-8 h-8 flex items-center justify-center ml-2"
+                  >
+                    <Settings className="h-4 w-4" />
+                    <span className="pointer-events-none absolute top-full right-0 mt-2 px-2 py-1 rounded-md bg-gray-800 text-gray-200 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 shadow-lg z-20">
+                      Configuración
+                    </span>
+                  </Button>
+                </div>
+                
                 <div className="w-full">
                   {renderTabContent()}
                 </div>
-              </div>
-
-              {/* Tercera columna: NavigationBar vertical */}
-              <div className="hidden xl:flex xl:flex-col items-start justify-start gap-2 overflow-visible">
-                <NavigationBar
-                  orientation="vertical"
-                  activeTab={activeTab}
-                  setActiveTab={setActiveTab}
-                  symbol={selectedSymbol}
-                  fundamentalData={stockBasicData?.datos?.fundamentales}
-                  valoracionData={stockBasicData?.datos?.valoracion}
-                  financialScoresData={stockBasicData?.datos?.financialScores}
-                  overviewData={stockBasicData}
-                  estimacionData={stockBasicData?.datos?.estimacion}
-                  dividendosData={stockBasicData?.datos?.dividendos}
-                  desempenoData={stockBasicData?.datos?.desempeno}
-                />
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="relative group text-gray-400 hover:text-white hover:bg-gray-800 p-2 w-8 h-8 flex items-center justify-center"
-                >
-                  <Settings className="h-4 w-4" />
-                  <span className="pointer-events-none absolute top-1/2 right-full -translate-y-1/2 mr-2 px-2 py-1 rounded-md bg-gray-800 text-gray-200 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 shadow-lg z-20">
-                    Configuración
-                  </span>
-                </Button>
               </div>
             </div>
           </div>

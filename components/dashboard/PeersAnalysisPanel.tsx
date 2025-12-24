@@ -58,16 +58,11 @@ export default function PeersAnalysisPanel({ symbol }: PeersAnalysisPanelProps) 
     "text-red-400";
 
   return (
-    <div className="w-full bg-tarjetas border border-white/5 rounded-xl overflow-hidden mb-4 shadow-sm">
-      <div className="p-3 border-b border-white/10 bg-white/5">
-        <h3 className="text-orange-400 font-semibold flex items-center gap-2 text-sm">
-          <Users className="w-4 h-4" /> Análisis de Competencia
-        </h3>
-      </div>
-      
+    <div className="w-full bg-tarjetas border border-white/5 rounded-xl overflow-hidden mb-4 mt-0 w-sm">
+            
       <div className="px-4 py-2 border-b border-white/5 bg-white/[0.02]">
         <h4 className="text-xs font-medium text-gray-400">
-          Competidores directos de <span className="text-orange-400">"{symbol}"</span>
+          Competidores directos de <span className="text-orange-400">{symbol}</span>
         </h4>
       </div>
 
