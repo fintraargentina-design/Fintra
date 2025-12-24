@@ -67,6 +67,7 @@ export type FMPIncomeStatementGrowth = {
   revenueGrowth?: number;              // ✅ Nombre real de FMP
   epsgrowth?: number;                  // ✅ Nombre real de FMP  
   growthNetIncome?: number;
+  netIncomeGrowth?: number;            // Alias potential
   growthOperatingIncome?: number;
   stockholdersEquityGrowth?: number;   // ✅ Nombre real de FMP
 };

@@ -1,57 +1,18 @@
-export interface FintraScoreBreakdown {
-  growth: {
-    score: number;
-    details: {
-      revenue_growth: number;
-      net_income_growth: number;
-      fcf_growth: number;
-    };
-  };
-  profitability: {
-    score: number;
-    details: {
-      roe: number;
-      roic: number;
-      net_margin: number;
-      fcf_margin: number;
-    };
-  };
-  financial_health: {
-    score: number;
-    details: {
-      current_ratio: number;
-      debt_to_equity: number;
-      interest_coverage: number;
-      altman_z: number;
-    };
-  };
-  valuation: {
-    score: number;
-    details: {
-      pe_ratio: number;
-      pfcf_ratio: number;
-      ev_ebitda: number;
-      peg_ratio: number;
-    };
-  };
-  momentum: {
-    score: number;
-    details: {
-      price_vs_50sma: number;
-      price_vs_200sma: number;
-      rsi: number;
-      relative_strength: number;
-    };
-  };
+export interface FgosBreakdown {
+  growth: number;        // 20%
+  profitability: number; // 20%
+  efficiency: number;    // 20%
+  solvency: number;      // 15%
+  moat: number;          // 15%
+  sentiment: number;     // 10%
 }
 
-export interface FintraSnapshot {
-  id?: string;
+export interface FgosResult {
   ticker: string;
-  calculated_at: string; // ISO date
-  overall_score: number;
-  valuation_status: 'Undervalued' | 'Fair' | 'Overvalued' | 'N/A';
-  score_breakdown: FintraScoreBreakdown;
-  price_at_calculation: number;
-  fair_value_estimate?: number;
+  fgos_score: number;
+  fgos_breakdown: FgosBreakdown;
+  valuation_status: string;
+  ecosystem_score?: number;
+  calculated_at: string;
+  price?: number;
 }
