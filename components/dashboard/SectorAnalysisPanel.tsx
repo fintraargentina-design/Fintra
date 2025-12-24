@@ -92,6 +92,12 @@ export default function SectorAnalysisPanel() {
           </ScrollArea>
         </div>
 
+        <div className="px-4 py-2 border-b border-white/5 bg-white/[0.02]">
+          <h4 className="text-xs font-medium text-gray-400">
+            Acciones del sector <span className="text-orange-400">"{selectedSector}"</span>
+          </h4>
+        </div>
+
         <div className="p-0">
           <Table>
             <TableHeader className="bg-white/5">
