@@ -21,6 +21,7 @@ import EcosystemCard from '@/components/cards/EcosystemCard';
 import FGOSRadarChart from '@/components/charts/FGOSRadarChart';
 import FinancialScoresCard from '@/components/cards/FinancialScoresCard';
 import ValuationThermometer from '@/components/cards/ValuationThermometer';
+import SectorAnalysisPanel from '@/components/dashboard/SectorAnalysisPanel';
 
 export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'metodologia';
 
@@ -186,6 +187,9 @@ export default function StockTerminal() {
             <div className="grid grid-cols-1 xl:grid-cols-[1fr_1fr_auto] gap-2 md:gap-1 items-start h-full">
               {/* Panel izquierdo */}
               <div className="w-full xl:w-auto space-y-2 md:space-y-1 min-h-0 max-h-[calc(100vh-64px)] overflow-y-auto scrollbar-thin">
+                <div className="w-full">
+                  <SectorAnalysisPanel />
+                </div>
                 <div className="w-full">
                   <OverviewCard
                       selectedStock={selectedStock}
