@@ -20,6 +20,7 @@ import { MOCK_AAPL_SNAPSHOT } from '@/lib/demo/aapl-snapshot';
 import EcosystemCard from '@/components/cards/EcosystemCard';
 import FGOSRadarChart from '@/components/charts/FGOSRadarChart';
 import FinancialScoresCard from '@/components/cards/FinancialScoresCard';
+import ValuationThermometer from '@/components/cards/ValuationThermometer';
 
 export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'metodologia';
 
@@ -194,6 +195,11 @@ export default function StockTerminal() {
                 </div>
                 <div className="w-full">
                     <FinancialScoresCard symbol={selectedSymbol} />
+                </div>
+
+                {/* 2. NUEVO: Termómetro Independiente */}
+                <div className="w-full mb-2">
+                    <ValuationThermometer symbol={selectedSymbol} />
                 </div>
                 
                 {/* SECCIÓN DEMO: LA FOTO COMPLETA */}
