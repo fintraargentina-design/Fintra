@@ -16,6 +16,9 @@ import Header from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Settings } from 'lucide-react';
 
+import { MOCK_AAPL_SNAPSHOT } from '@/lib/demo/aapl-snapshot';
+import EcosystemCard from '@/components/cards/EcosystemCard';
+import FGOSRadarChart from '@/components/charts/FGOSRadarChart';
 import FinancialScoresCard from '@/components/cards/FinancialScoresCard';
 
 export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'metodologia';
@@ -192,6 +195,19 @@ export default function StockTerminal() {
                 <div className="w-full">
                     <FinancialScoresCard symbol={selectedSymbol} />
                 </div>
+                
+                {/* SECCIÓN DEMO: LA FOTO COMPLETA */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 mb-2 h-[380px]">
+                  <div className="w-full h-full">
+                    {/* Pasa los datos del Mock al Radar */}
+                    <FGOSRadarChart symbol={selectedSymbol} data={MOCK_AAPL_SNAPSHOT.fgos_breakdown} />
+                  </div>
+                  <div className="w-full h-full">
+                    {/* Pasa los datos del Mock al Ecosistema */}
+                    <EcosystemCard symbol={selectedSymbol} data={MOCK_AAPL_SNAPSHOT.ecosystem_details} />
+                  </div>
+                </div>
+
                 {/* Grid responsivo para tarjetas */}
                 <div className="gap-1 md:gap-1">     {/* grid grid-cols-1 lg:grid-cols-2 */}
                   <div className="w-full">

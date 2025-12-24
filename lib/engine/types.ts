@@ -13,6 +13,12 @@ export interface FgosResult {
   fgos_breakdown: FgosBreakdown;
   valuation_status: string;
   ecosystem_score?: number;
+  ecosystem_details?: {
+    score: number;
+    summary: string;
+    suppliers: Array<{ name: string; risk: string }>;
+    clients: Array<{ name: string; risk: string }>;
+  };
   calculated_at: string;
   price?: number;
 }
