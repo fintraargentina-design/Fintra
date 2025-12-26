@@ -116,9 +116,20 @@ export type FMPKeyMetrics = {
   // Alias TTM si FMP lo devuelve con sufijo
   bookValuePerShareTTM?: number;
   sharesOutstanding?: number;
+  revenuePerShare?: number;
   freeCashFlowPerShare?: number;
   roicTTM?: number;
   freeCashFlowYieldTTM?: number;
+};
+
+export type FMPCashFlowStatement = {
+  date: string;
+  symbol: string;
+  period: string;
+  operatingCashFlow: number;
+  capitalExpenditure: number;
+  freeCashFlow: number;
+  netIncome: number;
 };
 
 /** ───────────── Tipos de Respuesta (Arrays) ───────────── */
@@ -129,8 +140,8 @@ export type KeyMetricsResponse = FMPKeyMetrics[];
 export type CashFlowResponse = any[]; // TODO: definir tipo completo
 export type PeersResponse = string[]; // /v4/stock_peers?symbol=AAPL -> ["AAPL", "MSFT", ...]
 export type DetailedPeersResponse = any[]; // TODO: definir si se usa peers detailed
-export type PerformanceResponse = any[]; // TODO: definir
-export type DividendsResponse = any[]; // TODO: definir
+export type PerformanceResponse = any; // Changed from any[] to allow property access
+export type DividendsResponse = any; // Changed from any[] to allow property access
 export type EodResponse = any[]; // TODO: definir
 export type FinancialScoreResponse = any[]; // TODO: definir
 

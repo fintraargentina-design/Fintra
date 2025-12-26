@@ -173,12 +173,12 @@
 
 /* Custom overrides para mantener consistencia */
 .bg-tarjetas {
-  background-color: #1A1B1D !important;
+  background-color: transparent !important;
   backdrop-filter: none !important;
 }
 
 .bg-fondoDeTarjetas {
-  background-color: #080707 !important;
+  background-color: transparent !important;
   backdrop-filter: none !important;
 }
 

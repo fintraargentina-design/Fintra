@@ -1,138 +1,76 @@
 "use client";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Briefcase, TrendingUp, TrendingDown, Building2 } from "lucide-react";
-import type { InstitutionalHolder, InsiderTrading } from "@/lib/fmp/types";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { TrendingUp } from "lucide-react";
 
-interface EcosystemCardProps {
-  symbol: string;
-  holders: InstitutionalHolder[];
-  insiders: InsiderTrading[];
-}
+// DATA DEMO
+const MOCK = {
+  prov: [
+    { id: "TSM", n: "Taiwan Semi", dep: 92, val: 40, ehs: 88, fgos: 92, txt: "Crítico" },
+    { id: "FOX", n: "Foxconn", dep: 85, val: 78, ehs: 55, fgos: 58, txt: "Riesgo Op." },
+    { id: "GLW", n: "Corning", dep: 40, val: 30, ehs: 72, fgos: 65, txt: "Estable" }
+  ],
+  cli: [
+    { id: "BBY", n: "Best Buy", dep: 18, val: 62, ehs: 45, fgos: 42, txt: "Volátil" },
+    { id: "VZ", n: "Verizon", dep: 14, val: 55, ehs: 60, fgos: 58, txt: "Cash Flow" },
+    { id: "JD", n: "JD.com", dep: 22, val: 25, ehs: 40, fgos: 35, txt: "Riesgo Geo" }
+  ]
+};
 
-export default function EcosystemCard({ symbol, holders = [], insiders = [] }: EcosystemCardProps) {
-  
-  const formatNumber = (num: number) => {
-    return new Intl.NumberFormat('en-US', { notation: "compact", maximumFractionDigits: 1 }).format(num);
-  };
+const MicroTherm = ({ v }: { v: number }) => (
+  <div className="w-16 mx-auto h-1.5 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 relative opacity-80">
+    <div className="absolute -top-0.5 h-2.5 w-0.5 bg-white shadow-sm" style={{ left: `${v}%` }} />
+  </div>
+);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
+export default function EcosystemCard() {
+  const renderT = (data: any[], t: string) => (
+    <div className="mb-1 last:mb-0">
+      <div className="flex items-center justify-center mb-2 px-1 text-orange-400">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{t}</span>
+      </div>
+      <div className="border border-white/5 overflow-hidden">
+        <Table>
+          <TableHeader className="bg-[#111] sticky top-0 z-10"><TableRow className="border-white/10 hover:bg-transparent">
+            <TableHead className="h-8 text-[10px] uppercase text-gray-500 font-bold">TICKER</TableHead>
+            <TableHead className="h-8 text-[10px] uppercase text-gray-500 font-bold w-20">Dep.</TableHead>
+            <TableHead className="h-8 text-[10px] uppercase text-gray-500 font-bold text-center">Valuación</TableHead>
+            <TableHead className="h-8 text-[10px] uppercase text-gray-500 font-bold text-center">E.H.S.</TableHead>
+            <TableHead className="h-8 text-[10px] uppercase text-gray-500 font-bold text-center">F.G.O.S.</TableHead>
+            <TableHead className="h-8 text-[10px] uppercase text-gray-500 font-bold text-right">Conclusión</TableHead>
+          </TableRow></TableHeader>
+          <TableBody>{data.map((i, k) => (
+            <TableRow key={i.id} className="border-white/5 hover:bg-white/5 h-10 group">
+              <TableCell className="py-2"><div className="flex items-center gap-2">
+                <Avatar className="h-8 w-8"><AvatarFallback className="text-[7px]">{i.id.substring(0,1)}</AvatarFallback></Avatar>
+                <div><div className="font-bold text-[10px] text-gray-200 leading-none">{i.id}</div><div className="text-[8px] text-gray-500">{i.n}</div></div>
+              </div></TableCell>
+              <TableCell className="py-2"><div className="flex flex-col gap-0.5">
+                <Progress value={i.dep} className="h-1 bg-gray-800" indicatorColor={i.dep>50?"bg-orange-500":"bg-blue-500"}/><span className="text-[8px] text-gray-500 text-right">{i.dep}%</span>
+              </div></TableCell>
+              <TableCell className="py-2"><MicroTherm v={i.val}/></TableCell>
+              <TableCell className="py-2 text-center font-mono text-[10px] text-blue-400">{i.ehs}</TableCell>
+              <TableCell className="py-2 text-center"><Badge variant="outline" className={`text-[9px] px-1 py-0 h-3.5 border ${i.fgos>=70?"text-green-400 border-green-500/30":"text-red-400 border-red-500/30"}`}>{i.fgos}</Badge></TableCell>
+              <TableCell className="py-2 text-right text-[9px] text-gray-400">{i.txt}</TableCell>
+            </TableRow>
+          ))}</TableBody>
+        </Table>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
-      {/* Institutional Holders */}
-      <Card className="bg-gray-800/30 border-none h-full shadow-lg overflow-hidden flex flex-col">
-        <CardHeader className="pb-2 border-b border-white/5 bg-white/5">
-          <CardTitle className="text-orange-400 text-lg flex gap-2 items-center">
-            <Building2 className="w-5 h-5"/> 
-            Instituciones (Top Holders)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 flex-1 overflow-auto">
-          <Table>
-            <TableHeader className="bg-white/5 sticky top-0">
-              <TableRow className="border-white/10 hover:bg-transparent">
-                <TableHead className="text-gray-400">Institución</TableHead>
-                <TableHead className="text-right text-gray-400">Acciones</TableHead>
-                <TableHead className="text-right text-gray-400">Reportado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {holders && holders.length > 0 ? (
-                holders.slice(0, 10).map((holder, i) => (
-                  <TableRow key={i} className="border-white/5 hover:bg-white/5">
-                    <TableCell className="font-medium text-gray-200">{holder.holder}</TableCell>
-                    <TableCell className="text-right text-gray-300">
-                      <div className="flex flex-col items-end">
-                        <span>{formatNumber(holder.shares)}</span>
-                        {holder.change !== 0 && (
-                          <span className={`text-xs ${holder.change > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {holder.change > 0 ? '+' : ''}{formatNumber(holder.change)}
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right text-gray-400 text-xs">{formatDate(holder.dateReported)}</TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center text-gray-500 py-8">
-                    No hay datos de instituciones disponibles
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Insider Trading */}
-      <Card className="bg-gray-800/30 border-none h-full shadow-lg overflow-hidden flex flex-col">
-        <CardHeader className="pb-2 border-b border-white/5 bg-white/5">
-          <CardTitle className="text-blue-400 text-lg flex gap-2 items-center">
-            <Users className="w-5 h-5"/> 
-            Transacciones de Insiders
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 flex-1 overflow-auto">
-          <Table>
-            <TableHeader className="bg-white/5 sticky top-0">
-              <TableRow className="border-white/10 hover:bg-transparent">
-                <TableHead className="text-gray-400">Insider</TableHead>
-                <TableHead className="text-gray-400">Tipo</TableHead>
-                <TableHead className="text-right text-gray-400">Monto</TableHead>
-                <TableHead className="text-right text-gray-400">Fecha</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {insiders && insiders.length > 0 ? (
-                insiders.slice(0, 10).map((trade, i) => {
-                  const isBuy = trade.acquistionOrDisposition === 'A' || trade.transactionType?.toLowerCase().includes('buy') || trade.transactionType?.toLowerCase().includes('purchase');
-                  const isSell = trade.acquistionOrDisposition === 'D' || trade.transactionType?.toLowerCase().includes('sell') || trade.transactionType?.toLowerCase().includes('sale');
-                  
-                  return (
-                    <TableRow key={i} className="border-white/5 hover:bg-white/5">
-                      <TableCell className="font-medium text-gray-200">
-                        <div className="flex flex-col">
-                          <span className="truncate max-w-[120px]" title={trade.reportingName}>{trade.reportingName}</span>
-                          <span className="text-xs text-gray-500 truncate max-w-[120px]" title={trade.typeOfOwner}>{trade.typeOfOwner}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                         <Badge variant="outline" className={`
-                           ${isBuy ? 'text-green-400 border-green-400/30 bg-green-400/10' : 
-                             isSell ? 'text-red-400 border-red-400/30 bg-red-400/10' : 
-                             'text-gray-400 border-gray-400/30'}
-                         `}>
-                           {isBuy ? 'Compra' : isSell ? 'Venta' : 'Otro'}
-                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-right text-gray-300">
-                        <div className="flex flex-col items-end">
-                          <span>{formatNumber(trade.securitiesTransacted)} acc.</span>
-                          <span className="text-xs text-gray-400">@ ${trade.price}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right text-gray-400 text-xs">{formatDate(trade.transactionDate)}</TableCell>
-                    </TableRow>
-                  );
-                })
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-gray-500 py-8">
-                    No hay transacciones recientes
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
+    <Card className="bg-tarjetas border-none shadow-lg h-full">
+      {/* <CardHeader className="pb-2 pt-3 px-4 border-b border-white/5">
+        <CardTitle className="text-orange-400 text-sm flex gap-2"><TrendingUp className="w-4"/> Matriz de Riesgo</CardTitle>
+      </CardHeader> */}
+      <CardContent className="p-0">
+        {renderT(MOCK.prov, "Proveedores")}
+        {renderT(MOCK.cli, "Clientes")}
+      </CardContent>
+    </Card>
   );
 }

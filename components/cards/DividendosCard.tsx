@@ -52,9 +52,9 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
 
   // ────────────────── Opciones de gráficos ──────────────────
   const optionHistorico = React.useMemo(() => {
-    const years = (data?.dpsByYear ?? []).map(x => String(x.year));
-    const dps = (data?.dpsByYear ?? []).map(x => +(x.dps ?? 0).toFixed(2));
-    const yld = (data?.yieldByYear ?? []).map(x => (x.yield == null ? null : +(+x.yield).toFixed(2)));
+    const years = (data?.dpsByYear ?? []).map((x: any) => String(x.year)).reverse();
+    const dps = (data?.dpsByYear ?? []).map((x: any) => +(x.dps ?? 0).toFixed(2)).reverse();
+    const yld = (data?.yieldByYear ?? []).map((x: any) => (x.yield == null ? null : +(+x.yield).toFixed(2))).reverse();
 
     return {
       backgroundColor: 'transparent',
@@ -138,8 +138,8 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
         symbolSize: 6,
         itemStyle: { color: '#22c55e' },
         data: exDates
-          .filter(d => String(d).startsWith(String(year)))
-          .map(d => [d, 1] as [string, number]),
+          .filter((d: any) => String(d).startsWith(String(year)))
+          .map((d: any) => [d, 1] as [string, number]),
       }],
     };
   }, [data]);

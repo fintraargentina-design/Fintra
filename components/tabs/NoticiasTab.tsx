@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect } from "react";
-import { ExternalLink, TrendingUp, TrendingDown, Minus, Brain, X } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { ExternalLink, TrendingUp, TrendingDown, Minus, Brain, X, Clock, Share2, MessageSquare, Filter } from "lucide-react";
 import { 
   analyzeNewsWithAI, 
   getImpactColor, 
@@ -9,6 +9,23 @@ import {
   type NewsAnalysisData,
   type AnalysisState 
 } from "@/lib/AnalisisNotician8n";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuPortal,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
 interface NewsItem {
   title: string;
@@ -57,15 +74,27 @@ export default function NoticiasTab({
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Mover este useState aquí, al inicio del componente
   const [analysisModal, setAnalysisModal] = useState<AnalysisState>(initialAnalysisState);
+  
+  // Filter States
+  const [activeCategory, setActiveCategory] = useState("General");
+  const [activeSentiment, setActiveSentiment] = useState("Any");
+  const [sortBy, setSortBy] = useState("Latest");
+  
+  const [viewNewsModal, setViewNewsModal] = useState<{ isOpen: boolean; url: string | null; title: string | null }>({
+    isOpen: false,
+    url: null,
+    title: null
+  });
+
+  const categories = ["General", "Earnings", "Technology", "Finance", "Crypto", "IPO", "Mergers"];
+  const sentiments = ["Bullish", "Somewhat-Bullish", "Neutral", "Somewhat-Bearish", "Bearish"];
 
   useEffect(() => {
     fetchNews();
   }, [symbol]);
 
   const fetchNews = async () => {
-    // Validar que el símbolo sea válido
     if (!symbol || symbol === "N/A" || symbol.length === 0) {
       setError('No hay símbolo seleccionado');
       setLoading(false);
@@ -76,9 +105,8 @@ export default function NoticiasTab({
       setLoading(true);
       setError(null);
       
-      // Usar la API de AlphaVantage NEWS_SENTIMENT
       const response = await fetch(
-        `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${symbol}&apikey=${process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY}&limit=10`
+        `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${symbol}&apikey=${process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY}&limit=20`
       );
       
       if (!response.ok) {
@@ -90,9 +118,14 @@ export default function NoticiasTab({
       if (data.feed && Array.isArray(data.feed)) {
         setNews(data.feed);
       } else {
-        throw new Error('Formato de datos inválido');
+        if ((data as any)["Information"]) {
+             console.warn("Alpha Vantage Limit Reached:", (data as any)["Information"]);
+        }
+        if (!data.feed) throw new Error('Formato de datos inválido o límite de API alcanzado');
+        setNews([]);
       }
     } catch (err) {
+      console.error(err);
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       setLoading(false);
@@ -100,28 +133,28 @@ export default function NoticiasTab({
   };
 
   const getSentimentIcon = (sentiment: string, score: number) => {
-    if (sentiment === 'Bullish' || score > 0.1) {
-      return <TrendingUp className="w-4 h-4 text-green-400" />;
-    } else if (sentiment === 'Bearish' || score < -0.1) {
-      return <TrendingDown className="w-4 h-4 text-red-400" />;
+    // Force colors with !important and use standard colors as fallback
+    if (sentiment.includes('Bullish') || score > 0.1) {
+      return <TrendingUp className="w-4 h-4 text-green-500 !text-green-500" />;
+    } else if (sentiment.includes('Bearish') || score < -0.1) {
+      return <TrendingDown className="w-4 h-4 text-red-500 !text-red-500" />;
     } else {
-      return <Minus className="w-4 h-4 text-gray-400" />;
+      return <Minus className="w-4 h-4 text-white !text-white" />;
     }
   };
 
   const getSentimentColor = (sentiment: string, score: number) => {
     if (sentiment === 'Bullish' || score > 0.1) {
-      return 'bg-green-500/20 text-green-400 border-green-500/30';
+      return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
     } else if (sentiment === 'Bearish' || score < -0.1) {
-      return 'bg-red-500/20 text-red-400 border-red-500/30';
+      return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
     } else {
-      return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+      return 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20';
     }
   };
 
   const formatDate = (dateString: string) => {
     try {
-      // Formato: YYYYMMDDTHHMMSS
       const year = dateString.substring(0, 4);
       const month = dateString.substring(4, 6);
       const day = dateString.substring(6, 8);
@@ -129,12 +162,21 @@ export default function NoticiasTab({
       const minute = dateString.substring(11, 13);
       
       const date = new Date(`${year}-${month}-${day}T${hour}:${minute}:00`);
-      return date.toLocaleString('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+      
+      const now = new Date();
+      const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+      
+      if (diffInHours < 24) {
+        if (diffInHours < 1) {
+            const minutes = Math.floor(diffInHours * 60);
+            return `${minutes}m ago`;
+        }
+        return `${Math.floor(diffInHours)}h ago`;
+      }
+
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
       });
     } catch {
       return dateString;
@@ -148,54 +190,56 @@ export default function NoticiasTab({
     return tickerSentiment;
   };
 
-  if (loading) {
-    return (
-      <Card className="bg-tarjetas bg-tarjetas border-none h-[400px]">
+  const filteredNews = useMemo(() => {
+    let result = [...news];
 
-        <CardHeader>
-          <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
-            Noticias {symbol}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-400"></div>
-            <span className="ml-3 text-gray-400">Cargando noticias...</span>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+    // 1. Filter by Category
+    if (activeCategory !== "General") {
+      const lowerCategory = activeCategory.toLowerCase();
+      result = result.filter(item => {
+        const text = (item.title + " " + item.summary).toLowerCase();
+        const hasTopic = item.topics?.some(t => t.topic.toLowerCase().includes(lowerCategory));
+        
+        if (lowerCategory === "earnings") return text.includes("earnings") || text.includes("quarter") || text.includes("report") || text.includes("revenue");
+        if (lowerCategory === "technology") return text.includes("tech") || text.includes("ai") || text.includes("soft") || hasTopic;
+        if (lowerCategory === "finance") return text.includes("stock") || text.includes("market") || text.includes("trade") || hasTopic;
+        if (lowerCategory === "crypto") return text.includes("crypto") || text.includes("bitcoin") || text.includes("coin") || text.includes("blockchain");
+        
+        return text.includes(lowerCategory) || hasTopic;
+      });
+    }
 
-  if (error) {
-    return (
-      <Card className="bg-tarjetas bg-tarjetas border-none h-[360px]">
-        <CardHeader>
-          <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
-            Noticias {symbol}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <p className="text-red-400 mb-4">Error: {error}</p>
-            <button
-              onClick={fetchNews}
-              className="px-4 py-2 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-lg hover:bg-orange-500/30 transition-colors"
-            >
-              Reintentar
-            </button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+    // 2. Filter by Sentiment
+    if (activeSentiment !== "Any") {
+      result = result.filter(item => {
+        const tickerSentiment = getTickerSentiment(item);
+        const label = tickerSentiment ? tickerSentiment.ticker_sentiment_label : item.overall_sentiment_label;
+        return label === activeSentiment;
+      });
+    }
 
-  // Función para analizar noticia con IA
+    // 3. Sort
+    if (sortBy === "Top Stories") {
+       // Sort by relevance score to the ticker, then by sentiment score magnitude
+       result.sort((a, b) => {
+         const sentimentA = getTickerSentiment(a);
+         const sentimentB = getTickerSentiment(b);
+         const relevanceA = sentimentA ? parseFloat(sentimentA.relevance_score) : 0;
+         const relevanceB = sentimentB ? parseFloat(sentimentB.relevance_score) : 0;
+         return relevanceB - relevanceA;
+       });
+    } else {
+       // Latest (Default) - Alpha Vantage usually returns sorted by date, but ensuring it here
+       result.sort((a, b) => {
+         return b.time_published.localeCompare(a.time_published);
+       });
+    }
+
+    return result;
+  }, [news, activeCategory, activeSentiment, sortBy]);
+
   const handleAnalyzeNews = async (newsItem: NewsItem) => {
     const tickerSentiment = getTickerSentiment(newsItem);
-    const sentimentScore = tickerSentiment 
-      ? parseFloat(tickerSentiment.ticker_sentiment_score)
-      : newsItem.overall_sentiment_score;
     const sentimentLabel = tickerSentiment 
       ? tickerSentiment.ticker_sentiment_label
       : newsItem.overall_sentiment_label;
@@ -203,7 +247,6 @@ export default function NoticiasTab({
       ? parseFloat(tickerSentiment.relevance_score)
       : 0;
 
-    // Preparar datos para el análisis
     const analysisData: NewsAnalysisData = {
       title: newsItem.title,
       summary: newsItem.summary,
@@ -214,7 +257,6 @@ export default function NoticiasTab({
       relevance: relevanceScore
     };
 
-    // Abrir modal en estado de carga
     setAnalysisModal({
       isOpen: true,
       isLoading: true,
@@ -224,7 +266,6 @@ export default function NoticiasTab({
 
     try {
       const result = await analyzeNewsWithAI(analysisData);
-      
       setAnalysisModal({
         isOpen: true,
         isLoading: false,
@@ -241,203 +282,329 @@ export default function NoticiasTab({
     }
   };
 
-  // Función para cerrar modal
   const closeModal = () => {
     setAnalysisModal(initialAnalysisState);
   };
 
+  const openNewsModal = (url: string, title: string) => {
+    setViewNewsModal({ isOpen: true, url, title });
+  };
+
+  const closeNewsModal = () => {
+    setViewNewsModal({ isOpen: false, url: null, title: null });
+  };
+
+  const resetFilters = () => {
+    setActiveCategory("General");
+    setActiveSentiment("Any");
+    setSortBy("Latest");
+  };
+
+  if (loading) {
+    return (
+      <div className="h-[600px] flex flex-col items-center justify-center bg-zinc-900 border border-zinc-800">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+        <span className="mt-4 text-zinc-400 text-sm">Cargando feed de noticias...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-[400px] flex flex-col items-center justify-center bg-zinc-900 border border-zinc-800 p-6 text-center">
+        <p className="text-rose-400 mb-4 text-sm">Error: {error}</p>
+        <button
+          onClick={fetchNews}
+          className="px-4 py-2 bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded-lg hover:bg-orange-500/20 transition-all text-sm font-medium"
+        >
+          Reintentar conexión
+        </button>
+      </div>
+    );
+  }
+
   return (
     <>
-      <Card className="flex-1 bg-tarjetas bg-tarjetas border-none h-[calc(100vh-200px)]">
-        {/* <CardHeader>
-          <CardTitle className="text-orange-400 text-lg flex items-center gap-2">
-          <div className="text-gray-400">
-           Noticias
-          </div>
-           {symbol}
-            <Badge variant="outline" className="text-xs border-none">
-              - {news.length} artículos
-            </Badge>
-          </CardTitle>
-        </CardHeader> */}
-        <CardContent className="flex-1 h-[calc(100vh-280px)] overflow-y-auto space-y-4">
-          {news.length === 0 ? (
-            <p className="text-gray-400 text-center py-8">
-              No hay noticias disponibles para {symbol}
-            </p>
-          ) : (
-            news.map((newsItem, index) => {
-              const tickerSentiment = getTickerSentiment(newsItem);
-              const sentimentScore = tickerSentiment 
-                ? parseFloat(tickerSentiment.ticker_sentiment_score)
-                : newsItem.overall_sentiment_score;
-              const sentimentLabel = tickerSentiment 
-                ? tickerSentiment.ticker_sentiment_label
-                : newsItem.overall_sentiment_label;
-
-              return (
-                <div
-                  key={index}
-                  className="bg-fondoDeTarjetas border-none p-4 rounded-lg"
+      <div className="bg-zinc-900 border border-zinc-800 overflow-hidden h-full flex flex-col shadow-2xl">
+        {/* Header Section */}
+        <div className="border-b border-zinc-800 bg-zinc-900 shrink-0 z-10 flex items-center relative h-8 px-4">
+          <h4 className="absolute left-1/2 -translate-x-1/2 text-xs font-medium text-gray-400 flex items-center gap-2">
+            News {/* <span className="text-zinc-500 text-sm font-normal">| {symbol}</span> */}
+          </h4>
+          
+          <div className="ml-auto flex items-center gap-2">
+            {/* Filter Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="hover:bg-transparent focus:bg-transparent active:bg-transparent data-[state=open]:bg-transparent border-none ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-zinc-400 hover:text-zinc-100"
                 >
-                  {/* Header con título y sentimiento */}
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <h3 className="text-white font-medium text-sm leading-tight flex-1">
-                      {newsItem.title}
-                    </h3>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {getSentimentIcon(sentimentLabel, sentimentScore)}
-                      <Badge 
-                        variant="outline" 
-                        className={`text-xs ${getSentimentColor(sentimentLabel, sentimentScore)}`}
-                      >
-                        {sentimentLabel}
-                      </Badge>
+                  <Filter className="h-1 w-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-auto bg-zinc-900 border-zinc-800 text-zinc-300 rounded-none p-0">
+                <div className="flex divide-x divide-zinc-800">
+                    {/* Column 1: Categoría */}
+                    <div className="w-32 p-1">
+                        <DropdownMenuLabel className="text-xs font-normal text-zinc-500 px-2 py-1">Categoría</DropdownMenuLabel>
+                        <DropdownMenuRadioGroup value={activeCategory} onValueChange={setActiveCategory}>
+                            {categories.map(cat => (
+                                <DropdownMenuRadioItem key={cat} value={cat} className="pl-2 [&>span]:hidden data-[state=checked]:text-orange-500 focus:data-[state=checked]:text-orange-500 focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">
+                                    {cat}
+                                </DropdownMenuRadioItem>
+                            ))}
+                        </DropdownMenuRadioGroup>
                     </div>
-                  </div>
-
-                  {/* Metadata */}
-                  <div className="flex items-center justify-between text-xs text-gray-400 mb-3">
-                    <div className="flex items-center gap-4">
-                      <span className="font-medium text-orange-400">
-                        {newsItem.source}
-                      </span>
-                      <span>{formatDate(newsItem.time_published)}</span>
-                      {newsItem.authors && newsItem.authors.length > 0 && (
-                        <span>por {newsItem.authors[0]}</span>
-                      )}
+                    
+                    {/* Column 2: Tendencia */}
+                    <div className="w-40 p-1">
+                        <DropdownMenuLabel className="text-xs font-normal text-zinc-500 px-2 py-1">Tendencia</DropdownMenuLabel>
+                        <DropdownMenuRadioGroup value={activeSentiment} onValueChange={setActiveSentiment}>
+                            <DropdownMenuRadioItem value="Any" className="pl-2 [&>span]:hidden data-[state=checked]:text-orange-500 focus:data-[state=checked]:text-orange-500 focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">Todas</DropdownMenuRadioItem>
+                            {sentiments.map(sent => (
+                                <DropdownMenuRadioItem key={sent} value={sent} className="pl-2 [&>span]:hidden data-[state=checked]:text-orange-500 focus:data-[state=checked]:text-orange-500 focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">
+                                    {sent}
+                                </DropdownMenuRadioItem>
+                            ))}
+                        </DropdownMenuRadioGroup>
                     </div>
-                  </div>
 
-                  {/* Resumen */}
-                  <p className="text-gray-300 text-sm mb-3 line-clamp-3">
-                    {newsItem.summary}
-                  </p>
-
-                  
-
-                  {/* Topics y relevancia */}
-                  {newsItem.topics && newsItem.topics.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {newsItem.topics.slice(0, 3).map((topic, topicIndex) => (
-                        <Badge 
-                          key={topicIndex} 
-                          variant="secondary" 
-                          className="text-xs bg-blue-500/20 text-blue-400 border-blue-500/30"
-                        >
-                          {topic.topic}
-                        </Badge>
-                      ))}
+                    {/* Column 3: Ordenar */}
+                    <div className="w-32 p-1 flex flex-col">
+                        <div className="flex-1">
+                            <DropdownMenuLabel className="text-xs font-normal text-zinc-500 px-2 py-1">Ordenar</DropdownMenuLabel>
+                            <DropdownMenuRadioGroup value={sortBy} onValueChange={setSortBy}>
+                                <DropdownMenuRadioItem value="Latest" className="pl-2 [&>span]:hidden data-[state=checked]:text-orange-500 focus:data-[state=checked]:text-orange-500 focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">Latest</DropdownMenuRadioItem>
+                                <DropdownMenuRadioItem value="Top Stories" className="pl-2 [&>span]:hidden data-[state=checked]:text-orange-500 focus:data-[state=checked]:text-orange-500 focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">Top Stories</DropdownMenuRadioItem>
+                            </DropdownMenuRadioGroup>
+                        </div>
+                        
+                        <div className="pt-1 mt-1 border-t border-zinc-800">
+                            <DropdownMenuItem onClick={resetFilters} className="text-rose-400 focus:text-rose-300 focus:bg-rose-500/10 cursor-pointer py-0.5 text-xs">
+                                Limpiar filtros
+                            </DropdownMenuItem>
+                        </div>
                     </div>
-                  )}
-
-                  {/* Sentimiento específico del ticker */}
-                  {tickerSentiment && (
-                    <div className="text-xs text-gray-400 mb-3">
-                      <span className="text-orange-400">Relevancia para {symbol}:</span>
-                      <span className="ml-2">
-                        {(parseFloat(tickerSentiment.relevance_score) * 100).toFixed(1)}%
-                      </span>
-                      <span className="ml-3 text-orange-400">Score:</span>
-                      <span className="ml-1">
-                        {parseFloat(tickerSentiment.ticker_sentiment_score).toFixed(3)}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Link al artículo y botón de análisis */}
-                  <div className="flex items-center justify-between">
-                    {/* Botón Analizar con IA */}
-                    <button
-                      onClick={() => handleAnalyzeNews(newsItem)}
-                      disabled={analysisModal.isLoading}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 text-blue-300 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 hover:border-blue-500/50 transition-colors text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                    >  {/* text-xs bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30 hover:border-blue-500/50 disabled:opacity-50 */}
-                      {/* <Brain className="w-3 h-3" /> */}
-                      {analysisModal.isLoading ? 'Analizando...' : 'Analizar con IA'}
-                    </button>
-
-                    {/* Link al artículo */}
-                    <a
-                      href={newsItem.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-orange-400 hover:text-orange-300 text-xs transition-colors"
-                    >
-                      Leer más
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
                 </div>
-              );
-            })
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Modal de Análisis de IA */}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        {/* News List */}
+        <div className="flex-1 overflow-y-auto p-0">
+          {filteredNews.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-zinc-500 space-y-2">
+              <MessageSquare className="w-8 h-8 opacity-20" />
+              <p className="text-sm">No hay noticias en esta categoría</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-zinc-800">
+              {filteredNews.map((item, idx) => {
+                const tickerSentiment = getTickerSentiment(item);
+                const sentimentScore = tickerSentiment 
+                    ? parseFloat(tickerSentiment.ticker_sentiment_score)
+                    : item.overall_sentiment_score;
+                const sentimentLabel = tickerSentiment 
+                    ? tickerSentiment.ticker_sentiment_label
+                    : item.overall_sentiment_label;
+
+                return (
+                  <div key={idx} className="group p-1 hover:bg-zinc-800/30 transition-colors cursor-default">
+                    <div className="flex gap-4">
+                        {/* Image Placeholder or Actual Image */}
+                        {/* <div className="w-14 h-14 flex-shrink-0 bg-zinc-800 rounded-lg overflow-hidden relative hidden sm:block">
+                            {item.banner_image ? (
+                                <img src={item.banner_image} alt="" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-zinc-700">
+                                    <span className="text-xs font-bold">{item.source.substring(0,2).toUpperCase()}</span>
+                                </div>
+                            )}
+                        </div> */}
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                                <div className="flex items-center gap-2 text-xs text-zinc-400">
+                                    <span className="font-semibold text-orange-400">{item.source}</span>
+                                    <span>•</span>
+                                    <span className="flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {formatDate(item.time_published)}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                     <span className={`text-xs font-medium ${
+                                         sentimentLabel.includes('Bullish') || sentimentScore > 0.1 ? 'text-green-500' :
+                                         sentimentLabel.includes('Bearish') || sentimentScore < -0.1 ? 'text-red-500' :
+                                         'text-white'
+                                     }`}>
+                                         {sentimentLabel}
+                                     </span>
+                                     {getSentimentIcon(sentimentLabel, sentimentScore)}
+                                </div>
+                            </div>
+
+                            <h3 className="text-zinc-100 font-medium text-xs leading-snug mb-2 group-hover:text-orange-400 transition-colors line-clamp-2">
+                                <button 
+                                    onClick={(e) => { e.preventDefault(); openNewsModal(item.url, item.title); }} 
+                                    className="text-left hover:underline focus:outline-none"
+                                >
+                                    {item.title}
+                                </button>
+                            </h3>
+                            
+                            {/* <p className="text-zinc-400 text-xs line-clamp-2 mb-3 leading-relaxed">
+                                {item.summary}
+                            </p> */}
+
+                            <div className="flex items-center justify-between">
+                                <div className="flex gap-2">
+                                    {item.topics?.slice(0, 2).map((t, i) => (
+                                        <span key={i} className="text-[10px] px-2 py-0.5 bg-zinc-800 text-zinc-400 border border-zinc-700">
+                                            {t.topic}
+                                        </span>
+                                    ))}
+                                </div>
+                                
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => handleAnalyzeNews(item)}
+                                        className="flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 border border-orange-500/20 text-xs transition-all"
+                                    >
+                                        {/* <Brain className="w-3 h-3" /> */}
+                                        AI Insight
+                                    </button>
+                                    <button 
+                                        onClick={() => openNewsModal(item.url, item.title)}
+                                        className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
+                                    >
+                                        <ExternalLink className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* AI Analysis Modal - Dark Theme Redesign */}
       {analysisModal.isOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="p-6">
-              {/* Header del modal */}
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-white">
-                  {analysisModal.error ? 'Error' : 'Interpretación de la IA'}
-                </h2>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl relative">
+            
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-zinc-900/95 backdrop-blur border-b border-zinc-800 p-4 flex items-center justify-between z-10">
+                <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-indigo-500/10 rounded-lg">
+                        <Brain className="w-5 h-5 text-indigo-400" />
+                    </div>
+                    <h2 className="text-lg font-semibold text-zinc-100">AI Market Insight</h2>
+                </div>
                 <button
                   onClick={closeModal}
-                  className="text-gray-400 hover:text-white transition-colors"
+                  className="p-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-all"
                 >
                   <X className="w-5 h-5" />
                 </button>
-              </div>
+            </div>
 
-              {/* Contenido del modal */}
+            <div className="p-6">
               {analysisModal.isLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
-                  <span className="ml-3 text-gray-400">Analizando...</span>
+                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                  <div className="relative">
+                    <div className="w-12 h-12 border-4 border-zinc-800 border-t-indigo-500 rounded-full animate-spin"></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <Brain className="w-5 h-5 text-indigo-500 animate-pulse" />
+                    </div>
+                  </div>
+                  <p className="text-zinc-400 text-sm animate-pulse">Analyzing market impact...</p>
                 </div>
               ) : analysisModal.error ? (
                 <div className="text-center py-8">
-                  <p className="text-red-400 mb-4">{analysisModal.error}</p>
+                  <div className="w-12 h-12 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <X className="w-6 h-6 text-rose-500" />
+                  </div>
+                  <p className="text-rose-400 mb-6">{analysisModal.error}</p>
                   <button
                     onClick={closeModal}
-                    className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                    className="px-6 py-2 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 transition-colors text-sm"
                   >
-                    Cerrar
+                    Close
                   </button>
                 </div>
               ) : analysisModal.data ? (
                 <div className="space-y-6">
-                  {/* Impacto */}
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Impacto</h3>
-                    <p className={`text-2xl font-bold ${getImpactColor(analysisModal.data.impacto)}`}>
-                      {analysisModal.data.impacto}
-                    </p>
+                  {/* Impact Score */}
+                  <div className="bg-zinc-800/50 rounded-xl p-4 border border-zinc-700/50">
+                    <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Market Impact</h3>
+                    <div className="flex items-center gap-3">
+                        <div className={`text-3xl font-bold ${getImpactColor(analysisModal.data.impacto)}`}>
+                            {analysisModal.data.impacto}
+                        </div>
+                        <div className="h-8 w-[1px] bg-zinc-700"></div>
+                        <div className="text-xs text-zinc-400 max-w-[200px]">
+                            Based on sentiment analysis and historical market correlation.
+                        </div>
+                    </div>
                   </div>
 
-                  {/* Análisis */}
+                  {/* Analysis Text */}
                   <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Análisis</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                      {analysisModal.data.analisis}
-                    </p>
+                    <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3">Strategic Analysis</h3>
+                    <div className="text-zinc-300 text-sm leading-relaxed space-y-4">
+                      {analysisModal.data.analisis.split('\n').map((paragraph, idx) => (
+                        <p key={idx}>{paragraph}</p>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Botón cerrar */}
-                  <div className="flex justify-end pt-4">
-                    <button
-                      onClick={closeModal}
-                      className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                    >
-                      Cerrar
-                    </button>
+                  {/* Disclaimer */}
+                  <div className="pt-4 border-t border-zinc-800">
+                    <p className="text-[10px] text-zinc-600 text-center">
+                        AI-generated analysis. Not financial advice. Always do your own research.
+                    </p>
                   </div>
                 </div>
               ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* News Viewer Modal */}
+      {viewNewsModal.isOpen && viewNewsModal.url && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl relative">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-900/95 backdrop-blur rounded-t-xl">
+               <h2 className="text-sm font-medium text-zinc-100 truncate flex-1 mr-4">{viewNewsModal.title}</h2>
+               <div className="flex items-center gap-2">
+                 <a href={viewNewsModal.url} target="_blank" rel="noopener noreferrer" className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors" title="Abrir en nueva pestaña">
+                   <ExternalLink className="w-4 h-4" />
+                 </a>
+                 <button onClick={closeNewsModal} className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
+                   <X className="w-5 h-5" />
+                 </button>
+               </div>
+            </div>
+            {/* Content */}
+            <div className="flex-1 bg-white relative overflow-hidden">
+                <iframe 
+                  src={viewNewsModal.url} 
+                  className="w-full h-full border-none" 
+                  title="News Preview"
+                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                />
             </div>
           </div>
         </div>

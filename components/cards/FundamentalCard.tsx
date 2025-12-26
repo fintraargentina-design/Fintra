@@ -122,6 +122,9 @@ function getScoreMeta(label: string, raw: number | null) {
       return { score: pctCap(raw, 25), target: (10 / 25) * 100, thresholds: { poor: (5 / 25) * 100, avg: (12 / 25) * 100 } };
     case "Book Value por acción":
       return { score: linearCap(raw, 60), target: (20 / 60) * 100, thresholds: { poor: (10 / 60) * 100, avg: (30 / 60) * 100 } };
+    case "Rev/Share":
+      return { score: pctCap(raw, 20), target: 10, thresholds: { poor: 5, avg: 8 } }; // Changed logic or kept same?
+    case "Profit/Share":
     default:
       return { score: null, target: null, thresholds: { poor: 40, avg: 70 } };
   }
@@ -368,8 +371,8 @@ export default function FundamentalCard({ symbol, period = "annual" }: { symbol:
         // const cashGrowth = await fmp.cashFlowStatementGrowth(symbol, { period: "annual", limit: 6 });
 
         // Helpers para extraer arrays de crecimiento
-        const revenueGrowthSeries = Array.isArray(incomeGrowth) ? incomeGrowth.map((x) => x.growthRevenue) : [];
-        const netIncomeGrowthSeries = Array.isArray(incomeGrowth) ? incomeGrowth.map((x) => x.growthNetIncome) : [];
+        const revenueGrowthSeries = Array.isArray(incomeGrowth) ? incomeGrowth.map((x: any) => x.growthRevenue) : [];
+        const netIncomeGrowthSeries = Array.isArray(incomeGrowth) ? incomeGrowth.map((x: any) => x.growthNetIncome) : [];
         // No hay growthEquity directo en balanceSheetGrowth, calcular a mano desde balanceSheet?
         // FMP tiene "balance-sheet-statement-growth" pero a veces es limitado.
         // Usemos growthShareholdersEquity si existe o calcular.

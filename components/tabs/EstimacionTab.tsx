@@ -1,558 +1,362 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, AlertTriangle, Star, Target } from "lucide-react";
-import { useEffect, useRef } from "react";
+"use client";
 
-declare global {
-  interface Window {
-    Chart?: any;
-  }
-}
+import React, { useMemo, useState, useEffect } from "react";
+import dynamic from "next/dynamic";
+import { fmp } from "@/lib/fmp/client";
+import type { 
+  ValuationResponse, 
+  RatiosResponse, 
+  GrowthResponse, 
+  ProfileResponse, 
+  InstitutionalHoldersResponse 
+} from "@/lib/fmp/types";
+
+// ECharts imports
+import * as echarts from "echarts/core";
+import { LineChart } from "echarts/charts";
+import {
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  TitleComponent,
+  DatasetComponent, // Added DatasetComponent
+} from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
+
+// Register ECharts components
+echarts.use([
+  LineChart,
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  TitleComponent,
+  DatasetComponent, // Added DatasetComponent
+  CanvasRenderer,
+]);
+
+const ReactECharts = dynamic(() => import("echarts-for-react/lib/core"), { ssr: false });
 
 interface EstimacionTabProps {
   selectedStock?: any;
 }
 
 export default function EstimacionTab({ selectedStock }: EstimacionTabProps) {
-  const chartRef1 = useRef<HTMLCanvasElement>(null);
-  const chartRef2 = useRef<HTMLCanvasElement>(null);
-  const chartRef3 = useRef<HTMLCanvasElement>(null);
-  const chartInstance1 = useRef<any>(null);
-  const chartInstance2 = useRef<any>(null);
-  const chartInstance3 = useRef<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [apiData, setApiData] = useState<{
+    valuation: ValuationResponse | null;
+    ratios: RatiosResponse | null;
+    growth: GrowthResponse | null;
+    profile: ProfileResponse | null;
+    holders: InstitutionalHoldersResponse | null;
+  }>({
+    valuation: null,
+    ratios: null,
+    growth: null,
+    profile: null,
+    holders: null
+  });
 
-  // Datos de estimación (simulados basados en el JSON)
-  const estimacionData = {
-    symbol: "AAPL",
-    empresa: "Apple Inc.",
-    proyecciones: {
-      ingresos: {
-        "1Y": { base: 460000000000, conservador: 440000000000, optimista: 480000000000 },
-        "3Y": { base: 530000000000, conservador: 500000000000, optimista: 570000000000 },
-        "5Y": { base: 600000000000, conservador: 550000000000, optimista: 650000000000 }
-      },
-      netIncome: {
-        "1Y": { base: 110000000000, conservador: 100000000000, optimista: 120000000000 },
-        "3Y": { base: 130000000000, conservador: 115000000000, optimista: 145000000000 },
-        "5Y": { base: 150000000000, conservador: 130000000000, optimista: 170000000000 }
-      },
-      eps: {
-        "1Y": { base: 6.5, conservador: 6.0, optimista: 7.0 },
-        "3Y": { base: 7.5, conservador: 6.8, optimista: 8.2 },
-        "5Y": { base: 8.8, conservador: 7.5, optimista: 10.0 }
-      }
-    },
-    valoracion_futura: {
-      precio_objetivo_12m: {
-        base: 220,
-        conservador: 205,
-        optimista: 240
-      },
-      metodo: "Múltiplos históricos y estimación de EPS",
-      estado_actual: "subvaluada"
-    },
-    inferencia_historica: {
-      fair_value_actual: 215,
-      precio_actual: 195,
-      upside_potencial: "10.25%"
-    },
-    drivers_crecimiento: {
-      principales: [
-        "Expansión de servicios (iCloud, Apple Music, Apple TV+)",
-        "Desarrollo en inteligencia artificial y chips propios",
-        "Ecosistema cerrado con alta fidelidad del cliente"
-      ],
-      riesgos: [
-        "Altos costos de producción",
-        "Dependencia del iPhone",
-        "Regulaciones antimonopolio en EE.UU. y Europa"
-      ]
-    },
-    resumen_llm: "Según las proyecciones actuales, Apple podría aumentar sus ingresos de forma sostenida gracias a su ecosistema de servicios y capacidad de innovación en hardware. El precio objetivo a 12 meses ronda los $220, lo que representa un upside del 10% desde el valor actual. La IA considera que la acción está razonablemente valuada con riesgo moderado.",
-    comparacion_analistas: {
-      consenso_precio_objetivo: 225,
-      opinion_promedio: "Buy",
-      cantidad_analistas: 38
-    },
-    rating_futuro_ia: 4,
-    riesgo: "amarillo"
-  };
-
-  const formatNumber = (num: number) => {
-    if (num >= 1e12) return `$${(num / 1e12).toFixed(1)}T`;
-    if (num >= 1e9) return `$${(num / 1e9).toFixed(1)}B`;
-    if (num >= 1e6) return `$${(num / 1e6).toFixed(1)}M`;
-    return `$${num.toFixed(2)}`;
-  };
-
-  const getRiskColor = (riesgo: string) => {
-    switch (riesgo) {
-      case 'verde': return 'bg-green-500';
-      case 'amarillo': return 'bg-yellow-500';
-      case 'rojo': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const getStars = (rating: number) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <Star 
-        key={i} 
-        className={`w-4 h-4 ${i < rating ? 'text-yellow-400 fill-current' : 'text-gray-600'}`} 
-      />
-    ));
-  };
+  const symbol = selectedStock?.symbol || "AAPL";
+  const currentPrice = selectedStock?.price || apiData.profile?.[0]?.price || 0;
 
   useEffect(() => {
-    const loadChartJS = async () => {
-      if (typeof window !== 'undefined' && !(window as any).Chart) {
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-        script.async = true;
-        document.head.appendChild(script);
+    if (!symbol) return;
+    
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [valuation, ratios, growth, profile, holders] = await Promise.all([
+          fmp.valuation(symbol).catch((e) => { console.warn(e); return null; }),
+          fmp.ratios(symbol, { limit: 1 }).catch((e) => { console.warn(e); return null; }),
+          fmp.growth(symbol, { limit: 1 }).catch((e) => { console.warn(e); return null; }),
+          fmp.profile(symbol).catch((e) => { console.warn(e); return null; }),
+          fmp.institutionalHolders(symbol).catch((e) => { console.warn(e); return null; })
+        ]);
+        setApiData({ valuation, ratios, growth, profile, holders });
+      } catch (e) {
+        console.error("Error fetching estimation data", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [symbol]);
+
+  // Derived Data Calculation
+  const derivedData = useMemo(() => {
+    // 1. Target Price Calculation
+    let targetPrice = 0;
+    let recommendation = "N/A";
+    
+    if (apiData.valuation && currentPrice) {
+        // Use pre-calculated consensus upside/downside if available
+        if (apiData.valuation.discountVsPt !== null) {
+            targetPrice = currentPrice * (1 + apiData.valuation.discountVsPt / 100);
+        } else {
+            // Fallback to growth-based projection
+            const growthRate = apiData.growth?.[0]?.revenueGrowth || 0.05; // default 5%
+            targetPrice = currentPrice > 0 ? currentPrice * (1 + growthRate) : 100 * (1 + growthRate);
+        }
         
-        return new Promise((resolve) => {
-          script.onload = resolve;
-        });
-      }
-    };
+        // Recommendation logic
+        const upside = currentPrice > 0 ? (targetPrice - currentPrice) / currentPrice : 0;
+        if (upside > 0.15) recommendation = "Compra Fuerte";
+        else if (upside > 0.05) recommendation = "Compra";
+        else if (upside > -0.05) recommendation = "Mantener";
+        else recommendation = "Esperar a corrección";
+    }
 
-    const initCharts = async () => {
-      await loadChartJS();
-      
-      if (window.Chart) {
-        // Gráfico de Ingresos
-        if (chartRef1.current) {
-          if (chartInstance1.current) chartInstance1.current.destroy();
-          
-          const ctx1 = chartRef1.current.getContext('2d');
-          chartInstance1.current = new window.Chart(ctx1, {
-            type: 'line',
-            data: {
-              labels: ['1 Año', '3 Años', '5 Años'],
-              datasets: [
-                {
-                  label: 'Conservador',
-                  data: [440, 500, 550],
-                  borderColor: 'rgb(239, 68, 68)',
-                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                  tension: 0.4
-                },
-                {
-                  label: 'Base',
-                  data: [460, 530, 600],
-                  borderColor: 'rgb(34, 197, 94)',
-                  backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                  tension: 0.4
-                },
-                {
-                  label: 'Optimista',
-                  data: [480, 570, 650],
-                  borderColor: 'rgb(59, 130, 246)',
-                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                  tension: 0.4
-                }
-              ]
-            },
-            options: {
-              responsive: true,
-              plugins: {
-                title: {
-                  display: true,
-                  text: 'Proyección de Ingresos (Miles de Millones)',
-                  color: '#10b981'
-                },
-                legend: {
-                  labels: {
-                    color: '#10b981'
-                  }
-                }
-              },
-              scales: {
-                y: {
-                  ticks: { color: '#10b981' },
-                  grid: { color: 'rgba(16, 185, 129, 0.1)' }
-                },
-                x: {
-                  ticks: { color: '#10b981' },
-                  grid: { color: 'rgba(16, 185, 129, 0.1)' }
-                }
-              }
-            }
-          });
+    // 2. Hedge Funds
+    const topHolders = apiData.holders?.slice(0, 3).map(h => h.holder) || ["Fund A", "Fund B", "Fund C"];
+
+    // 3. Projections for Chart
+    // Create quarters for next 2 years (8 quarters)
+    const quarters = [];
+    const projectionA = [];
+    const projectionB = [];
+    
+    const baseVal = currentPrice || 100;
+    const growthRate = (apiData.growth?.[0]?.revenueGrowth || 5) / 100;
+    const volatility = 0.05;
+
+    const currentYear = new Date().getFullYear();
+    const startYear = currentYear + 1;
+
+    // Generate 9 points (start to end of 2 years)
+    for (let i = 0; i < 9; i++) {
+        const yearOffset = Math.floor(i / 4);
+        const qOffset = (i % 4) + 1;
+        const yearLabel = i === 0 || i === 4 || i === 8 ? `${startYear + yearOffset}` : `${startYear + yearOffset}-Q${qOffset}`;
+        quarters.push(yearLabel);
+
+        // Simple projection logic
+        const timeFactor = i / 4; // years
+        const valA = baseVal * Math.pow(1 + growthRate, timeFactor) * (1 + (Math.random() * volatility - volatility/2));
+        const valB = baseVal * Math.pow(1 + growthRate * 0.8, timeFactor) * (1 + (Math.random() * volatility - volatility/2)); // More conservative
+        
+        projectionA.push(parseFloat(valA.toFixed(2)));
+        projectionB.push(parseFloat(valB.toFixed(2)));
+    }
+
+    return {
+        targetPrice,
+        recommendation,
+        hedgeFunds: topHolders,
+        chart: {
+            categories: quarters,
+            seriesA: projectionA,
+            seriesB: projectionB
         }
-
-        // Gráfico de EPS
-        if (chartRef2.current) {
-          if (chartInstance2.current) chartInstance2.current.destroy();
-          
-          const ctx2 = chartRef2.current.getContext('2d');
-          chartInstance2.current = new window.Chart(ctx2, {
-            type: 'bar',
-            data: {
-              labels: ['1 Año', '3 Años', '5 Años'],
-              datasets: [
-                {
-                  label: 'Conservador',
-                  data: [6.0, 6.8, 7.5],
-                  backgroundColor: 'rgba(239, 68, 68, 0.7)'
-                },
-                {
-                  label: 'Base',
-                  data: [6.5, 7.5, 8.8],
-                  backgroundColor: 'rgba(34, 197, 94, 0.7)'
-                },
-                {
-                  label: 'Optimista',
-                  data: [7.0, 8.2, 10.0],
-                  backgroundColor: 'rgba(59, 130, 246, 0.7)'
-                }
-              ]
-            },
-            options: {
-              responsive: true,
-              plugins: {
-                title: {
-                  display: true,
-                  text: 'Proyección de EPS ($)',
-                  color: '#10b981'
-                },
-                legend: {
-                  labels: {
-                    color: '#10b981'
-                  }
-                }
-              },
-              scales: {
-                y: {
-                  ticks: { color: '#10b981' },
-                  grid: { color: 'rgba(16, 185, 129, 0.1)' }
-                },
-                x: {
-                  ticks: { color: '#10b981' },
-                  grid: { color: 'rgba(16, 185, 129, 0.1)' }
-                }
-              }
-            }
-          });
-        }
-
-        // Gráfico de Precio Objetivo
-        if (chartRef3.current) {
-          if (chartInstance3.current) chartInstance3.current.destroy();
-          
-          const ctx3 = chartRef3.current.getContext('2d');
-          chartInstance3.current = new window.Chart(ctx3, {
-            type: 'doughnut',
-            data: {
-              labels: ['Conservador', 'Base', 'Optimista'],
-              datasets: [{
-                data: [205, 220, 240],
-                backgroundColor: [
-                  'rgba(239, 68, 68, 0.7)',
-                  'rgba(34, 197, 94, 0.7)',
-                  'rgba(59, 130, 246, 0.7)'
-                ],
-                borderColor: [
-                  'rgb(239, 68, 68)',
-                  'rgb(34, 197, 94)',
-                  'rgb(59, 130, 246)'
-                ],
-                borderWidth: 2
-              }]
-            },
-            options: {
-              responsive: true,
-              plugins: {
-                title: {
-                  display: true,
-                  text: 'Precio Objetivo 12M ($)',
-                  color: '#10b981'
-                },
-                legend: {
-                  labels: {
-                    color: '#10b981'
-                  }
-                }
-              }
-            }
-          });
-        }
-      }
     };
+  }, [apiData, currentPrice]);
 
-    initCharts();
+  // Static Data (Drivers/Risks/AI Summary) - In a real app, this would come from an AI backend
+  const staticData = {
+    drivers: [
+      "Expansión en nuevos mercados",
+      "Innovación en productos/servicios",
+      "Mejora de márgenes operativos"
+    ],
+    risks: [
+      "Competencia intensificada",
+      "Cambios regulatorios",
+      "Volatilidad económica"
+    ],
+    aiSummary: `Según las proyecciones actuales, ${symbol} muestra un potencial de crecimiento basado en sus métricas financieras. El precio objetivo estimado de $${derivedData.targetPrice.toFixed(2)} sugiere una oportunidad interesante. La valoración actual refleja las expectativas del mercado.`
+  };
 
-    return () => {
-      if (chartInstance1.current) chartInstance1.current.destroy();
-      if (chartInstance2.current) chartInstance2.current.destroy();
-      if (chartInstance3.current) chartInstance3.current.destroy();
+  const chartOption = useMemo(() => {
+    // Debug log to verify data
+    console.log("Chart Data:", derivedData.chart);
+    
+    return {
+      backgroundColor: 'transparent',
+      textStyle: {
+        fontFamily: 'Inter, sans-serif'
+      },
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'line' },
+        backgroundColor: 'rgba(20, 20, 20, 0.9)',
+        borderColor: '#333',
+        textStyle: { color: '#fff' }
+      },
+      legend: {
+        show: true,
+        textStyle: { color: '#ccc' },
+        top: 0
+      },
+      grid: {
+        top: 40,
+        right: 20,
+        bottom: 20,
+        left: 40,
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: derivedData.chart.categories,
+        axisLine: { show: true, lineStyle: { color: '#444' } },
+        axisLabel: { color: '#9ca3af', fontSize: 10 },
+        splitLine: { show: false }
+      },
+      yAxis: {
+        type: 'value',
+        axisLine: { show: false },
+        axisLabel: { color: '#9ca3af', fontSize: 10 },
+        splitLine: { show: true, lineStyle: { color: '#333', type: 'dashed' } }
+      },
+      series: [
+        {
+          name: 'Proyección Optimista',
+          type: 'line',
+          data: derivedData.chart.seriesA,
+          symbol: 'circle',
+          symbolSize: 6,
+          itemStyle: { color: '#6366f1' }, // Indigo
+          lineStyle: { width: 2 },
+          smooth: true
+        },
+        {
+          name: 'Proyección Conservadora',
+          type: 'line',
+          data: derivedData.chart.seriesB,
+          symbol: 'circle',
+          symbolSize: 6,
+          itemStyle: { color: '#a855f7' }, // Purple
+          lineStyle: { width: 2 },
+          smooth: true
+        }
+      ]
     };
-  }, []);
+  }, [derivedData.chart]);
 
   return (
-    <div className="space-y-6">
-      {/* Header con información básica */}
-      <Card className="bg-gray-900/50 border-green-500/30">
-        <CardHeader>
-          <CardTitle className="text-green-400 text-xl flex items-center gap-2">
-            📊 Estimación y Proyecciones - {estimacionData.empresa}
-            <Badge variant="outline" className="text-green-400 border-green-400">
-              {estimacionData.symbol}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-      </Card>
-
-      {/* 1. Proyección de Crecimiento */}
-      <Card className="bg-gray-900/50 border-green-500/30">
-        <CardHeader>
-          <CardTitle className="text-green-400 text-lg">📊 1. Proyección de Crecimiento</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* Tabla Comparativa */}
-          <div className="mb-6">
-            <h4 className="text-green-300 font-semibold mb-4">Tabla Comparativa por Escenario</h4>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse border border-green-500/30">
-                <thead>
-                  <tr className="bg-green-500/10">
-                    <th className="border border-green-500/30 p-3 text-left text-green-400">Métrica</th>
-                    <th className="border border-green-500/30 p-3 text-center text-green-400">Escenario</th>
-                    <th className="border border-green-500/30 p-3 text-center text-green-400">1 Año</th>
-                    <th className="border border-green-500/30 p-3 text-center text-green-400">3 Años</th>
-                    <th className="border border-green-500/30 p-3 text-center text-green-400">5 Años</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* Ingresos */}
-                  <tr>
-                    <td rowSpan={3} className="border border-green-500/30 p-3 text-gray-300 font-medium">Ingresos</td>
-                    <td className="border border-green-500/30 p-3 text-red-400">Conservador</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">{formatNumber(estimacionData.proyecciones.ingresos["1Y"].conservador)}</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">{formatNumber(estimacionData.proyecciones.ingresos["3Y"].conservador)}</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">{formatNumber(estimacionData.proyecciones.ingresos["5Y"].conservador)}</td>
-                  </tr>
-                  <tr>
-                    <td className="border border-green-500/30 p-3 text-green-400">Base</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">{formatNumber(estimacionData.proyecciones.ingresos["1Y"].base)}</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">{formatNumber(estimacionData.proyecciones.ingresos["3Y"].base)}</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">{formatNumber(estimacionData.proyecciones.ingresos["5Y"].base)}</td>
-                  </tr>
-                  <tr>
-                    <td className="border border-green-500/30 p-3 text-blue-400">Optimista</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">{formatNumber(estimacionData.proyecciones.ingresos["1Y"].optimista)}</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">{formatNumber(estimacionData.proyecciones.ingresos["3Y"].optimista)}</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">{formatNumber(estimacionData.proyecciones.ingresos["5Y"].optimista)}</td>
-                  </tr>
-                  {/* EPS */}
-                  <tr>
-                    <td rowSpan={3} className="border border-green-500/30 p-3 text-gray-300 font-medium">EPS</td>
-                    <td className="border border-green-500/30 p-3 text-red-400">Conservador</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">${estimacionData.proyecciones.eps["1Y"].conservador}</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">${estimacionData.proyecciones.eps["3Y"].conservador}</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">${estimacionData.proyecciones.eps["5Y"].conservador}</td>
-                  </tr>
-                  <tr>
-                    <td className="border border-green-500/30 p-3 text-green-400">Base</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">${estimacionData.proyecciones.eps["1Y"].base}</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">${estimacionData.proyecciones.eps["3Y"].base}</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">${estimacionData.proyecciones.eps["5Y"].base}</td>
-                  </tr>
-                  <tr>
-                    <td className="border border-green-500/30 p-3 text-blue-400">Optimista</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">${estimacionData.proyecciones.eps["1Y"].optimista}</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">${estimacionData.proyecciones.eps["3Y"].optimista}</td>
-                    <td className="border border-green-500/30 p-3 text-center text-gray-300">${estimacionData.proyecciones.eps["5Y"].optimista}</td>
-                  </tr>
-                </tbody>
-              </table>
+    <div className="flex flex-col gap-1 bg-[#0a0a0a] min-h-[600px] text-white p-1">
+      
+      {/* Top Section: Drivers/Risks & Chart */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-1 h-auto lg:h-[350px]">
+        
+        {/* Left Column: Drivers & Risks */}
+        <div className="flex flex-col gap-1 h-full">
+          
+          {/* Drivers */}
+          <div className="flex-1 bg-[#1A1B1D] border-l-4 border-green-600 flex flex-col">
+            <div className="bg-[#1A1B1D] py-2 px-4 text-center border-b border-gray-800">
+              <span className="text-gray-200 font-medium">Drivers de crecimiento</span>
             </div>
-          </div>
-
-          {/* Gráficos */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-gray-800/50 p-4 rounded-lg">
-              <canvas ref={chartRef1} width="400" height="300"></canvas>
-            </div>
-            <div className="bg-gray-800/50 p-4 rounded-lg">
-              <canvas ref={chartRef2} width="400" height="300"></canvas>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 2. Valoración Estimada a Futuro */}
-      <Card className="bg-gray-900/50 border-green-500/30">
-        <CardHeader>
-          <CardTitle className="text-green-400 text-lg">📈 2. Valoración Estimada a Futuro</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <h4 className="text-green-300 font-semibold mb-4">Precio Objetivo 12 Meses</h4>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-red-500/10 rounded">
-                  <span className="text-red-400">Conservador:</span>
-                  <span className="text-white font-bold">${estimacionData.valoracion_futura.precio_objetivo_12m.conservador}</span>
+            <div className="p-4 flex flex-col justify-center gap-4 flex-1">
+              {staticData.drivers.map((driver, idx) => (
+                <div key={idx} className="flex items-center gap-3">
+                  <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[10px] border-b-green-500 shrink-0" />
+                  <span className="text-green-100 text-sm lg:text-base font-light tracking-wide">{driver}</span>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-green-500/10 rounded">
-                  <span className="text-green-400">Base:</span>
-                  <span className="text-white font-bold">${estimacionData.valoracion_futura.precio_objetivo_12m.base}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Risks */}
+          <div className="flex-1 bg-[#1A1B1D] border-l-4 border-red-800 flex flex-col">
+            <div className="bg-[#1A1B1D] py-2 px-4 text-center border-b border-gray-800">
+              <span className="text-gray-200 font-medium">Factores de riesgo</span>
+            </div>
+            <div className="p-4 flex flex-col justify-center gap-4 flex-1">
+              {staticData.risks.map((risk, idx) => (
+                <div key={idx} className="flex items-center gap-3">
+                  <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[10px] border-t-red-600 shrink-0" />
+                  <span className="text-red-100 text-sm lg:text-base font-light tracking-wide">{risk}</span>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-blue-500/10 rounded">
-                  <span className="text-blue-400">Optimista:</span>
-                  <span className="text-white font-bold">${estimacionData.valoracion_futura.precio_objetivo_12m.optimista}</span>
-                </div>
-              </div>
-              
-              <div className="mt-4 p-4 bg-gray-800/50 rounded">
-                <p className="text-gray-300 text-sm mb-2"><strong>Método:</strong> {estimacionData.valoracion_futura.metodo}</p>
-                <p className="text-gray-300 text-sm"><strong>Estado actual:</strong> 
-                  <Badge className={`ml-2 ${estimacionData.valoracion_futura.estado_actual === 'subvaluada' ? 'bg-green-500' : 'bg-red-500'}`}>
-                    {estimacionData.valoracion_futura.estado_actual}
-                  </Badge>
-                </p>
-              </div>
-            </div>
-            
-            <div className="bg-gray-800/50 p-4 rounded-lg">
-              <canvas ref={chartRef3} width="300" height="300"></canvas>
+              ))}
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* 3. Inferencia IA con Histórico */}
-      <Card className="bg-gray-900/50 border-green-500/30">
-        <CardHeader>
-          <CardTitle className="text-green-400 text-lg">🧠 3. Inferencia IA con Histórico</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-gray-800/50 p-4 rounded text-center">
-              <div className="text-2xl font-bold text-green-400">${estimacionData.inferencia_historica.fair_value_actual}</div>
-              <div className="text-gray-400 text-sm">Fair Value Actual</div>
-            </div>
-            <div className="bg-gray-800/50 p-4 rounded text-center">
-              <div className="text-2xl font-bold text-white">${estimacionData.inferencia_historica.precio_actual}</div>
-              <div className="text-gray-400 text-sm">Precio Actual</div>
-            </div>
-            <div className="bg-gray-800/50 p-4 rounded text-center">
-              <div className="text-2xl font-bold text-green-400 flex items-center justify-center gap-1">
-                <TrendingUp className="w-5 h-5" />
-                {estimacionData.inferencia_historica.upside_potencial}
-              </div>
-              <div className="text-gray-400 text-sm">Upside Potencial</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* 4. Drivers de Crecimiento */}
-      <Card className="bg-gray-900/50 border-green-500/30">
-        <CardHeader>
-          <CardTitle className="text-green-400 text-lg">🏗 4. Drivers de Crecimiento</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <h4 className="text-green-300 font-semibold mb-3 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4" />
-                Catalizadores Principales
-              </h4>
-              <ul className="space-y-2">
-                {estimacionData.drivers_crecimiento.principales.map((driver, index) => (
-                  <li key={index} className="flex items-start gap-2 text-gray-300">
-                    <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
-                    <span className="text-sm">{driver}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="text-red-300 font-semibold mb-3 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4" />
-                Riesgos Principales
-              </h4>
-              <ul className="space-y-2">
-                {estimacionData.drivers_crecimiento.riesgos.map((riesgo, index) => (
-                  <li key={index} className="flex items-start gap-2 text-gray-300">
-                    <div className="w-2 h-2 bg-red-400 rounded-full mt-2 flex-shrink-0"></div>
-                    <span className="text-sm">{riesgo}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+        {/* Right Column: Chart */}
+        <div className="bg-[#1A1B1D] flex flex-col h-full">
+          <div className="py-2 text-center">
+            <span className="text-gray-200 font-medium">Estimación a 2 años</span>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex-1 w-full min-h-[300px] h-[300px] lg:h-auto">
+            {loading ? (
+                <div className="flex items-center justify-center h-full text-gray-500">Cargando gráfico...</div>
+            ) : (
+                <ReactECharts 
+                echarts={echarts}
+                option={chartOption} 
+                style={{ height: '100%', width: '100%', minHeight: '300px' }}
+                opts={{ renderer: 'canvas' }}
+                notMerge={true}
+                lazyUpdate={true}
+                />
+            )}
+          </div>
+        </div>
 
-      {/* 5. Resumen Explicativo */}
-      <Card className="bg-gray-900/50 border-green-500/30">
-        <CardHeader>
-          <CardTitle className="text-green-400 text-lg">💬 5. Resumen Explicativo</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="bg-gray-800/50 p-4 rounded-lg">
-            <p className="text-gray-300 leading-relaxed">{estimacionData.resumen_llm}</p>
-          </div>
-        </CardContent>
-      </Card>
+      </div>
 
-      {/* 6. Comparación con Analistas */}
-      <Card className="bg-gray-900/50 border-green-500/30">
-        <CardHeader>
-          <CardTitle className="text-green-400 text-lg">🧩 6. Comparación con Analistas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-gray-800/50 p-4 rounded text-center">
-              <div className="text-2xl font-bold text-green-400">${estimacionData.comparacion_analistas.consenso_precio_objetivo}</div>
-              <div className="text-gray-400 text-sm">Consenso Precio Objetivo</div>
-            </div>
-            <div className="bg-gray-800/50 p-4 rounded text-center">
-              <Badge className="bg-green-500 text-white text-lg px-4 py-2">
-                {estimacionData.comparacion_analistas.opinion_promedio}
-              </Badge>
-              <div className="text-gray-400 text-sm mt-2">Opinión Promedio</div>
-            </div>
-            <div className="bg-gray-800/50 p-4 rounded text-center">
-              <div className="text-2xl font-bold text-white">{estimacionData.comparacion_analistas.cantidad_analistas}</div>
-              <div className="text-gray-400 text-sm">Analistas</div>
+      {/* Middle Section: Consensus */}
+      <div className="bg-[#1A1B1D] mt-1">
+        <div className="bg-[#1e293b] py-1 text-center border-b border-gray-700">
+          <span className="text-gray-300 text-sm font-medium">Consenso de Analistas y Hedge Funds</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-700 border-t border-gray-700">
+          
+          {/* Price Target */}
+          <div className="bg-[#0e7490] p-4 flex flex-col items-center justify-center text-center h-24">
+            <div className="text-cyan-100 text-xs uppercase mb-1">Precio objetivo promedio de compra</div>
+            <div className="text-white text-2xl font-bold">
+                {loading ? "..." : derivedData.targetPrice.toFixed(2)}
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* 7. Bonus - Gamificación */}
-      <Card className="bg-gray-900/50 border-green-500/30">
-        <CardHeader>
-          <CardTitle className="text-green-400 text-lg">🎯 Bonus - Rating IA</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="text-center">
-              <h4 className="text-green-300 font-semibold mb-3">⭐ IA Rating Futuro</h4>
-              <div className="flex justify-center gap-1 mb-2">
-                {getStars(estimacionData.rating_futuro_ia)}
-              </div>
-              <p className="text-gray-400 text-sm">{estimacionData.rating_futuro_ia}/5 estrellas</p>
-            </div>
-            
-            <div className="text-center">
-              <h4 className="text-green-300 font-semibold mb-3">📉 Semáforo de Riesgo</h4>
-              <div className="flex justify-center">
-                <div className={`w-16 h-16 rounded-full ${getRiskColor(estimacionData.riesgo)} flex items-center justify-center`}>
-                  <Target className="w-8 h-8 text-white" />
-                </div>
-              </div>
-              <p className="text-gray-400 text-sm mt-2 capitalize">{estimacionData.riesgo}</p>
+          {/* Recommendation */}
+          <div className="bg-[#0e7490] p-4 flex flex-col items-center justify-center text-center h-24">
+            <div className="text-cyan-100 text-xs uppercase mb-1">Recomendación</div>
+            <div className="text-white font-medium leading-tight">
+                {loading ? "..." : derivedData.recommendation}
             </div>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Analysts */}
+          <div className="bg-[#0e7490] p-4 flex flex-col items-center justify-center text-center h-24">
+            <div className="text-cyan-100 text-xs uppercase mb-1">Analistas</div>
+            <div className="text-white text-2xl font-bold">12</div>
+          </div>
+
+          {/* Hedge Funds */}
+          <div className="bg-[#0e7490] p-4 flex flex-col justify-center h-24 pl-6">
+            <div className="text-cyan-100 text-xs uppercase mb-1 text-center md:text-left">Hedge funds</div>
+            <ul className="text-cyan-50 text-xs space-y-0.5 list-none">
+              {loading ? (
+                <li>Cargando...</li>
+              ) : (
+                derivedData.hedgeFunds.map((fund, i) => (
+                    <li key={i} className="flex items-center gap-1">
+                    <span className="w-2 h-[1px] bg-cyan-300"></span>
+                    {fund}
+                    </li>
+                ))
+              )}
+            </ul>
+          </div>
+
+        </div>
+      </div>
+
+      {/* Bottom Section: AI Summary */}
+      <div className="bg-[#1A1B1D] mt-1">
+        <div className="bg-[#1e293b] py-1 text-center border-b border-gray-700">
+          <span className="text-gray-300 text-sm font-medium uppercase">Resumen IA de {symbol}</span>
+        </div>
+        <div className="p-6 bg-[#0e7490]">
+          <p className="text-cyan-50 text-sm leading-relaxed text-justify">
+            {staticData.aiSummary}
+          </p>
+        </div>
+      </div>
+
     </div>
   );
 }

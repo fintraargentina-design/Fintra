@@ -12,7 +12,7 @@ const QuerySchema = z.object({
     .string()
     .trim()
     .min(1, "Símbolo requerido")
-    .regex(/^[A-Z0-9.\-\^]+$/i, "Símbolo inválido")
+    .regex(/^[A-Z0-9.\-\^,]+$/i, "Símbolo inválido")
     .transform((s) => s.toUpperCase()),
 });
 

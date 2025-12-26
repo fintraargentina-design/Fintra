@@ -81,6 +81,14 @@ export function createFmpClient(get: FetcherFunction) {
       });
     },
 
+    /** Income Statement Growth (Specific) */
+    incomeStatementGrowth(symbol: string, opts?: { period?: "annual" | "quarter"; limit?: number; cache?: CacheOpt }) {
+      return get<GrowthResponse>("/income-statement-growth", {
+        params: { symbol, period: opts?.period ?? "annual", limit: opts?.limit ?? 5 },
+        cache: opts?.cache ?? "force-cache",
+      });
+    },
+
     /** Performance (retornos, vol y drawdown) */
     performance(symbol: string, cache: CacheOpt = "force-cache") {
       return get<PerformanceResponse>("/performance", { params: { symbol }, cache });
@@ -117,7 +125,15 @@ export function createFmpClient(get: FetcherFunction) {
 
     /** Key metrics TTM */
     keyMetricsTTM(symbol: string, cache: CacheOpt = "force-cache") {
-      return get<KeyMetricsResponse>("/key-metrics", { params: { symbol, scope: "ttm" }, cache });
+      return get<KeyMetricsResponse>("/key-metrics-ttm", { params: { symbol }, cache });
+    },
+
+    /** Key Metrics (Historical) */
+    keyMetrics(symbol: string, opts?: { period?: "annual" | "quarter"; limit?: number; cache?: CacheOpt }) {
+      return get<KeyMetricsResponse>("/key-metrics", {
+        params: { symbol, period: opts?.period ?? "annual", limit: opts?.limit ?? 10 },
+        cache: opts?.cache ?? "force-cache",
+      });
     },
 
     /** Cash-flow (annual/quarter) */

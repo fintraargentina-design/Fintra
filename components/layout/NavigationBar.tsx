@@ -23,7 +23,7 @@ export default function NavigationBar({
 
   if (orientation === 'vertical') {
     return (
-      <div className="hidden xl:flex flex-col items-center gap-2 w-8 overflow-visible">
+      <div className="hidden xl:flex flex-col items-center gap-2 w-8 overflow-visible ">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -48,7 +48,7 @@ export default function NavigationBar({
     );
   }
   return (
-    <div className="w-full border-b border-white/5 bg-tarjetas shadow-sm">
+    <div className="w-full border-b border-zinc-800 bg-zinc-900 shrink-0 z-10">
       <div className="w-full overflow-x-auto scrollbar-thin whitespace-nowrap">
         {/* Desktop Navigation */}
         <div className="hidden md:flex flex-nowrap items-center justify-start h-auto p-0 w-max">
@@ -58,11 +58,11 @@ export default function NavigationBar({
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as TabKey)}
                 className={`
-                  rounded-none border-b-2 border-transparent px-2 py-1 text-xs transition-colors
+                  rounded-none border-b-2 border-transparent px-2 py-1 text-xs transition-colors font-medium
                   ${
                     activeTab === tab.key
-                      ? 'border-orange-400 text-orange-400'
-                      : 'text-gray-400 hover:text-gray-200'
+                      ? 'border-orange-500 text-orange-500 bg-zinc-800/50'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
                   }
                 `}
               >
@@ -87,7 +87,7 @@ export default function NavigationBar({
                 text-xs transition-colors whitespace-nowrap flex-shrink-0
                 ${
                   activeTab === tab.key
-                    ? 'border-orange-400 text-orange-400'
+                    ? 'border-orange-400 text-orange-400 bg-background'
                     : 'text-gray-400 hover:text-gray-200'
                 }
               `}

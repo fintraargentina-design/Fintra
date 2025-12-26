@@ -85,7 +85,7 @@ export default function DatosTab({
                 flex-1 text-center justify-center px-2 py-1 text-xs font-medium transition-colors border-b-2
                 ${
                   activeTab === tab.id
-                    ? "border-orange-400 text-orange-400"
+                    ? "border-orange-400 text-orange-400 bg-background"
                     : "border-transparent text-gray-400 hover:text-gray-200"
                 }
               `}

@@ -23,6 +23,7 @@ import FGOSRadarChart from '@/components/charts/FGOSRadarChart';
 import SectorAnalysisPanel from '@/components/dashboard/SectorAnalysisPanel';
 import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
 import StockSearchModal from '@/components/modals/StockSearchModal';
+import EstimacionTab from '@/components/tabs/EstimacionTab';
 import MercadosTab from '@/components/tabs/MercadosTab';
 
 export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'mercados';
@@ -121,11 +122,7 @@ export default function StockTerminal() {
     switch (activeTab) {
       case 'ecosistema':
         return (
-          <EcosystemCard 
-            symbol={selectedSymbol}
-            holders={stockEcosystem?.holders}
-            insiders={stockEcosystem?.insiders}
-          />
+          <EcosystemCard />
         );
       case 'datos':
         return (
@@ -146,15 +143,8 @@ export default function StockTerminal() {
         );
       case 'estimacion':
         return (
-          <EstimacionCard 
+          <EstimacionTab 
             selectedStock={selectedStock}
-            fundamentalData={stockBasicData?.datos?.fundamentales}
-            valoracionData={stockBasicData?.datos?.valoracion}
-            financialScoresData={stockBasicData?.datos?.financialScores}
-            overviewData={stockBasicData}
-            estimacionData={stockBasicData?.datos?.estimacion}
-            dividendosData={stockBasicData?.datos?.dividendos}
-            desempenoData={stockBasicData?.datos?.desempeno}
           />
         );
       case 'mercados':
@@ -197,14 +187,18 @@ export default function StockTerminal() {
           <div className="space-y-1 md:space-y-1">
 
             {/* Layout principal responsivo */}
-            <div className="grid grid-cols-1 xl:grid-cols-[55%_45%] gap-2 md:gap-1 items-start h-full">
+            <div className="grid grid-cols-1 xl:grid-cols-[55%_45%] gap-0 md:gap-1 items-start h-full">
               {/* Panel izquierdo */}
-              <div className="w-full xl:w-auto space-y-2 md:space-y-1 min-h-0 max-h-[calc(100vh-64px)] overflow-y-auto scrollbar-thin">
-                <div className="w-full flex flex-col gap-0 space-y-0">
+              <div className="w-full xl:w-auto flex flex-col gap-0 md:gap-0 min-h-0 h-full overflow-hidden">
+                <div className="w-full flex flex-col gap-0 space-y-0 shrink-0">
                   <SectorAnalysisPanel />
-                  <PeersAnalysisPanel symbol={selectedSymbol} />
+                  <PeersAnalysisPanel 
+                    symbol={selectedSymbol} 
+                    onPeerSelect={setSelectedCompetitor}
+                    selectedPeer={selectedCompetitor}
+                  />
                 </div>
-                <div className="w-full">
+                <div className="w-full shrink-0">
                   <OverviewCard
                       selectedStock={selectedStock}
                       stockConclusion={stockConclusion}
@@ -216,7 +210,7 @@ export default function StockTerminal() {
                 </div>
 
                 {/* Charts & Radar Row */}
-                <div className="flex flex-col lg:flex-row gap-2 w-full h-[500px]">
+                <div className="flex flex-col lg:flex-row w-full flex-1 min-h-0">
                     {/* Chart 3/5 */}
                     <div className="w-full lg:w-3/5 h-full">
                         <ChartsTabHistoricos
@@ -229,6 +223,7 @@ export default function StockTerminal() {
                          <FGOSRadarChart 
                             symbol={selectedSymbol} 
                             data={stockAnalysis?.fgos_breakdown || MOCK_AAPL_SNAPSHOT.fgos_breakdown} 
+                            comparedSymbol={selectedCompetitor}
                          />
                     </div>
                 </div>
@@ -256,7 +251,7 @@ export default function StockTerminal() {
               {/* Panel derecho */}
               <div className="w-full xl:w-auto h-[calc(100vh-64px)] flex flex-col">
                 {/* Mitad Superior: Navigation Bar y Contenido de Tabs */}
-                <div className="h-1/2 flex flex-col min-h-0 border-b border-white/5">
+                <div className="h-3/5 flex flex-col min-h-0 border-b border-white/5">
                   <div className="w-full flex items-center justify-between shrink-0">
                     <div className="flex-1">
                       <NavigationBar
@@ -274,11 +269,11 @@ export default function StockTerminal() {
                 </div>
 
                 {/* Mitad Inferior: Noticias */}
-                <div className="h-1/2 flex flex-col min-h-0 bg-tarjetas">
-                  <div className="p-2 border-b border-white/5 bg-white/[0.02]">
+                <div className="h-2/5 flex flex-col min-h-0 bg-tarjetas">
+                  {/* <div className="p-2 border-b border-white/5 bg-white/[0.02]">
                     <h3 className="text-orange-400 font-medium text-center text-sm">Noticias</h3>
-                  </div>
-                  <div className="flex-1 overflow-y-auto scrollbar-thin p-2">
+                  </div> */}
+                  <div className="flex-1 overflow-hidden">
                     <NoticiasTab symbol={selectedSymbol} />
                   </div>
                 </div>
