@@ -328,8 +328,8 @@ export default function NoticiasTab({
       <div className="bg-zinc-900 border border-zinc-800 overflow-hidden h-full flex flex-col shadow-2xl">
         {/* Header Section */}
         <div className="border-b border-zinc-800 bg-zinc-900 shrink-0 z-10 flex items-center relative h-8 px-4">
-          <h4 className="absolute left-1/2 -translate-x-1/2 text-xs font-medium text-gray-400 flex items-center gap-2">
-            News {/* <span className="text-zinc-500 text-sm font-normal">| {symbol}</span> */}
+          <h4 className="text-xs font-medium text-gray-400 text-center">
+            Noticias de <span className="text-orange-400">{symbol}</span>
           </h4>
           
           <div className="ml-auto flex items-center gap-2">

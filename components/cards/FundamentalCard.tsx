@@ -285,9 +285,78 @@ const METRIC_EXPLANATIONS: Record<string, { description: string; examples: strin
   }
 };
 
+// Función helper para construir las filas de métricas
+function buildMetricRows(
+  r: Partial<FMPFinancialRatio>,
+  k: Partial<FMPKeyMetrics>,
+  revenueGrowthSeries: number[],
+  netIncomeGrowthSeries: number[],
+  equityGrowthSeries: number[]
+): MetricRow[] {
+  const newRows: MetricRow[] = [];
+
+  // 1. Rentabilidad
+  const roe = numOrNull(r.returnOnEquity ?? r.returnOnEquityTTM);
+  newRows.push({ label: "ROE", unit: "%", raw: roe, ...getScoreMeta("ROE", roe), display: fmtPercent(pctOrNull(roe)) });
+
+  const roic = numOrNull(r.returnOnCapitalEmployed ?? r.returnOnCapitalEmployedTTM);
+  newRows.push({ label: "ROIC", unit: "%", raw: roic, ...getScoreMeta("ROIC", roic), display: fmtPercent(pctOrNull(roic)) });
+
+  const grossMargin = numOrNull(r.grossProfitMargin ?? r.grossProfitMarginTTM);
+  newRows.push({ label: "Margen bruto", unit: "%", raw: grossMargin, ...getScoreMeta("Margen bruto", grossMargin), display: fmtPercent(pctOrNull(grossMargin)) });
+
+  const netMargin = numOrNull(r.netProfitMargin ?? r.netProfitMarginTTM);
+  newRows.push({ label: "Margen neto", unit: "%", raw: netMargin, ...getScoreMeta("Margen neto", netMargin), display: fmtPercent(pctOrNull(netMargin)) });
+
+  // 2. Salud Financiera
+  const debtEq = numOrNull(r.debtEquityRatio ?? r.debtEquityRatioTTM);
+  newRows.push({ label: "Deuda/Capital", unit: "x", raw: debtEq, ...getScoreMeta("Deuda/Capital", debtEq), display: fmtRatio(debtEq) });
+
+  const currentRatio = numOrNull(r.currentRatio ?? r.currentRatioTTM);
+  newRows.push({ label: "Current Ratio", unit: "x", raw: currentRatio, ...getScoreMeta("Current Ratio", currentRatio), display: fmtRatio(currentRatio) });
+
+  const interestCov = numOrNull(r.interestCoverage ?? r.interestCoverageTTM);
+  newRows.push({ label: "Cobertura de intereses", unit: "x", raw: interestCov, ...getScoreMeta("Cobertura de intereses", interestCov), display: fmtRatio(interestCov) });
+
+  // FCF Margin calculation
+  const revPerShare = numOrNull(k.revenuePerShare ?? k.revenuePerShareTTM);
+  const fcfPerShare = numOrNull(k.freeCashFlowPerShare ?? k.freeCashFlowPerShareTTM);
+  let fcfMargin: number | null = null;
+  if (revPerShare && fcfPerShare && revPerShare !== 0) {
+    fcfMargin = fcfPerShare / revPerShare;
+  }
+  newRows.push({ label: "Flujo de Caja Libre (%)", unit: "%", raw: fcfMargin, ...getScoreMeta("Flujo de Caja Libre (%)", fcfMargin), display: fmtPercent(pctOrNull(fcfMargin)) });
+
+  // 3. Crecimiento (5y CAGR)
+  const cagrRev = cagrFromGrowthSeries(revenueGrowthSeries.map(numOrNull).filter(x => x !== null) as number[]);
+  newRows.push({ label: "CAGR ingresos", unit: "%", raw: cagrRev, ...getScoreMeta("CAGR ingresos", cagrRev), display: fmtPercent(cagrRev) });
+
+  const cagrNet = cagrFromGrowthSeries(netIncomeGrowthSeries.map(numOrNull).filter(x => x !== null) as number[]);
+  newRows.push({ label: "CAGR beneficios", unit: "%", raw: cagrNet, ...getScoreMeta("CAGR beneficios", cagrNet), display: fmtPercent(cagrNet) });
+
+  const cagrEq = cagrFromGrowthSeries(equityGrowthSeries.map(numOrNull).filter(x => x !== null) as number[]);
+  newRows.push({ label: "CAGR patrimonio", unit: "%", raw: cagrEq, ...getScoreMeta("CAGR patrimonio", cagrEq), display: fmtPercent(cagrEq) });
+
+  // 4. Valoración / Otros
+  const bookVal = numOrNull(k.bookValuePerShare ?? k.bookValuePerShareTTM);
+  newRows.push({ label: "Book Value por acción", unit: "$", raw: bookVal, ...getScoreMeta("Book Value por acción", bookVal), display: bookVal ? `$${bookVal.toFixed(2)}` : "N/A" });
+
+  return newRows;
+}
+
 type PeriodSel = "ttm" | "FY" | "Q1" | "Q2" | "Q3" | "Q4" | "annual" | "quarter";
 
-export default function FundamentalCard({ symbol, period = "annual" }: { symbol: string; period?: PeriodSel }) {
+export default function FundamentalCard({ 
+  symbol, 
+  period = "annual",
+  ratiosData,
+  metricsData
+}: { 
+  symbol: string; 
+  period?: PeriodSel;
+  ratiosData?: any;
+  metricsData?: any;
+}) {
   const [rows, setRows] = useState<MetricRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -308,6 +377,23 @@ export default function FundamentalCard({ symbol, period = "annual" }: { symbol:
 
   useEffect(() => {
     if (!symbol) return;
+
+    // Lógica híbrida: si tenemos datos por props (solo para TTM), usarlos directamente
+    if (period === "ttm" && ratiosData && metricsData) {
+      try {
+        // Al usar props, no tenemos datos de crecimiento (growth) disponibles inmediatamente.
+        // Se pasan arrays vacíos, lo que resultará en "N/A" para los CAGR, 
+        // pero asegura una carga instantánea de las métricas principales.
+        const newRows = buildMetricRows(ratiosData, metricsData, [], [], []);
+        setRows(newRows);
+        setError(null);
+        setLoading(false);
+      } catch (err) {
+        console.error("Error processing props data:", err);
+        setError("Error procesando datos");
+      }
+      return;
+    }
 
     const fetchData = async () => {
       setLoading(true);
@@ -381,72 +467,10 @@ export default function FundamentalCard({ symbol, period = "annual" }: { symbol:
         // Vamos a asumir que balanceGrowth tiene growthShareholdersEquity (si no, null).
         const equityGrowthSeries = Array.isArray(balanceGrowth) ? balanceGrowth.map((x: any) => x.growthTotalStockholdersEquity ?? x.growthShareholdersEquity) : [];
 
-        // Construir filas
-        const newRows: MetricRow[] = [];
-
-        // 1. Rentabilidad
-        const roe = numOrNull(r.returnOnEquity ?? r.returnOnEquityTTM);
-        newRows.push({ label: "ROE", unit: "%", raw: roe, ...getScoreMeta("ROE", roe), display: fmtPercent(pctOrNull(roe)) });
-
-        const roic = numOrNull(r.returnOnCapitalEmployed ?? r.returnOnCapitalEmployedTTM); // FMP usa returnOnCapitalEmployed como proxy de ROIC a veces
-        newRows.push({ label: "ROIC", unit: "%", raw: roic, ...getScoreMeta("ROIC", roic), display: fmtPercent(pctOrNull(roic)) });
-
-        const grossMargin = numOrNull(r.grossProfitMargin ?? r.grossProfitMarginTTM);
-        newRows.push({ label: "Margen bruto", unit: "%", raw: grossMargin, ...getScoreMeta("Margen bruto", grossMargin), display: fmtPercent(pctOrNull(grossMargin)) });
-
-        const netMargin = numOrNull(r.netProfitMargin ?? r.netProfitMarginTTM);
-        newRows.push({ label: "Margen neto", unit: "%", raw: netMargin, ...getScoreMeta("Margen neto", netMargin), display: fmtPercent(pctOrNull(netMargin)) });
-
-        // 2. Salud Financiera
-        const debtEq = numOrNull(r.debtEquityRatio ?? r.debtEquityRatioTTM);
-        newRows.push({ label: "Deuda/Capital", unit: "x", raw: debtEq, ...getScoreMeta("Deuda/Capital", debtEq), display: fmtRatio(debtEq) });
-
-        const currentRatio = numOrNull(r.currentRatio ?? r.currentRatioTTM);
-        newRows.push({ label: "Current Ratio", unit: "x", raw: currentRatio, ...getScoreMeta("Current Ratio", currentRatio), display: fmtRatio(currentRatio) });
-
-        const interestCov = numOrNull(r.interestCoverage ?? r.interestCoverageTTM);
-        newRows.push({ label: "Cobertura de intereses", unit: "x", raw: interestCov, ...getScoreMeta("Cobertura de intereses", interestCov), display: fmtRatio(interestCov) });
-
-        // Free Cash Flow Yield? O FCF/Sales?
-        // Usemos FCF / Revenue (Margin) o FCF Yield.
-        // Aquí "Flujo de Caja Libre (%)" suele referirse a FCF Margin.
-        // FCF = operatingCashFlow - capitalExpenditure
-        // FMP keyMetrics tiene freeCashFlowPerShare?
-        // Calculemos FCF Margin usando ratiosTTM o similar. ratios tiene operatingCashFlowPerShare / revenuePerShare?
-        // Mejor usar keyMetrics.freeCashFlowYield o calcular FCF/Revenue.
-        // Usemos operatingCashFlow - capex.
-        // Si no tenemos raw values, busquemos en ratios. cashFlowToDebtRatio? No.
-        // keyMetrics tiene freeCashFlowYield.
-        // Vamos a usar "FCF Margin" si podemos, o "FCF Yield".
-        // Para simplificar, usemos freeCashFlowYield de keyMetrics como "Flujo de Caja Libre (%)" (Yield).
-        // Ojo, FCF Yield es sobre Market Cap.
-        // Si el usuario quiere "Margen FCF", sería FCF/Sales.
-        // FMP ratios tiene "freeCashFlowOperatingCashFlowRatio"? No.
-        // Vamos a intentar calcular FCF Margin desde Key Metrics (Revenue per share / FCF per share)?
-        // keyMetrics: revenuePerShare, freeCashFlowPerShare.
-        const revPerShare = numOrNull(k.revenuePerShare ?? k.revenuePerShareTTM);
-        const fcfPerShare = numOrNull(k.freeCashFlowPerShare ?? k.freeCashFlowPerShareTTM);
-        let fcfMargin: number | null = null;
-        if (revPerShare && fcfPerShare && revPerShare !== 0) {
-          fcfMargin = fcfPerShare / revPerShare;
-        }
-        newRows.push({ label: "Flujo de Caja Libre (%)", unit: "%", raw: fcfMargin, ...getScoreMeta("Flujo de Caja Libre (%)", fcfMargin), display: fmtPercent(pctOrNull(fcfMargin)) });
-
-        // 3. Crecimiento (5y CAGR)
-        const cagrRev = cagrFromGrowthSeries(revenueGrowthSeries.map(numOrNull).filter(x => x !== null) as number[]);
-        newRows.push({ label: "CAGR ingresos", unit: "%", raw: cagrRev, ...getScoreMeta("CAGR ingresos", cagrRev), display: fmtPercent(cagrRev) });
-
-        const cagrNet = cagrFromGrowthSeries(netIncomeGrowthSeries.map(numOrNull).filter(x => x !== null) as number[]);
-        newRows.push({ label: "CAGR beneficios", unit: "%", raw: cagrNet, ...getScoreMeta("CAGR beneficios", cagrNet), display: fmtPercent(cagrNet) });
-
-        const cagrEq = cagrFromGrowthSeries(equityGrowthSeries.map(numOrNull).filter(x => x !== null) as number[]);
-        newRows.push({ label: "CAGR patrimonio", unit: "%", raw: cagrEq, ...getScoreMeta("CAGR patrimonio", cagrEq), display: fmtPercent(cagrEq) });
-
-        // 4. Valoración / Otros
-        const bookVal = numOrNull(k.bookValuePerShare ?? k.bookValuePerShareTTM);
-        newRows.push({ label: "Book Value por acción", unit: "$", raw: bookVal, ...getScoreMeta("Book Value por acción", bookVal), display: bookVal ? `$${bookVal.toFixed(2)}` : "N/A" });
-
+        // Construir filas usando la función helper
+        const newRows = buildMetricRows(r, k, revenueGrowthSeries, netIncomeGrowthSeries, equityGrowthSeries);
         setRows(newRows);
+
       } catch (err) {
         console.error(err);
         setError("Error cargando datos fundamentales");
@@ -456,7 +480,7 @@ export default function FundamentalCard({ symbol, period = "annual" }: { symbol:
     };
 
     fetchData();
-  }, [symbol, period]);
+  }, [symbol, period, ratiosData, metricsData]);
 
   return (
     <>

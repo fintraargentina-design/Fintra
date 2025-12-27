@@ -43,6 +43,10 @@ export default function StockTerminal() {
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
+  // Estados para FundamentalCard (Prop Drilling)
+  const [stockRatios, setStockRatios] = useState<any>(null);
+  const [stockMetrics, setStockMetrics] = useState<any>(null);
+
   // símbolo actual (string) sin importar si selectedStock es string u objeto
   const selectedSymbol = useMemo(() => {
     if (typeof selectedStock === 'string') return selectedStock.toUpperCase?.() || '';
@@ -79,9 +83,31 @@ export default function StockTerminal() {
     if (!sym) return;
     setIsLoading(true);
     setError('');
+    // Resetear estados previos
+    setStockRatios(null);
+    setStockMetrics(null);
+
     try {
       await registerStockSearch(sym);
-      const result = await searchStockData(sym);
+
+      // Lanzar fetch de datos fundamentales en paralelo (sin bloquear UI principal inmediatamente si se quisiera, 
+      // pero aquí lo haremos parte del flujo o separado según preferencia. 
+      // El usuario pidió Promise.all para no bloquear carga PRINCIPAL, lo que sugiere lanzarlo y esperar o lanzarlo separado.
+      // Vamos a lanzarlo junto con searchStockData o en paralelo.
+      
+      const [result, fundamentals] = await Promise.all([
+        searchStockData(sym),
+        // Fetch explícito de Ratios y Metrics TTM
+        Promise.all([
+          fmp.ratiosTTM(sym).catch(err => { console.error("Ratios fetch error", err); return []; }),
+          fmp.keyMetricsTTM(sym).catch(err => { console.error("Metrics fetch error", err); return []; })
+        ])
+      ]);
+
+      // Procesar fundamentales
+      const [ratiosData, metricsData] = fundamentals;
+      if (Array.isArray(ratiosData) && ratiosData.length > 0) setStockRatios(ratiosData[0]);
+      if (Array.isArray(metricsData) && metricsData.length > 0) setStockMetrics(metricsData[0]);
 
       if (result.success) {
         setStockBasicData(result.basicData);
@@ -174,6 +200,8 @@ export default function StockTerminal() {
             stockBasicData={stockBasicData}
             stockReport={stockReport}
             symbol={selectedSymbol}
+            ratios={stockRatios}
+            metrics={stockMetrics}
           />
         );
       case 'chart':

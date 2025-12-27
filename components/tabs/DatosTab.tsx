@@ -18,6 +18,8 @@ interface DatosTabProps {
   stockReport?: any;
   symbol: string;             // ← NUEVO
   period?: PeriodSel;         // periodo seleccionado (por defecto annual)
+  ratios?: any;               // Data TTM desde el padre
+  metrics?: any;              // Data TTM desde el padre
 }
 
 export default function DatosTab({
@@ -27,6 +29,8 @@ export default function DatosTab({
   stockReport,
   symbol,
   period = "annual",
+  ratios,
+  metrics,
 }: DatosTabProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodSel>(period);
   const [activeTab, setActiveTab] = useState("financials");
@@ -139,7 +143,9 @@ export default function DatosTab({
               <div className="bg-tarjetas border-none">
                 <FundamentalCard 
                   symbol={symbol} 
-                  period={selectedPeriod} 
+                  period={selectedPeriod}
+                  ratiosData={selectedPeriod === 'ttm' ? ratios : undefined}
+                  metricsData={selectedPeriod === 'ttm' ? metrics : undefined}
                 />
               </div>
               <div className="bg-tarjetas border-none">
