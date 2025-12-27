@@ -125,7 +125,7 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
       <div className="flex-1 overflow-y-auto scrollbar-thin relative p-0">
         <Table>
           <TableHeader>
-            <TableRow className="border-white/10 hover:bg-transparent bg-gray-600">
+            <TableRow className="border-white/10 hover:bg-gray-600 bg-gray-600">
               <TableHead className="text-gray-300 text-[10px] h-8 w-[60px]">Ticker</TableHead>
               <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[50px]">F.G.O.S.</TableHead>
               <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[80px]">Valuación</TableHead>
@@ -151,8 +151,8 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
                     className={`border-white/5 hover:bg-white/5 cursor-pointer transition-colors ${selectedPeer === peer.ticker ? 'bg-white/10' : ''}`}
                     onClick={() => onPeerSelect?.(selectedPeer === peer.ticker ? "" : peer.ticker)}
                   >
-                    <TableCell className="font-bold text-white py-2 text-xs">{peer.ticker}</TableCell>
-                    <TableCell className="text-center py-2">
+                    <TableCell className="font-bold text-white px-2 py-0.5 text-xs">{peer.ticker}</TableCell>
+                    <TableCell className="text-center px-2 py-0.5">
                       <Badge variant="outline" className={`text-[10px] border-0 px-1.5 py-0 h-5 font-bold ${
                         peer.fgos >= 70 ? "bg-green-500/10 text-green-400" : 
                         peer.fgos >= 50 ? "bg-yellow-500/10 text-yellow-400" : 
@@ -161,29 +161,29 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
                         {peer.fgos}
                       </Badge>
                     </TableCell>
-                    <TableCell className={`text-center py-2 text-[10px] font-medium ${
+                    <TableCell className={`text-center px-2 py-0.5 text-[10px] font-medium ${
                         peer.valuation === "Undervalued" ? "text-green-400" : 
                         peer.valuation === "Fair" ? "text-yellow-400" : 
                         "text-red-400"
                     }`}>
                       {peer.valuation}
                     </TableCell>
-                    <TableCell className="text-center py-2 text-[10px] text-blue-400 font-bold">
+                    <TableCell className="text-center px-2 py-0.5 text-[10px] text-blue-400 font-bold">
                         {peer.ecoScore}
                     </TableCell>
-                    <TableCell className="text-center py-2 text-[10px] text-gray-300">
+                    <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
                       {Number(peer.divYield).toFixed(2)}%
                     </TableCell>
-                    <TableCell className="text-center py-2 text-[10px] text-gray-300">
+                    <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
                       ${Number(peer.estimation).toFixed(2)}
                     </TableCell>
-                    <TableCell className="text-right py-2 text-xs font-mono text-white">
+                    <TableCell className="text-right px-2 py-0.5 text-xs font-mono text-white">
                       ${Number(peer.price).toFixed(2)}
                     </TableCell>
-                    <TableCell className={`text-right py-2 text-[10px] font-medium ${Number(peer.ytd) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    <TableCell className={`text-right px-2 py-0.5 text-[10px] font-medium ${Number(peer.ytd) >= 0 ? "text-green-400" : "text-red-400"}`}>
                       {Number(peer.ytd) >= 0 ? "+" : ""}{Number(peer.ytd).toFixed(1)}%
                     </TableCell>
-                    <TableCell className="text-right py-2 text-[10px] text-gray-400">
+                    <TableCell className="text-right px-2 py-0.5 text-[10px] text-gray-400">
                       {Number(peer.marketCap) > 1000000000000 ? `${(Number(peer.marketCap)/1000000000000).toFixed(1)}T` : `${(Number(peer.marketCap)/1000000000).toFixed(1)}B`}
                     </TableCell>
                   </TableRow>
