@@ -86,7 +86,11 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
                 valuation: ["Undervalued", "Fair", "Overvalued"][Math.floor(Math.random() * 3)],
                 ecoScore: Math.floor(Math.random() * (90 - 40) + 40),
                 price: q?.price || 0,
-                change: q?.changesPercentage || 0
+                change: q?.changesPercentage || 0,
+                divYield: (Math.random() * 5).toFixed(2),
+                estimation: (Math.random() * 250 + 20).toFixed(2),
+                ytd: (q?.yearHigh && q?.yearLow ? ((q.price - q.yearLow) / q.yearLow * 100) : (Math.random() * 40 - 10)).toFixed(1),
+                marketCap: p?.mktCap || (Math.random() * 2000000000000 + 10000000000)
             };
         });
 
@@ -110,64 +114,83 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
     "text-red-400";
 
   return (
-    <div className="w-full bg-tarjetas border border-white/5 rounded-none overflow-hidden mt-0 w-sm">
+    <div className="w-full h-full flex flex-col bg-tarjetas border border-white/5 rounded-none overflow-hidden mt-0">
             
-      <div className="px-1 py-1 border-b border-white/5 bg-white/[0.02]">
+      <div className="px-1 py-1 border-b border-white/5 bg-white/[0.02] shrink-0">
         <h4 className="text-xs font-medium text-gray-400 text-center">
           Competidores directos de <span className="text-orange-400">{symbol}</span>
         </h4>
       </div>
 
-      <div className="p-0 max-h-[275px] overflow-y-auto scrollbar-thin relative">
-        <table className="w-full caption-bottom text-sm">
-          <TableHeader className="bg-gray-500 sticky top-0 z-10">
-            <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead className="text-[10px] text-white h-8">Ticker</TableHead>
-              <TableHead className="text-[10px] text-white h-8 text-center">F.G.O.S.</TableHead>
-              <TableHead className="text-[10px] text-white h-8 hidden sm:table-cell">Valuación</TableHead>
-              <TableHead className="text-[10px] text-white h-8 text-center">Ecosistema</TableHead>
-              <TableHead className="text-[10px] text-white h-8 text-right">Último Precio</TableHead>
-              <TableHead className="text-[10px] text-white h-8 text-right">Var/día %</TableHead>
+      <div className="flex-1 overflow-y-auto scrollbar-thin relative p-0">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-white/10 hover:bg-transparent bg-gray-600">
+              <TableHead className="text-gray-300 text-[10px] h-8 w-[60px]">Ticker</TableHead>
+              <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[50px]">F.G.O.S.</TableHead>
+              <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[80px]">Valuación</TableHead>
+              <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[50px]">Ecosistema</TableHead>
+              <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[60px]">Div. Yield</TableHead>
+              <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[60px]">Estimación</TableHead>
+              <TableHead className="text-gray-300 text-[10px] h-8 text-right w-[70px]">Last Price</TableHead>
+              <TableHead className="text-gray-300 text-[10px] h-8 text-right w-[60px]">YTD %</TableHead>
+              <TableHead className="text-gray-300 text-[10px] h-8 text-right w-[70px]">Mkt Cap</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {peers.map((peer) => {
-              const isSelected = selectedPeer === peer.ticker;
-              return (
-              <TableRow 
-                key={peer.ticker} 
-                className={`
-                  border-white/5 h-10 group cursor-pointer transition-colors
-                  ${isSelected ? "bg-orange-500/10 hover:bg-orange-500/20" : "hover:bg-white/5"}
-                `}
-                onClick={() => onPeerSelect?.(isSelected ? null : peer.ticker)}
-              >
-                <TableCell className="font-bold text-gray-200 text-xs py-2">
-                  <div className="flex flex-col">
-                    <span className={isSelected ? "text-orange-400" : ""}>{peer.ticker}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-center py-2">
-                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-5 border ${getFgosColor(peer.fgos)}`}>
-                    {peer.fgos}
-                  </Badge>
-                </TableCell>
-                <TableCell className={`text-[10px] py-2 hidden sm:table-cell ${getValuationColor(peer.valuation)}`}>
-                  {peer.valuation}
-                </TableCell>
-                <TableCell className="text-center py-2">
-                  <span className="text-xs text-gray-400 font-mono">{peer.ecoScore}</span>
-                </TableCell>
-                <TableCell className="text-right py-2 font-mono text-xs text-gray-300">
-                  {peer.price ? peer.price.toFixed(2) : '-'}
-                </TableCell>
-                <TableCell className={`text-right py-2 font-mono text-xs ${peer.change >= 0 ? "text-green-400" : "text-red-400"}`}>
-                   {peer.change > 0 ? "+" : ""}{peer.change ? peer.change.toFixed(2) : '-'}%
-                </TableCell>
-              </TableRow>
-            )})}
+            {peers.length === 0 ? (
+                <TableRow>
+                    <TableCell colSpan={9} className="text-center text-gray-500 py-8 text-xs">
+                        Cargando competidores...
+                    </TableCell>
+                </TableRow>
+            ) : (
+                peers.map((peer) => (
+                  <TableRow 
+                    key={peer.ticker} 
+                    className={`border-white/5 hover:bg-white/5 cursor-pointer transition-colors ${selectedPeer === peer.ticker ? 'bg-white/10' : ''}`}
+                    onClick={() => onPeerSelect?.(selectedPeer === peer.ticker ? "" : peer.ticker)}
+                  >
+                    <TableCell className="font-bold text-white py-2 text-xs">{peer.ticker}</TableCell>
+                    <TableCell className="text-center py-2">
+                      <Badge variant="outline" className={`text-[10px] border-0 px-1.5 py-0 h-5 font-bold ${
+                        peer.fgos >= 70 ? "bg-green-500/10 text-green-400" : 
+                        peer.fgos >= 50 ? "bg-yellow-500/10 text-yellow-400" : 
+                        "bg-red-500/10 text-red-400"
+                      }`}>
+                        {peer.fgos}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className={`text-center py-2 text-[10px] font-medium ${
+                        peer.valuation === "Undervalued" ? "text-green-400" : 
+                        peer.valuation === "Fair" ? "text-yellow-400" : 
+                        "text-red-400"
+                    }`}>
+                      {peer.valuation}
+                    </TableCell>
+                    <TableCell className="text-center py-2 text-[10px] text-blue-400 font-bold">
+                        {peer.ecoScore}
+                    </TableCell>
+                    <TableCell className="text-center py-2 text-[10px] text-gray-300">
+                      {Number(peer.divYield).toFixed(2)}%
+                    </TableCell>
+                    <TableCell className="text-center py-2 text-[10px] text-gray-300">
+                      ${Number(peer.estimation).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right py-2 text-xs font-mono text-white">
+                      ${Number(peer.price).toFixed(2)}
+                    </TableCell>
+                    <TableCell className={`text-right py-2 text-[10px] font-medium ${Number(peer.ytd) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      {Number(peer.ytd) >= 0 ? "+" : ""}{Number(peer.ytd).toFixed(1)}%
+                    </TableCell>
+                    <TableCell className="text-right py-2 text-[10px] text-gray-400">
+                      {Number(peer.marketCap) > 1000000000000 ? `${(Number(peer.marketCap)/1000000000000).toFixed(1)}T` : `${(Number(peer.marketCap)/1000000000).toFixed(1)}B`}
+                    </TableCell>
+                  </TableRow>
+                ))
+            )}
           </TableBody>
-        </table>
+        </Table>
       </div>
     </div>
   );

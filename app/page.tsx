@@ -232,63 +232,53 @@ export default function StockTerminal() {
             {/* Layout principal responsivo */}
             <div className="grid grid-cols-1 xl:grid-cols-[55fr_45fr] gap-0 md:gap-1 items-start h-full">
               {/* Panel izquierdo */}
-              <div className="w-full xl:w-auto flex flex-col gap-0 md:gap-0 min-h-0 h-full overflow-hidden">
-                <div className="w-full flex flex-col gap-0 space-y-0 shrink-0">
-                  <SectorAnalysisPanel onStockSelect={handleTopStockClick} />
-                  <PeersAnalysisPanel 
-                    symbol={selectedSymbol} 
-                    onPeerSelect={setSelectedCompetitor}
-                    selectedPeer={selectedCompetitor}
-                  />
-                </div>
-                <div className="w-full shrink-0">
-                  <OverviewCard
-                      selectedStock={selectedStock}
-                      stockConclusion={stockConclusion}
-                      onStockSearch={buscarDatosAccion}
-                      onOpenSearchModal={() => setIsSearchOpen(true)}
-                      isParentLoading={isLoading}
-                      analysisData={stockAnalysis || MOCK_AAPL_SNAPSHOT}
+              <div className="w-full xl:w-auto flex flex-col gap-0 min-h-0 h-full overflow-hidden">
+                {/* Top Section: 3/5 height (60%) */}
+                <div className="w-full flex flex-col h-[60%] min-h-0 shrink-0">
+                  <div className="flex-1 min-h-0 relative">
+                    <SectorAnalysisPanel onStockSelect={handleTopStockClick} />
+                  </div>
+                  <div className="flex-1 min-h-0 relative">
+                    <PeersAnalysisPanel 
+                      symbol={selectedSymbol} 
+                      onPeerSelect={setSelectedCompetitor}
+                      selectedPeer={selectedCompetitor}
                     />
+                  </div>
                 </div>
 
-                {/* Charts & Radar Row */}
-                <div className="flex flex-col lg:flex-row w-full flex-1 min-h-0">
-                    {/* Chart 3/5 */}
-                    <div className="w-full lg:w-3/5 h-full">
-                        <ChartsTabHistoricos
-                          symbol={selectedSymbol}
-                          companyName={stockBasicData?.companyName}
-                        />
-                    </div>
-                    {/* Radar 2/5 */}
-                    <div className="w-full lg:w-2/5 h-full">
-                         <FGOSRadarChart 
-                            symbol={selectedSymbol} 
-                            data={stockAnalysis?.fgos_breakdown || MOCK_AAPL_SNAPSHOT.fgos_breakdown} 
-                            comparedSymbol={selectedCompetitor}
-                         />
-                    </div>
-                </div>
+                {/* Bottom Section: 2/5 height (40%) */}
+                <div className="w-full flex flex-col h-[40%] min-h-0 shrink-0">
+                  <div className="w-full shrink-0">
+                    <OverviewCard
+                        selectedStock={selectedStock}
+                        stockConclusion={stockConclusion}
+                        onStockSearch={buscarDatosAccion}
+                        onOpenSearchModal={() => setIsSearchOpen(true)}
+                        isParentLoading={isLoading}
+                        analysisData={stockAnalysis || MOCK_AAPL_SNAPSHOT}
+                      />
+                  </div>
 
-                {/* Grid responsivo para tarjetas */}
-                <div className="gap-1 md:gap-1">     {/* grid grid-cols-1 lg:grid-cols-2 */}
-                  {/* <div className="w-full">
-                    <CompetidoresCard 
-                      symbol={selectedSymbol} 
-                      onCompetitorSelect={setSelectedCompetitor}
-                      onCompetitorSearch={buscarDatosAccion}
-                      selectedCompetitor={selectedCompetitor}
-                    />
-                  </div> */}
-                  {/* <div className="w-full">
-                    <RadarPeersCard 
-                      symbol={selectedSymbol} 
-                      selectedCompetitor={selectedCompetitor}
-                    />
-                  </div> */}
+                  {/* Charts & Radar Row */}
+                  <div className="flex flex-col lg:flex-row w-full flex-1 min-h-0">
+                      {/* Chart 3/5 */}
+                      <div className="w-full lg:w-3/5 h-full">
+                          <ChartsTabHistoricos
+                            symbol={selectedSymbol}
+                            companyName={stockBasicData?.companyName}
+                          />
+                      </div>
+                      {/* Radar 2/5 */}
+                      <div className="w-full lg:w-2/5 h-full">
+                           <FGOSRadarChart 
+                              symbol={selectedSymbol} 
+                              data={stockAnalysis?.fgos_breakdown || MOCK_AAPL_SNAPSHOT.fgos_breakdown} 
+                              comparedSymbol={selectedCompetitor}
+                           />
+                      </div>
+                  </div>                
                 </div>
-                
               </div>
 
               {/* Panel derecho */}
