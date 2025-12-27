@@ -20,19 +20,7 @@ export default function ValuationThermometer({ symbol }: { symbol: string }) {
         const data = await fmp.ratios(symbol, { limit: 1 }); 
         const r = data?.[0]; 
 
-        // Lógica de Fallback para Demo (Si no hay datos o es AAPL Demo simulada) 
-        if (!r && symbol === 'AAPL') { 
-           // Datos simulados para que el termómetro se vea en la Demo 
-           if(mounted) { 
-             setScore(25); // Sobrevalorada 
-             setMetrics([ 
-               { label: "P/E", val: "32.5x" }, 
-               { label: "P/B", val: "45.2x" }, 
-               { label: "PEG", val: "2.1" } 
-             ]); 
-           } 
-           return; 
-        } 
+ 
 
         if (!r) return; 
 

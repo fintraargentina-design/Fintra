@@ -1,26 +1,13 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Loader2 } from 'lucide-react';
 import { fmp } from '@/lib/fmp/client';
-import RadarPeersCard from '@/components/RadarPeersCard';
+import { enrichStocksWithData, EnrichedStockData } from '@/lib/services/stock-enrichment';
 
-/**
- * Interfaz para los datos de un competidor
- */
-interface CompetitorData {
-  symbol: string;
-  companyName: string;
-  marketCap: number | null;
-  price: number | null;
-  changesPercentage: number | null;
-  pe: number | null;
-}
-
-/**
- * Interfaz para las props del componente CompetidoresCard
- */
 interface CompetidoresCardProps {
   symbol?: string;
   onCompetitorSelect?: (competitor: string) => void;
@@ -28,10 +15,6 @@ interface CompetidoresCardProps {
   selectedCompetitor?: string | null;
 }
 
-/**
- * Componente que muestra una tarjeta con los principales competidores
- * de una empresa, visualizados con un estilo similar a FinancialScoresCard
- */
 export default function CompetidoresCard({ 
   symbol, 
   onCompetitorSelect, 
@@ -39,27 +22,9 @@ export default function CompetidoresCard({
   selectedCompetitor 
 }: CompetidoresCardProps) {
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [competitors, setCompetitors] = useState<CompetitorData[]>([]);
+  const [competitors, setCompetitors] = useState<EnrichedStockData[]>([]);
   const [sector, setSector] = useState<string | null>(null);
-  const [companyName, setCompanyName] = useState<string | null>(null);
-  const lastClickRef = useRef<{ symbol: string | null; time: number }>({ symbol: null, time: 0 });
 
-  const handleCompetitorClick = (sym: string) => {
-    const now = Date.now();
-    const last = lastClickRef.current;
-    if (last.symbol === sym && now - last.time < 400) {
-      onCompetitorSearch?.(sym);
-      lastClickRef.current = { symbol: null, time: 0 };
-    } else {
-      onCompetitorSelect?.(sym);
-      lastClickRef.current = { symbol: sym, time: now };
-    }
-  };
-
-  /**
-   * Obtiene los datos de los competidores usando la API de FMP
-   */
   useEffect(() => {
     const fetchCompetitors = async () => {
       if (!symbol?.trim()) {
@@ -68,67 +33,38 @@ export default function CompetidoresCard({
       }
 
       setLoading(true);
-      setError(null);
 
       try {
-        // Cargar sector de la empresa seleccionada
-        const companyProfileData = await fmp.profile(symbol);
-        const companyProfile = Array.isArray(companyProfileData) ? companyProfileData[0] : companyProfileData;
+        // 1. Get Sector and Peers
+        const [profileData, peersResponse] = await Promise.all([
+           fmp.profile(symbol).catch(() => []),
+           fmp.peers(symbol).catch(() => ({ peers: [] }))
+        ]);
+        
+        const companyProfile = Array.isArray(profileData) ? profileData[0] : profileData;
         setSector(companyProfile?.sector ?? null);
-        setCompanyName(companyProfile?.companyName ?? symbol);
 
-        // Obtener la lista de peers
-        const peersResponse = await fmp.peers(symbol);
-        const peersList: string[] = Array.isArray((peersResponse as any)?.peers) 
+        let peersList: string[] = Array.isArray((peersResponse as any)?.peers) 
           ? (peersResponse as any).peers 
           : [];
-
+          
         if (peersList.length === 0) {
-          setCompetitors([]);
-          setLoading(false);
-          return;
+           // Fallback: if no peers, maybe fetch by sector? 
+           // For now, just empty.
+           setCompetitors([]);
+           setLoading(false);
+           return;
         }
 
-        // Limitar a los primeros 6 competidores para mejor visualización
-        const topPeers = peersList.slice(0, 6);
+        // Limit to 6
+        peersList = peersList.slice(0, 6);
 
-        // Obtener datos detallados de cada competidor
-        const competitorPromises = topPeers.map(async (peerSymbol) => {
-          try {
-            const [profileData, quoteData] = await Promise.all([
-              fmp.profile(peerSymbol),
-              fmp.quote(peerSymbol)
-            ]);
+        // 2. Enrich
+        const enriched = await enrichStocksWithData(peersList);
+        setCompetitors(enriched.sort((a, b) => b.fgos - a.fgos));
 
-            const profile = Array.isArray(profileData) ? profileData[0] : profileData;
-            const quote = Array.isArray(quoteData) ? quoteData[0] : quoteData;
-
-            return {
-              symbol: peerSymbol,
-              companyName: profile?.companyName || peerSymbol,
-              marketCap: quote?.marketCap || null,
-              price: quote?.price || null,
-              changesPercentage: quote?.changesPercentage || null,
-              pe: quote?.pe || null,
-            };
-          } catch (error) {
-            console.error(`Error fetching data for ${peerSymbol}:`, error);
-            return {
-              symbol: peerSymbol,
-              companyName: peerSymbol,
-              marketCap: null,
-              price: null,
-              changesPercentage: null,
-              pe: null,
-            };
-          }
-        });
-
-        const competitorData = await Promise.all(competitorPromises);
-        setCompetitors(competitorData);
       } catch (error) {
         console.error('Error fetching competitors:', error);
-        setError('Error al cargar competidores');
       } finally {
         setLoading(false);
       }
@@ -137,52 +73,22 @@ export default function CompetidoresCard({
     fetchCompetitors();
   }, [symbol]);
 
-  /**
-   * Formatea números grandes (market cap) en formato legible
-   */
-  const formatMarketCap = (value: number | null): string => {
-    if (value === null || value === undefined) return 'N/A';
-    
-    if (value >= 1e12) return `$${(value / 1e12).toFixed(1)}T`;
-    if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
-    if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
-    return `$${value.toFixed(0)}`;
+  const getFgosColor = (s: number) => 
+    s >= 70 ? "bg-green-500/10 text-green-400 border-green-500/20" : 
+    s >= 50 ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" : 
+    "bg-red-500/10 text-red-400 border-red-500/20";
+
+  const getValBadge = (v: string) => {
+    if (v === "Undervalued" || v === "Infravalorada") return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-[9px] h-5" variant="outline">Infravalorada</Badge>;
+    if (v === "Fair" || v === "Justa") return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-[9px] h-5" variant="outline">Justa</Badge>;
+    return <Badge className="text-red-400 bg-red-400/10 border-red-400 px-2 py-0.5 text-[9px] h-5" variant="outline">Sobrevalorada</Badge>;
   };
 
-  /**
-   * Formatea el precio con 2 decimales
-   */
-  const formatPrice = (value: number | null): string => {
-    if (value === null || value === undefined) return 'N/A';
-    return `$${value.toFixed(2)}`;
-  };
-
-  /**
-   * Formatea el P/E ratio
-   */
-  const formatPE = (value: number | null): string => {
-    if (value === null || value === undefined) return 'N/A';
-    return value.toFixed(1);
-  };
-
-  /**
-   * Obtiene el icono y color para el cambio porcentual
-   */
-  const getChangeIcon = (change: number | null) => {
-    if (change === null || change === undefined) return <Minus className="w-4 h-4 text-gray-400" />;
-    if (change > 0) return <TrendingUp className="w-4 h-4 text-green-400" />;
-    if (change < 0) return <TrendingDown className="w-4 h-4 text-red-400" />;
-    return <Minus className="w-4 h-4 text-gray-400" />;
-  };
-
-  /**
-   * Obtiene el color del texto para el cambio porcentual
-   */
-  const getChangeColor = (change: number | null): string => {
-    if (change === null || change === undefined) return 'text-gray-400';
-    if (change > 0) return 'text-green-400';
-    if (change < 0) return 'text-red-400';
-    return 'text-gray-400';
+  const formatMarketCap = (val: number) => {
+    if (val >= 1e12) return `${(val / 1e12).toFixed(1)}T`;
+    if (val >= 1e9) return `${(val / 1e9).toFixed(1)}B`;
+    if (val >= 1e6) return `${(val / 1e6).toFixed(1)}M`;
+    return val.toFixed(0);
   };
 
   if (!symbol?.trim()) {
@@ -197,116 +103,87 @@ export default function CompetidoresCard({
     );
   }
 
-  if (loading) {
-    return (
-      <Card className="bg-tarjetas border-none min-h-[300px]">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-center h-64">
-            <div className="h-32 grid place-items-center text-gray-500 text-sm">Cargando competidores...</div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card className="bg-tarjetas border-none h-[492px]">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-center h-64">
-            <div className="h-32 grid place-items-center text-gray-500 text-sm">{error}</div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (competitors.length === 0) {
-    return (
-      <Card className="bg-tarjetas border-none h-[492px]">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-center h-64">
-            <div className="h-32 grid place-items-center text-gray-500 text-sm">No se encontraron competidores</div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <Card className="bg-tarjetas border-none h-[492px]">
-      <CardHeader>
-        <CardTitle className="text-gray-400 text-lg flex items-center gap-2 justify-center">
-          Competidores de {companyName ?? symbol} en el sector {sector ?? 'N/A'}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="h-[400px]">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-2 h-full">
-          <div className="overflow-y-auto h-full bg-transparent peers-scroll">
-            <div className="grid grid-cols-1 sm:grid-cols-1 gap-2">
-              {competitors.map((competitor) => (
-                <div
-                key={competitor.symbol}
-                className={`bg-gray-800/50 rounded-lg p-4 border transition-all cursor-pointer ${
-                  selectedCompetitor === competitor.symbol 
-                    ? 'border-orange-500 bg-orange-500/10' 
-                    : 'border-gray-700/50 hover:border-orange-500/30'
-                }`}
-                onClick={() => handleCompetitorClick(competitor.symbol)}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-orange-300 font-semibold text-sm truncate">
-                      {competitor.symbol}
-                    </h3>
-                    <p className="text-gray-400 text-xs truncate mt-1">
-                      {competitor.companyName}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 ml-2">
-                    {getChangeIcon(competitor.changesPercentage)}
-                    <span className={`text-xs font-medium ${getChangeColor(competitor.changesPercentage)}`}>
-                      {competitor.changesPercentage !== null 
-                        ? `${competitor.changesPercentage > 0 ? '+' : ''}${competitor.changesPercentage.toFixed(2)}%`
-                        : 'N/A'
-                      }
-                    </span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3 text-xs">
-                  <div>
-                    <p className="text-gray-500 mb-1">Precio</p>
-                    <p className="text-white font-medium">
-                      {formatPrice(competitor.price)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500 mb-1">Market Cap</p>
-                    <p className="text-white font-medium">
-                      {formatMarketCap(competitor.marketCap)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500 mb-1">P/E</p>
-                    <p className="text-white font-medium">
-                      {formatPE(competitor.pe)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-            </div>
-          </div>
-
-          <div className="h-full overflow-hidden">
-            <RadarPeersCard 
-              symbol={symbol} 
-              selectedCompetitor={selectedCompetitor}
-              embedded
-            />
-          </div>
+    <div className="w-full h-full flex flex-col bg-tarjetas border border-white/5 rounded-none overflow-hidden shadow-sm">
+        <div className="py-2 px-4 border-b border-white/5 bg-white/[0.02] shrink-0">
+          <h4 className="text-xs font-medium text-gray-400 text-center">
+            Competidores directos de <span className="text-orange-400">{symbol}</span>
+            {sector && <span className="text-gray-500 ml-1">({sector})</span>}
+          </h4>
         </div>
-      </CardContent>
-    </Card>
+
+        <div className="flex-1 overflow-y-auto scrollbar-thin relative p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-white/10 hover:bg-gray-600 bg-gray-600">
+                <TableHead className="text-gray-300 text-[10px] h-8 w-[60px]">Ticker</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[50px]">F.G.O.S.</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[80px]">Valuación</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[50px]">Ecosistema</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[60px]">Div. Yield</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[60px]">Estimación</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-8 text-right w-[70px]">Last Price</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-8 text-right w-[60px]">YTD %</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-8 text-right w-[70px]">Mkt Cap</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="h-24 text-center">
+                    <div className="flex justify-center items-center gap-2 text-gray-400 text-xs">
+                       <Loader2 className="w-4 h-4 animate-spin" /> Cargando competidores...
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : competitors.length === 0 ? (
+                <TableRow>
+                   <TableCell colSpan={9} className="h-24 text-center text-gray-500 text-xs">
+                     No se encontraron competidores directos.
+                   </TableCell>
+                </TableRow>
+              ) : competitors.map((stock) => (
+                <TableRow 
+                  key={stock.ticker} 
+                  className="border-white/5 hover:bg-white/5 cursor-pointer transition-colors"
+                  onClick={() => onCompetitorSelect?.(stock.ticker)}
+                >
+                  <TableCell className="font-bold text-white px-2 py-0.5 text-xs">{stock.ticker}</TableCell>
+                  <TableCell className="text-center px-2 py-0.5">
+                    <Badge variant="outline" className={`text-[10px] border-0 px-1.5 py-0 h-5 font-bold ${getFgosColor(stock.fgos)}`}>
+                      {stock.fgos || '-'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-center px-2 py-0.5">
+                    {getValBadge(stock.valuation)}
+                  </TableCell>
+                  <TableCell className="text-center px-2 py-0.5 text-[10px] text-blue-400 font-bold">
+                    {stock.ecosystem || '-'}
+                  </TableCell>
+                  <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
+                    {stock.divYield ? `${stock.divYield.toFixed(2)}%` : '-'}
+                  </TableCell>
+                  <TableCell 
+                    className={`text-center px-2 py-0.5 text-[10px] font-medium ${stock.estimation > 0 ? 'text-green-400' : 'text-red-400'}`}
+                  >
+                    {stock.estimation ? `${stock.estimation > 0 ? '+' : ''}${stock.estimation.toFixed(1)}%` : '-'}
+                  </TableCell>
+                  <TableCell className="text-right px-2 py-0.5 text-xs font-mono text-white">
+                    ${stock.price.toFixed(2)}
+                  </TableCell>
+                  <TableCell 
+                    className={`text-right px-2 py-0.5 text-[10px] font-medium ${stock.ytd >= 0 ? 'text-green-400' : 'text-red-400'}`}
+                  >
+                    {stock.ytd >= 0 ? "+" : ""}{stock.ytd.toFixed(1)}%
+                  </TableCell>
+                  <TableCell className="text-right px-2 py-0.5 text-[10px] text-gray-400">
+                    {formatMarketCap(stock.marketCap)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+    </div>
   );
 }

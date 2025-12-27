@@ -37,6 +37,15 @@ function extractPeers(raw: any): string[] {
   
   if (!raw) return [];
 
+  // FMP Stable format: [{ symbol: "GOOGL", ... }, { symbol: "MSFT", ... }]
+  // Check this first as it's the most specific object structure
+  if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === 'object' && raw[0] !== null && 'symbol' in raw[0]) {
+    const result = raw
+      .map((obj: any) => obj.symbol)
+      .filter((symbol: unknown): symbol is string => typeof symbol === "string" && symbol.trim().length > 0);
+    return result;
+  }
+
   if (Array.isArray(raw)) {
     // v4: [{ peersList: [...] }]
     if (raw.length && Array.isArray(raw[0]?.peersList)) {
@@ -45,14 +54,6 @@ function extractPeers(raw: any): string[] {
     // a veces devuelven array de strings
     if (raw.every((x) => typeof x === "string")) {
       return raw as string[];
-    }
-    
-    // NUEVO: Manejar array de objetos con propiedad 'symbol'
-    if (raw.length && typeof raw[0] === 'object' && 'symbol' in raw[0]) {
-      const result = raw
-        .map((obj: any) => obj.symbol)
-        .filter((symbol: unknown): symbol is string => typeof symbol === "string" && symbol.trim().length > 0);
-      return result;
     }
     
     // objetos con peersList/peer
@@ -154,7 +155,11 @@ export async function GET(req: Request) {
     };
     return new NextResponse(JSON.stringify(payload), {
       status: 200,
-      headers: { ...cacheHeaders, "X-Fallback": "true" },
+      headers: { 
+        "Content-Type": "application/json", 
+        "Cache-Control": "no-store", // Do not cache fallback responses
+        "X-Fallback": "true" 
+      },
     });
   }
 }

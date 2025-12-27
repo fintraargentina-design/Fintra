@@ -64,7 +64,7 @@ export default function FGOSRadarChart({ symbol, data, comparedSymbol }: { symbo
     <Card className="bg-tarjetas border-none h-full shadow-lg py-0 flex flex-col relative group">
       <CardContent className="flex-1 min-h-0 w-full pt-0">
         <ResponsiveContainer width="100%" height="100%">
-          <RadarChart cx="50%" cy="50%" outerRadius="50%" data={chartData}>
+          <RadarChart cx="40%" cy="55%" outerRadius="70%" data={chartData}>
             <PolarGrid stroke="#4B5563" />
             <PolarAngleAxis dataKey="subject" tick={{ fill: '#9CA3AF', fontSize: 11 }} />
             <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
@@ -90,9 +90,11 @@ export default function FGOSRadarChart({ symbol, data, comparedSymbol }: { symbo
             )}
             
             <Legend 
-              verticalAlign="bottom" 
-              height={36} 
-              iconType="circle"
+              layout="vertical"
+              align="right"
+              verticalAlign="middle" 
+              wrapperStyle={{ right: 0, top: '50%', transform: 'translateY(-50%)' }}
+              iconType="rect"
               formatter={(value) => <span className="text-xs text-gray-400 ml-1">{value}</span>}
             />
             <Tooltip 

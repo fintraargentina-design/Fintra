@@ -379,32 +379,32 @@ export default function FundamentalCard({ symbol, period = "annual" }: { symbol:
         // En FMP BalanceSheetGrowth existe "growthShareholdersEquity"? Revisar tipos.
         // Si no, ignoramos o usamos book value growth.
         // Vamos a asumir que balanceGrowth tiene growthShareholdersEquity (si no, null).
-        const equityGrowthSeries = Array.isArray(balanceGrowth) ? balanceGrowth.map((x: any) => x.growthShareholdersEquity) : [];
+        const equityGrowthSeries = Array.isArray(balanceGrowth) ? balanceGrowth.map((x: any) => x.growthTotalStockholdersEquity ?? x.growthShareholdersEquity) : [];
 
         // Construir filas
         const newRows: MetricRow[] = [];
 
         // 1. Rentabilidad
-        const roe = numOrNull(r.returnOnEquity);
+        const roe = numOrNull(r.returnOnEquity ?? r.returnOnEquityTTM);
         newRows.push({ label: "ROE", unit: "%", raw: roe, ...getScoreMeta("ROE", roe), display: fmtPercent(pctOrNull(roe)) });
 
-        const roic = numOrNull(r.returnOnCapitalEmployed); // FMP usa returnOnCapitalEmployed como proxy de ROIC a veces
+        const roic = numOrNull(r.returnOnCapitalEmployed ?? r.returnOnCapitalEmployedTTM); // FMP usa returnOnCapitalEmployed como proxy de ROIC a veces
         newRows.push({ label: "ROIC", unit: "%", raw: roic, ...getScoreMeta("ROIC", roic), display: fmtPercent(pctOrNull(roic)) });
 
-        const grossMargin = numOrNull(r.grossProfitMargin);
+        const grossMargin = numOrNull(r.grossProfitMargin ?? r.grossProfitMarginTTM);
         newRows.push({ label: "Margen bruto", unit: "%", raw: grossMargin, ...getScoreMeta("Margen bruto", grossMargin), display: fmtPercent(pctOrNull(grossMargin)) });
 
-        const netMargin = numOrNull(r.netProfitMargin);
+        const netMargin = numOrNull(r.netProfitMargin ?? r.netProfitMarginTTM);
         newRows.push({ label: "Margen neto", unit: "%", raw: netMargin, ...getScoreMeta("Margen neto", netMargin), display: fmtPercent(pctOrNull(netMargin)) });
 
         // 2. Salud Financiera
-        const debtEq = numOrNull(r.debtEquityRatio);
+        const debtEq = numOrNull(r.debtEquityRatio ?? r.debtEquityRatioTTM);
         newRows.push({ label: "Deuda/Capital", unit: "x", raw: debtEq, ...getScoreMeta("Deuda/Capital", debtEq), display: fmtRatio(debtEq) });
 
-        const currentRatio = numOrNull(r.currentRatio);
+        const currentRatio = numOrNull(r.currentRatio ?? r.currentRatioTTM);
         newRows.push({ label: "Current Ratio", unit: "x", raw: currentRatio, ...getScoreMeta("Current Ratio", currentRatio), display: fmtRatio(currentRatio) });
 
-        const interestCov = numOrNull(r.interestCoverage);
+        const interestCov = numOrNull(r.interestCoverage ?? r.interestCoverageTTM);
         newRows.push({ label: "Cobertura de intereses", unit: "x", raw: interestCov, ...getScoreMeta("Cobertura de intereses", interestCov), display: fmtRatio(interestCov) });
 
         // Free Cash Flow Yield? O FCF/Sales?
@@ -424,8 +424,8 @@ export default function FundamentalCard({ symbol, period = "annual" }: { symbol:
         // FMP ratios tiene "freeCashFlowOperatingCashFlowRatio"? No.
         // Vamos a intentar calcular FCF Margin desde Key Metrics (Revenue per share / FCF per share)?
         // keyMetrics: revenuePerShare, freeCashFlowPerShare.
-        const revPerShare = numOrNull(k.revenuePerShare);
-        const fcfPerShare = numOrNull(k.freeCashFlowPerShare);
+        const revPerShare = numOrNull(k.revenuePerShare ?? k.revenuePerShareTTM);
+        const fcfPerShare = numOrNull(k.freeCashFlowPerShare ?? k.freeCashFlowPerShareTTM);
         let fcfMargin: number | null = null;
         if (revPerShare && fcfPerShare && revPerShare !== 0) {
           fcfMargin = fcfPerShare / revPerShare;
@@ -443,7 +443,7 @@ export default function FundamentalCard({ symbol, period = "annual" }: { symbol:
         newRows.push({ label: "CAGR patrimonio", unit: "%", raw: cagrEq, ...getScoreMeta("CAGR patrimonio", cagrEq), display: fmtPercent(cagrEq) });
 
         // 4. Valoración / Otros
-        const bookVal = numOrNull(k.bookValuePerShare);
+        const bookVal = numOrNull(k.bookValuePerShare ?? k.bookValuePerShareTTM);
         newRows.push({ label: "Book Value por acción", unit: "$", raw: bookVal, ...getScoreMeta("Book Value por acción", bookVal), display: bookVal ? `$${bookVal.toFixed(2)}` : "N/A" });
 
         setRows(newRows);

@@ -29,8 +29,11 @@ import {
 } from "lucide-react";
 
 import { fmp } from "@/lib/fmp/client";
+import { getLatestSnapshot } from "@/lib/repository/fintra-db";
+import { FintraSnapshotDB } from "@/lib/engine/types";
 import { getConclusionColors } from "@/lib/conclusionColors";
 import { useResponsive } from "@/hooks/use-responsive";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface OverviewCardProps {
   selectedStock: any; // string ("AAPL") o { symbol: "AAPL", ... }
@@ -153,6 +156,11 @@ export default function OverviewCard({
   const [scoresData, setScoresData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Estado para Snapshot de Supabase
+  const [snapshot, setSnapshot] = useState<FintraSnapshotDB | null>(null);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+
   const [activeTab, setActiveTab] = useState<"overview" | "analysis">(
     "overview",
   );
@@ -193,34 +201,42 @@ export default function OverviewCard({
   const [chartType, setChartType] = useState<"line" | "area">("area");
   const [chartRange, setChartRange] = useState<"1D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "5Y" | "ALL">("1Y");
 
-  // Helper functions for analysis display
-  const fgos = analysisData?.fgos_score || 0;
-  const valStatus = (analysisData?.valuation_status || "Fair").toLowerCase();
-  const ehs = analysisData?.ecosystem_score || 0;
+  // Fetch Snapshot from Supabase
+  useEffect(() => {
+    let active = true;
+    const fetchSnapshot = async () => {
+      if (!currentSymbol) return;
+      setSnapshotLoading(true);
+      try {
+        const data = await getLatestSnapshot(currentSymbol);
+        if (active) setSnapshot(data);
+      } catch (err) {
+        console.error("Error fetching snapshot:", err);
+      } finally {
+        if (active) setSnapshotLoading(false);
+      }
+    };
+    fetchSnapshot();
+    return () => { active = false; };
+  }, [currentSymbol]);
 
-  const getVerdict = (score: number, v: string) => {
-    const isCheap = v.includes("under") || v.includes("barata");
-    const isFair = v.includes("fair") || v.includes("justa");
-    
-    if (score >= 70) { // Calidad Alta
-        if (isCheap) return "⭐ Alta oportunidad a largo plazo";
-        if (isFair) return "Empresa sólida, buen negocio";
-        return "Excelente empresa, precio exigente";
-    }
-    if (score >= 40) { // Calidad Media
-        if (isCheap) return "Potencial selectivo, requiere análisis";
-        return "Sin ventaja clara";
-    }
-    // Calidad Baja
-    if (isCheap) return "Barata por una razón (Cuidado)";
-    return "❌ Riesgo elevado";
+  // Helpers de visualización
+  const getScoreColor = (s: number) => {
+    if (s >= 70) return "text-green-400";
+    if (s >= 50) return "text-yellow-400";
+    return "text-red-400";
   };
 
-  const verdict = getVerdict(fgos, valStatus);
-  const getScoreColor = (s: number) => s >= 70 ? "text-green-400" : s >= 40 ? "text-yellow-400" : "text-red-400";
-  const getValBadge = (v: string) => {
-    if (v.includes("under") || v.includes("barata")) return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-xs" variant="outline">Infravalorada</Badge>;
-    if (v.includes("over") || v.includes("cara")) return <Badge className="text-red-400 bg-red-400/10 border-red-400 px-2 py-0.5 text-xs" variant="outline">Sobrevalorada</Badge>;
+  const getValBadge = (v: string | null | undefined) => {
+    if (!v) return <Badge className="text-gray-400 bg-gray-400/10 border-gray-400 px-2 py-0.5 text-xs" variant="outline">N/A</Badge>;
+    
+    const lowerV = v.toLowerCase();
+    if (lowerV.includes("under") || lowerV.includes("infra") || lowerV.includes("barata")) {
+      return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-xs" variant="outline">Infravalorada</Badge>;
+    }
+    if (lowerV.includes("over") || lowerV.includes("sobre") || lowerV.includes("cara")) {
+      return <Badge className="text-red-400 bg-red-400/10 border-red-400 px-2 py-0.5 text-xs" variant="outline">Sobrevalorada</Badge>;
+    }
     return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-xs" variant="outline">Justa</Badge>;
   };
 
@@ -762,13 +778,13 @@ export default function OverviewCard({
       <Card className="w-full bg-tarjetas border border-white/5 rounded-none overflow-hidden shadow-sm px-0 py-0">
         <CardContent className="p-0">
           {/* Header Row - Visible on Desktop */}
-          <div className="hidden md:grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-2 items-center bg-[#111] px-4 py-1 border-b border-white/10 sticky top-0 z-10">
-            <div className="text-[10px] uppercase text-gray-500 font-bold">Ticker</div>
-            <div className="text-[10px] uppercase text-gray-500 font-bold text-center">Precio</div>
-            <div className="text-[10px] uppercase text-gray-500 font-bold text-center">FGOS Score</div>
-            <div className="text-[10px] uppercase text-gray-500 font-bold text-center">Valuación</div>
-            <div className="text-[10px] uppercase text-gray-500 font-bold text-center">Verdict Fintra</div>
-            <div className="text-[10px] uppercase text-gray-500 font-bold text-center">E.H.S.</div>
+          <div className="hidden md:grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-2 items-center bg-gray-600 px-4 py-1 border-b border-white/10 sticky top-0 z-10">
+            <div className="text-[10px] text-gray-200">Ticker</div>
+            <div className="text-[10px] text-gray-200 text-center">Último Precio</div>
+            <div className="text-[10px] text-gray-200 text-center">F.G.O.S.</div>
+            <div className="text-[10px] text-gray-200 text-center">Valuación</div>
+            <div className="text-[10px] text-gray-200 text-center">Conclusión</div>
+            <div className="text-[10px] text-gray-200 text-center">Ecosistema</div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-2 items-center h-full p-1 md:p-1 md:px-1 md:py-1">
@@ -809,19 +825,33 @@ export default function OverviewCard({
               {/* 3. FGOS */}
               <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
                   <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-0.5">FGOS SCORE</span>
-                  <div className={`text-xl font-black ${getScoreColor(fgos)}`}>{fgos}</div>
+                  {snapshotLoading ? (
+                    <Skeleton className="h-6 w-10 bg-white/10 rounded-sm" />
+                  ) : (
+                    <div className={`text-xl font-black ${getScoreColor(snapshot?.fgos_score ?? 0)}`}>{snapshot?.fgos_score ?? "-"}</div>
+                  )}
               </div>
 
               {/* 4. VALUACIÓN */}
               <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
                   <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-1.5">VALUACIÓN</span>
-                  {getValBadge(valStatus)}
+                  {snapshotLoading ? (
+                    <Skeleton className="h-5 w-20 bg-white/10 rounded-full" />
+                  ) : (
+                    getValBadge(snapshot?.valuation_status)
+                  )}
               </div>
 
               {/* 5. VEREDICTO */}
               <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4 text-center">
                   <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-1">VERDICT FINTRA</span>
-                  <span className="text-white font-medium text-xs leading-tight max-w-[180px]">{verdict}</span>
+                  {snapshotLoading ? (
+                    <Skeleton className="h-4 w-32 bg-white/10 rounded-sm" />
+                  ) : (
+                    <span className="text-white font-medium text-xs leading-tight max-w-[180px] line-clamp-2" title={snapshot?.verdict_text || "N/A"}>
+                        {snapshot?.verdict_text || "N/A"}
+                    </span>
+                  )}
               </div>
 
               {/* 6. EHS */}
@@ -829,8 +859,14 @@ export default function OverviewCard({
                   <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest flex items-center gap-1 mb-0.5">
                       E.H.S. <Activity className="w-3 h-3 text-blue-400"/>
                   </span>
-                  <div className="text-xl font-mono text-blue-400 font-bold">{ehs}</div>
-                  <span className="text-[9px] text-gray-500 font-medium mt-[-2px]">Salud del ecosistema</span>
+                  {snapshotLoading ? (
+                    <Skeleton className="h-6 w-10 bg-white/10 rounded-sm" />
+                  ) : (
+                     <>
+                        <div className="text-xl font-mono text-blue-400 font-bold">{snapshot?.ecosystem_health_score ?? "-"}</div>
+                        <span className="text-[9px] text-gray-500 font-medium mt-[-2px]">Salud del ecosistema</span>
+                     </>
+                  )}
               </div>
            </div>
         </CardContent>

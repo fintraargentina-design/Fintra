@@ -2,7 +2,6 @@ import "server-only";
 import { FgosResult, FgosBreakdown } from './types';
 import { getBenchmarksForSector } from './benchmarks';
 import { fmpDirect as fmp } from '@/lib/fmp/direct';
-import { MOCK_AAPL_SNAPSHOT } from '@/lib/demo/aapl-snapshot';
 import { 
   FMPFinancialRatio, 
   FMPKeyMetrics, 
@@ -46,23 +45,6 @@ export async function calculateFGOS(ticker: string): Promise<FgosResult | null> 
       fmp.growth(ticker),
       fmp.quote(ticker)
     ]);
-
-    // FALLBACK DEMO MODE FOR AAPL (403/402 Plan Limits)
-    if (ticker.toUpperCase() === 'AAPL') {
-      const errors = [profileRes, ratiosRes, metricsRes, growthRes, quoteRes]
-        .filter(r => r.status === 'rejected')
-        .map(r => (r as PromiseRejectedResult).reason);
-
-      const hasPlanLimitError = errors.some(e => {
-        const msg = String(e);
-        return msg.includes('403') || msg.includes('402');
-      });
-
-      if (hasPlanLimitError) {
-        console.warn("⚠️ Plan Limit Reached for AAPL. Activating Demo Mode.");
-        return MOCK_AAPL_SNAPSHOT;
-      }
-    }
 
     if (profileRes.status === 'rejected') console.error('Profile Fetch Error:', profileRes.reason);
     if (ratiosRes.status === 'rejected') console.error('Ratios Fetch Error:', ratiosRes.reason);

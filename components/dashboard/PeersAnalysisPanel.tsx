@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { fmp } from "@/lib/fmp/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { getHeatmapColor } from "@/lib/utils";
 
 interface PeersAnalysisPanelProps {
   symbol: string;
@@ -13,6 +14,7 @@ interface PeersAnalysisPanelProps {
 
 export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer }: PeersAnalysisPanelProps) {
   const [peers, setPeers] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (!symbol) {
@@ -21,10 +23,14 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
     }
 
     let active = true;
+    setIsLoading(true);
+    setPeers([]); // Reset peers while loading new symbol
+
     (async () => {
       try {
         // 1. Get peers list
-        const peersRes = await fmp.peers(symbol).catch(() => []);
+        // Use no-store to avoid cached empty responses (e.g. from previous errors)
+        const peersRes = await fmp.peers(symbol, { cache: 'no-store' }).catch(() => []);
         let peersList: string[] = [];
 
         // Handle different response formats from FMP
@@ -47,58 +53,101 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
           peersList = (peersRes as any).peers;
         }
         
-        // Si no hay peers, usar fallback si es AAPL o TSLA para demo, o vacio
         if (!peersList.length) {
-             if (symbol === 'AAPL') peersList = ['MSFT', 'GOOGL', 'NVDA', 'META', 'AMZN'];
-             else if (symbol === 'TSLA') peersList = ['BYD', 'RIVN', 'LCID'];
-             else {
-                 if(active) setPeers([]);
-                 return;
+             if(active) {
+                 setPeers([]);
+                 setIsLoading(false);
              }
+             return;
         }
         
         peersList = peersList.slice(0, 8);
         
         // Filter out invalid tickers
-        peersList = peersList.filter(p => p && typeof p === 'string' && /^[A-Z0-9.\-\^]+$/i.test(p));
+        peersList = peersList.filter(p => {
+          if (!p || typeof p !== 'string') return false;
+          // Eliminar tickers con caracteres extraños, pero permitir puntos (BRK.B), guiones (BRK-B) y carets (^GSPC)
+          const clean = p.trim();
+          return clean.length > 0 && /^[A-Z0-9.\-\^]+$/i.test(clean);
+        });
 
         if (peersList.length === 0) {
-             if(active) setPeers([]);
+             if(active) {
+                 setPeers([]);
+                 setIsLoading(false);
+             }
              return;
         }
 
         // 2. Get quotes and profiles
-        const peersString = peersList.join(',');
-        const [quotes, profiles] = await Promise.all([
-            fmp.quote(peersString),
-            fmp.profile(peersString)
-        ]);
+        // Limpiamos y aseguramos que no haya vacíos
+        const peersString = peersList.map(s => s.trim()).filter(Boolean).join(',');
         
-        const mapped = peersList.map(ticker => {
-            const q = Array.isArray(quotes) ? quotes.find((x: any) => x.symbol === ticker) : null;
-            const p = Array.isArray(profiles) ? profiles.find((x: any) => x.symbol === ticker) : null;
-            
-            // Mock scores for visual consistency as we don't have them pre-calculated
-            return {
-                ticker,
-                name: p?.companyName || ticker,
-                fgos: Math.floor(Math.random() * (95 - 50) + 50), 
-                valuation: ["Undervalued", "Fair", "Overvalued"][Math.floor(Math.random() * 3)],
-                ecoScore: Math.floor(Math.random() * (90 - 40) + 40),
-                price: q?.price || 0,
-                change: q?.changesPercentage || 0,
-                divYield: (Math.random() * 5).toFixed(2),
-                estimation: (Math.random() * 250 + 20).toFixed(2),
-                ytd: (q?.yearHigh && q?.yearLow ? ((q.price - q.yearLow) / q.yearLow * 100) : (Math.random() * 40 - 10)).toFixed(1),
-                marketCap: p?.mktCap || (Math.random() * 2000000000000 + 10000000000)
-            };
-        });
+        // Ensure peersString is valid for API call
+        if (!peersString || peersString.trim().length === 0) {
+             if(active) {
+                 setPeers([]);
+                 setIsLoading(false);
+             }
+             return;
+        }
 
-        if(active) setPeers(mapped);
+        try {
+            const [quotes, profiles] = await Promise.all([
+                fmp.quote(peersString),
+                fmp.profile(peersString)
+            ]);
+            
+            const mapped = peersList.map(ticker => {
+                const q = Array.isArray(quotes) ? quotes.find((x: any) => x.symbol === ticker) : null;
+                const p = Array.isArray(profiles) ? profiles.find((x: any) => x.symbol === ticker) : null;
+                
+                // Mock scores for visual consistency as we don't have them pre-calculated
+                return {
+                    ticker,
+                    name: p?.companyName || ticker,
+                    fgos: Math.floor(Math.random() * (95 - 50) + 50), 
+                    valuation: ["Undervalued", "Fair", "Overvalued"][Math.floor(Math.random() * 3)],
+                    ecoScore: Math.floor(Math.random() * (90 - 40) + 40),
+                    price: q?.price || 0,
+                    change: q?.changesPercentage || 0,
+                    divYield: (Math.random() * 5).toFixed(2),
+                    estimation: (Math.random() * 250 + 20).toFixed(2),
+                    ytd: (q?.yearHigh && q?.yearLow ? ((q.price - q.yearLow) / q.yearLow * 100) : (Math.random() * 40 - 10)).toFixed(1),
+                    marketCap: p?.mktCap || 0
+                };
+            });
+
+            if(active) {
+                 setPeers(mapped);
+                 setIsLoading(false);
+            }
+        } catch (innerError) {
+             console.error("Error fetching quotes/profiles for peers:", innerError);
+             // If profile fetch fails, try to show at least the tickers
+             const basicMapped = peersList.map(ticker => ({
+                ticker,
+                name: ticker,
+                fgos: Math.floor(Math.random() * (95 - 50) + 50), 
+                valuation: "Fair",
+                ecoScore: 0,
+                price: 0,
+                change: 0,
+                divYield: "0.00",
+                estimation: "0.00",
+                ytd: "0.0",
+                marketCap: 0
+             }));
+             if(active) {
+                 setPeers(basicMapped);
+                 setIsLoading(false);
+             }
+        }
 
       } catch (e) {
         console.error(e);
-      }
+        if(active) setIsLoading(false);
+      } 
     })();
     return () => { active = false; };
   }, [symbol]);
@@ -108,10 +157,11 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
     s >= 50 ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" : 
     "bg-red-500/10 text-red-400 border-red-500/20";
 
-  const getValuationColor = (v: string) => 
-    v === "Undervalued" ? "text-green-400" : 
-    v === "Fair" ? "text-yellow-400" : 
-    "text-red-400";
+  const getValBadge = (v: string) => {
+    if (v === "Undervalued") return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-[9px] h-5" variant="outline">Infravalorada</Badge>;
+    if (v === "Fair") return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-[9px] h-5" variant="outline">Justa</Badge>;
+    return <Badge className="text-red-400 bg-red-400/10 border-red-400 px-2 py-0.5 text-[9px] h-5" variant="outline">Sobrevalorada</Badge>;
+  };
 
   return (
     <div className="w-full h-full flex flex-col bg-tarjetas border border-white/5 rounded-none overflow-hidden mt-0">
@@ -138,10 +188,16 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {peers.length === 0 ? (
+            {isLoading ? (
                 <TableRow>
                     <TableCell colSpan={9} className="text-center text-gray-500 py-8 text-xs">
                         Cargando competidores...
+                    </TableCell>
+                </TableRow>
+            ) : peers.length === 0 ? (
+                <TableRow>
+                    <TableCell colSpan={9} className="text-center text-gray-500 py-8 text-xs">
+                        No se encontraron competidores para {symbol}.
                     </TableCell>
                 </TableRow>
             ) : (
@@ -161,12 +217,8 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
                         {peer.fgos}
                       </Badge>
                     </TableCell>
-                    <TableCell className={`text-center px-2 py-0.5 text-[10px] font-medium ${
-                        peer.valuation === "Undervalued" ? "text-green-400" : 
-                        peer.valuation === "Fair" ? "text-yellow-400" : 
-                        "text-red-400"
-                    }`}>
-                      {peer.valuation}
+                    <TableCell className="text-center px-2 py-0.5">
+                      {getValBadge(peer.valuation)}
                     </TableCell>
                     <TableCell className="text-center px-2 py-0.5 text-[10px] text-blue-400 font-bold">
                         {peer.ecoScore}
@@ -180,7 +232,10 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
                     <TableCell className="text-right px-2 py-0.5 text-xs font-mono text-white">
                       ${Number(peer.price).toFixed(2)}
                     </TableCell>
-                    <TableCell className={`text-right px-2 py-0.5 text-[10px] font-medium ${Number(peer.ytd) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    <TableCell 
+                      className="text-right px-2 py-0.5 text-[10px] font-medium text-white"
+                      style={{ backgroundColor: getHeatmapColor(Number(peer.ytd)) }}
+                    >
                       {Number(peer.ytd) >= 0 ? "+" : ""}{Number(peer.ytd).toFixed(1)}%
                     </TableCell>
                     <TableCell className="text-right px-2 py-0.5 text-[10px] text-gray-400">

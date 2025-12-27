@@ -20,11 +20,6 @@ const MOCK = {
   ]
 };
 
-const MicroTherm = ({ v }: { v: number }) => (
-  <div className="w-16 mx-auto h-1.5 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 relative opacity-80">
-    <div className="absolute -top-0.5 h-2.5 w-0.5 bg-white shadow-sm" style={{ left: `${v}%` }} />
-  </div>
-);
 
 export interface EcoItem {
   id: string;
@@ -42,6 +37,12 @@ interface EcosystemCardProps {
 }
 
 export default function EcosystemCard({ suppliers = MOCK.prov, clients = MOCK.cli }: EcosystemCardProps) {
+  const getValBadge = (v: number) => {
+    if (v >= 70) return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-[9px] h-5" variant="outline">Infravalorada</Badge>;
+    if (v >= 40) return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-[9px] h-5" variant="outline">Justa</Badge>;
+    return <Badge className="text-red-400 bg-red-400/10 border-red-400 px-2 py-0.5 text-[9px] h-5" variant="outline">Sobrevalorada</Badge>;
+  };
+
   const renderT = (data: EcoItem[], t: string) => (
     <div className="mb-1 last:mb-0 pt-2">
       <div className="flex items-center justify-center mb-2 px-1 text-orange-400">
@@ -49,27 +50,35 @@ export default function EcosystemCard({ suppliers = MOCK.prov, clients = MOCK.cl
       </div>
       <div className="border border-white/5 overflow-hidden">
         <Table>
-          <TableHeader className="bg-[#111] sticky top-0 z-10"><TableRow className="border-white/10 hover:bg-transparent">
-            <TableHead className="h-8 text-[10px] uppercase text-gray-500 font-bold">TICKER</TableHead>
-            <TableHead className="h-8 text-[10px] uppercase text-gray-500 font-bold w-20">Dep.</TableHead>
-            <TableHead className="h-8 text-[10px] uppercase text-gray-500 font-bold text-center">Valuación</TableHead>
-            <TableHead className="h-8 text-[10px] uppercase text-gray-500 font-bold text-center">E.H.S.</TableHead>
-            <TableHead className="h-8 text-[10px] uppercase text-gray-500 font-bold text-center">F.G.O.S.</TableHead>
-            <TableHead className="h-8 text-[10px] uppercase text-gray-500 font-bold text-right">Conclusión</TableHead>
+          <TableHeader className="bg-gray-600 sticky top-0 z-10"><TableRow className="border-white/10 hover:bg-transparent">
+            <TableHead className="h-8 text-[10px] text-gray-300">Ticker</TableHead>
+            <TableHead className="h-8 text-[10px] text-gray-300 w-20">Dependencia</TableHead>
+            <TableHead className="h-8 text-[10px] text-gray-300 text-center">F.G.O.S.</TableHead>
+            <TableHead className="h-8 text-[10px] text-gray-300 text-center">Valuación</TableHead>
+            <TableHead className="h-8 text-[10px] text-gray-300 text-center">Ecosistema</TableHead>            
+            <TableHead className="h-8 text-[10px] text-gray-300 text-right">Conclusión</TableHead>
           </TableRow></TableHeader>
           <TableBody>{data.map((i, k) => (
             <TableRow key={i.id} className="border-white/5 hover:bg-white/5 h-10 group">
-              <TableCell className="py-2"><div className="flex items-center gap-2">
+              <TableCell className="py-0.5"><div className="flex items-center gap-1">
                 {/* <Avatar className="h-8 w-8"><AvatarFallback className="text-[7px]">{i.id.substring(0,1)}</AvatarFallback></Avatar> */}
-                <div><div className="font-bold text-[10px] text-gray-200 leading-none">{i.id}</div><div className="text-[8px] text-gray-500">{i.n}</div></div>
+                <div><div className="font-bold text-[10px] text-gray-200 leading-none">{i.id}</div>{/* <div className="text-[8px] text-gray-500">{i.n}</div> */}</div>
               </div></TableCell>
-              <TableCell className="py-2"><div className="flex flex-col gap-0.5">
-                <Progress value={i.dep} className="h-1 bg-gray-800" indicatorColor={i.dep>50?"bg-orange-500":"bg-blue-500"}/><span className="text-[8px] text-gray-500 text-right">{i.dep}%</span>
-              </div></TableCell>
-              <TableCell className="py-2"><MicroTherm v={i.val}/></TableCell>
-              <TableCell className="py-2 text-center font-mono text-[10px] text-blue-400">{i.ehs}</TableCell>
-              <TableCell className="py-2 text-center"><Badge variant="outline" className={`text-[9px] px-1 py-0 h-3.5 border ${i.fgos>=70?"text-green-400 border-green-500/30":"text-red-400 border-red-500/30"}`}>{i.fgos}</Badge></TableCell>
-              <TableCell className="py-2 text-right text-[9px] text-gray-400">{i.txt}</TableCell>
+              <TableCell className="py-0.5">
+                <span className="text-[10px] text-gray-300 font-mono">{i.dep}%</span>
+              </TableCell>
+              <TableCell className="py-0.5 text-center">
+                <Badge variant="outline" className={`text-[10px] border-0 px-1.5 py-0 h-5 font-bold ${
+                    i.fgos >= 70 ? "bg-green-500/10 text-green-400" : 
+                    i.fgos >= 50 ? "bg-yellow-500/10 text-yellow-400" : 
+                    "bg-red-500/10 text-red-400"
+                }`}>
+                  {i.fgos}
+                </Badge>
+              </TableCell>
+              <TableCell className="py-0.5 text-center">{getValBadge(i.val)}</TableCell>
+              <TableCell className="py-0.5 text-center font-mono text-[10px] text-blue-400">{i.ehs}</TableCell>
+              <TableCell className="py-0.5 text-right text-[9px] text-gray-400">{i.txt}</TableCell>
             </TableRow>
           ))}</TableBody>
         </Table>

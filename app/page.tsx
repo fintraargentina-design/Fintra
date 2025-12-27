@@ -18,7 +18,6 @@ import Header from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Settings } from 'lucide-react';
 
-import { MOCK_AAPL_SNAPSHOT } from '@/lib/demo/aapl-snapshot';
 import FGOSRadarChart from '@/components/charts/FGOSRadarChart';
 import SectorAnalysisPanel from '@/components/dashboard/SectorAnalysisPanel';
 import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
@@ -256,7 +255,7 @@ export default function StockTerminal() {
                         onStockSearch={buscarDatosAccion}
                         onOpenSearchModal={() => setIsSearchOpen(true)}
                         isParentLoading={isLoading}
-                        analysisData={stockAnalysis || MOCK_AAPL_SNAPSHOT}
+                        analysisData={stockAnalysis}
                       />
                   </div>
 
@@ -273,7 +272,7 @@ export default function StockTerminal() {
                       <div className="w-full lg:w-2/5 h-full">
                            <FGOSRadarChart 
                               symbol={selectedSymbol} 
-                              data={stockAnalysis?.fgos_breakdown || MOCK_AAPL_SNAPSHOT.fgos_breakdown} 
+                              data={stockAnalysis?.fgos_breakdown} 
                               comparedSymbol={selectedCompetitor}
                            />
                       </div>

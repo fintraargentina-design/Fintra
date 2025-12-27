@@ -107,7 +107,7 @@ export async function GET(req: NextRequest) {
     const growth = await fmpGet<any[]>(`/api/v3/financial-growth/${symbol}`, { period: growthPeriod, limit: 5 });
 
     // Nuevo: fallback de forward P/E usando crecimiento de EPS
-    const peValue = num(r?.priceEarningsRatio);
+    const peValue = num(r?.priceEarningsRatio ?? r?.priceEarningsRatioTTM ?? r?.peRatioTTM);
     const epsGrowthRate =
       Array.isArray(growth) && growth.length
         ? num((growth[0] as any)?.epsGrowth ?? (growth[0] as any)?.epsgrowth)
@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
     const forwardPeDirect = num(r?.forwardPE);
     let forwardPeAnalyst: number | null = null;
     // Cálculo de crecimiento implícito basado en PEG y forward P/E
-    const pegValue = num(r?.pegRatio ?? r?.priceToEarningsGrowthRatio ?? r?.priceEarningsToGrowthRatio);
+    const pegValue = num(r?.pegRatio ?? r?.priceToEarningsGrowthRatio ?? r?.priceEarningsToGrowthRatio ?? r?.pegRatioTTM ?? r?.priceEarningsToGrowthRatioTTM);
     const peForGrowth = (forwardPeDirect ?? forwardPeFallback ?? forwardPeAnalyst ?? peValue) ?? null;
     const impliedGrowthCalc =
       pegValue != null && pegValue > 0 && peForGrowth != null && peForGrowth > 0
@@ -148,13 +148,18 @@ export async function GET(req: NextRequest) {
     }
 
     // EV/Sales: directo desde ratios + fallback desde key-metrics
-    const evSalesDirect = num(r?.evToSales ?? r?.enterpriseValueToSales);
+    const evSalesDirect = num(r?.evToSales ?? r?.enterpriseValueToSales ?? r?.evToSalesTTM);
     let evSalesFallback: number | null = null;
     if (evSalesDirect == null) {
       try {
-        const keyMetrics = await fmpGet<any[]>(`/api/v3/key-metrics/${symbol}`, { period, limit: 1 });
+        let keyMetrics: any[] = [];
+        if (period === "ttm") {
+             keyMetrics = await fmpGet<any[]>(`/api/v3/key-metrics-ttm/${symbol}`);
+        } else {
+             keyMetrics = await fmpGet<any[]>(`/api/v3/key-metrics/${symbol}`, { period, limit: 1 });
+        }
         const km = Array.isArray(keyMetrics) && keyMetrics.length ? keyMetrics[0] : {};
-        evSalesFallback = num(km?.evToSales ?? km?.enterpriseValueToSales);
+        evSalesFallback = num(km?.evToSales ?? km?.enterpriseValueToSales ?? km?.evToSalesTTM);
       } catch (_) {
         evSalesFallback = null;
       }
@@ -260,15 +265,15 @@ export async function GET(req: NextRequest) {
       pe: peValue,
       forwardPe: forwardPeDirect ?? forwardPeFallback ?? forwardPeAnalyst,
       peg: pegValue,
-      pb: num(r?.priceToBookRatio),
-      ps: num(r?.priceToSalesRatio),
-      pfcf: num(r?.priceToFreeCashFlowsRatio ?? r?.priceToFreeCashFlowRatio),
-      evEbitda: num(r?.enterpriseValueMultiple),
+      pb: num(r?.priceToBookRatio ?? r?.priceToBookRatioTTM ?? r?.priceBookValueRatioTTM),
+      ps: num(r?.priceToSalesRatio ?? r?.priceToSalesRatioTTM ?? r?.priceSalesRatioTTM),
+      pfcf: num(r?.priceToFreeCashFlowsRatio ?? r?.priceToFreeCashFlowRatio ?? r?.priceToFreeCashFlowsRatioTTM ?? r?.priceToFreeCashFlowRatioTTM),
+      evEbitda: num(r?.enterpriseValueMultiple ?? r?.enterpriseValueMultipleTTM),
       evSales: evSalesDirect ?? evSalesFallback,
 
       // dividendYield suele venir como fracción (0.0123 = 1.23%)
       dividendYield:
-        num(r?.dividendYield) !== null ? +(num(r?.dividendYield)! * 100).toFixed(2) : null,
+        num(r?.dividendYield ?? r?.dividendYieldTTM ?? r?.dividendYielTTM) !== null ? +(num(r?.dividendYield ?? r?.dividendYieldTTM ?? r?.dividendYielTTM)! * 100).toFixed(2) : null,
 
       pePercentile5y: null,
       peZscorePeers: null,

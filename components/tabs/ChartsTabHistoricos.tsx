@@ -36,35 +36,6 @@ type RangeKey = "1A" | "3A" | "5A" | "MAX";
 type Market = "NASDAQ" | "NYSE" | "AMEX";
 const getBenchmarkTicker = (m: Market) => (m === "NASDAQ" ? "^NDX" : "^GSPC");
 
-const generateMockHistory = (ticker: string, count = 1200): OHLC[] => {
-  const data: OHLC[] = [];
-  let price = ticker === 'AAPL' ? 150 : (ticker === '^NDX' ? 15000 : 4000); 
-  let date = new Date();
-  date.setDate(date.getDate() - count);
-
-  for (let i = 0; i < count; i++) {
-    date.setDate(date.getDate() + 1);
-    if (date.getDay() === 0 || date.getDay() === 6) continue;
-
-    const volatility = price * 0.02;
-    const change = (Math.random() - 0.45) * volatility; // slight uptrend
-    const close = Math.max(0.01, price + change);
-    const open = price;
-    const high = Math.max(open, close) + Math.random() * volatility * 0.5;
-    const low = Math.max(0.01, Math.min(open, close) - Math.random() * volatility * 0.5);
-    
-    data.push({
-      date: date.toISOString().split('T')[0],
-      open,
-      high,
-      low,
-      close,
-      volume: Math.floor(Math.random() * 10000000) + 1000000,
-    });
-    price = close;
-  }
-  return data;
-};
 
 const applyRange = (data: OHLC[], range: RangeKey) => {
   if (!data?.length) return [];
@@ -163,14 +134,7 @@ export default function ChartsTabHistoricos({
           a = Array.isArray(rawA) ? rawA : (rawA?.candles || []);
           b = Array.isArray(rawB) ? rawB : (rawB?.candles || []);
         } catch (err: any) {
-          // Fallback para AAPL en caso de error 403 (Demo)
-          if (symbol === 'AAPL' && (err.message?.includes('403') || err.message?.includes('429') || err.status === 403)) {
-            console.warn("Using Mock Data for AAPL due to API restriction");
-            a = generateMockHistory('AAPL', 2000);
-            b = generateMockHistory(benchTicker, 2000);
-          } else {
-            console.error("Error fetching historical data:", err);
-          }
+          console.error("Error fetching historical data:", err);
         }
 
         if (!alive) return;
@@ -251,7 +215,7 @@ export default function ChartsTabHistoricos({
         }
       },
       legend: {
-        bottom: 30, 
+        top: 10,          
         left: 'center',
         data: [symbol],
         textStyle: { color: "#9ca3af" }
@@ -278,7 +242,7 @@ export default function ChartsTabHistoricos({
         left: '1%',
         right: '1%',
         top: '2%',
-        bottom: '2%',
+        bottom: '10%',
         containLabel: true
       },
       xAxis: [

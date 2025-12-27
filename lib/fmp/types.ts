@@ -48,6 +48,8 @@ export type FMPFinancialRatio = {
   debtEquityRatioTTM?: number;
   interestCoverageTTM?: number;
   grossProfitMarginTTM?: number;
+  returnOnCapitalEmployedTTM?: number;
+  currentRatioTTM?: number;
 };
 
 /** ───────────── Perfil (api/v3/profile) ───────────── */
@@ -117,9 +119,12 @@ export type FMPKeyMetrics = {
   bookValuePerShareTTM?: number;
   sharesOutstanding?: number;
   revenuePerShare?: number;
+  revenuePerShareTTM?: number;
   freeCashFlowPerShare?: number;
+  freeCashFlowPerShareTTM?: number;
   roicTTM?: number;
   freeCashFlowYieldTTM?: number;
+  marketCapTTM?: number;
 };
 
 export type FMPCashFlowStatement = {

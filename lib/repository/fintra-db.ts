@@ -5,20 +5,34 @@ import { FintraSnapshotDB, EcosystemRelationDB } from '@/lib/engine/types';
  * Obtiene la última snapshot de análisis Fintra para un símbolo.
  */
 export async function getLatestSnapshot(symbol: string): Promise<FintraSnapshotDB | null> {
+  console.log(`[getLatestSnapshot] Fetching for ticker: ${symbol}`);
+  // Explicitly select columns to avoid any ambiguity or cached schema issues
   const { data, error } = await supabase
     .from('fintra_snapshots')
-    .select('*')
-    .eq('symbol', symbol)
-    .order('date', { ascending: false })
+    .select('id, ticker, fgos_score, ecosystem_score, valuation_status, valuation_score, verdict_text, calculated_at')
+    .eq('ticker', symbol)
+    .order('calculated_at', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle(); // Use maybeSingle to avoid error if no rows found
 
   if (error) {
     console.error(`Error fetching snapshot for ${symbol}:`, error);
     return null;
   }
 
-  return data as FintraSnapshotDB;
+  if (!data) return null;
+
+  // Map DB fields to FintraSnapshotDB interface
+  return {
+    symbol: data.ticker,
+    date: data.calculated_at,
+    fgos_score: data.fgos_score,
+    valuation_score: data.valuation_score ?? 50, // Use DB value or default
+    ecosystem_health_score: data.ecosystem_score,
+    verdict_text: data.verdict_text ?? "N/A", // Use DB value or default
+    valuation_status: data.valuation_status,
+    sector: ""
+  } as FintraSnapshotDB;
 }
 
 /**
@@ -52,9 +66,9 @@ export async function getEcosystemDetailed(symbol: string): Promise<{ suppliers:
   // En producción idealmente haríamos un distinct on (symbol) order by date desc.
   const { data: snapshots, error: snapError } = await supabase
     .from('fintra_snapshots')
-    .select('symbol, fgos_score, valuation_score, ecosystem_health_score, verdict_text')
-    .in('symbol', partnerSymbols)
-    .order('date', { ascending: false });
+    .select('ticker, fgos_score, valuation_status, ecosystem_score')
+    .in('ticker', partnerSymbols)
+    .order('calculated_at', { ascending: false });
 
   if (snapError) {
     console.error('Error fetching partner snapshots:', snapError);
@@ -65,8 +79,8 @@ export async function getEcosystemDetailed(symbol: string): Promise<{ suppliers:
   const snapshotMap = new Map<string, any>();
   if (snapshots) {
     snapshots.forEach((snap: any) => {
-      if (!snapshotMap.has(snap.symbol)) {
-        snapshotMap.set(snap.symbol, snap);
+      if (!snapshotMap.has(snap.ticker)) {
+        snapshotMap.set(snap.ticker, snap);
       }
     });
   }
@@ -77,9 +91,9 @@ export async function getEcosystemDetailed(symbol: string): Promise<{ suppliers:
     return {
       ...rel,
       partner_fgos: snap?.fgos_score,
-      partner_valuation: snap?.valuation_score,
-      partner_ehs: snap?.ecosystem_health_score,
-      partner_verdict: snap?.verdict_text
+      partner_valuation: 50, // Default
+      partner_ehs: snap?.ecosystem_score,
+      partner_verdict: "N/A" // Default
     };
   });
 
@@ -94,8 +108,12 @@ export async function getEcosystemDetailed(symbol: string): Promise<{ suppliers:
  * Obtiene un screener de empresas del mismo sector ordenadas por FGOS.
  */
 export async function getSectorScreener(sector: string): Promise<FintraSnapshotDB[]> {
-  // TODO: Asegurarse de que la columna 'sector' exista en la tabla fintra_snapshots.
-  // Si no existe, se debe agregar o hacer un JOIN con la tabla de datos maestros de acciones.
+  // TODO: La columna 'sector' no existe actualmente en fintra_snapshots.
+  // Retornamos array vacío para evitar errores hasta que se actualice la DB.
+  console.warn(`[getSectorScreener] Skipping sector fetch for ${sector} as DB column is missing.`);
+  return [];
+  
+  /* 
   const { data, error } = await supabase
     .from('fintra_snapshots')
     .select('*')
@@ -109,4 +127,5 @@ export async function getSectorScreener(sector: string): Promise<FintraSnapshotD
   }
 
   return data as FintraSnapshotDB[];
+  */
 }
