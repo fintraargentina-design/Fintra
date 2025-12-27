@@ -69,8 +69,25 @@ export async function GET(req: Request) {
       if (a.status === 402 || a.status === 403 || /Premium|forbidden/i.test(a.text)) {
         const b = await fetchText(v3URL);
         if (!b.ok) {
-          // si v3 también bloqueado, devolvemos vacío pero 200 para no romper UI
+          // Intentamos fallback a 4hour chart (suele estar disponible en Free Tier)
           if (b.status === 402 || b.status === 403 || /Premium|forbidden/i.test(b.text)) {
+            const freeUrl = `${BASE}/api/v3/historical-chart/4hour/${encodeURIComponent(symbol)}?apikey=${KEY}`;
+            const c = await fetchText(freeUrl);
+            
+            if (c.ok) {
+              const out = normalize(symbol, c.json);
+              const sliced = limit ? { ...out, candles: out.candles.slice(-limit) } : out;
+              return NextResponse.json(sliced, {
+                status: 200,
+                headers: {
+                  "Content-Type": "application/json",
+                  "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=900",
+                  "X-Source": "4hour-fallback",
+                },
+              });
+            }
+
+            // Si falla también el fallback, entonces sí bloqueamos
             premiumBlocked = true;
             const out = normalize(symbol, { historical: [] });
             const sliced = limit ? { ...out, candles: out.candles.slice(-limit) } : out;

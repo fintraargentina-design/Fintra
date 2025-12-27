@@ -26,9 +26,24 @@ const MicroTherm = ({ v }: { v: number }) => (
   </div>
 );
 
-export default function EcosystemCard() {
-  const renderT = (data: any[], t: string) => (
-    <div className="mb-1 last:mb-0">
+export interface EcoItem {
+  id: string;
+  n: string;
+  dep: number;
+  val: number;
+  ehs: number;
+  fgos: number;
+  txt: string;
+}
+
+interface EcosystemCardProps {
+  suppliers?: EcoItem[];
+  clients?: EcoItem[];
+}
+
+export default function EcosystemCard({ suppliers = MOCK.prov, clients = MOCK.cli }: EcosystemCardProps) {
+  const renderT = (data: EcoItem[], t: string) => (
+    <div className="mb-1 last:mb-0 pt-2">
       <div className="flex items-center justify-center mb-2 px-1 text-orange-400">
         <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{t}</span>
       </div>
@@ -45,7 +60,7 @@ export default function EcosystemCard() {
           <TableBody>{data.map((i, k) => (
             <TableRow key={i.id} className="border-white/5 hover:bg-white/5 h-10 group">
               <TableCell className="py-2"><div className="flex items-center gap-2">
-                <Avatar className="h-8 w-8"><AvatarFallback className="text-[7px]">{i.id.substring(0,1)}</AvatarFallback></Avatar>
+                {/* <Avatar className="h-8 w-8"><AvatarFallback className="text-[7px]">{i.id.substring(0,1)}</AvatarFallback></Avatar> */}
                 <div><div className="font-bold text-[10px] text-gray-200 leading-none">{i.id}</div><div className="text-[8px] text-gray-500">{i.n}</div></div>
               </div></TableCell>
               <TableCell className="py-2"><div className="flex flex-col gap-0.5">
@@ -68,8 +83,8 @@ export default function EcosystemCard() {
         <CardTitle className="text-orange-400 text-sm flex gap-2"><TrendingUp className="w-4"/> Matriz de Riesgo</CardTitle>
       </CardHeader> */}
       <CardContent className="p-0">
-        {renderT(MOCK.prov, "Proveedores")}
-        {renderT(MOCK.cli, "Clientes")}
+        {renderT(suppliers, "Proveedores")}
+        {renderT(clients, "Clientes")}
       </CardContent>
     </Card>
   );

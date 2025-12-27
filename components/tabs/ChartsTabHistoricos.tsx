@@ -4,13 +4,14 @@
 import React from "react";
 import dynamic from "next/dynamic";
 import * as echarts from "echarts/core";
-import { CandlestickChart, LineChart, BarChart } from "echarts/charts";
+import { LineChart } from "echarts/charts";
 import {
   GridComponent,
   TooltipComponent,
   LegendComponent,
   BrushComponent,
   ToolboxComponent,
+  DataZoomComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,14 +20,13 @@ import { fmp } from "@/lib/fmp/client";
 import type { OHLC } from "@/lib/fmp/types";
 
 echarts.use([
-  CandlestickChart,
   LineChart,
-  BarChart,
   GridComponent,
   TooltipComponent,
   LegendComponent,
   BrushComponent,
   ToolboxComponent,
+  DataZoomComponent,
   CanvasRenderer,
 ]);
 
@@ -157,8 +157,11 @@ export default function ChartsTabHistoricos({
               ? fmp.eod(benchTicker, { limit: 8000, cache: "force-cache" })
               : Promise.resolve([] as OHLC[]),
           ]);
-          a = resA;
-          b = resB;
+          // @ts-ignore - EodResponse está tipado como any[] pero viene como { symbol, candles }
+          const rawA = resA as any;
+          const rawB = resB as any;
+          a = Array.isArray(rawA) ? rawA : (rawA?.candles || []);
+          b = Array.isArray(rawB) ? rawB : (rawB?.candles || []);
         } catch (err: any) {
           // Fallback para AAPL en caso de error 403 (Demo)
           if (symbol === 'AAPL' && (err.message?.includes('403') || err.message?.includes('429') || err.status === 403)) {
@@ -214,156 +217,94 @@ export default function ChartsTabHistoricos({
   const ema200 = React.useMemo(() => ema(closes, 200), [closes]);
   const vwap = React.useMemo(() => anchoredVWAP(dataR), [dataR]);
 
-  // 1) Precio (velas) + EMA50/200 + VWAP + Volumen - MEJORADO
+  // 1) Large Area Chart Style (Precio Solamente)
   const optionCandles = React.useMemo(() => {
-    const kline = dataR.map((d) => [d.open, d.close, d.low, d.high]);
-    const upColor = '#00da3c';
-    const downColor = '#ec0000';
+    // Transformar datos para eje de tiempo: [timestamp/string, value]
+    const dataPrice = dataR.map(d => [d.date, d.close]);
     
     return {
       backgroundColor: "transparent",
       animation: false,
-      legend: {
-        bottom: 10,
-        left: 'center',
-        data: [symbol, 'EMA 50', 'EMA 200', 'VWAP'],
-        textStyle: { color: "#9ca3af" }
-      },
       tooltip: {
         trigger: 'axis',
         axisPointer: {
-          type: 'cross'
+          type: 'cross',
+          animation: false
         },
-        backgroundColor: 'rgba(245, 245, 245, 0.8)',
+        backgroundColor: 'rgba(20, 20, 20, 0.9)',
         borderWidth: 1,
-        borderColor: '#ccc',
-        padding: 10,
-        textStyle: {
-          color: '#000'
-        },
-        position: function (pos: [number, number], params: any, el: HTMLElement, elRect: DOMRect, size: { viewSize: [number, number] }) {
-          const obj: { top: number; [key: string]: number } = {
-            top: 10
-          };
-          obj[['left', 'right'][+(pos[0] < size.viewSize[0] / 2)]] = 30;
-          return obj;
-        },
-        formatter: function (param: any[]) {
-          const data0 = param[0];
-          if (!data0) return '';
-          
-          const index = data0.dataIndex;
-          const candle = dataR[index];
-          if (!candle) return '';
-          
-          const { open, low, high, close } = candle;
-          const change = close - open;
-          const changePercent = ((change / open) * 100).toFixed(2);
-          const color = change >= 0 ? upColor : downColor;
-          
-          return [
-            'Fecha: ' + data0.name + '<hr size=1 style="margin: 3px 0">',
-            'Apertura: ' + open.toFixed(2),
-            'Cierre: ' + close.toFixed(2),
-            'Mínimo: ' + low.toFixed(2),
-            'Máximo: ' + high.toFixed(2),
-            `<span style="color: ${color}">Cambio: ${change >= 0 ? '+' : ''}${change.toFixed(2)} (${changePercent}%)</span>`,
-            'Volumen: ' + (volumes[index] || 0).toLocaleString()
-          ].join('<br/>');
+        borderColor: '#333',
+        textStyle: { color: '#eee' },
+        formatter: function (params: any) {
+          if (!Array.isArray(params) || params.length === 0) return '';
+          const date = new Date(params[0].axisValue);
+          const dateStr = date.toLocaleDateString();
+          let result = `<b>${dateStr}</b><br/>`;
+          params.forEach((param: any) => {
+            const seriesName = param.seriesName;
+            const value = param.value[1]; 
+            if (value === undefined || value === null) return;
+            let displayValue = typeof value === 'number' ? value.toFixed(2) : value;
+            result += `${param.marker} ${seriesName}: ${displayValue}<br/>`;
+          });
+          return result;
         }
       },
-      axisPointer: {
-        link: [
-          {
-            xAxisIndex: 'all'
-          }
-        ],
-        label: {
-          backgroundColor: '#777'
-        }
+      legend: {
+        bottom: 30, 
+        left: 'center',
+        data: [symbol],
+        textStyle: { color: "#9ca3af" }
       },
       toolbox: {
         feature: {
-          brush: {
-            type: ['lineX', 'clear']
-          },
+          dataZoom: { yAxisIndex: 'none' },
+          restore: {},
           saveAsImage: {}
-        }
-      },
-      brush: {
-        xAxisIndex: 'all',
-        brushLink: 'all',
-        outOfBrush: {
-          colorAlpha: 0.1
-        }
-      },
-      grid: [
-        {
-          left: '10%',
-          right: '8%',
-          height: '55%'
         },
+        iconStyle: { borderColor: '#9ca3af' }
+      },
+      axisPointer: { link: { xAxisIndex: 'all' } },
+      dataZoom: [
         {
-          left: '10%',
-          right: '8%',
-          top: '68%',
-          height: '16%'
+          type: 'inside',
+          realtime: true,
+          start: 0,
+          end: 100,
+          xAxisIndex: [0]
         }
       ],
+      grid: {
+        left: '1%',
+        right: '1%',
+        top: '2%',
+        bottom: '2%',
+        containLabel: true
+      },
       xAxis: [
         {
-          type: 'category',
-          data: dates,
+          type: 'time',
           boundaryGap: false,
-          axisLine: { 
-            onZero: false,
-            lineStyle: { color: "#475569" }
-          },
+          axisLine: { onZero: false, lineStyle: { color: "#475569" } },
           splitLine: { show: false },
-          min: 'dataMin',
-          max: 'dataMax',
-          axisPointer: {
-            z: 100
-          },
+          axisPointer: { z: 100 },
           axisLabel: { color: "#cbd5e1" }
-        },
-        {
-          type: 'category',
-          gridIndex: 1,
-          data: dates,
-          boundaryGap: false,
-          axisLine: { onZero: false },
-          axisTick: { show: false },
-          splitLine: { show: false },
-          axisLabel: { show: false },
-          min: 'dataMin',
-          max: 'dataMax'
         }
       ],
       yAxis: [
         {
+          type: 'value',
           scale: true,
-          splitArea: {
-            show: false
-          },
+          splitArea: { show: false },
           axisLabel: { color: "#cbd5e1" },
-          splitLine: { lineStyle: { color: "rgba(148,163,184,0.15)" } }
-        },
-        {
-          scale: true,
-          gridIndex: 1,
-          splitNumber: 2,
-          axisLabel: { show: false },
-          axisLine: { show: false },
-          axisTick: { show: false },
-          splitLine: { show: false }
+          splitLine: { show: false, lineStyle: { color: "rgba(148,163,184,0.15)" } },
+          boundaryGap: [0, '100%']
         }
       ],
       series: [
         {
           name: symbol,
           type: 'line',
-          data: closes,
           symbol: 'none',
           sampling: 'lttb',
           itemStyle: {
@@ -371,76 +312,15 @@ export default function ChartsTabHistoricos({
           },
           areaStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              {
-                offset: 0,
-                color: 'rgb(255, 158, 68)'
-              },
-              {
-                offset: 1,
-                color: 'rgb(255, 70, 131)'
-              }
+              { offset: 0, color: 'rgb(255, 158, 68)' },
+              { offset: 1, color: 'rgb(255, 70, 131)' }
             ])
           },
-          tooltip: {
-            // Remove custom series tooltip to use the global axis trigger formatter
-          }
-        },
-        {
-          name: 'EMA 50',
-          type: 'line',
-          data: ema50,
-          smooth: true,
-          lineStyle: {
-            opacity: 0.5,
-            width: 2,
-            color: '#60a5fa'
-          },
-          showSymbol: false
-        },
-        {
-          name: 'EMA 200',
-          type: 'line',
-          data: ema200,
-          smooth: true,
-          lineStyle: {
-            opacity: 0.5,
-            width: 2,
-            color: 'purple'
-          },
-          showSymbol: false
-        },
-        {
-          name: 'VWAP',
-          type: 'line',
-          data: vwap,
-          smooth: true,
-          lineStyle: {
-            opacity: 0.7,
-            width: 2,
-            color: 'orange',
-            type: 'dashed'
-          },
-          showSymbol: false
-        },
-        {
-          name: 'Volumen',
-          type: 'bar',
-          xAxisIndex: 1,
-          yAxisIndex: 1,
-          data: volumes.map((vol, index) => {
-            const isUp = dataR[index].close > dataR[index].open;
-            return {
-              value: vol,
-              itemStyle: {
-                color: isUp ? upColor : downColor,
-                opacity: 0.7
-              }
-            };
-          })
+          data: dataPrice
         }
       ]
     };
-  }, [dataR, dates, volumes, ema50, ema200, vwap, symbol, closes]);
+  }, [dataR, symbol]);
 
   // 2) Drawdown comparativo
   const optionDD = React.useMemo(() => {

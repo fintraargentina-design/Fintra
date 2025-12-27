@@ -118,16 +118,16 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
         </h4>
       </div>
 
-      <div className="p-0 max-h-[155px] overflow-y-auto scrollbar-thin relative">
+      <div className="p-0 max-h-[275px] overflow-y-auto scrollbar-thin relative">
         <table className="w-full caption-bottom text-sm">
-          <TableHeader className="bg-[#111] sticky top-0 z-10">
+          <TableHeader className="bg-gray-500 sticky top-0 z-10">
             <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead className="text-[10px] uppercase text-gray-500 h-8 font-bold">Ticker</TableHead>
-              <TableHead className="text-[10px] uppercase text-gray-500 h-8 text-center font-bold">FGOS</TableHead>
-              <TableHead className="text-[10px] uppercase text-gray-500 h-8 font-bold hidden sm:table-cell">Valuación</TableHead>
-              <TableHead className="text-[10px] uppercase text-gray-500 h-8 text-center font-bold">Eco</TableHead>
-              <TableHead className="text-[10px] uppercase text-gray-500 h-8 text-right font-bold">Price</TableHead>
-              <TableHead className="text-[10px] uppercase text-gray-500 h-8 text-right font-bold">Var %</TableHead>
+              <TableHead className="text-[10px] text-white h-8">Ticker</TableHead>
+              <TableHead className="text-[10px] text-white h-8 text-center">F.G.O.S.</TableHead>
+              <TableHead className="text-[10px] text-white h-8 hidden sm:table-cell">Valuación</TableHead>
+              <TableHead className="text-[10px] text-white h-8 text-center">Ecosistema</TableHead>
+              <TableHead className="text-[10px] text-white h-8 text-right">Último Precio</TableHead>
+              <TableHead className="text-[10px] text-white h-8 text-right">Var/día %</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -140,12 +140,11 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
                   border-white/5 h-10 group cursor-pointer transition-colors
                   ${isSelected ? "bg-orange-500/10 hover:bg-orange-500/20" : "hover:bg-white/5"}
                 `}
-                onClick={() => onPeerSelect?.(isSelected ? "" : peer.ticker)}
+                onClick={() => onPeerSelect?.(isSelected ? null : peer.ticker)}
               >
                 <TableCell className="font-bold text-gray-200 text-xs py-2">
                   <div className="flex flex-col">
                     <span className={isSelected ? "text-orange-400" : ""}>{peer.ticker}</span>
-                    <span className="text-[9px] text-gray-500 font-normal hidden sm:inline">{peer.name}</span>
                   </div>
                 </TableCell>
                 <TableCell className="text-center py-2">

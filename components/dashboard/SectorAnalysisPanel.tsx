@@ -21,26 +21,36 @@ const MOCK_DB: Record<string, any[]> = {
     { ticker: "AAPL", fgos: 88, valuation: "Overvalued", ecoScore: 75, price: 220.50, change: -0.5 },
     { ticker: "GOOGL", fgos: 85, valuation: "Fair", ecoScore: 90, price: 175.30, change: 1.2 },
     { ticker: "AMD", fgos: 78, valuation: "Fair", ecoScore: 70, price: 160.10, change: -1.8 },
+    { ticker: "ORCL", fgos: 76, valuation: "Fair", ecoScore: 72, price: 140.45, change: 1.1 },
   ],
   "Healthcare": [
     { ticker: "LLY", fgos: 94, valuation: "Overvalued", ecoScore: 85, price: 890.00, change: 3.2 },
     { ticker: "JNJ", fgos: 72, valuation: "Fair", ecoScore: 92, price: 145.50, change: 0.2 },
     { ticker: "PFE", fgos: 55, valuation: "Undervalued", ecoScore: 88, price: 28.30, change: -0.4 },
+    { ticker: "UNH", fgos: 81, valuation: "Fair", ecoScore: 89, price: 480.20, change: 0.7 },
+    { ticker: "ABBV", fgos: 79, valuation: "Fair", ecoScore: 84, price: 170.15, change: -0.3 },
+    { ticker: "MRK", fgos: 76, valuation: "Undervalued", ecoScore: 86, price: 128.40, change: 0.5 },
   ],
   "Financials": [
     { ticker: "JPM", fgos: 82, valuation: "Fair", ecoScore: 96, price: 198.50, change: 1.5 },
     { ticker: "V", fgos: 88, valuation: "Overvalued", ecoScore: 94, price: 275.10, change: 0.6 },
     { ticker: "MA", fgos: 87, valuation: "Fair", ecoScore: 93, price: 450.20, change: 0.9 },
+    { ticker: "BAC", fgos: 75, valuation: "Undervalued", ecoScore: 89, price: 39.40, change: 1.2 },
+    { ticker: "WFC", fgos: 73, valuation: "Fair", ecoScore: 85, price: 58.60, change: -0.2 },
+    { ticker: "GS", fgos: 78, valuation: "Fair", ecoScore: 90, price: 460.75, change: 0.8 },
   ],
   "Energy": [
     { ticker: "XOM", fgos: 75, valuation: "Fair", ecoScore: 80, price: 115.40, change: -0.8 },
     { ticker: "CVX", fgos: 70, valuation: "Fair", ecoScore: 82, price: 155.20, change: -1.2 },
     { ticker: "COP", fgos: 68, valuation: "Undervalued", ecoScore: 78, price: 112.50, change: 0.5 },
+    { ticker: "SLB", fgos: 65, valuation: "Undervalued", ecoScore: 75, price: 45.30, change: -1.5 },
+    { ticker: "EOG", fgos: 72, valuation: "Fair", ecoScore: 79, price: 125.60, change: 0.3 },
+    { ticker: "MPC", fgos: 74, valuation: "Fair", ecoScore: 76, price: 170.80, change: 0.9 },
   ]
 };
 
 const generateFallbackStocks = (sector: string) => {
-  return Array.from({ length: 4 }).map((_, i) => ({
+  return Array.from({ length: 6 }).map((_, i) => ({
     ticker: `${sector.substring(0,3).toUpperCase()}${i+1}`,
     fgos: Math.floor(Math.random() * (99 - 40) + 40),
     valuation: ["Undervalued", "Fair", "Overvalued"][Math.floor(Math.random() * 3)],
@@ -50,7 +60,7 @@ const generateFallbackStocks = (sector: string) => {
   })).sort((a, b) => b.fgos - a.fgos);
 };
 
-export default function SectorAnalysisPanel() {
+export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?: (symbol: string) => void }) {
   const [selectedSector, setSelectedSector] = useState("Technology");
   
   const stocks = (MOCK_DB[selectedSector] || generateFallbackStocks(selectedSector))
@@ -94,26 +104,30 @@ export default function SectorAnalysisPanel() {
 
         <div className="py-1 border-b border-white/5 bg-white/[0.02]">
           <h4 className="text-xs font-medium text-gray-400 text-center">
-            Acciones del sector <span className="text-orange-400">"{selectedSector}"</span>
+            Acciones del sector <span className="text-orange-400">{selectedSector}</span>
           </h4>
         </div>
 
-        <div className="p-0 max-h-[155px] overflow-y-auto scrollbar-thin relative">
+        <div className="p-0 max-h-[275px] overflow-y-auto scrollbar-thin relative">
           <table className="w-full caption-bottom text-sm">
-            <TableHeader className="bg-[#111] sticky top-0 z-10">
+            <TableHeader className="bg-gray-500 sticky top-0 z-10">
               <TableRow className="border-white/10 hover:bg-transparent">
-                <TableHead className="text-[10px] uppercase text-gray-500 h-8 font-bold">Ticker</TableHead>
-                <TableHead className="text-[10px] uppercase text-gray-500 h-8 text-center font-bold">FGOS</TableHead>
-                <TableHead className="text-[10px] uppercase text-gray-500 h-8 font-bold hidden sm:table-cell">Valuación</TableHead>
-                <TableHead className="text-[10px] uppercase text-gray-500 h-8 text-center font-bold">Eco</TableHead>
-                <TableHead className="text-[10px] uppercase text-gray-500 h-8 text-right font-bold">Price</TableHead>
-                <TableHead className="text-[10px] uppercase text-gray-500 h-8 text-right font-bold">Var %</TableHead>
+                <TableHead className="text-[10px] text-white h-8">Ticker</TableHead>
+                <TableHead className="text-[10px] text-white h-8 text-center">F.G.O.S.</TableHead>
+                <TableHead className="text-[10px] text-white h-8 hidden sm:table-cell">Valuación</TableHead>
+                <TableHead className="text-[10px] text-white h-8 text-center">Ecosistema</TableHead>
+                <TableHead className="text-[10px] text-white h-8 text-right">Último Precio</TableHead>
+                <TableHead className="text-[10px] text-white h-8 text-right">Var/día %</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {stocks.map((stock) => (
-                <TableRow key={stock.ticker} className="border-white/5 hover:bg-white/5 h-10 group">
-                  <TableCell className="font-bold text-gray-200 text-xs py-2">{stock.ticker}</TableCell>
+                <TableRow 
+                  key={stock.ticker} 
+                  className="border-white/5 hover:bg-white/5 h-10 group cursor-pointer"
+                  onClick={() => onStockSelect?.(stock.ticker)}
+                >
+                  <TableCell className="font-bold text-gray-200 text-xs py-2 group-hover:text-orange-400 transition-colors">{stock.ticker}</TableCell>
                   <TableCell className="text-center py-2">
                     <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-5 border ${getFgosColor(stock.fgos)}`}>
                       {stock.fgos}

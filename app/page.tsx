@@ -25,6 +25,7 @@ import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
 import StockSearchModal from '@/components/modals/StockSearchModal';
 import EstimacionTab from '@/components/tabs/EstimacionTab';
 import MercadosTab from '@/components/tabs/MercadosTab';
+import { getLatestSnapshot, getEcosystemDetailed } from '@/lib/repository/fintra-db';
 
 export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'mercados';
 
@@ -88,7 +89,46 @@ export default function StockTerminal() {
         setStockAnalysis(result.analysisData);
         setStockPerformance(result.performanceData);
         setStockReport(result.reportData);
-        setStockEcosystem(result.ecosystemData);
+        // setStockEcosystem(result.ecosystemData);
+
+        // --- INTEGRACIÓN FINTRA DB ---
+        try {
+          // 1. Obtener Snapshot más reciente (demo)
+          const snapshot = await getLatestSnapshot(sym);
+          if (snapshot) {
+             console.log("Fintra DB Snapshot found:", snapshot);
+             // Aquí podríamos actualizar stockAnalysis con datos de la DB si se prefiere
+          }
+
+          // 2. Obtener Ecosistema Detallado
+          const ecoData = await getEcosystemDetailed(sym);
+          
+          // Transformar para el componente EcosystemCard
+          if (ecoData.suppliers.length > 0 || ecoData.clients.length > 0) {
+             const transformEco = (items: any[]) => items.map(i => ({
+                 id: i.partner_symbol,
+                 n: i.partner_name,
+                 dep: i.dependency_score,
+                 val: i.partner_valuation || 0,
+                 ehs: i.partner_ehs || 0,
+                 fgos: i.partner_fgos || 0,
+                 txt: i.risk_level // o i.partner_verdict
+             }));
+             
+             setStockEcosystem({
+                 suppliers: transformEco(ecoData.suppliers),
+                 clients: transformEco(ecoData.clients)
+             });
+          } else {
+             // Si no hay datos en DB, usar lo que venga de la API o mantener null para que EcosystemCard use sus mocks por defecto si se desea,
+             // o setear null explícitamente.
+             setStockEcosystem(result.ecosystemData || null);
+          }
+        } catch (dbErr) {
+          console.error("Error fetching from Fintra DB:", dbErr);
+          setStockEcosystem(result.ecosystemData);
+        }
+
         setSelectedStock(result.basicData || sym); // mantiene objeto con {symbol} si viene
 
         const conclusionData = await getStockConclusionData(sym);
@@ -122,7 +162,10 @@ export default function StockTerminal() {
     switch (activeTab) {
       case 'ecosistema':
         return (
-          <EcosystemCard />
+          <EcosystemCard 
+            suppliers={stockEcosystem?.suppliers}
+            clients={stockEcosystem?.clients}
+          />
         );
       case 'datos':
         return (
@@ -176,7 +219,7 @@ export default function StockTerminal() {
       </div>
 
       {/* Contenedor principal responsivo - Ancho completo */}
-      <div className="w-full px-2 sm:px-2 lg:px-2 xl:px-2 pt-2 pb-2 sm:pb-2 lg:pb-2 xl:pb-2 h-[calc(100vh-72px)] overflow-hidden">
+      <div className="w-full px-2 h-[calc(100vh-72px)] overflow-hidden">
         {error && (
           <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded text-red-400">
             {error}
@@ -184,14 +227,14 @@ export default function StockTerminal() {
         )}
 
         {selectedStock && (
-          <div className="space-y-1 md:space-y-1">
+          <div className="space-y-1 md:space-y-1 h-full">
 
             {/* Layout principal responsivo */}
-            <div className="grid grid-cols-1 xl:grid-cols-[55%_45%] gap-0 md:gap-1 items-start h-full">
+            <div className="grid grid-cols-1 xl:grid-cols-[55fr_45fr] gap-0 md:gap-1 items-start h-full">
               {/* Panel izquierdo */}
               <div className="w-full xl:w-auto flex flex-col gap-0 md:gap-0 min-h-0 h-full overflow-hidden">
                 <div className="w-full flex flex-col gap-0 space-y-0 shrink-0">
-                  <SectorAnalysisPanel />
+                  <SectorAnalysisPanel onStockSelect={handleTopStockClick} />
                   <PeersAnalysisPanel 
                     symbol={selectedSymbol} 
                     onPeerSelect={setSelectedCompetitor}

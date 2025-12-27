@@ -406,38 +406,38 @@ export default function OverviewCard({
 
   // tabs
   const renderOverviewContent = () => (
-    <div className="space-y-6">
+    <div className="space-y-0 bg-black">
       {/* Información de la Empresa */}
-      <div className="bg-tarjetas rounded-lg p-4 border-gray-700/30">
-        <h3 className="text-orange-400 text-lg font-semibold mb-4 flex items-center gap-2">
-          <Building2 className="w-5 h-5" />
+      <div className="bg-tarjetas p-1 border-gray-700/30">
+        <h3 className="text-orange-400 text-lg font-semibold mb-1 flex items-center gap-1 justify-center">
+          {/* <Building2 className="w-5 h-5" /> */}
           Información de la Empresa
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
           <div className="space-y-3">
-            <div className="flex justify-start gap-2">
+            <div className="flex justify-center gap-2 text-xs">
               <span className="text-gray-400">Nombre:</span>
               {renderEditableField(data.companyName, "companyName")}
             </div>
-            <div className="flex justify-start gap-2">
+            <div className="flex justify-center gap-2 text-xs">
               <span className="text-gray-400">Sector:</span>
               {renderEditableField(data.sector, "sector")}
             </div>
-            <div className="flex justify-start gap-2">
+            <div className="flex justify-center gap-2 text-xs">
               <span className="text-gray-400">Industria:</span>
               {renderEditableField(data.industry, "industry")}
             </div>
-            <div className="flex justify-start gap-2">
+            <div className="flex justify-center gap-2 text-xs">
               <span className="text-gray-400">CEO:</span>
               {renderEditableField(data.ceo, "ceo")}
             </div>
-            <div className="flex justify-start gap-2">
+            {/* <div className="flex justify-center gap-2 text-xs">
               <span className="text-gray-400">Fundada (IPO):</span>
               {renderEditableField(data.ipoDate, "ipoDate")}
-            </div>
+            </div> */}
           </div>
           <div className="space-y-3">
-            <div className="flex justify-start gap-2">
+            <div className="flex justify-center gap-2 text-xs"> 
               <span className="text-gray-400">Empleados:</span>
               {renderEditableField(
                 Number.isFinite(Number(data.fullTimeEmployees))
@@ -446,7 +446,7 @@ export default function OverviewCard({
                 "employees",
               )}
             </div>
-            <div className="flex justify-start gap-2">
+            <div className="flex justify-center gap-2 text-xs">     
               <span className="text-gray-400">Sitio web:</span>
               {data.website ? (
                 <span className="text-orange-400">
@@ -467,11 +467,11 @@ export default function OverviewCard({
                 renderEditableField(null, "website")
               )}
             </div>
-            <div className="flex justify-start gap-2">
+            <div className="flex justify-center gap-2 text-xs">
               <span className="text-gray-400">Intercambio:</span>
               {renderEditableField(data.exchange, "exchange")}
             </div>
-            <div className="flex justify-start gap-2">
+            <div className="flex justify-center gap-2 text-xs">
               <span className="text-gray-400">País:</span>
               {renderEditableField(data.country, "country")}
             </div>
@@ -480,28 +480,32 @@ export default function OverviewCard({
       </div>
 
       {/* Descripción */}
-      <div className="bg-tarjetas rounded-lg p-4 border-gray-700/30">
-        <h3 className="text-orange-400 text-lg font-semibold mb-4 flex items-center gap-2">
-          <FileText className="w-5 h-5" />
+      <div className="bg-tarjetas p-2 border-gray-700/30">
+        <h3 className="text-orange-400 text-lg font-semibold mb-1 flex items-center gap-1 justify-center">
+          {/* <FileText className="w-5 h-5" /> */}
           Descripción
         </h3>
-        <p className="text-gray-300 text-sm leading-relaxed text-left">
+        <p className="text-gray-300 text-xs leading-relaxed text-left">
           {data.description || "No hay descripción disponible."}
         </p>
+        <div className="flex justify-center gap-2 text-xs">
+              <span className="text-gray-400">Fundada (IPO):</span>
+              {renderEditableField(data.ipoDate, "ipoDate")}
+        </div>
       </div>
 
       {/* Métricas */}
-      <div className="bg-tarjetas rounded-lg p-4 border-gray-700/30">
-        <h3 className="text-orange-400 text-lg font-semibold mb-4 flex items-center gap-2">
-          <DollarSign className="w-5 h-5" />
+      <div className="bg-tarjetas p-2 border-gray-700/30">
+        <h3 className="text-orange-400 text-lg font-semibold mb-1 flex items-center gap-1 justify-center">
+          {/* <DollarSign className="w-5 h-5" /> */}
           Métricas Financieras Clave
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
           <div className="space-y-3">
             <h4 className="text-gray-300 font-medium border-b border-gray-600 pb-2">
               Valoración
             </h4>
-            <div className="space-y-2 text-sm">
+            <div className="space-y-2 text-xs">
               <div className="flex justify-start gap-4">
                 <span className="text-gray-400 min-w-[100px]">Cap. de Mercado:</span>
                 <span className="text-orange-400 font-mono">
@@ -529,7 +533,7 @@ export default function OverviewCard({
             <h4 className="text-gray-300 font-medium border-b border-gray-600 pb-2">
               Rendimiento
             </h4>
-            <div className="space-y-2 text-sm">
+            <div className="space-y-2 text-xs">
               <div className="flex justify-start gap-4">
                 <span className="text-gray-400 min-w-[100px]">Variación en $:</span>
                 <span
@@ -567,7 +571,7 @@ export default function OverviewCard({
             <h4 className="text-gray-300 font-medium border-b border-gray-600 pb-2">
               Volumen y Dividendos
             </h4>
-            <div className="space-y-2 text-sm">
+            <div className="space-y-2 text-xs">
               <div className="flex justify-start gap-4">
                 <span className="text-gray-400 min-w-[100px]">Último Dividendo:</span>
                 <span className="text-orange-400 font-mono">
@@ -607,15 +611,15 @@ export default function OverviewCard({
       {/* Scores Financieros */}
       {scoresData && (
         <div className="bg-tarjetas rounded-lg p-4 border-gray-700/30">
-          <h3 className="text-orange-400 text-lg font-semibold mb-4 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5" />
+          <h3 className="text-orange-400 text-lg font-semibold mb-4 flex items-center gap-2 justify-center">
+            {/* <BarChart3 className="w-5 h-5" /> */}
             Scores Financieros y Activos
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
             {/* Altman Z-Score */}
-            <div className="bg-gray-800/50 rounded p-3">
+            <div className="bg-gray-800/50 p-2">
               <div className="text-gray-400">Altman Z-Score</div>
-              <div className="text-green-400 font-mono text-lg">
+              <div className="text-green-400 font-mono text-sm">
                 {scoresData.altmanZ !== undefined && scoresData.altmanZ !== null
                   ? Number(scoresData.altmanZ).toFixed(2)
                   : "N/A"}
@@ -630,9 +634,9 @@ export default function OverviewCard({
             </div>
 
             {/* Piotroski Score */}
-            <div className="bg-gray-800/50 rounded p-3">
+            <div className="bg-gray-800/50 p-2">
               <div className="text-gray-400">Piotroski Score</div>
-              <div className="text-blue-400 font-mono text-lg">
+              <div className="text-blue-400 font-mono text-sm"> 
                 {scoresData.piotroski !== undefined && scoresData.piotroski !== null
                   ? `${scoresData.piotroski}/9`
                   : "N/A"}
@@ -647,54 +651,54 @@ export default function OverviewCard({
             </div>
 
             {/* Total Assets */}
-            <div className="bg-gray-800/50 rounded p-3">
+            <div className="bg-gray-800/50 p-2">
               <div className="text-gray-400">Total Assets</div>
-              <div className="text-purple-400 font-mono text-lg">
+              <div className="text-purple-400 font-mono text-sm">
                 {formatLargeNumber(scoresData.raw?.totalAssets)}
               </div>
               <div className="text-xs text-gray-500 mt-1">Activos totales</div>
             </div>
 
             {/* Total Liabilities */}
-            <div className="bg-gray-800/50 rounded p-3">
+            <div className="bg-gray-800/50 p-2">
               <div className="text-gray-400">Total Liabilities</div>
-              <div className="text-yellow-400 font-mono text-lg">
+              <div className="text-yellow-400 font-mono text-sm">
                 {formatLargeNumber(scoresData.raw?.totalLiabilities)}
               </div>
               <div className="text-xs text-gray-500 mt-1">Pasivos totales</div>
             </div>
 
             {/* Revenue */}
-            <div className="bg-gray-800/50 rounded p-3">
+            <div className="bg-gray-800/50 p-2">
               <div className="text-gray-400">Revenue</div>
-              <div className="text-cyan-400 font-mono text-lg">
+              <div className="text-cyan-400 font-mono text-sm">
                 {formatLargeNumber(scoresData.raw?.revenue)}
               </div>
               <div className="text-xs text-gray-500 mt-1">Ingresos totales</div>
             </div>
 
             {/* EBIT */}
-            <div className="bg-gray-800/50 rounded p-3">
+            <div className="bg-gray-800/50 p-2">
               <div className="text-gray-400">EBIT</div>
-              <div className="text-lime-400 font-mono text-lg">
+              <div className="text-lime-400 font-mono text-sm">
                 {formatLargeNumber(scoresData.raw?.ebit)}
               </div>
               <div className="text-xs text-gray-500 mt-1">Ganancias operativas</div>
             </div>
 
             {/* Market Cap (desde scores) */}
-            <div className="bg-gray-800/50 rounded p-3">
+            <div className="bg-gray-800/50 p-2">
               <div className="text-gray-400">Market Cap</div>
-              <div className="text-pink-400 font-mono text-lg">
+              <div className="text-pink-400 font-mono text-sm">
                 {formatLargeNumber(scoresData.raw?.marketCap)}
               </div>
               <div className="text-xs text-gray-500 mt-1">Capitalización</div>
             </div>
 
             {/* Working Capital */}
-            <div className="bg-gray-800/50 rounded p-3">
+            <div className="bg-gray-800/50 p-2">
               <div className="text-gray-400">Working Capital</div>
-              <div className="text-indigo-400 font-mono text-lg">
+              <div className="text-indigo-400 font-mono text-sm">
                 {formatLargeNumber(scoresData.raw?.workingCapital)}
               </div>
               <div className="text-xs text-gray-500 mt-1">Capital de trabajo</div>
@@ -704,11 +708,11 @@ export default function OverviewCard({
       )}
 
       {/* Info adicional */}
-      <div className="bg-gray-800/30 rounded-lg p-4 border-gray-700/30">
-        <h3 className="text-orange-400 text-lg font-semibold mb-4">
+      <div className="bg-black p-2 border-gray-700/30">
+        <h3 className="text-orange-400 text-lg font-semibold mb-4 flex justify-center items-center">
           Información Adicional
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-gray-400">CIK:</span>
@@ -758,15 +762,16 @@ export default function OverviewCard({
       <Card className="w-full bg-tarjetas border border-white/5 rounded-none overflow-hidden shadow-sm px-0 py-0">
         <CardContent className="p-0">
           {/* Header Row - Visible on Desktop */}
-          <div className="hidden md:grid grid-cols-5 gap-2 items-center bg-[#111] px-4 py-1 border-b border-white/10 sticky top-0 z-10">
+          <div className="hidden md:grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-2 items-center bg-[#111] px-4 py-1 border-b border-white/10 sticky top-0 z-10">
             <div className="text-[10px] uppercase text-gray-500 font-bold">Ticker</div>
+            <div className="text-[10px] uppercase text-gray-500 font-bold text-center">Precio</div>
             <div className="text-[10px] uppercase text-gray-500 font-bold text-center">FGOS Score</div>
             <div className="text-[10px] uppercase text-gray-500 font-bold text-center">Valuación</div>
             <div className="text-[10px] uppercase text-gray-500 font-bold text-center">Verdict Fintra</div>
             <div className="text-[10px] uppercase text-gray-500 font-bold text-center">E.H.S.</div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-center h-full p-1 md:p-1 md:px-1 md:py-1">
+          <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-2 items-center h-full p-1 md:p-1 md:px-1 md:py-1">
               {/* 1. STOCK: Logo, Ticker, Nombre, CEO */}
               <div className="flex items-center gap-3">
                   <DialogTrigger asChild>
@@ -779,43 +784,53 @@ export default function OverviewCard({
                   </DialogTrigger>
                   <div className="flex flex-col min-w-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={onOpenSearchModal}>
                       <div className="flex items-center gap-2">
-                          <span className="font-bold text-white text-xl leading-none">{data.symbol}</span>
+                          <span className="font-bold text-white text-lg leading-none">{data.symbol}</span>
                       </div>
-                      <span className="text-gray-400 text-xs truncate max-w-[140px] leading-tight font-medium" title={data.companyName}>
+                      <span className="text-gray-400 text-xs leading-tight font-medium" title={data.companyName}>
                           {data.companyName}
                       </span>
-                      <span className="text-[10px] text-gray-500 flex items-center gap-1 mt-0.5">
-                        <User className="w-3 h-3" />
-                        {data.ceo || "CEO N/A"}
-                      </span>
+                     {/*  <span className="text-[10px] text-gray-500 flex items-center gap-1 mt-0.5">
+                        CEO: {data.ceo || "CEO N/A"}
+                      </span> */}
                   </div>
               </div>
 
-              {/* 2. FGOS */}
+              {/* 2. PRECIO */}
               <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
-                  <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-0.5">FGOS SCORE</span>
-                  <div className={`text-3xl font-black ${getScoreColor(fgos)}`}>{fgos}</div>
+                  <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-0.5">PRECIO</span>
+                  <div className="text-lg font-bold text-white">
+                    {Number.isFinite(Number(data.price)) ? `$${Number(data.price).toFixed(2)}` : "N/A"}
+                  </div>
+                  <div className={`text-xs font-medium ${Number(data.change) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    {Number(data.change) >= 0 ? "+" : ""}{Number(data.changePercentage).toFixed(2)}%
+                  </div>
               </div>
 
-              {/* 3. VALUACIÓN */}
+              {/* 3. FGOS */}
+              <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
+                  <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-0.5">FGOS SCORE</span>
+                  <div className={`text-xl font-black ${getScoreColor(fgos)}`}>{fgos}</div>
+              </div>
+
+              {/* 4. VALUACIÓN */}
               <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
                   <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-1.5">VALUACIÓN</span>
                   {getValBadge(valStatus)}
               </div>
 
-              {/* 4. VEREDICTO */}
+              {/* 5. VEREDICTO */}
               <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4 text-center">
                   <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-1">VERDICT FINTRA</span>
-                  <span className="text-white font-medium text-sm leading-tight max-w-[180px]">{verdict}</span>
+                  <span className="text-white font-medium text-xs leading-tight max-w-[180px]">{verdict}</span>
               </div>
 
-              {/* 5. EHS */}
+              {/* 6. EHS */}
               <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
                   <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest flex items-center gap-1 mb-0.5">
                       E.H.S. <Activity className="w-3 h-3 text-blue-400"/>
                   </span>
-                  <div className="text-3xl font-mono text-blue-400 font-bold">{ehs}</div>
-                  <span className="text-[9px] text-gray-500 font-medium mt-[-2px]">Health Score</span>
+                  <div className="text-xl font-mono text-blue-400 font-bold">{ehs}</div>
+                  <span className="text-[9px] text-gray-500 font-medium mt-[-2px]">Salud del ecosistema</span>
               </div>
            </div>
         </CardContent>
@@ -827,7 +842,7 @@ export default function OverviewCard({
         <DialogHeader className="sr-only">
           <DialogTitle>Datos de la empresa</DialogTitle>
         </DialogHeader>
-        <div className="mt-4 space-responsive">
+        <div className="space-responsive">
           {renderOverviewContent()}
         </div>
       </DialogContent>
