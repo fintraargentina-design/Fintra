@@ -139,7 +139,7 @@ export default function DatosTab({
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           {activeTab === "financials" && (
-            <div className="flex flex-col pt-4">
+            <div className="flex flex-col pt-4 gap-0">
               <div className="bg-tarjetas border-none">
                 <FundamentalCard 
                   symbol={symbol} 

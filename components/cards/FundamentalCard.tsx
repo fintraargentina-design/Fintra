@@ -56,6 +56,26 @@ const getScoreColor = (score: number | null): string => {
   return "#ef4444"; // Rojo
 };
 
+const getHeatmapColor = (score: number | null) => {
+  if (score == null) return "#1e293b"; // Gris neutro (Sin datos)
+
+  // ESCALA VERDE (Positivo / Saludable / Subvaluado)
+  // De menor a mayor intensidad
+  if (score >= 90) return "#008000"; // Subida muy fuerte / Top
+  if (score >= 80) return "#006600"; // Subida fuerte
+  if (score >= 70) return "#004D00"; // Subida moderada
+  if (score >= 60) return "#003300"; // Subida leve
+  if (score >= 50) return "#001A00"; // Positivo marginal
+
+  // ESCALA ROJA (Negativo / Riesgo / Sobrevaluado)
+  // De menor a mayor intensidad de "gravedad" (mientras más bajo, más rojo intenso)
+  if (score <= 10) return "#800000"; // Bajada muy fuerte / Crítico
+  if (score <= 20) return "#660000"; // Bajada fuerte
+  if (score <= 30) return "#4D0000"; // Bajada moderada
+  if (score <= 40) return "#330000"; // Bajada leve
+  return "#1A0000";                  // Negativo marginal (41-49)
+};
+
 
 // Función para obtener el texto del nivel de score
 const getScoreLevel = (score: number | null): string => {
@@ -484,7 +504,7 @@ export default function FundamentalCard({
 
   return (
     <>
-      <div className="bg-tarjetas border-none px-6 pb-6">
+      <div className="bg-tarjetas border-none px-6 pb-0">
         {loading ? (
           <div className="h-32 grid place-items-center text-gray-500 text-sm"> 
             Cargando datos de Fundamentales…
@@ -493,31 +513,31 @@ export default function FundamentalCard({
           <div className="h-72 flex items-center justify-center text-red-400">{error}</div>
         ) : (
           <>
-            {/* Métricas fundamentales en formato de tarjetas */}
-            <div className="grid grid-cols-4 gap-2 text-sm">
+            {/* Métricas fundamentales en formato Heatmap Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-0">
               {rows.map((row, index) => {
-                const scoreColor = getScoreColor(row.score);
                 const scoreLevel = getScoreLevel(row.score);
 
                 return (
                   <div 
                     key={index} 
-                    className="bg-gray-800/50 rounded p-3 cursor-pointer hover:bg-gray-800/70 transition-colors"
+                    className="relative flex flex-col items-center justify-center p-1.5 cursor-pointer hover:brightness-110 transition-all aspect-[4/3]"
+                    style={{ backgroundColor: getHeatmapColor(row.score) }}
                     onClick={() => openExplanationModal(row.label)}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="text-gray-400 text-xs">{row.label}</div>
-                      <div 
-                        className="text-xs text-gray-500" 
-                        style={{ color: scoreColor }}>
-                        {scoreLevel}
-                      </div>
+                    {/* Top: Label */}
+                    <div className="text-white/70 text-[10px] font-medium text-center leading-none mb-0.5 line-clamp-1">
+                      {row.label}
                     </div>
-                    <div 
-                      className="font-mono text-lg mt-1"
-                      style={{ color: scoreColor }}
-                    >
+
+                    {/* Middle: Value */}
+                    <div className="text-white text-sm tracking-tight leading-tight">
                       {row.display || "N/A"}
+                    </div>
+
+                    {/* Bottom: Level */}
+                    <div className="mt-0.5 text-[9px] text-white/90 font-medium uppercase tracking-wider bg-black/20 px-1 py-0 rounded leading-none">
+                      {scoreLevel}
                     </div>                    
                   </div>
                 );
@@ -561,7 +581,7 @@ export default function FundamentalCard({
                   <ul className="space-y-2">
                     {METRIC_EXPLANATIONS[explanationModal.selectedMetric].examples.map((example, index) => (
                       <li key={index} className="text-gray-700 text-sm flex items-start">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                        <span className="w-2 h-2 bg-orange-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
                         {example}
                       </li>
                     ))}

@@ -76,8 +76,8 @@ export async function enrichStocksWithData(tickers: string[]): Promise<EnrichedS
         // We use fetch directly to allow fail-safe
         const [priceChange, consensus] = await Promise.all([
            // FMP endpoints via client
-           fmp.fetch(`/stock-price-change/${ticker}`).catch(() => null),
-           fmp.fetch(`/price-target-consensus?symbol=${ticker}`).catch(() => null)
+           fmp.fetch(`/stock-price-change/${ticker}`).catch(() => null) as Promise<any>,
+           fmp.fetch(`/price-target-consensus?symbol=${ticker}`).catch(() => null) as Promise<any>
         ]);
 
         return {
