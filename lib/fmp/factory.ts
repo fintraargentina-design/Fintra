@@ -172,5 +172,10 @@ export function createFmpClient(get: FetcherFunction) {
     marketHours(opts?: { cache?: CacheOpt }) {
       return get<MarketHoursResponse>("/market-hours", { cache: opts?.cache ?? "force-cache" });
     },
+
+    /** Generic fetch for unmapped endpoints */
+    fetch<T>(path: string, opts?: GetOpts) {
+      return get<T>(path, opts);
+    },
   };
 }
