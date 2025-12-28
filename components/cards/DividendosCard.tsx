@@ -270,12 +270,15 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
             <div className="h-32 grid place-items-center text-gray-500 text-sm">Cargando datos de Dividendos...</div>
           ) : (
             <ReactECharts
-              key={view}                // <- fuerza crear una instancia nueva al cambiar de vista
-              echarts={echarts as any}
-              option={option as any}
-              notMerge={true}
-              lazyUpdate={true}
-              style={{ height: '100%', width: '100%' }}
+              echarts={echarts}
+              option={
+                view === 'historico'
+                  ? optionHistorico
+                  : view === 'calendario'
+                  ? optionCalendario
+                  : optionPayout
+              }
+              style={{ width: '100%', height: '100%' }}
             />
           )}
         </div>

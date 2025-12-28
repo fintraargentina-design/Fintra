@@ -189,6 +189,8 @@ export default function StockTerminal() {
       case 'ecosistema':
         return (
           <EcosystemCard 
+            mainTicker={selectedSymbol}
+            mainImage={selectedStock?.image}
             suppliers={stockEcosystem?.suppliers}
             clients={stockEcosystem?.clients}
           />

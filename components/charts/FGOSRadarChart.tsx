@@ -168,9 +168,6 @@ export default function FGOSRadarChart({ symbol, data, comparedSymbol }: { symbo
                 echarts={echarts}
                 option={option}
                 style={{ height: '100%', width: '100%' }}
-                opts={{ renderer: 'canvas' }}
-                notMerge
-                lazyUpdate
             />
         </div>
       </CardContent>

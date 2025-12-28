@@ -372,10 +372,10 @@ export default function ChartsTabHistoricos({
         return bmR.length ? (
           <ReactECharts
             key={`dd-${symbol}-${range}`}
-            echarts={echarts as any}
-            option={optionDD as any}
-            notMerge
-            lazyUpdate
+            echarts={echarts}
+            option={optionDD}
+            notMerge={true}
+            lazyUpdate={true}
             style={{ height: "100%", width: "100%" }}
           />
         ) : (

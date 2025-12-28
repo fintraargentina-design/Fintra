@@ -457,8 +457,8 @@ export default function RadarPeersCard({ symbol, selectedCompetitor, embedded = 
         {main ? (
           <div className="h-96 pl-0 pr-0">
             <ReactEChartsCore
-              echarts={echarts as any}
-              option={option as any}
+              echarts={echarts}
+              option={option}
               notMerge
               lazyUpdate
               style={{ height: '100%', width: '100%' }}
