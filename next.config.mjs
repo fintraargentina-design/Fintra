@@ -4,9 +4,6 @@ const isProd = process.env.NODE_ENV === 'production';
 
 const nextConfig = {
   reactStrictMode: true,
-  experimental: {
-    typedRoutes: false,
-  },
   eslint: {
     // En producción NO ignorar errores
     ignoreDuringBuilds: !isProd ? true : false,
