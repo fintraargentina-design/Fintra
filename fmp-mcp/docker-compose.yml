@@ -1,0 +1,11 @@
+version: "3.9"
+
+services:
+  fmp-mcp:
+    image: ghcr.io/imbenrabi/financial-modeling-prep-mcp-server:latest
+    container_name: fmp-mcp
+    ports:
+      - "8080:8080"
+    environment:
+      - FMP_KEY=scYafUs9cEq4PzLVbZ8SPlmMh8r9Jm8V
+    restart: unless-stopped
