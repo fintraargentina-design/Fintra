@@ -7,8 +7,8 @@ import * as echarts from "echarts/core";
 import { BarChart } from "echarts/charts";
 import { GridComponent, TooltipComponent, LegendComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, BarChart3, X } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { X } from "lucide-react";
 import { fmp } from "@/lib/fmp/client";
 
 echarts.use([BarChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
@@ -120,7 +120,7 @@ const numOrUndefined = (x: any): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 
-// Tipo local para los datos financieros (siguiendo el patrón de FundamentalCard)
+// Tipo local para los datos financieros
 type FinancialScoreData = {
   symbol: string;
   reportedCurrency?: string;
@@ -174,33 +174,38 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
         setLoading(true);
         setError(null);
         
-        const scores = await fmp.scores(symbol);
+        // La API devuelve un Array, no un objeto único
+        const response = await fmp.scores(symbol);
         
-        console.log('API Response:', scores); // Para debug
+        console.log('API Response:', response); 
         
+        // Verificamos si response existe y tiene al menos un elemento
+        const scores = Array.isArray(response) ? response[0] : response;
+
         if (!scores) {
           throw new Error("No se pudieron obtener los datos de scores");
         }
 
-        // Adaptar a la nueva estructura de la API
+        // Adaptar a la estructura. FMP suele devolver objeto plano, sin ".raw"
         const scoreData: FinancialScoreData = {
           symbol: symbol,
-          reportedCurrency: scores.raw?.reportedCurrency || 'USD',
-          // Usar los nuevos nombres de campos de la API
-          altmanZScore: numOrNull(scores.altmanZ),        // ← Mantener null para campos requeridos
-          piotroskiScore: numOrNull(scores.piotroski),    // ← Mantener null para campos requeridos
-          // Usar numOrUndefined para campos opcionales
-          workingCapital: numOrUndefined(scores.raw?.workingCapital),
-          totalAssets: numOrUndefined(scores.raw?.totalAssets),
-          retainedEarnings: numOrUndefined(scores.raw?.retainedEarnings),
-          ebit: numOrUndefined(scores.raw?.ebit),
-          marketCap: numOrUndefined(scores.raw?.marketCap),
-          totalLiabilities: numOrUndefined(scores.raw?.totalLiabilities),
-          revenue: numOrUndefined(scores.raw?.revenue),
-          raw: scores.raw || scores // Mantener datos originales
+          reportedCurrency: scores.reportedCurrency || 'USD',
+          // Usar nombres estándar de FMP con fallbacks
+          altmanZScore: numOrNull(scores.altmanZScore ?? scores.altmanZ),
+          piotroskiScore: numOrNull(scores.piotroskiScore ?? scores.piotroski),
+          // Campos opcionales mapeados directamente del objeto plano
+          workingCapital: numOrUndefined(scores.workingCapital),
+          totalAssets: numOrUndefined(scores.totalAssets),
+          retainedEarnings: numOrUndefined(scores.retainedEarnings),
+          ebit: numOrUndefined(scores.ebit),
+          marketCap: numOrUndefined(scores.marketCap),
+          totalLiabilities: numOrUndefined(scores.totalLiabilities),
+          revenue: numOrUndefined(scores.revenue),
+          // Guardamos el objeto completo como raw por si acaso
+          raw: scores 
         };
         
-        console.log('Processed Score Data:', scoreData); // Para debug
+        console.log('Processed Score Data:', scoreData);
         setScoresData(scoreData);
       } catch (err) {
         console.error("Error fetching financial scores:", err);
@@ -310,14 +315,14 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
         axisLabel: {
           color: "#9CA3AF",
           fontSize: 11,
-          formatter: (value: string) => value // Mantener el texto original
+          formatter: (value: string) => value
         },
         axisLine: {
           lineStyle: {
             color: "#374151",
           },
         },
-        triggerEvent: true // ✅ Habilitar eventos en el eje Y
+        triggerEvent: true
       },
       series: [
         {
@@ -399,19 +404,8 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
   return (
     <>
       <Card className="bg-tarjetas border-none">
-        {/* <CardHeader>
-          <CardTitle className="text-[#FFA028] text-lg flex items-center">
-            <div className="text-gray-400 mr-2">
-              Financial Scores 
-            </div>
-            {symbol}
-          </CardTitle>
-        </CardHeader> */}
         <CardContent className="space-y-6 pt-6">
-          {/* Métricas financieras en formato de tarjetas */}
           <div>
-                  
-            {/* Grid de métricas financieras */}
             <div className="grid grid-cols-4 gap-4 text-sm">
               {/* Altman Z-Score */}
               <div className="bg-gray-800/50 rounded p-3">
@@ -544,7 +538,6 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-slate-100 border border-gray-300 rounded-lg max-w-lg w-full max-h-[80vh] overflow-y-auto">
             <div className="p-6">
-              {/* Header del modal */}
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-800">
                   {explanationModal.selectedMetric}
@@ -557,9 +550,7 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
                 </button>
               </div>
 
-              {/* Contenido del modal */}
               <div className="space-y-4">
-                {/* Descripción */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-600 mb-2">Descripción</h3>
                   <p className="text-gray-800 leading-relaxed">
@@ -567,7 +558,6 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
                   </p>
                 </div>
 
-                {/* Ejemplos */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-600 mb-2">Ejemplos y Rangos</h3>
                   <ul className="space-y-2">
@@ -580,7 +570,6 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
                   </ul>
                 </div>
 
-                {/* Botón cerrar */}
                 <div className="flex justify-end pt-4">
                   <button
                     onClick={closeExplanationModal}

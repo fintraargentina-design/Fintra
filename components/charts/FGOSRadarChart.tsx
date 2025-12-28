@@ -98,8 +98,8 @@ export default function FGOSRadarChart({ symbol, data, comparedSymbol }: { symbo
       seriesData.push({
         value: peerValues,
         name: comparedSymbol,
-        itemStyle: { color: '#3B82F6' },
-        areaStyle: { color: '#3B82F6', opacity: 0.3 },
+        itemStyle: { color: '#0056FF' },
+        areaStyle: { color: '#0056FF', opacity: 0.3 },
         symbol: 'none'
       });
     }
@@ -116,8 +116,14 @@ export default function FGOSRadarChart({ symbol, data, comparedSymbol }: { symbo
       legend: {
         data: [symbol, ...(peerData && comparedSymbol ? [comparedSymbol] : [])],
         bottom: 5,
-        textStyle: { color: '#9CA3AF' },
-        icon: 'circle'
+        left: 30,
+        itemWidth: 8,
+        itemHeight: 8,
+        textStyle: { 
+          color: '#9CA3AF',
+          fontSize: 10
+        },
+        icon: 'rect'
       },
       radar: {
         indicator: indicator,
