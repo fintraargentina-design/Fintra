@@ -302,8 +302,8 @@ export default function NoticiasTab({
 
   if (loading) {
     return (
-      <div className="h-[600px] flex flex-col items-center justify-center bg-zinc-900 border border-zinc-800">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+      <div className="h-[600px] flex flex-col items-center justify-center bg-transparent border border-zinc-800">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FFA028]"></div>
         <span className="mt-4 text-zinc-400 text-sm">Cargando feed de noticias...</span>
       </div>
     );
@@ -311,11 +311,11 @@ export default function NoticiasTab({
 
   if (error) {
     return (
-      <div className="h-[400px] flex flex-col items-center justify-center bg-zinc-900 border border-zinc-800 p-6 text-center">
+      <div className="h-[400px] flex flex-col items-center justify-center bg-transparent border border-zinc-800 p-6 text-center">
         <p className="text-rose-400 mb-4 text-sm">Error: {error}</p>
         <button
           onClick={fetchNews}
-          className="px-4 py-2 bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded-lg hover:bg-orange-500/20 transition-all text-sm font-medium"
+          className="px-4 py-2 bg-[#FFA028]/10 text-[#FFA028] border border-[#FFA028]/20 rounded-lg hover:bg-[#FFA028]/20 transition-all text-sm font-medium"
         >
           Reintentar conexión
         </button>
@@ -325,11 +325,11 @@ export default function NoticiasTab({
 
   return (
     <>
-      <div className="bg-zinc-900 border border-zinc-800 overflow-hidden h-full flex flex-col shadow-2xl">
+      <div className="bg-transparent border border-zinc-800 overflow-hidden h-full flex flex-col shadow-2xl">
         {/* Header Section */}
-        <div className="border-b border-zinc-800 bg-zinc-900 shrink-0 z-10 flex items-center relative h-8 px-4">
+        <div className="border-b border-zinc-800 bg-transparent shrink-0 z-10 flex items-center relative h-6 px-4">
           <h4 className="absolute left-1/2 -translate-x-1/2 text-xs font-medium text-gray-400 text-center">
-            Noticias de <span className="text-orange-400">{symbol}</span>
+            Noticias de <span className="text-[#FFA028]">{symbol}</span>
           </h4>
           
           <div className="ml-auto flex items-center gap-2">
@@ -341,17 +341,17 @@ export default function NoticiasTab({
                   size="icon" 
                   className="hover:bg-transparent focus:bg-transparent active:bg-transparent data-[state=open]:bg-transparent border-none ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-zinc-400 hover:text-zinc-100"
                 >
-                  <Filter className="h-1 w-1" />
+                  <Filter className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-auto bg-zinc-900 border-zinc-800 text-zinc-300 rounded-none p-0">
+              <DropdownMenuContent align="end" className="w-auto bg-black border-zinc-800 text-zinc-300 rounded-none p-0">
                 <div className="flex divide-x divide-zinc-800">
                     {/* Column 1: Categoría */}
                     <div className="w-32 p-1">
                         <DropdownMenuLabel className="text-xs font-normal text-zinc-500 px-2 py-1">Categoría</DropdownMenuLabel>
                         <DropdownMenuRadioGroup value={activeCategory} onValueChange={setActiveCategory}>
                             {categories.map(cat => (
-                                <DropdownMenuRadioItem key={cat} value={cat} className="pl-2 [&>span]:hidden data-[state=checked]:text-orange-500 focus:data-[state=checked]:text-orange-500 focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">
+                                <DropdownMenuRadioItem key={cat} value={cat} className="pl-2 [&>span]:hidden data-[state=checked]:bg-[#0056FF] data-[state=checked]:text-white focus:data-[state=checked]:bg-[#0056FF] focus:data-[state=checked]:text-white focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">
                                     {cat}
                                 </DropdownMenuRadioItem>
                             ))}
@@ -362,9 +362,9 @@ export default function NoticiasTab({
                     <div className="w-40 p-1">
                         <DropdownMenuLabel className="text-xs font-normal text-zinc-500 px-2 py-1">Tendencia</DropdownMenuLabel>
                         <DropdownMenuRadioGroup value={activeSentiment} onValueChange={setActiveSentiment}>
-                            <DropdownMenuRadioItem value="Any" className="pl-2 [&>span]:hidden data-[state=checked]:text-orange-500 focus:data-[state=checked]:text-orange-500 focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">Todas</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="Any" className="pl-2 [&>span]:hidden data-[state=checked]:bg-[#0056FF] data-[state=checked]:text-white focus:data-[state=checked]:bg-[#0056FF] focus:data-[state=checked]:text-white focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">Todas</DropdownMenuRadioItem>
                             {sentiments.map(sent => (
-                                <DropdownMenuRadioItem key={sent} value={sent} className="pl-2 [&>span]:hidden data-[state=checked]:text-orange-500 focus:data-[state=checked]:text-orange-500 focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">
+                                <DropdownMenuRadioItem key={sent} value={sent} className="pl-2 [&>span]:hidden data-[state=checked]:bg-[#0056FF] data-[state=checked]:text-white focus:data-[state=checked]:bg-[#0056FF] focus:data-[state=checked]:text-white focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">
                                     {sent}
                                 </DropdownMenuRadioItem>
                             ))}
@@ -376,8 +376,8 @@ export default function NoticiasTab({
                         <div className="flex-1">
                             <DropdownMenuLabel className="text-xs font-normal text-zinc-500 px-2 py-1">Ordenar</DropdownMenuLabel>
                             <DropdownMenuRadioGroup value={sortBy} onValueChange={setSortBy}>
-                                <DropdownMenuRadioItem value="Latest" className="pl-2 [&>span]:hidden data-[state=checked]:text-orange-500 focus:data-[state=checked]:text-orange-500 focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">Latest</DropdownMenuRadioItem>
-                                <DropdownMenuRadioItem value="Top Stories" className="pl-2 [&>span]:hidden data-[state=checked]:text-orange-500 focus:data-[state=checked]:text-orange-500 focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">Top Stories</DropdownMenuRadioItem>
+                                <DropdownMenuRadioItem value="Latest" className="pl-2 [&>span]:hidden data-[state=checked]:bg-[#0056FF] data-[state=checked]:text-white focus:data-[state=checked]:bg-[#0056FF] focus:data-[state=checked]:text-white focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">Latest</DropdownMenuRadioItem>
+                                <DropdownMenuRadioItem value="Top Stories" className="pl-2 [&>span]:hidden data-[state=checked]:bg-[#0056FF] data-[state=checked]:text-white focus:data-[state=checked]:bg-[#0056FF] focus:data-[state=checked]:text-white focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">Top Stories</DropdownMenuRadioItem>
                             </DropdownMenuRadioGroup>
                         </div>
                         
@@ -430,7 +430,7 @@ export default function NoticiasTab({
                         <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2 mb-1">
                                 <div className="flex items-center gap-2 text-xs text-zinc-400">
-                                    <span className="font-semibold text-orange-400">{item.source}</span>
+                                    <span className="font-semibold text-[#FFA028]">{item.source}</span>
                                     <span>•</span>
                                     <span className="flex items-center gap-1">
                                         <Clock className="w-3 h-3" />
@@ -449,7 +449,7 @@ export default function NoticiasTab({
                                 </div>
                             </div>
 
-                            <h3 className="text-zinc-100 font-medium text-xs leading-snug mb-2 group-hover:text-orange-400 transition-colors line-clamp-2">
+                            <h3 className="text-zinc-100 font-medium text-xs leading-snug mb-2 group-hover:text-[#FFA028] transition-colors line-clamp-2">
                                 <button 
                                     onClick={(e) => { e.preventDefault(); openNewsModal(item.url, item.title); }} 
                                     className="text-left hover:underline focus:outline-none"
@@ -474,7 +474,7 @@ export default function NoticiasTab({
                                 <div className="flex gap-2">
                                     <button 
                                         onClick={() => handleAnalyzeNews(item)}
-                                        className="flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 border border-orange-500/20 text-xs transition-all"
+                                        className="flex items-center gap-1.5 px-3 py-1 bg-[#FFA028]/10 text-[#FFA028] hover:bg-[#FFA028]/20 border border-[#FFA028]/20 text-xs transition-all"
                                     >
                                         {/* <Brain className="w-3 h-3" /> */}
                                         AI Insight

@@ -112,8 +112,8 @@ export default function InformeTab({ stockReport }: InformeTabProps) {
                   onClick={() => handleSectionChange(section.key)}
                   className={`w-full text-left px-4 py-3 transition-all duration-200 ${
                     activeSection === section.key
-                      ? 'bg-green-500/20 text-green-400 border-r-2 border-green-500'
-                      : 'text-gray-400 hover:bg-gray-800/50 hover:text-green-300'
+                      ? 'bg-[#0056FF] text-white border-r-2 border-[#0056FF]'
+                      : 'text-gray-400 hover:bg-gray-800/50 hover:text-[#0056FF]/70'
                   }`}
                 >
                   {section.label}

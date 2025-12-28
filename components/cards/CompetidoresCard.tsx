@@ -107,7 +107,7 @@ export default function CompetidoresCard({
     <div className="w-full h-full flex flex-col bg-tarjetas border border-white/5 rounded-none overflow-hidden shadow-sm">
         <div className="py-2 px-4 border-b border-white/5 bg-white/[0.02] shrink-0">
           <h4 className="text-xs font-medium text-gray-400 text-center">
-            Competidores directos de <span className="text-orange-400">{symbol}</span>
+            Competidores directos de <span className="text-[#FFA028]">{symbol}</span>
             {sector && <span className="text-gray-500 ml-1">({sector})</span>}
           </h4>
         </div>

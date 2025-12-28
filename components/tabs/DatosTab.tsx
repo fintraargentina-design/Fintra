@@ -89,7 +89,7 @@ export default function DatosTab({
                 flex-1 text-center justify-center px-2 py-1 text-xs font-medium transition-colors border-b-2
                 ${
                   activeTab === tab.id
-                    ? "border-orange-400 text-orange-400 bg-background"
+                    ? "bg-[#0056FF] text-white border-[#0056FF]"
                     : "border-transparent text-gray-400 hover:text-gray-200"
                 }
               `}
@@ -122,9 +122,9 @@ export default function DatosTab({
                     type="button"
                     onClick={() => handlePeriodChange(opt.value)}
                     className={[
-                      "px-2 py-1 text-[10px] text-left rounded transition-colors w-full",
+                      "px-2 py-1 text-[10px] text-left rounded-none transition-colors w-full",
                       selectedPeriod === (opt.value as PeriodSel)
-                        ? "bg-orange-500/10 text-orange-400 font-medium"
+                        ? "bg-[#0056FF] text-white font-medium"
                         : "text-gray-400 hover:text-gray-200 hover:bg-white/5",
                     ].join(" ")}
                     title={opt.label}
@@ -139,17 +139,21 @@ export default function DatosTab({
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           {activeTab === "financials" && (
-            <div className="flex flex-col pt-4 gap-0">
+            <div className="flex flex-col pt-4 gap-0.5 min-h-full justify-center">
               <div className="bg-tarjetas border-none">
                 <FundamentalCard 
                   symbol={symbol} 
                   period={selectedPeriod}
-                  ratiosData={selectedPeriod === 'ttm' ? ratios : undefined}
-                  metricsData={selectedPeriod === 'ttm' ? metrics : undefined}
+                  ratiosData={ratios}
+                  metricsData={metrics}
                 />
               </div>
               <div className="bg-tarjetas border-none">
-                <ValoracionCard symbol={symbol} period={selectedPeriod} />
+                <ValoracionCard 
+                  symbol={symbol} 
+                  period={selectedPeriod} 
+                  ratiosData={ratios}
+                />
               </div>
             </div>
           )}

@@ -374,7 +374,7 @@ export default function OverviewCard({
     if (editingField === fieldName) {
       if (searchLoading) {
         return (
-          <div className="px-3 py-2 bg-Tarjeta text-orange-400 text-sm flex items-center space-x-2">
+          <div className="px-3 py-2 bg-Tarjeta text-[#FFA028] text-sm flex items-center space-x-2">
             <RefreshCw className="w-3 h-3 animate-spin" />
             <span>Cargando Ticker...</span>
           </div>
@@ -392,7 +392,7 @@ export default function OverviewCard({
               autoFocus
             />
             <Search
-              className="w-4 h-4 text-gray-400 cursor-pointer hover:text-orange-400"
+              className="w-4 h-4 text-gray-400 cursor-pointer hover:text-[#FFA028]"
               onClick={handleSearch}
             />
           </div>
@@ -406,7 +406,7 @@ export default function OverviewCard({
     if (value === undefined || value === null || value === "N/A" || value === "") {
       return (
         <span
-          className="text-gray-500 cursor-pointer hover:text-orange-400 transition-colors"
+          className="text-gray-500 cursor-pointer hover:text-[#FFA028] transition-colors"
           onClick={() => {
             handleNAClick(fieldName);
             setSearchError(null);
@@ -425,7 +425,7 @@ export default function OverviewCard({
     <div className="space-y-0 bg-black">
       {/* Información de la Empresa */}
       <div className="bg-tarjetas p-1 border-gray-700/30">
-        <h3 className="text-orange-400 text-lg font-semibold mb-1 flex items-center gap-1 justify-center">
+        <h3 className="text-[#FFA028] text-lg font-semibold mb-1 flex items-center gap-1 justify-center">
           {/* <Building2 className="w-5 h-5" /> */}
           Información de la Empresa
         </h3>
@@ -465,7 +465,7 @@ export default function OverviewCard({
             <div className="flex justify-center gap-2 text-xs">     
               <span className="text-gray-400">Sitio web:</span>
               {data.website ? (
-                <span className="text-orange-400">
+                <span className="text-[#FFA028]">
                   <a
                     href={
                       data.website.startsWith("http")
@@ -474,7 +474,7 @@ export default function OverviewCard({
                     }
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hover:text-orange-300 underline"
+                    className="hover:text-[#FFA028] underline"
                   >
                     {String(data.website).replace(/^https?:\/\//, "").trim()}
                   </a>
@@ -497,7 +497,7 @@ export default function OverviewCard({
 
       {/* Descripción */}
       <div className="bg-tarjetas p-2 border-gray-700/30">
-        <h3 className="text-orange-400 text-lg font-semibold mb-1 flex items-center gap-1 justify-center">
+        <h3 className="text-[#FFA028] text-lg font-semibold mb-1 flex items-center gap-1 justify-center">
           {/* <FileText className="w-5 h-5" /> */}
           Descripción
         </h3>
@@ -512,7 +512,7 @@ export default function OverviewCard({
 
       {/* Métricas */}
       <div className="bg-tarjetas p-2 border-gray-700/30">
-        <h3 className="text-orange-400 text-lg font-semibold mb-1 flex items-center gap-1 justify-center">
+        <h3 className="text-[#FFA028] text-lg font-semibold mb-1 flex items-center gap-1 justify-center">
           {/* <DollarSign className="w-5 h-5" /> */}
           Métricas Financieras Clave
         </h3>
@@ -524,13 +524,13 @@ export default function OverviewCard({
             <div className="space-y-2 text-xs">
               <div className="flex justify-start gap-4">
                 <span className="text-gray-400 min-w-[100px]">Cap. de Mercado:</span>
-                <span className="text-orange-400 font-mono">
+                <span className="text-[#FFA028] font-mono">
                   {formatLargeNumber(data.marketCap)}
                 </span>
               </div>
               <div className="flex justify-start gap-4">
                 <span className="text-gray-400 min-w-[100px]">Precio Actual:</span>
-                <span className="text-orange-400 font-mono">
+                <span className="text-[#FFA028] font-mono">
                   {Number.isFinite(Number(data.price))
                     ? `$${Number(data.price).toFixed(2)}`
                     : "N/A"}
@@ -538,7 +538,7 @@ export default function OverviewCard({
               </div>
               <div className="flex justify-start gap-4">
                 <span className="text-gray-400 min-w-[100px]">Moneda:</span>
-                <span className="text-orange-400 font-mono">
+                <span className="text-[#FFA028] font-mono">
                   {data.currency || "N/A"}
                 </span>
               </div>
@@ -574,7 +574,7 @@ export default function OverviewCard({
               </div>
               <div className="flex justify-start gap-4">
                 <span className="text-gray-400 min-w-[100px]">Beta:</span>
-                <span className="text-orange-400 font-mono">
+                <span className="text-[#FFA028] font-mono">
                   {Number.isFinite(Number(data.beta))
                     ? Number(data.beta).toFixed(3)
                     : "N/A"}
@@ -590,7 +590,7 @@ export default function OverviewCard({
             <div className="space-y-2 text-xs">
               <div className="flex justify-start gap-4">
                 <span className="text-gray-400 min-w-[100px]">Último Dividendo:</span>
-                <span className="text-orange-400 font-mono">
+                <span className="text-[#FFA028] font-mono">
                   {Number.isFinite(Number(data.lastDividend))
                     ? `$${Number(data.lastDividend).toFixed(2)}`
                     : "N/A"}
@@ -598,7 +598,7 @@ export default function OverviewCard({
               </div>
               <div className="flex justify-start gap-4">
                 <span className="text-gray-400 min-w-[100px]">Volumen:</span>
-                <span className="text-orange-400 font-mono">
+                <span className="text-[#FFA028] font-mono">
                   {Number.isFinite(Number(data.volume))
                     ? Number(data.volume).toLocaleString()
                     : "N/A"}
@@ -606,7 +606,7 @@ export default function OverviewCard({
               </div>
               <div className="flex justify-start gap-4">
                 <span className="text-gray-400 min-w-[100px]">Vol. Promedio:</span>
-                <span className="text-orange-400 font-mono">
+                <span className="text-[#FFA028] font-mono">
                   {Number.isFinite(Number(data.averageVolume))
                     ? Number(data.averageVolume).toLocaleString()
                     : "N/A"}
@@ -614,7 +614,7 @@ export default function OverviewCard({
               </div>
               <div className="flex justify-start gap-4">
                 <span className="text-gray-400 min-w-[100px]">Rango 52 sem:</span>
-                <span className="text-orange-400 font-mono text-xs">
+                <span className="text-[#FFA028] font-mono text-xs">
                   {data.range || "N/A"}
                 </span>
               </div>
@@ -627,7 +627,7 @@ export default function OverviewCard({
       {/* Scores Financieros */}
       {scoresData && (
         <div className="bg-tarjetas rounded-lg p-4 border-gray-700/30">
-          <h3 className="text-orange-400 text-lg font-semibold mb-4 flex items-center gap-2 justify-center">
+          <h3 className="text-[#FFA028] text-lg font-semibold mb-4 flex items-center gap-2 justify-center">
             {/* <BarChart3 className="w-5 h-5" /> */}
             Scores Financieros y Activos
           </h3>
@@ -725,26 +725,26 @@ export default function OverviewCard({
 
       {/* Info adicional */}
       <div className="bg-black p-2 border-gray-700/30">
-        <h3 className="text-orange-400 text-lg font-semibold mb-4 flex justify-center items-center">
+        <h3 className="text-[#FFA028] text-lg font-semibold mb-4 flex justify-center items-center">
           Información Adicional
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-gray-400">CIK:</span>
-              <span className="text-orange-400 font-mono">
+              <span className="text-[#FFA028] font-mono">
                 {data.cik || "N/A"}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">ISIN:</span>
-              <span className="text-orange-400 font-mono">
+              <span className="text-[#FFA028] font-mono">
                 {data.isin || "N/A"}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">CUSIP:</span>
-              <span className="text-orange-400 font-mono">
+              <span className="text-[#FFA028] font-mono">
                 {data.cusip || "N/A"}
               </span>
             </div>
@@ -752,17 +752,17 @@ export default function OverviewCard({
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-gray-400">Teléfono:</span>
-              <span className="text-orange-400">{data.phone || "N/A"}</span>
+              <span className="text-[#FFA028]">{data.phone || "N/A"}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Es ETF:</span>
-              <span className="text-orange-400">
+              <span className="text-[#FFA028]">
                 {data.isEtf ? "Sí" : "No"}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Activamente negociado:</span>
-              <span className="text-orange-400">
+              <span className="text-[#FFA028]">
                 {data.isActivelyTrading ? "Sí" : "No"}
               </span>
             </div>

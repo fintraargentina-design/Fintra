@@ -80,7 +80,7 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
                     ? currentTime.toLocaleTimeString('es-ES', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
                     : '--:--:--'}
                 </span>
-                <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-4 h-4 text-[#FFA028]" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -91,7 +91,7 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
                     ? currentTime.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
                     : '--:--:--'}
                 </span>
-                <span className="text-orange-400 font-semibold">NY</span>
+                <span className="text-[#FFA028] font-semibold">NY</span>
               </div>
             </>
           )}

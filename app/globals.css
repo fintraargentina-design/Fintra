@@ -23,7 +23,7 @@
     --ring: 0 0% 83.1%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
+    --chart-3: 34 100% 58%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
     --radius: 0.4rem;
@@ -86,12 +86,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(251, 146, 60, 0.5);
+  background: rgba(255, 160, 40, 0.5);
   border-radius: 0px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(251, 146, 60, 0.7);
+  background: rgba(255, 160, 40, 0.7);
 }
 
 /* Scrollbar personalizada más fina */
@@ -105,7 +105,7 @@
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: rgba(251, 146, 60, 0.5);
+  background-color: rgba(255, 160, 40, 0.5);
   border-radius: 8px;
 }
 
@@ -182,7 +182,7 @@
   backdrop-filter: none !important;
 }
 
-.text-orange-400 {
+.text-[#FFA028] {
   color: #AA6826 !important;
 }
 

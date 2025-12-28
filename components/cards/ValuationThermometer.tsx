@@ -61,7 +61,7 @@ export default function ValuationThermometer({ symbol }: { symbol: string }) {
     <Card className="bg-tarjetas border-none shadow-lg h-full flex flex-col justify-center"> 
       <CardHeader className="pb-2 pt-4"> 
         <div className="flex justify-between items-center"> 
-          <CardTitle className="text-orange-400 text-base flex gap-2 items-center"> 
+          <CardTitle className="text-[#FFA028] text-base flex gap-2 items-center"> 
             <Gauge className="w-4 h-4" /> Termómetro de Valuación 
           </CardTitle> 
           {score !== null && ( 

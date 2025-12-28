@@ -272,12 +272,12 @@ export default function ChartsTabHistoricos({
           symbol: 'none',
           sampling: 'lttb',
           itemStyle: {
-            color: 'rgb(255, 70, 131)'
+            color: '#FFA028'
           },
           areaStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: 'rgb(255, 158, 68)' },
-              { offset: 1, color: 'rgb(255, 70, 131)' }
+              { offset: 0, color: '#FFBF00' },
+              { offset: 1, color: '#cf7200ff' }
             ])
           },
           data: dataPrice
@@ -424,7 +424,7 @@ export default function ChartsTabHistoricos({
                   className={[
                     "px-2 py-1 text-xs rounded-none border transition-colors",
                     range === r
-                      ? "bg-orange-500/20 border-orange-400 text-orange-300"
+                      ? "bg-[#FFA028]/20 border-[#FFA028] text-[#FFA028]"
                       : "bg-transparent border-gray-700 text-gray-300 hover:bg-gray-700/40",
                   ].join(" ")}
                 >
@@ -442,7 +442,7 @@ export default function ChartsTabHistoricos({
                   className={[
                     "px-2 py-1 text-xs rounded-none transition-colors",
                     view === v.key
-                      ? "bg-orange-500/20 text-orange-300"
+                      ? "bg-[#FFA028]/20 text-[#FFA028]"
                       : "text-gray-300 hover:bg-gray-700/40",
                   ].join(" ")}
                 >

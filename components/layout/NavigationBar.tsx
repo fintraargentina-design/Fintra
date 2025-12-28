@@ -48,7 +48,7 @@ export default function NavigationBar({
     );
   }
   return (
-    <div className="w-full border-b border-zinc-800 bg-zinc-900 shrink-0 z-10">
+    <div className="w-full border-b border-zinc-800 bg-transparent z-10 border-white/10 shrink-0">
       <div className="w-full overflow-x-auto scrollbar-thin whitespace-nowrap">
         {/* Desktop Navigation */}
         <div className="hidden md:flex flex-nowrap items-center justify-start h-auto p-0 w-max">
@@ -61,7 +61,7 @@ export default function NavigationBar({
                   rounded-none border-b-2 border-transparent px-2 py-1 text-xs transition-colors font-medium
                   ${
                     activeTab === tab.key
-                      ? 'border-orange-500 text-orange-500 bg-zinc-800/50'
+                      ? 'bg-[#0056FF] text-white border-[#0056FF]'
                       : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
                   }
                 `}
@@ -87,7 +87,7 @@ export default function NavigationBar({
                 text-xs transition-colors whitespace-nowrap flex-shrink-0
                 ${
                   activeTab === tab.key
-                    ? 'border-orange-400 text-orange-400 bg-background'
+                    ? 'bg-[#0056FF] text-white border-[#0056FF]'
                     : 'text-gray-400 hover:text-gray-200'
                 }
               `}

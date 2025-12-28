@@ -157,7 +157,7 @@ export default function StockSearchModal({ isOpen, onClose, onSelectSymbol }: St
                             onClick={() => handleQuickSearchStockClick(r.symbol)}
                         >
                             <div className="flex justify-between items-center mb-0.5">
-                                <span className="text-sm text-orange-400 font-mono font-bold">{r.symbol}</span>
+                                <span className="text-sm text-[#FFA028] font-mono font-bold">{r.symbol}</span>
                                 <span className="text-[10px] text-gray-500 border border-gray-700 px-1 rounded">{r.exchangeShortName || "N/A"}</span>
                             </div>
                             <div className="text-xs text-gray-300 truncate">{r.name}</div>

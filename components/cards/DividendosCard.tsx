@@ -211,7 +211,7 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
   return (
     <div className="h-[360px] bg-tarjetas border-none">
       <div className="pb-2 px-6 pt-6 flex flex-row items-center justify-between">
-        <div className="text-orange-400 text-lg flex items-center gap-2">
+        <div className="text-[#FFA028] text-lg flex items-center gap-2">
           <div className="text-gray-400">
            Dividendos
           </div>
@@ -224,7 +224,7 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
             className={[
               'group inline-flex items-center gap-2 px-3 py-1 text-sm rounded transition-colors',
               view === 'historico'
-                ? 'bg-orange-500/20 text-orange-300'
+                ? 'bg-[#FFA028]/20 text-[#FFA028]'
                 : 'text-gray-300 hover:bg-gray-700/40'
             ].join(' ')}
             title="Histórico"
@@ -239,7 +239,7 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
             className={[
               'group inline-flex items-center gap-2 px-3 py-1 text-sm rounded transition-colors',
               view === 'calendario'
-                ? 'bg-orange-500/20 text-orange-300'
+                ? 'bg-[#FFA028]/20 text-[#FFA028]'
                 : 'text-gray-300 hover:bg-gray-700/40'
             ].join(' ')}
             title="Calendario de pagos"
@@ -254,7 +254,7 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
             className={[
               'group inline-flex items-center gap-2 px-3 py-1 text-sm rounded transition-colors',
               view === 'payout'
-                ? 'bg-orange-500/20 text-orange-300'
+                ? 'bg-[#FFA028]/20 text-[#FFA028]'
                 : 'text-gray-300 hover:bg-gray-700/40'
             ].join(' ')}
             title="Payout"

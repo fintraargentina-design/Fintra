@@ -431,12 +431,12 @@ export default function RadarPeersCard({ symbol, selectedCompetitor, embedded = 
   return (
     <Card className="bg-tarjetas border-none h-[492px] responsive-container">
       <CardHeader>
-        {/* <CardTitle className="text-orange-400 text-lg flex items-center justify-center">
+        {/* <CardTitle className="text-[#FFA028] text-lg flex items-center justify-center">
           <div className="flex items-center justify-center gap-2">
             <div className="text-gray-400">
               Comparativo
             </div>
-            {main && <span className="text-orange-400 text-lg">{main.symbol}</span>}
+            {main && <span className="text-[#FFA028] text-lg">{main.symbol}</span>}
             <span className="text-gray-400">vs</span>
             {peer && <span className="text-blue-300 text-lg">{peer.symbol}</span>}
           </div>
@@ -444,12 +444,12 @@ export default function RadarPeersCard({ symbol, selectedCompetitor, embedded = 
       </CardHeader>
 
       <CardContent className='pl-0 pr-0 pb-0'>
-        {/* <CardTitle className="text-orange-400 text-lg flex items-center justify-center">
+        {/* <CardTitle className="text-[#FFA028] text-lg flex items-center justify-center">
           <div className="flex items-center justify-center gap-2">
             <div className="text-gray-400">
               Comparativo
             </div>
-            {main && <span className="text-orange-400 text-lg">{main.symbol}</span>}
+            {main && <span className="text-[#FFA028] text-lg">{main.symbol}</span>}
             <span className="text-gray-400">vs</span>
             {peer && <span className="text-blue-300 text-lg">{peer.symbol}</span>}
           </div>

@@ -158,9 +158,9 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
     "bg-red-500/10 text-red-400 border-red-500/20";
 
   const getValBadge = (v: string) => {
-    if (v === "Undervalued") return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-[9px] h-5" variant="outline">Infravalorada</Badge>;
-    if (v === "Fair") return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-[9px] h-5" variant="outline">Justa</Badge>;
-    return <Badge className="text-red-400 bg-red-400/10 border-red-400 px-2 py-0.5 text-[9px] h-5" variant="outline">Sobrevalorada</Badge>;
+    if (v === "Undervalued") return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Infravalorada</Badge>;
+    if (v === "Fair") return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Justa</Badge>;
+    return <Badge className="text-red-400 bg-red-400/10 border-red-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Sobrevalorada</Badge>;
   };
 
   return (
@@ -168,14 +168,14 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
             
       <div className="px-1 py-1 border-b border-white/5 bg-white/[0.02] shrink-0">
         <h4 className="text-xs font-medium text-gray-400 text-center">
-          Competidores directos de <span className="text-orange-400">{symbol}</span>
+          Competidores directos de <span className="text-[#FFA028]">{symbol}</span>
         </h4>
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin relative p-0">
         <Table>
-          <TableHeader>
-            <TableRow className="border-white/10 hover:bg-gray-600 bg-gray-600">
+          <TableHeader className="sticky top-0 z-10 bg-gray-600">
+            <TableRow className="border-white/10 hover:bg-gray-600 bg-gray-600 border-b-0">
               <TableHead className="text-gray-300 text-[10px] h-8 w-[60px]">Ticker</TableHead>
               <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[50px]">F.G.O.S.</TableHead>
               <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[80px]">Valuación</TableHead>
@@ -208,14 +208,11 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
                     onClick={() => onPeerSelect?.(selectedPeer === peer.ticker ? "" : peer.ticker)}
                   >
                     <TableCell className="font-bold text-white px-2 py-0.5 text-xs">{peer.ticker}</TableCell>
-                    <TableCell className="text-center px-2 py-0.5">
-                      <Badge variant="outline" className={`text-[10px] border-0 px-1.5 py-0 h-5 font-bold ${
-                        peer.fgos >= 70 ? "bg-green-500/10 text-green-400" : 
-                        peer.fgos >= 50 ? "bg-yellow-500/10 text-yellow-400" : 
-                        "bg-red-500/10 text-red-400"
-                      }`}>
-                        {peer.fgos}
-                      </Badge>
+                    <TableCell 
+                      className="text-center px-2 py-0.5 text-[10px] font-bold text-white"
+                      style={{ backgroundColor: getHeatmapColor(peer.fgos - 50) }}
+                    >
+                      {peer.fgos}
                     </TableCell>
                     <TableCell className="text-center px-2 py-0.5">
                       {getValBadge(peer.valuation)}

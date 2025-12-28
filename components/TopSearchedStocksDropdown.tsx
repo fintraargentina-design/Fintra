@@ -96,7 +96,7 @@ export default function TopSearchedStocksDropdown({ onStockClick, isMobile = fal
   // Estado de carga
   if (loading) {
     return (
-      <div className="px-3 py-2 text-orange-400 text-sm flex items-center space-x-2">
+      <div className="px-3 py-2 text-[#FFA028] text-sm flex items-center space-x-2">
         <RefreshCw className="w-3 h-3 animate-spin" />
         <span>Cargando...</span>
       </div>
@@ -110,7 +110,7 @@ export default function TopSearchedStocksDropdown({ onStockClick, isMobile = fal
         <div className="text-red-400 text-sm mb-2">{error}</div>
         <button
           onClick={handleRetry}
-          className="text-orange-400 hover:text-orange-300 text-xs flex items-center space-x-1 transition-colors"
+          className="text-[#FFA028] hover:text-[#FFA028] text-xs flex items-center space-x-1 transition-colors"
         >
           <RefreshCw className="w-3 h-3" />
           <span>Reintentar</span>
@@ -136,7 +136,7 @@ export default function TopSearchedStocksDropdown({ onStockClick, isMobile = fal
           <button
             key={stock.symbol}
             onClick={() => handleStockClick(stock.symbol)}
-            className="w-full px-3 py-2 text-left text-gray-300 hover:bg-orange-500/10 hover:text-orange-400 cursor-pointer transition-colors duration-200 text-sm font-medium flex justify-between items-center"
+            className="w-full px-3 py-2 text-left text-gray-300 hover:bg-[#FFA028]/10 hover:text-[#FFA028] cursor-pointer transition-colors duration-200 text-sm font-medium flex justify-between items-center"
           >
             <span>{stock.symbol}</span>
             {/* <span className="text-xs text-gray-400">{stock.busquedas} búsquedas</span> */}
@@ -150,7 +150,7 @@ export default function TopSearchedStocksDropdown({ onStockClick, isMobile = fal
   if (isMobile) {
     return (
       <DropdownMenu>
-        <DropdownMenuTrigger className="flex items-center gap-1 px-2 py-1 border-none transition-colors text-sm text-gray-400 hover:text-orange-400">
+        <DropdownMenuTrigger className="flex items-center gap-1 px-2 py-1 border-none transition-colors text-sm text-gray-400 hover:text-[#FFA028]">
           <span>{selectedStock || <ChevronDown className="w-3 h-3" /> }</span>
           {/* <ChevronDown className="w-3 h-3" /> */}
         </DropdownMenuTrigger>
@@ -159,7 +159,7 @@ export default function TopSearchedStocksDropdown({ onStockClick, isMobile = fal
             <DropdownMenuItem
               key={stock.symbol}
               onClick={() => handleStockClick(stock.symbol)}
-              className="cursor-pointer transition-colors text-gray-300 hover:bg-orange-500/10 hover:text-orange-400"
+              className="cursor-pointer transition-colors text-gray-300 hover:bg-[#FFA028]/10 hover:text-[#FFA028]"
             >
               {stock.symbol}
             </DropdownMenuItem>
@@ -176,7 +176,7 @@ export default function TopSearchedStocksDropdown({ onStockClick, isMobile = fal
         <button
           key={stock.symbol}
           onClick={() => handleStockClick(stock.symbol)}
-          className="px-3 py-1.5 text-gray-400 hover:bg-orange-400/10 cursor-pointer transition-colors duration-200 text-sm font-medium"
+          className="px-3 py-1.5 text-gray-400 hover:bg-[#FFA028]/10 cursor-pointer transition-colors duration-200 text-sm font-medium"
         >
           {stock.symbol}
         </button>

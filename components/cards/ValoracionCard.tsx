@@ -176,7 +176,7 @@ const METRIC_EXPLANATIONS: Record<string, { description: string; examples: strin
 
 type PeriodSel = "ttm" | "FY" | "Q1" | "Q2" | "Q3" | "Q4" | "annual" | "quarter";
 
-export default function ValoracionCard({ symbol, period = "ttm" }: { symbol: string; period?: PeriodSel }) {
+export default function ValoracionCard({ symbol, period = "ttm", ratiosData }: { symbol: string; period?: PeriodSel; ratiosData?: any }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -197,6 +197,63 @@ export default function ValoracionCard({ symbol, period = "ttm" }: { symbol: str
 
 
   useEffect(() => {
+    // Lógica híbrida: si tenemos datos por props, usarlos directamente
+    if (ratiosData) {
+      try {
+        const r = ratiosData;
+        const build = (
+          label: string,
+          val: number | null,
+          unit?: "%" | "x",
+          score?: number | null,
+          thresholds?: { poor: number; avg: number }
+        ): Row => ({
+          label,
+          raw: val,
+          unit,
+          score: score ?? null,
+          thresholds: thresholds ?? { poor: 40, avg: 70 },
+          display: fmt(val, unit),
+        });
+
+        const pe = numOrNull(r.priceEarningsRatio ?? r.priceEarningsRatioTTM);
+        const peg = numOrNull(r.pegRatio ?? r.pegRatioTTM);
+        const pb = numOrNull(r.priceToBookRatio ?? r.priceToBookRatioTTM);
+        const ps = numOrNull(r.priceToSalesRatio ?? r.priceToSalesRatioTTM);
+        const pfcf = numOrNull(r.priceToFreeCashFlowRatio ?? r.priceToFreeCashFlowRatioTTM);
+        const evEbitda = numOrNull(r.enterpriseValueMultiple ?? r.enterpriseValueMultipleTTM);
+        const divYield = numOrNull(r.dividendYield ?? r.dividendYieldTTM); 
+
+        const items: Row[] = [
+          build("P/E (PER)", pe, "x", ratioBetterLow(pe, 12, 40)),
+          build("P/E forward", null, "x", null),
+          build("PEG", peg, "x", ratioBetterLow(peg, 1, 3)),
+          build("P/Book (P/B)", pb, "x", ratioBetterLow(pb, 2, 6)),
+          build("P/S (Ventas)", ps, "x", ratioBetterLow(ps, 2, 12)),
+          build("P/FCF", pfcf, "x", ratioBetterLow(pfcf, 15, 40)),
+          build("EV/EBITDA", evEbitda, "x", ratioBetterLow(evEbitda, 8, 25)),
+          build("EV/Ventas", null, "x", null),
+          build(
+            "Dividend Yield",
+            divYield ? divYield * 100 : null,
+            "%",
+            divYield == null ? null : clamp((divYield * 100 / 8) * 100),
+            { poor: 10, avg: 30 }
+          ),
+           build("Crecimiento implícito", null, "%", null, { poor: 40, avg: 70 }),
+           build("Descuento vs. PT", null, "%", null, { poor: 40, avg: 70 }),
+        ];
+
+        setRows(items);
+        setError(null);
+        setLoading(false);
+      } catch (err) {
+        console.error("Error processing props data:", err);
+        setError("Error procesando datos");
+      }
+      return;
+    }
+
     let alive = true;
     (async () => {
       setLoading(true);
@@ -300,32 +357,32 @@ export default function ValoracionCard({ symbol, period = "ttm" }: { symbol: str
           ) : (
             <>
               {/* Métricas de valoración en formato Heatmap Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-0">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-0.5">
                 {rows.map((row, index) => {
                   const scoreLevel = getScoreLevel(row.score);
 
                   return (
                     <div 
-                      key={index} 
-                      className="relative flex flex-col items-center justify-center p-1.5 cursor-pointer hover:brightness-110 transition-all aspect-[4/3]"
-                      style={{ backgroundColor: getHeatmapColor(row.score) }}
-                      onClick={() => openExplanationModal(row.label)}
-                    >
-                      {/* Top: Label */}
-                      <div className="text-white/70 text-[10px] font-medium text-center leading-none mb-0.5 line-clamp-1">
-                        {row.label}
-                      </div>
+                        key={index} 
+                        className="relative flex flex-col items-center justify-center px-3 py-3 gap-1 cursor-pointer hover:brightness-110 transition-all"
+                        style={{ backgroundColor: getHeatmapColor(row.score) }}
+                        onClick={() => openExplanationModal(row.label)}
+                      >
+                        {/* Top: Label */}
+                        <div className="text-white/70 text-[10px] font-medium text-center leading-none line-clamp-1">
+                          {row.label}
+                        </div>
 
-                      {/* Middle: Value */}
-                      <div className="text-white text-sm tracking-tight leading-tight">
-                        {row.display || "N/A"}
-                      </div>
+                        {/* Middle: Value */}
+                        <div className="text-white text-sm tracking-tight leading-tight">
+                          {row.display || "N/A"}
+                        </div>
 
-                      {/* Bottom: Level */}
-                      <div className="mt-0.5 text-[9px] text-white/90 font-medium uppercase tracking-wider bg-black/20 px-1 py-0 rounded leading-none">
-                        {scoreLevel}
-                      </div>                    
-                    </div>
+                        {/* Bottom: Level */}
+                        <div className="text-[9px] text-white/90 font-medium uppercase tracking-wider bg-black/20 px-1 py-0 rounded leading-none">
+                          {scoreLevel}
+                        </div>                    
+                      </div>
                   );
                 })}
               </div>
@@ -368,7 +425,7 @@ export default function ValoracionCard({ symbol, period = "ttm" }: { symbol: str
                   <ul className="space-y-2">
                     {METRIC_EXPLANATIONS[explanationModal.selectedMetric].examples.map((example, index) => (
                       <li key={index} className="text-gray-700 text-sm flex items-start">
-                        <span className="w-2 h-2 bg-orange-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                        <span className="w-2 h-2 bg-[#FFA028] rounded-full mt-2 mr-3 flex-shrink-0"></span>
                         {example}
                       </li>
                     ))}

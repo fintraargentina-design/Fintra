@@ -45,7 +45,7 @@ export default function EcosystemCard({ suppliers = MOCK.prov, clients = MOCK.cl
 
   const renderT = (data: EcoItem[], t: string) => (
     <div className="mb-1 last:mb-0 pt-2">
-      <div className="flex items-center justify-center mb-2 px-1 text-orange-400">
+      <div className="flex items-center justify-center mb-2 px-1 text-[#FFA028]">
         <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{t}</span>
       </div>
       <div className="border border-white/5 overflow-hidden">
@@ -89,7 +89,7 @@ export default function EcosystemCard({ suppliers = MOCK.prov, clients = MOCK.cl
   return (
     <Card className="bg-tarjetas border-none shadow-lg h-full">
       {/* <CardHeader className="pb-2 pt-3 px-4 border-b border-white/5">
-        <CardTitle className="text-orange-400 text-sm flex gap-2"><TrendingUp className="w-4"/> Matriz de Riesgo</CardTitle>
+        <CardTitle className="text-[#FFA028] text-sm flex gap-2"><TrendingUp className="w-4"/> Matriz de Riesgo</CardTitle>
       </CardHeader> */}
       <CardContent className="p-0">
         {renderT(suppliers, "Proveedores")}

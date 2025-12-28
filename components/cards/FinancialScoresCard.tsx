@@ -400,7 +400,7 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
     <>
       <Card className="bg-tarjetas border-none">
         {/* <CardHeader>
-          <CardTitle className="text-orange-400 text-lg flex items-center">
+          <CardTitle className="text-[#FFA028] text-lg flex items-center">
             <div className="text-gray-400 mr-2">
               Financial Scores 
             </div>
@@ -573,7 +573,7 @@ export default function FinancialScoresCard({ symbol }: { symbol: string }) {
                   <ul className="space-y-2">
                     {METRIC_EXPLANATIONS[explanationModal.selectedMetric].examples.map((example, index) => (
                       <li key={index} className="text-gray-700 text-sm flex items-start">
-                        <span className="w-2 h-2 bg-orange-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                        <span className="w-2 h-2 bg-[#FFA028] rounded-full mt-2 mr-3 flex-shrink-0"></span>
                         {example}
                       </li>
                     ))}

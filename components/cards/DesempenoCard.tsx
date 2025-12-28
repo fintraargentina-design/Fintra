@@ -92,7 +92,7 @@ export default function DesempenoCard({ symbol }: { symbol: string }) {
   return (
     <div className="bg-tarjetas border-none">
       <div className="pb-2 px-6 pt-6">
-        <div className="text-orange-400 text-lg flex items-center gap-2">
+        <div className="text-[#FFA028] text-lg flex items-center gap-2">
           <div className="text-gray-400">
            Desempeño
           </div>

@@ -60,9 +60,9 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
     "bg-red-500/10 text-red-400 border-red-500/20";
 
   const getValBadge = (v: string) => {
-    if (v === "Undervalued" || v === "Infravalorada") return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-[9px] h-5" variant="outline">Infravalorada</Badge>;
-    if (v === "Fair" || v === "Justa") return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-[9px] h-5" variant="outline">Justa</Badge>;
-    return <Badge className="text-red-400 bg-red-400/10 border-red-400 px-2 py-0.5 text-[9px] h-5" variant="outline">Sobrevalorada</Badge>;
+    if (v === "Undervalued" || v === "Infravalorada") return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Infravalorada</Badge>;
+    if (v === "Fair" || v === "Justa") return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Justa</Badge>;
+    return <Badge className="text-red-400 bg-red-400/10 border-red-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Sobrevalorada</Badge>;
   };
 
   const formatMarketCap = (val: number) => {
@@ -82,7 +82,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                 <TabsTrigger 
                   key={sector} 
                   value={sector} 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-400 data-[state=active]:text-orange-400 text-xs px-2 py-1 text-gray-400 hover:text-gray-200 transition-colors flex-1"
+                  className="rounded-none border-b-0 data-[state=active]:bg-[#0056FF] data-[state=active]:text-white text-xs px-2 py-1 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors flex-1"
                 >
                   {sector}
                 </TabsTrigger>
@@ -94,14 +94,14 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
 
         <div className="py-1 border-b border-white/5 bg-white/[0.02] shrink-0">
           <h4 className="text-xs font-medium text-gray-400 text-center">
-            Acciones del sector <span className="text-orange-400">{selectedSector}</span>
+            Acciones del sector <span className="text-[#FFA028]">{selectedSector}</span>
           </h4>
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin relative p-0">
           <Table>
-            <TableHeader>
-              <TableRow className="border-white/10 hover:bg-gray-600 bg-gray-600">
+            <TableHeader className="sticky top-0 z-10 bg-gray-600">
+              <TableRow className="border-white/10 hover:bg-gray-600 bg-gray-600 border-b-0">
                 <TableHead className="text-gray-300 text-[10px] h-8 w-[60px]">Ticker</TableHead>
                 <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[50px]">F.G.O.S.</TableHead>
                 <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[80px]">Valuación</TableHead>
@@ -129,10 +129,11 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                   onClick={() => onStockSelect?.(stock.ticker)}
                 >
                   <TableCell className="font-bold text-white px-2 py-0.5 text-xs">{stock.ticker}</TableCell>
-                  <TableCell className="text-center px-2 py-0.5">
-                    <Badge variant="outline" className={`text-[10px] border-0 px-1.5 py-0 h-5 font-bold ${getFgosColor(stock.fgos)}`}>
-                      {stock.fgos || '-'}
-                    </Badge>
+                  <TableCell 
+                    className="text-center px-2 py-0.5 text-[10px] font-bold text-white"
+                    style={{ backgroundColor: getHeatmapColor(stock.fgos - 50) }}
+                  >
+                    {stock.fgos || '-'}
                   </TableCell>
                   <TableCell className="text-center px-2 py-0.5">
                     {getValBadge(stock.valuation)}
@@ -152,7 +153,8 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                     ${stock.price.toFixed(2)}
                   </TableCell>
                   <TableCell 
-                    className={`text-right px-2 py-0.5 text-[10px] font-medium ${stock.ytd >= 0 ? 'text-green-400' : 'text-red-400'}`}
+                    className="text-right px-2 py-0.5 text-[10px] font-medium text-white"
+                    style={{ backgroundColor: getHeatmapColor(stock.ytd) }}
                   >
                     {stock.ytd >= 0 ? "+" : ""}{stock.ytd.toFixed(1)}%
                   </TableCell>

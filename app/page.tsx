@@ -90,6 +90,7 @@ export default function StockTerminal() {
     try {
       await registerStockSearch(sym);
 
+      // Fetch Financial Data for Cards
       // Lanzar fetch de datos fundamentales en paralelo (sin bloquear UI principal inmediatamente si se quisiera, 
       // pero aquí lo haremos parte del flujo o separado según preferencia. 
       // El usuario pidió Promise.all para no bloquear carga PRINCIPAL, lo que sugiere lanzarlo y esperar o lanzarlo separado.
@@ -106,8 +107,8 @@ export default function StockTerminal() {
 
       // Procesar fundamentales
       const [ratiosData, metricsData] = fundamentals;
-      if (Array.isArray(ratiosData) && ratiosData.length > 0) setStockRatios(ratiosData[0]);
-      if (Array.isArray(metricsData) && metricsData.length > 0) setStockMetrics(metricsData[0]);
+      setStockRatios(ratiosData?.[0] || null);
+      setStockMetrics(metricsData?.[0] || null);
 
       if (result.success) {
         setStockBasicData(result.basicData);
@@ -231,7 +232,7 @@ export default function StockTerminal() {
   };
 
   return (
-    <div className="min-h-screen bg-fondoDeTarjetas">
+    <div className="min-h-screen bg-black">
       {/* Header responsivo */}
       <div className="sticky top-0 z-50 bg-fondoDeTarjetas/95 backdrop-blur supports-[backdrop-filter]:bg-fondoDeTarjetas/60 pt-1">
         <Header 
@@ -329,9 +330,9 @@ export default function StockTerminal() {
                 </div>
 
                 {/* Mitad Inferior: Noticias */}
-                <div className="h-2/5 flex flex-col min-h-0 bg-tarjetas">
+                <div className="h-2/5 flex flex-col min-h-0">
                   {/* <div className="p-2 border-b border-white/5 bg-white/[0.02]">
-                    <h3 className="text-orange-400 font-medium text-center text-sm">Noticias</h3>
+                    <h3 className="text-[#FFA028] font-medium text-center text-sm">Noticias</h3>
                   </div> */}
                   <div className="flex-1 overflow-hidden">
                     <NoticiasTab symbol={selectedSymbol} />

@@ -145,7 +145,7 @@ export default function MetodologiaPage() {
     <div className="w-full px-3 py-3">
       <Card className="bg-tarjetas border-none">
         <CardHeader>
-          <CardTitle className="text-orange-400 text-lg">
+          <CardTitle className="text-[#FFA028] text-lg">
             ¿Cómo calculamos tus métricas?
           </CardTitle>
         </CardHeader>
