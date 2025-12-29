@@ -14,7 +14,7 @@ export default function MercadosTab() {
   useEffect(() => {
     async function fetchHours() {
       try {
-        const data = await fmp.market.hours();
+        const data = await fmp.marketHours();
         if (data) setData(data);
       } catch (err) {
         console.error(err);

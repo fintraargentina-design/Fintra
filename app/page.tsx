@@ -213,7 +213,11 @@ export default function StockTerminal() {
         return (
           <EcosystemCard 
             mainTicker={selectedSymbol}
-            mainImage={typeof selectedStock === 'string' ? '' : selectedStock.image || ''}
+            mainImage={
+              typeof selectedStock === 'string' 
+                ? (stockBasicData?.image || '') 
+                : ('image' in selectedStock ? (selectedStock as any).image : stockBasicData?.image || '')
+            }
             suppliers={stockEcosystem?.suppliers}
             clients={stockEcosystem?.clients}
           />
