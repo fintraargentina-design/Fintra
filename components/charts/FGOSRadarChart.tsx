@@ -15,6 +15,20 @@ echarts.use([RadarChart, TitleComponent, TooltipComponent, LegendComponent, Canv
 // Importar ReactECharts dinámicamente
 const ReactECharts = dynamic(() => import('echarts-for-react/lib/core'), { ssr: false });
 
+// Helper para parsear JSONB si viene como string
+const parseBreakdown = (d: any) => {
+  if (!d) return null;
+  if (typeof d === 'string') {
+    try {
+      return JSON.parse(d);
+    } catch (e) {
+      console.error("Error parsing breakdown JSON", e);
+      return null;
+    }
+  }
+  return d;
+};
+
 export default function FGOSRadarChart({ symbol, data, comparedSymbol }: { symbol: string, data: any, comparedSymbol?: string | null }) {
   const [peerData, setPeerData] = useState<any>(null);
   const [loadingPeer, setLoadingPeer] = useState(false);
@@ -80,9 +94,11 @@ export default function FGOSRadarChart({ symbol, data, comparedSymbol }: { symbo
     const indicator = dimensions.map(d => ({ name: d.label, max: 100 }));
     
     // Values for main symbol
-    const mainValues = dimensions.map(d => data?.[d.key] || 0);
+    const parsedData = parseBreakdown(data);
+    const mainValues = dimensions.map(d => parsedData?.[d.key] || 0);
     // Values for peer
-    const peerValues = peerData ? dimensions.map(d => peerData[d.key] || 0) : [];
+    const parsedPeerData = parseBreakdown(peerData);
+    const peerValues = parsedPeerData ? dimensions.map(d => parsedPeerData[d.key] || 0) : [];
 
     const seriesData = [
       {

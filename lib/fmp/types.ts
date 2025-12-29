@@ -207,4 +207,71 @@ export type MarketHours = {
   closingHour: string;
   isTheStockMarketOpen: boolean;
 };
-export type MarketHoursResponse = Record<string, MarketHours>;
+export type SearchResult = {
+  symbol: string;
+  name: string;
+  currency?: string;
+  stockExchange?: string;
+  exchangeShortName?: string;
+};
+
+export type StockData = {
+  symbol: string;
+  price: number;
+  beta: number;
+  volAvg: number;
+  mktCap: number;
+  lastDiv: number;
+  range: string;
+  changes: number;
+  companyName: string;
+  currency: string;
+  cik: string;
+  isin: string;
+  cusip: string;
+  exchange: string;
+  exchangeShortName: string;
+  industry: string;
+  website: string;
+  description: string;
+  ceo: string;
+  sector: string;
+  country: string;
+  fullTimeEmployees: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  dcfDiff: number;
+  dcf: number;
+  image: string;
+  ipoDate: string;
+  defaultImage: boolean;
+  isEtf: boolean;
+  isActivelyTrading: boolean;
+  isAdr: boolean;
+  isFund: boolean;
+};
+
+export type StockAnalysis = {
+  // Add specific fields if known, otherwise keep it flexible or partial
+  fgos_breakdown?: any;
+  [key: string]: any; 
+};
+
+export type StockPerformance = {
+    // Add specific fields if known
+    [key: string]: any;
+};
+
+export type StockReport = {
+    // Add specific fields if known
+    [key: string]: any;
+};
+
+export type StockEcosystem = {
+    // Add specific fields if known
+    [key: string]: any;
+};
+

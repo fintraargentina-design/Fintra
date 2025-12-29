@@ -123,7 +123,7 @@ export default function EcosystemCard({
         },
         label: {
           show: true,
-          position: "bottom",
+          position: "left",
           formatter: `{b}\n${s.dep}% Dep`,
           fontSize: 10,
           color: "#9ca3af" // Gris claro
@@ -162,7 +162,7 @@ export default function EcosystemCard({
         },
         label: {
           show: true,
-          position: "bottom",
+          position: "right",
           formatter: `{b}\n${c.dep}% Rev`,
           fontSize: 10,
           color: "#9ca3af"
@@ -238,6 +238,7 @@ export default function EcosystemCard({
           layout: "none", // Coordenadas manuales para el layout de "Árbol Horizontal"
           symbol: "circle",
           roam: true, // Zoom y Pan habilitados
+          zoom: 0.7, // 80% más chico (20% del tamaño original)
           label: {
             show: true,
             color: "#fff"
@@ -268,7 +269,7 @@ export default function EcosystemCard({
 
   return (
     <Card className="bg-tarjetas border-none shadow-lg h-full flex flex-col">
-      <CardHeader className="pb-0 pt-3 px-4 flex flex-row items-center justify-between border-b border-white/5 shrink-0">
+      <CardHeader className="pb-1 pt-0 px-4 flex flex-row items-center justify-between border-b border-white/5 shrink-0">
         <CardTitle className="text-[#FFA028] text-sm flex gap-2 items-center">
           <Share2 className="w-4 h-4"/> Mapa de Ecosistema
         </CardTitle>

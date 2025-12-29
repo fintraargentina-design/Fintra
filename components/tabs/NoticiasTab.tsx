@@ -121,7 +121,8 @@ export default function NoticiasTab({
         if ((data as any)["Information"]) {
              console.warn("Alpha Vantage Limit Reached:", (data as any)["Information"]);
         }
-        if (!data.feed) throw new Error('Formato de datos inválido o límite de API alcanzado');
+        // Fail gracefully instead of throwing error to UI
+        console.warn('News data missing feed:', data);
         setNews([]);
       }
     } catch (err) {

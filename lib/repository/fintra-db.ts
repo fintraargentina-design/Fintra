@@ -9,7 +9,7 @@ export async function getLatestSnapshot(symbol: string): Promise<FintraSnapshotD
   // Explicitly select columns to avoid any ambiguity or cached schema issues
   const { data, error } = await supabase
     .from('fintra_snapshots')
-    .select('id, ticker, fgos_score, ecosystem_score, valuation_status, valuation_score, verdict_text, calculated_at')
+    .select('id, ticker, fgos_score, ecosystem_score, valuation_status, valuation_score, verdict_text, calculated_at, fgos_breakdown')
     .eq('ticker', symbol)
     .order('calculated_at', { ascending: false })
     .limit(1)
@@ -31,7 +31,8 @@ export async function getLatestSnapshot(symbol: string): Promise<FintraSnapshotD
     ecosystem_health_score: data.ecosystem_score,
     verdict_text: data.verdict_text ?? "N/A", // Use DB value or default
     valuation_status: data.valuation_status,
-    sector: ""
+    sector: "",
+    fgos_breakdown: data.fgos_breakdown // Include breakdown data
   } as FintraSnapshotDB;
 }
 

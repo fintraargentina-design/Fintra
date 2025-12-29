@@ -91,6 +91,7 @@ type Props = {
   companyName?: string;
   showBenchmark?: boolean;
   market?: Market;
+  comparedSymbol?: string | null;
 };
 
 const VIEWS = [
@@ -105,11 +106,13 @@ export default function ChartsTabHistoricos({
   companyName,
   showBenchmark = true,
   market = "NASDAQ",
+  comparedSymbol,
 }: Props) {
   const [range, setRange] = React.useState<RangeKey>("3A");
   const [view, setView] = React.useState<View>("precio");
   const [px, setPx] = React.useState<OHLC[]>([]);
   const [bm, setBm] = React.useState<OHLC[]>([]);
+  const [peerPx, setPeerPx] = React.useState<OHLC[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -120,26 +123,47 @@ export default function ChartsTabHistoricos({
         const benchTicker = getBenchmarkTicker(market);
         let a: OHLC[] = [];
         let b: OHLC[] = [];
+        let c: OHLC[] = [];
 
         try {
-          const [resA, resB] = await Promise.all([
+          const promises = [
             fmp.eod(symbol, { limit: 8000, cache: "no-store" }),
             showBenchmark
               ? fmp.eod(benchTicker, { limit: 8000, cache: "force-cache" })
               : Promise.resolve([] as OHLC[]),
-          ]);
-          // @ts-ignore - EodResponse está tipado como any[] pero viene como { symbol, candles }
+          ];
+
+          if (comparedSymbol && comparedSymbol !== "none") {
+            promises.push(fmp.eod(comparedSymbol, { limit: 8000, cache: "no-store" }));
+          } else {
+            promises.push(Promise.resolve([] as OHLC[]));
+          }
+
+          const [resA, resB, resC] = await Promise.all(promises);
+
+          // EodResponse está tipado como any[] pero viene como { symbol, candles } o array directo
           const rawA = resA as any;
           const rawB = resB as any;
-          a = Array.isArray(rawA) ? rawA : (rawA?.candles || []);
-          b = Array.isArray(rawB) ? rawB : (rawB?.candles || []);
+          const rawC = resC as any;
+          
+          a = Array.isArray(rawA) ? rawA : (rawA?.historical || rawA?.candles || []);
+          b = Array.isArray(rawB) ? rawB : (rawB?.historical || rawB?.candles || []);
+          c = Array.isArray(rawC) ? rawC : (rawC?.historical || rawC?.candles || []);
+          
+          // Revertir si viene de más nuevo a más viejo
+          if (a.length > 1 && new Date(a[0].date) > new Date(a[a.length-1].date)) a.reverse();
+          if (b.length > 1 && new Date(b[0].date) > new Date(b[b.length-1].date)) b.reverse();
+          if (c.length > 1 && new Date(c[0].date) > new Date(c[c.length-1].date)) c.reverse();
+
+          // c = Array.isArray(rawC) ? rawC : (rawC?.candles || []); // Ya asignado arriba
         } catch (err: any) {
-          console.error("Error fetching historical data:", err);
+          console.error("ChartsTabHistoricos error fetch", err);
         }
 
         if (!alive) return;
         setPx(Array.isArray(a) ? a : []);
         setBm(Array.isArray(b) ? b : []);
+        setPeerPx(Array.isArray(c) ? c : []);
       } finally {
         if (alive) setLoading(false);
       }
@@ -147,11 +171,12 @@ export default function ChartsTabHistoricos({
     return () => {
       alive = false;
     };
-  }, [symbol, showBenchmark, market]);
+  }, [symbol, showBenchmark, market, comparedSymbol]);
 
   // rango aplicado
   const dataR = React.useMemo(() => applyRange(px, range), [px, range]);
   const bmR = React.useMemo(() => applyRange(bm, range), [bm, range]);
+  const peerR = React.useMemo(() => applyRange(peerPx, range), [peerPx, range]);
 
   const dates = React.useMemo(() => dataR.map((d) => d.date), [dataR]);
   const closes = React.useMemo(() => dataR.map((d) => d.close), [dataR]);
@@ -185,6 +210,42 @@ export default function ChartsTabHistoricos({
   const optionCandles = React.useMemo(() => {
     // Transformar datos para eje de tiempo: [timestamp/string, value]
     const dataPrice = dataR.map(d => [d.date, d.close]);
+    const peerPrice = peerR.map(d => [d.date, d.close]);
+    
+    const seriesList: any[] = [
+      {
+        name: symbol,
+        type: 'line',
+        symbol: 'none',
+        sampling: 'lttb',
+        itemStyle: {
+          color: '#FFA028'
+        },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#FFBF00' },
+            { offset: 1, color: '#cf7200ff' }
+          ])
+        },
+        data: dataPrice
+      }
+    ];
+
+    if (comparedSymbol && peerPrice.length > 0) {
+      seriesList.push({
+        name: comparedSymbol,
+        type: 'line',
+        symbol: 'none',
+        sampling: 'lttb',
+        itemStyle: {
+          color: '#0056FF' // Tono azul solicitado
+        },
+        lineStyle: {
+          width: 2
+        },
+        data: peerPrice
+      });
+    }
     
     return {
       backgroundColor: "transparent",
@@ -217,7 +278,7 @@ export default function ChartsTabHistoricos({
       legend: {
         top: 10,          
         left: 'center',
-        data: [symbol],
+        data: [symbol, ...(comparedSymbol && peerPrice.length > 0 ? [comparedSymbol] : [])],
         textStyle: { color: "#9ca3af" }
       },
       toolbox: {
@@ -265,26 +326,9 @@ export default function ChartsTabHistoricos({
           boundaryGap: [0, '100%']
         }
       ],
-      series: [
-        {
-          name: symbol,
-          type: 'line',
-          symbol: 'none',
-          sampling: 'lttb',
-          itemStyle: {
-            color: '#FFA028'
-          },
-          areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: '#FFBF00' },
-              { offset: 1, color: '#cf7200ff' }
-            ])
-          },
-          data: dataPrice
-        }
-      ]
+      series: seriesList
     };
-  }, [dataR, symbol]);
+  }, [dataR, peerR, symbol, comparedSymbol]);
 
   // 2) Drawdown comparativo
   const optionDD = React.useMemo(() => {

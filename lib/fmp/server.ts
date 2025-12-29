@@ -77,7 +77,42 @@ export async function fmpGet<T>(
   query: Query = {},
   opts?: { retries?: number; timeoutMs?: number; init?: RequestInit }
 ): Promise<T> {
-  if (!API_KEY) throw new Error("FMP_API_KEY ausente en el servidor");
+  if (!API_KEY) {
+    // Intenta leer de process.env nuevamente por si acaso (Next.js a veces necesita esto en edge/serverless si no se inicializa globalmente)
+    const runtimeKey = process.env.FMP_API_KEY;
+    if (!runtimeKey) {
+        throw new Error("FMP_API_KEY ausente en el servidor");
+    }
+    // Si se encuentra, úsala para construir la URL
+    const url = buildUrl(path, query).replace("apikey=undefined", `apikey=${runtimeKey}`); 
+    // Nota: buildUrl usa la variable global API_KEY que es const. 
+    // Si API_KEY es undefined, buildUrl no pone la key o pone undefined.
+    // Mejor reconstruir la lógica de buildUrl o pasar la key explícitamente.
+    
+    // Fix rápido: Reconstruir URL con la key encontrada
+    const urlObj = new URL(`${BASE}${ensureLeadingSlash(path)}`);
+    Object.entries(query).forEach(([k, v]) => {
+        if (v !== undefined) urlObj.searchParams.set(k, String(v));
+    });
+    urlObj.searchParams.set("apikey", runtimeKey);
+    
+    const res = await fetchWithRetry(
+        urlObj.toString(),
+        opts?.init,
+        opts?.retries ?? DEFAULT_RETRIES,
+        opts?.timeoutMs ?? DEFAULT_TIMEOUT
+    );
+    // ... resto de lógica
+    if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        console.error(
+          `[FMP] ${res.status} ${res.statusText} — ${maskApiKey(urlObj.toString())} — ${txt.slice(0, 200)}`
+        );
+        throw new Error(`FMP ${res.status} ${res.statusText}`);
+    }
+    return (await res.json()) as T;
+  }
+  
   const url = buildUrl(path, query);
 
   const res = await fetchWithRetry(

@@ -32,6 +32,7 @@ export interface FintraSnapshotDB {
   verdict_text: string; // "Alta Oportunidad", "Riesgo", etc.
   valuation_status: string; // "Undervalued", "Fair", "Overvalued"
   sector?: string; // Add optional sector based on instructions
+  fgos_breakdown?: any;
 }
 
 export interface EcosystemRelationDB {

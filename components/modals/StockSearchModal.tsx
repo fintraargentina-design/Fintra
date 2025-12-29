@@ -10,9 +10,11 @@ interface StockSearchModalProps {
   onSelectSymbol: (symbol: string) => void;
 }
 
+import { SearchResponse } from '@/lib/fmp/types';
+
 export default function StockSearchModal({ isOpen, onClose, onSelectSymbol }: StockSearchModalProps) {
   const [tickerInput, setTickerInput] = useState("");
-  const [searchResults, setSearchResults] = useState<Array<{ symbol: string; name: string; exchangeShortName?: string }>>([]);
+  const [searchResults, setSearchResults] = useState<SearchResponse>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [activeResultIndex, setActiveResultIndex] = useState<number>(-1);
   const resultsRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -44,13 +46,9 @@ export default function StockSearchModal({ isOpen, onClose, onSelectSymbol }: St
       try {
         const internal = `/api/fmp/search?query=${encodeURIComponent(q)}&limit=8`;
         const res = await fetch(internal, { signal: controller.signal });
-        let data: any[] = [];
+        let data: SearchResponse = [];
         if (res.ok) {
           data = await res.json();
-        } else if (process.env.NEXT_PUBLIC_FMP_API_KEY) {
-          const ext = `https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(q)}&limit=8&apikey=${process.env.NEXT_PUBLIC_FMP_API_KEY}`;
-          const r2 = await fetch(ext, { signal: controller.signal });
-          if (r2.ok) data = await r2.json();
         }
         if (active) setSearchResults(Array.isArray(data) ? data : []);
       } catch (_) {

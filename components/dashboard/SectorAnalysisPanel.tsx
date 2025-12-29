@@ -99,18 +99,18 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin relative p-0">
-          <Table>
+          <table className="w-full text-sm">
             <TableHeader className="sticky top-0 z-10 bg-gray-600">
               <TableRow className="border-white/10 hover:bg-gray-600 bg-gray-600 border-b-0">
-                <TableHead className="text-gray-300 text-[10px] h-8 w-[60px]">Ticker</TableHead>
-                <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[50px]">F.G.O.S.</TableHead>
-                <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[80px]">Valuación</TableHead>
-                <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[50px]">Ecosistema</TableHead>
-                <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[60px]">Div. Yield</TableHead>
-                <TableHead className="text-gray-300 text-[10px] h-8 text-center w-[60px]">Estimación</TableHead>
-                <TableHead className="text-gray-300 text-[10px] h-8 text-right w-[70px]">Last Price</TableHead>
-                <TableHead className="text-gray-300 text-[10px] h-8 text-right w-[60px]">YTD %</TableHead>
-                <TableHead className="text-gray-300 text-[10px] h-8 text-right w-[70px]">Mkt Cap</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-6 w-[60px]">Ticker</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[50px]">F.G.O.S.</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[80px]">Valuación</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[50px]">Ecosistema</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[60px]">Div. Yield</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[60px]">Estimación</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-6 text-right w-[70px]">Last Price</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-6 text-right w-[60px]">YTD %</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-6 text-right w-[70px]">Mkt Cap</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -164,7 +164,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+          </table>
         </div>
       </Tabs>
     </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { searchStockData, getStockConclusionData } from '@/lib/stockQueries';
 import NavigationBar from '@/components/layout/NavigationBar';
 import DatosTab from '@/components/tabs/DatosTab';
@@ -24,17 +24,18 @@ import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
 import StockSearchModal from '@/components/modals/StockSearchModal';
 import EstimacionTab from '@/components/tabs/EstimacionTab';
 import MercadosTab from '@/components/tabs/MercadosTab';
+import { StockData, StockAnalysis, StockPerformance, StockReport, StockEcosystem } from '@/lib/fmp/types';
 import { getLatestSnapshot, getEcosystemDetailed } from '@/lib/repository/fintra-db';
 
 export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'mercados';
 
 export default function StockTerminal() {
-  const [selectedStock, setSelectedStock] = useState<any>('AAPL'); // puede ser string u objeto con {symbol}
-  const [stockBasicData, setStockBasicData] = useState<any>(null);
-  const [stockAnalysis, setStockAnalysis] = useState<any>(null);
-  const [stockPerformance, setStockPerformance] = useState<any>(null);
-  const [stockReport, setStockReport] = useState<any>(null);
-  const [stockEcosystem, setStockEcosystem] = useState<any>(null);
+  const [selectedStock, setSelectedStock] = useState<string | { symbol: string }>('AAPL');
+  const [stockBasicData, setStockBasicData] = useState<StockData | null>(null);
+  const [stockAnalysis, setStockAnalysis] = useState<StockAnalysis | null>(null);
+  const [stockPerformance, setStockPerformance] = useState<StockPerformance | null>(null);
+  const [stockReport, setStockReport] = useState<StockReport | null>(null);
+  const [stockEcosystem, setStockEcosystem] = useState<StockEcosystem | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<TabKey>('ecosistema');
@@ -78,9 +79,14 @@ export default function StockTerminal() {
     }
   }, [selectedSymbol]);
 
+  const lastRequestedSymbolRef = useRef<string>('');
+
   const buscarDatosAccion = async (symbol: string) => {
     const sym = symbol?.trim().toUpperCase();
     if (!sym) return;
+    
+    lastRequestedSymbolRef.current = sym;
+    
     setIsLoading(true);
     setError('');
     // Resetear estados previos
@@ -105,6 +111,12 @@ export default function StockTerminal() {
         ])
       ]);
 
+      // Verificar si seguimos en el mismo símbolo
+      if (lastRequestedSymbolRef.current !== sym) {
+        console.log(`Ignoring result for ${sym} as user switched to ${lastRequestedSymbolRef.current}`);
+        return;
+      }
+
       // Procesar fundamentales
       const [ratiosData, metricsData] = fundamentals;
       setStockRatios(ratiosData?.[0] || null);
@@ -121,13 +133,24 @@ export default function StockTerminal() {
         try {
           // 1. Obtener Snapshot más reciente (demo)
           const snapshot = await getLatestSnapshot(sym);
+          
+          if (lastRequestedSymbolRef.current !== sym) return; // Check again after await
+
           if (snapshot) {
              console.log("Fintra DB Snapshot found:", snapshot);
              // Aquí podríamos actualizar stockAnalysis con datos de la DB si se prefiere
+             if (snapshot.fgos_breakdown) {
+                setStockAnalysis((prev: any) => ({
+                    ...prev,
+                    fgos_breakdown: snapshot.fgos_breakdown
+                }));
+             }
           }
 
           // 2. Obtener Ecosistema Detallado
           const ecoData = await getEcosystemDetailed(sym);
+          
+          if (lastRequestedSymbolRef.current !== sym) return; // Check again after await
           
           // Transformar para el componente EcosystemCard
           if (ecoData.suppliers.length > 0 || ecoData.clients.length > 0) {
@@ -212,6 +235,7 @@ export default function StockTerminal() {
           <ChartsTabHistoricos
             symbol={selectedSymbol}
             companyName={stockBasicData?.companyName}
+            comparedSymbol={selectedCompetitor}
           />
         );
       case 'estimacion':

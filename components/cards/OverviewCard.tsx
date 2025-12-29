@@ -198,6 +198,42 @@ export default function OverviewCard({
     if (!tickerInput.trim()) setTickerInput("");
   };
 
+  const data = useMemo(() => {
+    if (profile && Object.keys(profile).length > 0) return profile;
+    
+    // Fallback básico si no hay profile
+    return {
+        symbol: currentSymbol,
+        image: `https://financialmodelingprep.com/image-stock/${currentSymbol}.png`,
+        companyName: "",
+        sector: "",
+        industry: "",
+        ceo: "",
+        description: "",
+        price: 0,
+        change: 0,
+        changePercentage: 0,
+        marketCap: 0,
+        beta: 0,
+        lastDividend: 0,
+        volume: 0,
+        averageVolume: 0,
+        range: "",
+        currency: "USD",
+        website: "",
+        exchange: "",
+        country: "",
+        ipoDate: "",
+        fullTimeEmployees: 0,
+        isEtf: false,
+        isActivelyTrading: true,
+        cik: "",
+        isin: "",
+        cusip: "",
+        phone: ""
+    };
+  }, [profile, currentSymbol]);
+
   const [chartType, setChartType] = useState<"line" | "area">("area");
   const [chartRange, setChartRange] = useState<"1D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "5Y" | "ALL">("1Y");
 
@@ -343,7 +379,7 @@ export default function OverviewCard({
   const colors = getConclusionColors(conclusion);
 
   // AHORA sí podemos hacer returns condicionales basados en estado
-  if (loading || isParentLoading) {
+  if ((loading || isParentLoading) && !data.symbol) {
     return (
       <Card className="bg-tarjetas border-none flex items-center justify-center w-full h-[52px]">
         <CardContent className="p-0 flex items-center justify-center w-full h-full">
@@ -366,8 +402,6 @@ export default function OverviewCard({
       </Card>
     );
   }
-
-  const data = profile || {};
 
   // campo editable con buscador
   const renderEditableField = (value: any, fieldName: string) => {
