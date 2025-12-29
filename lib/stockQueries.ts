@@ -1,30 +1,16 @@
 import { supabase } from './supabase';
 import { fmp } from './fmp/client';
+import type { StockData as FMPStockData } from './fmp/types';
 
 export { supabase, registerStockSearch, getStockProyecciones } from './supabase';
 export type { StockProyeccionRow } from './supabase';
 
 // Interfaces para los tipos de datos
-export interface StockData {
-  symbol: string;
-  company_name?: string;
-  current_price?: number;
-  market_cap?: number;
-  pe_ratio?: number;
-  volume?: number;
-  industry?: string;
-  country?: string;
-  sector?: string;
-  exchange?: string;
-  website?: string;
-  description?: string;
-  competitive_advantage?: string;
-  business_complexity?: string;
-  
+export interface StockData extends FMPStockData {
   // Agregar el objeto datos completo
   datos?: any;
   dividendos?: any;
-  valoracion?: any;  // Agregar esta línea
+  valoracion?: any;
   
   // Campos de valoración específicos
   valoracion_pe?: string;
@@ -49,8 +35,17 @@ export interface StockData {
   shares_outstanding?: number;
   quick_ratio?: number;
   
+  // Performance specific fields
+  performance_1m?: number;
+  performance_3m?: number;
+  performance_ytd?: number;
+  performance_1y?: number;
+  performance_3y?: number;
+  performance_5y?: number;
+
   [key: string]: any;
 }
+
 
 export interface StockAnalysis {
   symbol: string;
@@ -106,20 +101,31 @@ export async function searchStockData(symbol: string) {
         if (profileData && profileData.length > 0) {
           const profile = profileData[0];
           // Formatear datos para que coincidan con la estructura esperada
-          const processedData = {
+          const processedData: StockData = {
+            ...profile,
             symbol: symbol.toUpperCase(),
+            companyName: profile.companyName,
+            price: profile.price,
+            mktCap: profile.mktCap,
+            // Mapping fields that might differ or be required by interface
+            changes: profile.changes,
+            currency: profile.currency,
+            exchange: profile.exchange,
+            industry: profile.industry,
+            sector: profile.sector,
+            description: profile.description,
+            ceo: profile.ceo,
+            website: profile.website,
+            image: profile.image,
+            
+            // Legacy/Extra fields compatibility
             company_name: profile.companyName,
             current_price: profile.price,
             market_cap: profile.mktCap,
-            pe_ratio: undefined, // profile.pe no existe en FMPCompanyProfile
-            volume: undefined, // profile.volume tampoco existe en FMPCompanyProfile
-            industry: profile.industry,
-            country: undefined, // profile.country tampoco existe en FMPCompanyProfile
-            sector: profile.sector,
-            exchange: profile.exchange,
-            website: undefined, // profile.website tampoco existe en FMPCompanyProfile
-            description: undefined, // profile.description tampoco existe en FMPCompanyProfile
-            // ... más campos según necesites
+            
+            analysisData: null,
+            performanceData: null,
+            reportData: null
           };
           
           return {
@@ -236,8 +242,46 @@ export async function searchStockData(symbol: string) {
           : datosData.datos;
         
         processedData = {
+          // Base FMPStockData fields (defaults where missing)
           symbol: datosData.symbol,
-          company_name: parsedData.name,
+          companyName: parsedData.name || parsedData.company_name || parsedData.companyName || "",
+          price: parsedData.currentPrice || parsedData.current_price || parsedData.price || 0,
+          mktCap: parsedData.valoracion?.marketCap || parsedData.marketCap || parsedData.market_cap || parsedData.mktCap || 0,
+          beta: parsedData.beta || 0,
+          volAvg: parsedData.volAvg || parsedData.averageVolume || 0,
+          lastDiv: parsedData.lastDiv || 0,
+          range: parsedData.range || "",
+          changes: parsedData.change || parsedData.changes || 0,
+          currency: parsedData.currency || "USD",
+          cik: parsedData.cik || "",
+          isin: parsedData.isin || "",
+          cusip: parsedData.cusip || "",
+          exchange: parsedData.exchange || "",
+          exchangeShortName: parsedData.exchangeShortName || "",
+          industry: parsedData.industry || "",
+          website: parsedData.website || "",
+          description: parsedData.description || "",
+          ceo: parsedData.ceo || "",
+          sector: parsedData.sector || "",
+          country: parsedData.country || "",
+          fullTimeEmployees: parsedData.fullTimeEmployees || "",
+          phone: parsedData.phone || "",
+          address: parsedData.address || "",
+          city: parsedData.city || "",
+          state: parsedData.state || "",
+          zip: parsedData.zip || "",
+          dcfDiff: parsedData.dcfDiff || 0,
+          dcf: parsedData.dcf || 0,
+          image: parsedData.image || "",
+          ipoDate: parsedData.ipoDate || "",
+          defaultImage: parsedData.defaultImage || false,
+          isEtf: parsedData.isEtf || false,
+          isActivelyTrading: parsedData.isActivelyTrading || true,
+          isAdr: parsedData.isAdr || false,
+          isFund: parsedData.isFund || false,
+
+          // Legacy fields mapping
+          company_name: parsedData.name || parsedData.company_name,
           current_price: parsedData.currentPrice || parsedData.current_price,
           market_cap: parsedData.valoracion?.marketCap || parsedData.marketCap || parsedData.market_cap,
           pe_ratio: parsedData.valoracion?.pe || parsedData.peRatio || parsedData.pe_ratio,
@@ -248,25 +292,19 @@ export async function searchStockData(symbol: string) {
           close: parsedData.close,
           change: parsedData.change,
           changePercent: parsedData.changePercent || parsedData.change_percent,
-          industry: parsedData.industry,
-          country: parsedData.country,
-          sector: parsedData.sector,
-          exchange: parsedData.exchange,
-          website: parsedData.website,
-          description: parsedData.description,
           competitive_advantage: parsedData.moat,
           business_complexity: parsedData.isEasy,
           
           // Agregar datos de valoración específicos
           datos: parsedData, // Mantener el objeto completo para acceso directo
           
-          // Agregar datos de performance específicos desde desempeno.performance
-          performance_1m: parsedData.desempeno?.performance?.['1M'] ? parseFloat(parsedData.desempeno.performance['1M']) : null,
-          performance_3m: parsedData.desempeno?.performance?.['3M'] ? parseFloat(parsedData.desempeno.performance['3M']) : null,
-          performance_ytd: parsedData.desempeno?.performance?.['YTD'] ? parseFloat(parsedData.desempeno.performance['YTD']) : null,
-          performance_1y: parsedData.desempeno?.performance?.['1Y'] ? parseFloat(parsedData.desempeno.performance['1Y']) : null,
-          performance_3y: parsedData.desempeno?.performance?.['3Y'] ? parseFloat(parsedData.desempeno.performance['3Y']) : null,
-          performance_5y: parsedData.desempeno?.performance?.['5Y'] ? parseFloat(parsedData.desempeno.performance['5Y']) : null,
+          // Datos de performance específicos desde desempeno.performance
+          performance_1m: parsedData.desempeno?.performance?.['1M'] ? parseFloat(parsedData.desempeno.performance['1M']) : undefined,
+          performance_3m: parsedData.desempeno?.performance?.['3M'] ? parseFloat(parsedData.desempeno.performance['3M']) : undefined,
+          performance_ytd: parsedData.desempeno?.performance?.['YTD'] ? parseFloat(parsedData.desempeno.performance['YTD']) : undefined,
+          performance_1y: parsedData.desempeno?.performance?.['1Y'] ? parseFloat(parsedData.desempeno.performance['1Y']) : undefined,
+          performance_3y: parsedData.desempeno?.performance?.['3Y'] ? parseFloat(parsedData.desempeno.performance['3Y']) : undefined,
+          performance_5y: parsedData.desempeno?.performance?.['5Y'] ? parseFloat(parsedData.desempeno.performance['5Y']) : undefined,
           
           // Datos fundamentales existentes
           roe: parsedData.fundamentales?.roe,

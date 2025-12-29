@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fmp } from "@/lib/fmp/client";
-import type { MarketHoursResponse } from "@/lib/fmp/types";
+import { MarketHoursResponse } from '@/lib/fmp/types';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Globe } from "lucide-react";
@@ -12,10 +12,17 @@ export default function MercadosTab() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fmp.marketHours()
-      .then(setData)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    async function fetchHours() {
+      try {
+        const data = await fmp.market.hours();
+        if (data) setData(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchHours();
   }, []);
 
   if (loading) {

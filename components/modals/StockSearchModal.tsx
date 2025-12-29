@@ -3,14 +3,13 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import TopSearchedStocksDropdown from '@/components/TopSearchedStocksDropdown';
 import { Search } from 'lucide-react';
+import { SearchResponse } from '@/lib/fmp/types';
 
 interface StockSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectSymbol: (symbol: string) => void;
 }
-
-import { SearchResponse } from '@/lib/fmp/types';
 
 export default function StockSearchModal({ isOpen, onClose, onSelectSymbol }: StockSearchModalProps) {
   const [tickerInput, setTickerInput] = useState("");
@@ -147,7 +146,7 @@ export default function StockSearchModal({ isOpen, onClose, onSelectSymbol }: St
                     )}
                     {searchResults.map((r, idx) => (
                         <button
-                            ref={(el) => { resultsRefs.current[idx] = el; }}
+                            ref={(el) => { if (resultsRefs.current) resultsRefs.current[idx] = el; }}
                             key={`${r.symbol}-${r.name}`}
                             className={`w-full text-left px-3 py-2.5 rounded transition-colors ${idx === activeResultIndex ? 'bg-gray-800/80' : 'hover:bg-gray-800/40'}`}
                             onMouseDown={(e) => e.preventDefault()}

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { searchStockData, getStockConclusionData } from '@/lib/stockQueries';
+import { StockEcosystem } from '@/lib/fmp/types';
+import { StockData, StockAnalysis, StockPerformance, StockReport, searchStockData, getStockConclusionData } from '@/lib/stockQueries';
 import NavigationBar from '@/components/layout/NavigationBar';
 import DatosTab from '@/components/tabs/DatosTab';
 import ChartsTabHistoricos from '@/components/tabs/ChartsTabHistoricos';
@@ -24,7 +25,6 @@ import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
 import StockSearchModal from '@/components/modals/StockSearchModal';
 import EstimacionTab from '@/components/tabs/EstimacionTab';
 import MercadosTab from '@/components/tabs/MercadosTab';
-import { StockData, StockAnalysis, StockPerformance, StockReport, StockEcosystem } from '@/lib/fmp/types';
 import { getLatestSnapshot, getEcosystemDetailed } from '@/lib/repository/fintra-db';
 
 export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'mercados';
@@ -123,10 +123,10 @@ export default function StockTerminal() {
       setStockMetrics(metricsData?.[0] || null);
 
       if (result.success) {
-        setStockBasicData(result.basicData);
-        setStockAnalysis(result.analysisData);
-        setStockPerformance(result.performanceData);
-        setStockReport(result.reportData);
+        setStockBasicData(result.basicData || null);
+        setStockAnalysis(result.analysisData || null);
+        setStockPerformance(result.performanceData || null);
+        setStockReport(result.reportData || null);
         // setStockEcosystem(result.ecosystemData);
 
         // --- INTEGRACIÓN FINTRA DB ---
@@ -213,7 +213,7 @@ export default function StockTerminal() {
         return (
           <EcosystemCard 
             mainTicker={selectedSymbol}
-            mainImage={selectedStock?.image}
+            mainImage={typeof selectedStock === 'string' ? '' : selectedStock.image || ''}
             suppliers={stockEcosystem?.suppliers}
             clients={stockEcosystem?.clients}
           />

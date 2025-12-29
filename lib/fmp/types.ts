@@ -55,17 +55,44 @@ export type FMPFinancialRatio = {
 /** ───────────── Perfil (api/v3/profile) ───────────── */
 export type FMPCompanyProfile = {
   symbol: string;
+  price: number;
+  beta: number;
+  volAvg: number;
+  mktCap: number;
+  lastDiv: number;
+  range: string;
+  changes: number;
   companyName: string;
-  price?: number;
-  mktCap?: number;
-  beta?: number;
-  sector?: string;
-  industry?: string;
-  exchange?: string;
-  currency?: string;
-  changes?: number | string;
+  currency: string;
+  cik: string;
+  isin: string;
+  cusip: string;
+  exchange: string;
+  exchangeShortName: string;
+  industry: string;
+  website: string;
+  description: string;
+  ceo: string;
+  sector: string;
+  country: string;
+  fullTimeEmployees: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  dcfDiff: number;
+  dcf: number;
+  image: string;
+  ipoDate: string;
+  defaultImage: boolean;
+  isEtf: boolean;
+  isActivelyTrading: boolean;
+  isAdr: boolean;
+  isFund: boolean;
+  
+  // Optional/Legacy fields compatibility
   changePercentage?: number;
-  image?: string;
 };
 
 /** ───────────── Crecimiento (api/v3/financial-growth) ─────────────
@@ -214,6 +241,10 @@ export type SearchResult = {
   stockExchange?: string;
   exchangeShortName?: string;
 };
+
+export type SearchResponse = SearchResult[];
+
+export type MarketHoursResponse = Record<string, MarketHours>;
 
 export type StockData = {
   symbol: string;
