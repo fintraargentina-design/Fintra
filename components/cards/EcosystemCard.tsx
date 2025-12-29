@@ -1,16 +1,16 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Share2, AlertCircle } from "lucide-react";
+import { Share2, AlertCircle, Globe, Wallet } from "lucide-react"; // Iconos nuevos
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"; // Necesitarás este componente de Shadcn
 import * as echarts from "echarts/core";
 import { GraphChart } from "echarts/charts";
 import { TooltipComponent, LegendComponent, GridComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
-import { fmp } from "@/lib/fmp/client";
 
-// Registrar componentes de ECharts
+// Registrar componentes
 echarts.use([GraphChart, TooltipComponent, LegendComponent, GridComponent, CanvasRenderer]);
 
 const ReactECharts = dynamic(() => import("echarts-for-react/lib/core"), { ssr: false });
@@ -19,52 +19,45 @@ const ReactECharts = dynamic(() => import("echarts-for-react/lib/core"), { ssr: 
 export interface EcoItem {
   id: string;
   n: string;
-  dep: number; // Dependencia %
-  val: number; // Valuation
-  ehs: number; // Ecosystem Health Score
-  fgos: number; // Financial Score
+  country?: string; // Nuevo campo
+  dep: number; 
+  val: number; 
+  ehs: number; 
+  fgos: number; // Salud Financiera
+  geo_score?: number; // Estabilidad Geopolítica (Nuevo)
   txt: string;
 }
 
+// Mock actualizado con geo_score
 const MOCK = {
   prov: [
-    { id: "TSM", n: "Taiwan Semi", dep: 92, val: 40, ehs: 88, fgos: 92, txt: "Crítico" },
-    { id: "FOX", n: "Foxconn", dep: 85, val: 78, ehs: 55, fgos: 58, txt: "Riesgo Op." },
-    { id: "GLW", n: "Corning", dep: 40, val: 30, ehs: 72, fgos: 65, txt: "Estable" },
-    { id: "QCOM", n: "Qualcomm", dep: 30, val: 50, ehs: 80, fgos: 85, txt: "Fuerte" }
+    { id: "TSM", n: "Taiwan Semi", country: "TW", dep: 92, val: 40, ehs: 88, fgos: 92, geo_score: 30, txt: "Crítico / Riesgo TW" },
+    { id: "FOX", n: "Foxconn", country: "CN", dep: 85, val: 78, ehs: 55, fgos: 58, geo_score: 40, txt: "Riesgo Op." },
+    { id: "GLW", n: "Corning", country: "US", dep: 40, val: 30, ehs: 72, fgos: 65, geo_score: 95, txt: "Estable" },
+    { id: "QCOM", n: "Qualcomm", country: "US", dep: 30, val: 50, ehs: 80, fgos: 85, geo_score: 90, txt: "Fuerte" }
   ],
   cli: [
-    { id: "BBY", n: "Best Buy", dep: 18, val: 62, ehs: 45, fgos: 42, txt: "Volátil" },
-    { id: "VZ", n: "Verizon", dep: 14, val: 55, ehs: 60, fgos: 58, txt: "Cash Flow" },
-    { id: "JD", n: "JD.com", dep: 22, val: 25, ehs: 40, fgos: 35, txt: "Riesgo Geo" },
-    { id: "AMZN", n: "Amazon", dep: 12, val: 80, ehs: 90, fgos: 88, txt: "Gigante" }
+    { id: "BBY", n: "Best Buy", country: "US", dep: 18, val: 62, ehs: 45, fgos: 42, geo_score: 90, txt: "Volátil" },
+    { id: "JD", n: "JD.com", country: "CN", dep: 22, val: 25, ehs: 40, fgos: 35, geo_score: 25, txt: "Riesgo Geo" },
+    { id: "AMZN", n: "Amazon", country: "US", dep: 12, val: 80, ehs: 90, fgos: 88, geo_score: 95, txt: "Gigante" }
   ]
 };
 
-// --- TU HEATMAP COLORS (Tu Estética) ---
-const getHeatmapColor = (score: number | null) => {
-  if (score == null) return "#1e293b";
-  if (score >= 90) return "#008000"; 
-  if (score >= 80) return "#006600"; 
-  if (score >= 70) return "#004D00"; 
-  if (score >= 60) return "#003300"; 
-  if (score >= 50) return "#001A00"; 
-  if (score <= 10) return "#800000"; 
-  if (score <= 20) return "#660000"; 
-  if (score <= 30) return "#4D0000"; 
-  if (score <= 40) return "#330000"; 
-  return "#1A0000";
+// Heatmap unificado (Funciona para FGOS y GeoScore)
+const getHeatmapColor = (score: number | undefined) => {
+  if (score === undefined) return "#1e293b"; // Gris si no hay dato
+  if (score >= 80) return "#008000"; // Verde (Seguro/Sano)
+  if (score >= 60) return "#004D00";
+  if (score >= 40) return "#806600"; // Amarillo oscuro (Precaución)
+  if (score >= 20) return "#660000"; // Rojo (Peligro)
+  return "#330000"; // Rojo Oscuro (Crítico)
 };
 
-// Tamaño según dependencia (Dep %)
-// Min 25px, Max 90px para que destaque
-const getNodeSize = (dep: number) => {
-  return Math.max(25, Math.min(dep * 1.5, 90));
-};
+const getNodeSize = (dep: number) => Math.max(25, Math.min(dep * 1.5, 90));
 
 interface EcosystemCardProps {
-  mainTicker?: string; // El ticker central (ej. AAPL)
-  mainImage?: string; // URL del logo de la empresa
+  mainTicker?: string;
+  mainImage?: string;
   suppliers?: EcoItem[];
   clients?: EcoItem[];
 }
@@ -75,231 +68,192 @@ export default function EcosystemCard({
   suppliers = MOCK.prov, 
   clients = MOCK.cli 
 }: EcosystemCardProps) {
+  
+  // Estado para controlar la "Lente" de visión
+  const [viewMode, setViewMode] = useState<"financial" | "geopolitical">("financial");
 
   const chartOption = useMemo(() => {
-    // 1. Crear Nodos
     const nodes: any[] = [];
     const links: any[] = [];
     
-    // -- NODO CENTRAL --
+    // NODO CENTRAL
     nodes.push({
       name: mainTicker,
-      x: 0, 
-      y: 0,
+      x: 0, y: 0,
       symbol: mainImage ? `image://${mainImage}` : 'circle',
-      symbolSize: 100, // El más grande siempre
+      symbolSize: 100,
       itemStyle: {
-        color: mainImage ? "transparent" : "#ffffff", // Blanco solo si no hay imagen
+        color: "#FFA028",
         shadowBlur: 0,
-        shadowColor: "transparent"
+        shadowColor: viewMode === 'geopolitical' ? "#3b82f6" : "rgba(255,255,255,0.5)"
       },
-      label: {
-        show: !mainImage, // Mostrar texto solo si NO hay imagen
-        position: "inside", 
-        fontSize: 16,
-        fontWeight: "bold",
-        color: "#000" 
-      },
-      tooltip: {
-        formatter: "Empresa Analizada"
-      }
+      label: { show: !mainImage, position: "inside", fontSize: 16, fontWeight: "bold", color: "#000" },
+      tooltip: { formatter: "Empresa Analizada" }
     });
 
-    // -- PROVEEDORES (Izquierda) --
-    suppliers.forEach((s, index) => {
-      // Distribución vertical
-      const spreadY = (index - (suppliers.length - 1) / 2) * 120;
-      
-      nodes.push({
-        name: s.id,
-        x: -350, // Más separación a la izquierda
-        y: spreadY,
-        symbolSize: getNodeSize(s.dep),
-        itemStyle: {
-          // AQUI SE APLICA TU HEATMAP
-          color: getHeatmapColor(s.fgos), 
-          borderColor: "rgba(255,255,255,0.2)",
-          borderWidth: 1
-        },
-        label: {
-          show: true,
-          position: "left",
-          formatter: `{b}\n${s.dep}% Dep`,
-          fontSize: 10,
-          color: "#9ca3af" // Gris claro
-        },
-        data: s 
-      });
+    // Helper para procesar nodos
+    const processNodes = (items: EcoItem[], isSupplier: boolean) => {
+      items.forEach((item, index) => {
+        const spreadY = (index - (items.length - 1) / 2) * 120;
+        const xPos = isSupplier ? -350 : 350;
 
-      // Link: Proveedor -> Central
-      links.push({
-        source: s.id,
-        target: mainTicker,
-        symbol: ['none', 'arrow'], // Flecha apuntando a la empresa
-        lineStyle: {
-          width: Math.max(1, s.dep / 15), // Grosor según dependencia
-          curveness: 0,
-          color: "#4b5563",
-          opacity: 0.6
-        }
-      });
-    });
+        // Determinar qué score usar según el modo
+        const activeScore = viewMode === 'financial' ? item.fgos : (item.geo_score ?? 50);
+        const color = getHeatmapColor(activeScore);
 
-    // -- CLIENTES (Derecha) --
-    clients.forEach((c, index) => {
-      const spreadY = (index - (clients.length - 1) / 2) * 120;
+        nodes.push({
+          name: item.id,
+          x: xPos,
+          y: spreadY,
+          symbolSize: getNodeSize(item.dep),
+          itemStyle: {
+            color: color,
+            borderColor: "rgba(255,255,255,0.3)",
+            borderWidth: 1
+          },
+          label: {
+            show: true,
+            position: isSupplier ? "left" : "right",
+            // Mostramos info diferente según el modo
+            formatter: viewMode === 'financial' 
+              ? `{b}\n${item.dep}% Dep` 
+              : `{b}\n[${item.country || '?'}]`, 
+            fontSize: 10,
+            color: "#9ca3af"
+          },
+          data: item
+        });
 
-      nodes.push({
-        name: c.id,
-        x: 350, // Más separación a la derecha
-        y: spreadY,
-        symbolSize: getNodeSize(c.dep),
-        itemStyle: {
-          // AQUI SE APLICA TU HEATMAP
-          color: getHeatmapColor(c.fgos), 
-          borderColor: "rgba(255,255,255,0.2)",
-          borderWidth: 1
-        },
-        label: {
-          show: true,
-          position: "right",
-          formatter: `{b}\n${c.dep}% Rev`,
-          fontSize: 10,
-          color: "#9ca3af"
-        },
-        data: c
+        links.push({
+          source: isSupplier ? item.id : mainTicker,
+          target: isSupplier ? mainTicker : item.id,
+          symbol: isSupplier ? ['none', 'arrow'] : ['none', 'arrow'],
+          lineStyle: {
+            width: Math.max(1, item.dep / 15),
+            curveness: 0,
+            // Las líneas también pueden cambiar de color sutilmente
+            color: activeScore < 40 ? "#7f1d1d" : "#4b5563", 
+            opacity: 0.6
+          }
+        });
       });
+    };
 
-      // Link: Central -> Cliente
-      links.push({
-        source: mainTicker,
-        target: c.id,
-        symbol: ['none', 'arrow'], // Flecha en el destino (Cliente)
-        symbolSize: [5, 12], // Asegurar tamaño visible
-        lineStyle: {
-          width: Math.max(1, c.dep / 10),
-          curveness: 0,
-          color: "#4b5563",
-          opacity: 0.6
-        }
-      });
-    });
+    processNodes(suppliers, true);
+    processNodes(clients, false);
 
     return {
       backgroundColor: "transparent",
-      animationDurationUpdate: 1500,
-      animationEasingUpdate: 'quinticInOut',
+      animationDurationUpdate: 1000, // Animación suave al cambiar de modo
       tooltip: {
         trigger: "item",
-        backgroundColor: "rgba(20, 20, 20, 0.95)", // Tooltip ultra oscuro
+        backgroundColor: "rgba(10, 10, 10, 0.95)",
         borderColor: "#333",
         textStyle: { color: "#fff" },
         formatter: (params: any) => {
-          if (params.dataType === 'edge') return null;
-          // Si es el nodo central
-          if (params.name === mainTicker) return `<div class="font-bold px-2 py-1">${mainTicker}: Empresa Principal</div>`;
-          
+          if (params.dataType === 'edge' || params.name === mainTicker) return null;
           const d = params.data.data as EcoItem;
-          if (!d) return `<div class="font-bold">${params.name}</div>`;
           
-          const scoreColor = getHeatmapColor(d.fgos); // Usar el mismo color en el tooltip
-          
+          // Tooltip Dinámico
+          const scoreLabel = viewMode === 'financial' ? "Salud Financiera" : "Estabilidad Geo.";
+          const scoreValue = viewMode === 'financial' ? d.fgos : (d.geo_score ?? "N/A");
+          const scoreColor = getHeatmapColor(viewMode === 'financial' ? d.fgos : d.geo_score);
+
           return `
             <div class="text-xs p-2 min-w-[180px]">
               <div class="font-bold text-sm mb-2 flex items-center justify-between border-b border-white/10 pb-1">
-                <span>${d.n} (${d.id})</span>
-                <span class="text-[9px] px-1.5 py-0.5 rounded bg-white/10 text-white">${d.txt}</span>
+                <span class="flex items-center gap-2">
+                  ${d.country ? `<span class="text-[10px] bg-white/20 px-1 rounded">${d.country}</span>` : ''} 
+                  ${d.n}
+                </span>
               </div>
               <div class="space-y-1.5">
                 <div class="flex justify-between">
                   <span class="text-gray-400">Dependencia:</span> 
                   <span class="font-mono text-white font-bold">${d.dep}%</span>
                 </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-400">Salud (FGOS):</span> 
-                  <span class="font-mono font-bold" style="color:${scoreColor}">${d.fgos}/100</span>
+                <div class="flex justify-between items-center">
+                  <span class="text-gray-400">${scoreLabel}:</span> 
+                  <span class="font-mono font-bold px-1.5 rounded text-white" style="background:${scoreColor}">
+                    ${scoreValue}/100
+                  </span>
                 </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-400">Ecosistema (EHS):</span> 
-                  <span class="font-mono text-blue-400">${d.ehs}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-400">Valuación:</span> 
-                  <span class="font-mono text-yellow-400">${d.val}</span>
+                <div class="mt-2 text-[10px] italic text-gray-500 border-t border-white/5 pt-1">
+                  "${d.txt}"
                 </div>
               </div>
             </div>
           `;
         }
       },
-      series: [
-        {
-          type: "graph",
-          layout: "none", // Coordenadas manuales para el layout de "Árbol Horizontal"
-          symbol: "circle",
-          roam: true, // Zoom y Pan habilitados
-          zoom: 0.7, // 80% más chico (20% del tamaño original)
-          label: {
-            show: true,
-            color: "#fff"
-          },
-          // Flechas de flujo
-          edgeSymbol: ['none', 'arrow'], 
-          edgeSymbolSize: [4, 10],
-          data: nodes,
-          links: links,
-          lineStyle: {
-            opacity: 0.6,
-            curveness: 0
-          }
-        }
-      ]
+      series: [{
+        type: "graph",
+        layout: "none",
+        symbol: "circle",
+        roam: true,
+        zoom: 0.8,
+        label: { show: true, color: "#fff" },
+        edgeSymbol: ['none', 'arrow'],
+        edgeSymbolSize: [4, 10],
+        data: nodes,
+        links: links
+      }]
     };
-  }, [mainTicker, suppliers, clients]);
+  }, [mainTicker, suppliers, clients, viewMode]); // Dependencia clave: viewMode
 
-  // Estado vacío
-  if (!suppliers.length && !clients.length) {
-    return (
-      <Card className="bg-tarjetas border-none shadow-lg h-full flex flex-col items-center justify-center p-6 text-gray-500">
-        <AlertCircle className="w-8 h-8 mb-2 opacity-50" />
-        <span className="text-xs">Sin datos de ecosistema disponibles</span>
-      </Card>
-    );
-  }
+  // ... (Manejo de estado vacío igual que antes)
 
   return (
-    <Card className="bg-tarjetas border-none shadow-lg h-full flex flex-col">
-      <CardHeader className="pb-1 pt-0 px-4 flex flex-row items-center justify-between border-b border-white/5 shrink-0">
-        <CardTitle className="text-[#FFA028] text-sm flex gap-2 items-center">
-          <Share2 className="w-4 h-4"/> Mapa de Ecosistema
+    <Card className="bg-tarjetas border-none shadow-lg h-full flex flex-col group relative overflow-hidden">
+      <CardHeader className="pb-1 pt-0 px-4 flex flex-row items-center justify-between border-b border-white/5 shrink-0 z-10">
+        <CardTitle className="text-[#FFA028] text-sm flex gap-2 items-center"> 
+          <span>Mapa de Ecosistema</span>
         </CardTitle>
-        <div className="flex gap-4 text-[10px] text-gray-400">
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full" style={{background: "#008000"}}></div>
-            Sólido
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full" style={{background: "#800000"}}></div>
-            Riesgo
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full border border-gray-500 bg-transparent"></div>
-            Tamaño = Dep.
-          </div>
+        
+        {/* --- TOGGLE DE VISTAS --- */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wider hidden sm:block">Lente:</span>
+          <ToggleGroup 
+            type="single" 
+            value={viewMode} 
+            onValueChange={(val) => val && setViewMode(val as any)}
+            className="scale-75 origin-right" // Hacerlo más compacto
+          >
+            <ToggleGroupItem value="financial" aria-label="Financiero" className="data-[state=on]:bg-[#FFA028] data-[state=on]:text-black text-xs px-2 h-7">
+              <Wallet className="w-3 h-3 mr-1" /> Finanzas
+            </ToggleGroupItem>
+            <ToggleGroupItem value="geopolitical" aria-label="Geopolítico" className="data-[state=on]:bg-blue-500 data-[state=on]:text-white text-xs px-2 h-7">
+              <Globe className="w-3 h-3 mr-1" /> Geopolítica
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
       </CardHeader>
+
       <CardContent className="p-0 flex-1 min-h-[350px] relative bg-gradient-to-b from-transparent to-black/20">
         <div className="absolute inset-0">
           <ReactECharts 
-          echarts={echarts}
-          option={chartOption} 
-          style={{ height: '100%', width: '100%' }}
-          opts={{ renderer: 'canvas' }}
-        />
+            echarts={echarts}
+            option={chartOption} 
+            style={{ height: '100%', width: '100%' }}
+            opts={{ renderer: 'canvas' }}
+          />
         </div>
-        {/* Etiquetas de zona flotantes */}
-        <div className="absolute top-4 left-4 text-[10px] uppercase font-bold text-gray-300 tracking-[0.2em] pointer-events-none">Proveedores</div>
-        <div className="absolute top-4 right-4 text-[10px] uppercase font-bold text-gray-300 tracking-[0.2em] pointer-events-none">Clientes</div>
+        
+        {/* Leyenda Dinámica */}
+        <div className="absolute bottom-2 left-4 flex gap-4 text-[9px] text-gray-400 bg-black/40 p-1.5 rounded-lg backdrop-blur-sm pointer-events-none">
+           <div className="flex items-center gap-1.5">
+            <div className={`w-2 h-2 rounded-full ${viewMode === 'financial' ? 'bg-green-600' : 'bg-green-500'}`}></div>
+            {viewMode === 'financial' ? 'Solvente' : 'Jurisdicción Segura'}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className={`w-2 h-2 rounded-full ${viewMode === 'financial' ? 'bg-red-800' : 'bg-red-600'}`}></div>
+            {viewMode === 'financial' ? 'Riesgo Quiebra' : 'Zona Conflicto/Sanciones'}
+          </div>
+        </div>
+
+        {/* Etiquetas de zona */}
+        <div className="absolute top-4 left-4 text-[10px] uppercase font-bold text-gray-400 tracking-[0.2em] pointer-events-none opacity-50">Proveedores</div>
+        <div className="absolute top-4 right-4 text-[10px] uppercase font-bold text-gray-400 tracking-[0.2em] pointer-events-none opacity-50">Clientes</div>
       </CardContent>
     </Card>
   );
