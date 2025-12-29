@@ -223,8 +223,8 @@ export default function ChartsTabHistoricos({
         },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: '#FFBF00' },
-            { offset: 1, color: '#cf7200ff' }
+            { offset: 0, color: '#ffbf007c' },
+            { offset: 1, color: '#cf72008a' }
           ])
         },
         data: dataPrice
@@ -276,8 +276,9 @@ export default function ChartsTabHistoricos({
         }
       },
       legend: {
-        top: 10,          
-        left: 'center',
+        top: 'middle',
+        left: 'left',
+        orient: 'vertical',
         data: [symbol, ...(comparedSymbol && peerPrice.length > 0 ? [comparedSymbol] : [])],
         textStyle: { color: "#9ca3af" }
       },
@@ -319,6 +320,7 @@ export default function ChartsTabHistoricos({
       yAxis: [
         {
           type: 'value',
+          position: 'right',
           scale: true,
           splitArea: { show: false },
           axisLabel: { color: "#cbd5e1" },
@@ -342,10 +344,10 @@ export default function ChartsTabHistoricos({
     return {
       backgroundColor: "transparent",
       tooltip: { trigger: "axis" as const },
-      legend: { textStyle: { color: "#9ca3af" } },
+      legend: { top: "middle", left: "left", orient: "vertical", textStyle: { color: "#9ca3af" } },
       grid: { left: 55, right: 25, top: 20, bottom: 35 },
       xAxis: { type: "category" as const, data: common, axisLabel: { color: "#cbd5e1" }, axisLine: { lineStyle: { color: "#475569" } } },
-      yAxis: { type: "value" as const, axisLabel: { color: "#cbd5e1", formatter: "{value}%" }, splitLine: { lineStyle: { color: "rgba(148,163,184,0.15)" } }, max: 0, min: -90 },
+      yAxis: { type: "value" as const, position: "right", axisLabel: { color: "#cbd5e1", formatter: "{value}%" }, splitLine: { lineStyle: { color: "rgba(148,163,184,0.15)" } }, max: 0, min: -90 },
       series: [
         { name: `${symbol} DD%`, type: "line" as const, data: s, smooth: true, showSymbol: false, areaStyle: { opacity: 0.12 }, lineStyle: { color: "#ef4444" } },
         { name: "Benchmark DD%", type: "line" as const, data: b, smooth: true, showSymbol: false, areaStyle: { opacity: 0.08 }, lineStyle: { color: "#94a3b8" } },
@@ -384,10 +386,10 @@ export default function ChartsTabHistoricos({
     return {
       backgroundColor: "transparent",
       tooltip: { trigger: "axis" as const, valueFormatter: (v: any) => `${(v).toFixed(2)}%` },
-      legend: { textStyle: { color: "#9ca3af" } },
+      legend: { top: "middle", left: "left", orient: "vertical", textStyle: { color: "#9ca3af" } },
       grid: { left: 55, right: 25, top: 20, bottom: 35 },
       xAxis: { type: "category" as const, data: finalDates, axisLabel: { color: "#cbd5e1" }, axisLine: { lineStyle: { color: "#475569" } } },
-      yAxis: { type: "value" as const, axisLabel: { color: "#cbd5e1", formatter: "{value}%" }, splitLine: { lineStyle: { color: "rgba(148,163,184,0.15)" } } },
+      yAxis: { type: "value" as const, position: "right", axisLabel: { color: "#cbd5e1", formatter: "{value}%" }, splitLine: { lineStyle: { color: "rgba(148,163,184,0.15)" } } },
       series: [
         { name: `${symbol} %`, type: "line" as const, data: finalS, showSymbol: false, lineStyle: { color: "#22c55e" } },
         { name: "Benchmark %", type: "line" as const, data: finalB, showSymbol: false, lineStyle: { color: "#f59e0b" } },
@@ -449,51 +451,53 @@ export default function ChartsTabHistoricos({
 
   return (
     <Card className="bg-tarjetas border-none p-0 m-0 shadow-none h-full flex flex-col">
-      <CardHeader className="p-0 m-0 space-y-0 shrink-0">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between w-full">
-            {/* <CardTitle className="text-blue-400 text-lg">
-              Análisis Histórico — {companyName || "—"}{" "}
-              <Badge variant="outline" className="ml-2 border-blue-500/50 text-blue-300">
-                {symbol}
-              </Badge>
-            </CardTitle> */}
+      <CardHeader className="p-0 m-0 space-y-0 shrink-0 w-full border-b border-zinc-800 bg-transparent z-10 border-white/10">
+        <div className="flex items-center justify-between w-full">
+          {/* <CardTitle className="text-blue-400 text-lg">
+            Análisis Histórico — {companyName || "—"}{" "}
+            <Badge variant="outline" className="ml-2 border-blue-500/50 text-blue-300">
+              {symbol}
+            </Badge>
+          </CardTitle> */}
 
-            {/* Rango */}
-            <div className="flex gap-2 flex-wrap">
-              {(["1A", "3A", "5A", "MAX"] as RangeKey[]).map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setRange(r)}
-                  className={[
-                    "px-2 py-1 text-xs rounded-none border transition-colors",
+          {/* Rango */}
+          <div className="flex gap-0.5 flex-wrap">
+            {(["1A", "3A", "5A", "MAX"] as RangeKey[]).map((r) => (
+              <button
+                key={r}
+                onClick={() => setRange(r)}
+                className={`
+                  rounded-none border-b-2 px-2 py-1 text-xs transition-colors font-medium
+                  ${
                     range === r
-                      ? "bg-[#FFA028]/20 border-[#FFA028] text-[#FFA028]"
-                      : "bg-transparent border-gray-700 text-gray-300 hover:bg-gray-700/40",
-                  ].join(" ")}
-                >
-                  {r}
-                </button>
-              ))}
-            </div>
+                      ? 'bg-[#0056FF] text-white border-[#0056FF]'
+                      : 'bg-zinc-900 border-black text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
+                  }
+                `}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
 
-            {/* Tabs de gráfico (como Dividendos) */}
-            <div className="flex gap-2">
-              {VIEWS.map((v) => (
-                <button
-                  key={v.key}
-                  onClick={() => setView(v.key)}
-                  className={[
-                    "px-2 py-1 text-xs rounded-none transition-colors",
+          {/* Tabs de gráfico */}
+          <div className="flex gap-0.5">
+            {VIEWS.map((v) => (
+              <button
+                key={v.key}
+                onClick={() => setView(v.key)}
+                className={`
+                  rounded-none border-b-2 px-2 py-1 text-xs transition-colors font-medium
+                  ${
                     view === v.key
-                      ? "bg-[#FFA028]/20 text-[#FFA028]"
-                      : "text-gray-300 hover:bg-gray-700/40",
-                  ].join(" ")}
-                >
-                  {v.label}
-                </button>
-              ))}
-            </div>
+                      ? 'bg-[#0056FF] text-white border-[#0056FF]'
+                      : 'bg-zinc-900 border-black text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
+                  }
+                `}
+              >
+                {v.label}
+              </button>
+            ))}
           </div>
         </div>
       </CardHeader>

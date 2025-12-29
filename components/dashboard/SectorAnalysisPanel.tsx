@@ -73,37 +73,36 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-tarjetas border border-white/5 border-b-0 rounded-none overflow-hidden shadow-sm">
+    <div className="w-full h-full flex flex-col bg-tarjetas border-white/10 border-zinc-800 rounded-none overflow-hidden shadow-sm">
       <Tabs defaultValue="Technology" onValueChange={setSelectedSector} className="w-full h-full flex flex-col">
-        <div className="border-b border-white/10 shrink-0">
-          <ScrollArea className="w-full whitespace-nowrap">
-            <TabsList className="bg-transparent h-auto p-0 flex min-w-full w-max">
+        <div className="w-full border-b border-zinc-800 bg-transparent z-10 border-white/10 shrink-0">
+          <div className="w-full overflow-x-auto scrollbar-thin whitespace-nowrap">
+            <TabsList className="bg-transparent h-auto p-0 flex min-w-full w-max gap-0.5 border-b-2 border-black ">
               {SECTORS.map((sector) => (
                 <TabsTrigger 
                   key={sector} 
                   value={sector} 
-                  className="rounded-none border-b-0 data-[state=active]:bg-[#0056FF] data-[state=active]:text-white text-xs px-2 py-1 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors flex-1"
+                  className="bg-zinc-900 rounded-none border-b-0 data-[state=active]:bg-[#0056FF] data-[state=active]:text-white text-xs px-2 py-1 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors flex-1"
                 >
                   {sector}
                 </TabsTrigger>
               ))}
             </TabsList>
-            <ScrollBar orientation="horizontal" className="h-1.5" />
-          </ScrollArea>
+          </div>
         </div>
 
-        <div className="py-1 border-b border-white/5 bg-white/[0.02] shrink-0">
+        <div className="py-1 border border-zinc-800 bg-white/[0.02] shrink-0">
           <h4 className="text-xs font-medium text-gray-400 text-center">
             Acciones del sector <span className="text-[#FFA028]">{selectedSector}</span>
           </h4>
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-thin relative p-0">
+        <div className="flex-1 overflow-y-auto scrollbar-thin relative p-0 border border-zinc-800">
           <table className="w-full text-sm">
-            <TableHeader className="sticky top-0 z-10 bg-gray-600">
-              <TableRow className="border-white/10 hover:bg-gray-600 bg-gray-600 border-b-0">
+            <TableHeader className="sticky top-0 z-10 bg-[#1D1D1D]">
+              <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
                 <TableHead className="text-gray-300 text-[10px] h-6 w-[60px]">Ticker</TableHead>
-                <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[50px]">F.G.O.S.</TableHead>
+                <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[50px]">Ranking Sectorial</TableHead>
                 <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[80px]">Valuación</TableHead>
                 <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[50px]">Ecosistema</TableHead>
                 <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[60px]">Div. Yield</TableHead>
@@ -115,7 +114,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
+                <TableRow className="border-zinc-800">
                   <TableCell colSpan={9} className="h-24 text-center">
                     <div className="flex justify-center items-center gap-2 text-gray-400 text-xs">
                        <Loader2 className="w-4 h-4 animate-spin" /> Cargando datos en vivo...
@@ -125,7 +124,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
               ) : stocks.map((stock) => (
                 <TableRow 
                   key={stock.ticker} 
-                  className="border-white/5 hover:bg-white/5 cursor-pointer transition-colors"
+                  className="border-zinc-800 hover:bg-white/5 cursor-pointer transition-colors"
                   onClick={() => onStockSelect?.(stock.ticker)}
                 >
                   <TableCell className="font-bold text-white px-2 py-0.5 text-xs">{stock.ticker}</TableCell>

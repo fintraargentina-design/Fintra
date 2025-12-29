@@ -15,10 +15,10 @@ export default function NavigationBar({
   orientation = 'horizontal'
 }: NavigationBarProps) {
   const tabs = [
-    { key: 'ecosistema', label: 'Ecosistema' },
-    { key: 'datos', label: 'Datos' },
-    { key: 'estimacion', label: 'Estimación y Análisis IA' },
     { key: 'mercados', label: 'Mercados' },
+    { key: 'datos', label: 'Datos' },
+    { key: 'ecosistema', label: 'Ecosistema' },
+    { key: 'estimacion', label: 'Estimación y Análisis IA' },
   ];
 
   if (orientation === 'vertical') {
@@ -52,17 +52,17 @@ export default function NavigationBar({
       <div className="w-full overflow-x-auto scrollbar-thin whitespace-nowrap">
         {/* Desktop Navigation */}
         <div className="hidden md:flex flex-nowrap items-center justify-start h-auto p-0 w-max">
-          <div className="flex">
+          <div className="flex gap-0.5">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as TabKey)}
                 className={`
-                  rounded-none border-b-2 border-transparent px-2 py-1 text-xs transition-colors font-medium
+                  rounded-none border-b-2 px-2 py-1 text-xs transition-colors font-medium
                   ${
                     activeTab === tab.key
                       ? 'bg-[#0056FF] text-white border-[#0056FF]'
-                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
+                      : 'bg-zinc-900 border-black text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
                   }
                 `}
               >

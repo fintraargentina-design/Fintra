@@ -152,7 +152,6 @@ export default function DatosTab({
                 <ValoracionCard 
                   symbol={symbol} 
                   period={selectedPeriod} 
-                  ratiosData={ratios}
                 />
               </div>
             </div>

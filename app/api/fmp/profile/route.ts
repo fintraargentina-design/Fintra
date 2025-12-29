@@ -48,7 +48,18 @@ export async function GET(req: Request) {
 
     const data = await fmpGet<any[]>(endpointPath, params);
 
-    return NextResponse.json(data ?? [], {
+    // Si no hay datos, no cachear por largo plazo para evitar guardar errores/vacíos
+    if (!data || data.length === 0) {
+      return NextResponse.json([], {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store, max-age=0", 
+        },
+      });
+    }
+
+    return NextResponse.json(data, {
       status: 200,
       headers: {
         "Content-Type": "application/json",

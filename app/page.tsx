@@ -92,6 +92,14 @@ export default function StockTerminal() {
     // Resetear estados previos
     setStockRatios(null);
     setStockMetrics(null);
+    setStockBasicData(null);
+    setStockAnalysis(null);
+    setStockPerformance(null);
+    setStockReport(null);
+    setStockEcosystem(null);
+    setStockConclusion(null);
+    // Opcional: limpiar también competidor seleccionado si se desea
+    // setSelectedCompetitor(null); 
 
     try {
       await registerStockSearch(sym);
@@ -292,9 +300,19 @@ export default function StockTerminal() {
               {/* Panel izquierdo */}
               <div className="w-full xl:w-auto flex flex-col gap-0 min-h-0 h-full overflow-hidden">
                 {/* Top Section: 3/5 height (60%) */}
-                <div className="w-full flex flex-col h-[60%] min-h-0 shrink-0">
+                <div className="w-full flex flex-col h-[70%] min-h-0 shrink-0">
                   <div className="flex-1 min-h-0 relative">
                     <SectorAnalysisPanel onStockSelect={handleTopStockClick} />
+                  </div>
+                  <div className="w-full shrink-0">
+                    <OverviewCard
+                        selectedStock={selectedStock}
+                        stockConclusion={stockConclusion}
+                        onStockSearch={buscarDatosAccion}
+                        onOpenSearchModal={() => setIsSearchOpen(true)}
+                        isParentLoading={isLoading}
+                        analysisData={stockAnalysis}
+                      />
                   </div>
                   <div className="flex-1 min-h-0 relative">
                     <PeersAnalysisPanel 
@@ -306,8 +324,8 @@ export default function StockTerminal() {
                 </div>
 
                 {/* Bottom Section: 2/5 height (40%) */}
-                <div className="w-full flex flex-col h-[40%] min-h-0 shrink-0">
-                  <div className="w-full shrink-0">
+                <div className="w-full flex flex-col h-[30%] min-h-0 shrink-0">
+                  {/* <div className="w-full shrink-0">
                     <OverviewCard
                         selectedStock={selectedStock}
                         stockConclusion={stockConclusion}
@@ -316,19 +334,19 @@ export default function StockTerminal() {
                         isParentLoading={isLoading}
                         analysisData={stockAnalysis}
                       />
-                  </div>
+                  </div> */}
 
                   {/* Charts & Radar Row */}
                   <div className="flex flex-col lg:flex-row w-full flex-1 min-h-0">
                       {/* Chart 3/5 */}
-                      <div className="w-full lg:w-3/5 h-full">
+                      <div className="w-full lg:w-3/5 h-full border border-zinc-800">
                           <ChartsTabHistoricos
                             symbol={selectedSymbol}
                             companyName={stockBasicData?.companyName}
                           />
                       </div>
                       {/* Radar 2/5 */}
-                      <div className="w-full lg:w-2/5 h-full">
+                      <div className="w-full lg:w-2/5 h-full border border-zinc-800">
                            <FGOSRadarChart 
                               symbol={selectedSymbol} 
                               data={stockAnalysis?.fgos_breakdown} 
@@ -343,7 +361,7 @@ export default function StockTerminal() {
               <div className="w-full xl:w-auto h-[calc(100vh-64px)] flex flex-col">
                 {/* Mitad Superior: Navigation Bar y Contenido de Tabs */}
                 <div className="h-3/5 flex flex-col min-h-0 border-b border-white/5">
-                  <div className="w-full flex items-center justify-between shrink-0">
+                  <div className="w-full flex items-center justify-between ">
                     <div className="flex-1">
                       <NavigationBar
                         orientation="horizontal"
@@ -354,7 +372,7 @@ export default function StockTerminal() {
                     </div>
                   </div>
                   
-                  <div className={`w-full flex-1 scrollbar-thin ${activeTab === 'datos' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+                  <div className={`w-full flex-1 scrollbar-thin border border-zinc-800 ${activeTab === 'datos' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
                     {renderTabContent()}
                   </div>
                 </div>

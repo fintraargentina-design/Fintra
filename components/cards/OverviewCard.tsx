@@ -61,7 +61,7 @@ function normalizeProfile(p: Profile | null): Profile {
   return {
     // Básicos
     symbol: typeof p.symbol === "string" ? p.symbol.toUpperCase() : undefined,
-    companyName: p.companyName,
+    companyName: p.companyName || p.name,
     sector: p.sector,
     industry: p.industry,
     country: p.country,
@@ -199,7 +199,31 @@ export default function OverviewCard({
   };
 
   const data = useMemo(() => {
-    if (profile && Object.keys(profile).length > 0) return profile;
+    // Si tenemos profile y tiene símbolo válido, lo usamos
+    if (profile && profile.symbol) {
+      // Si falta la imagen, ponemos fallback
+      if (!profile.image) {
+        return {
+          ...profile,
+          image: `https://financialmodelingprep.com/image-stock/${currentSymbol}.png`
+        };
+      }
+      return profile;
+    }
+    
+    // Si profile existe pero está vacío o sin símbolo (caso de error silencioso),
+    // mezclamos lo que haya con los defaults.
+    if (profile) {
+        return {
+            ...profile,
+            symbol: profile.symbol || currentSymbol,
+            image: profile.image || `https://financialmodelingprep.com/image-stock/${currentSymbol}.png`,
+            companyName: profile.companyName || "",
+            price: profile.price || 0,
+            change: profile.change || 0,
+            changePercentage: profile.changePercentage || 0,
+        };
+    }
     
     // Fallback básico si no hay profile
     return {
@@ -812,25 +836,35 @@ export default function OverviewCard({
       <Card className="w-full bg-tarjetas border border-white/5 rounded-none overflow-hidden shadow-sm px-0 py-0">
         <CardContent className="p-0">
           {/* Header Row - Visible on Desktop */}
-          <div className="hidden md:grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-2 items-center bg-gray-600 px-4 py-1 border-b border-white/10 sticky top-0 z-10">
+          {/* <div className="hidden md:grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-2 items-center bg-[#1D1D1D] px-4 py-1 border-b border-white/10 sticky top-0 z-10">
             <div className="text-[10px] text-gray-200">Ticker</div>
             <div className="text-[10px] text-gray-200 text-center">Último Precio</div>
-            <div className="text-[10px] text-gray-200 text-center">F.G.O.S.</div>
+            <div className="text-[10px] text-gray-200 text-center">Ranking Sectorial</div>
             <div className="text-[10px] text-gray-200 text-center">Valuación</div>
             <div className="text-[10px] text-gray-200 text-center">Conclusión</div>
             <div className="text-[10px] text-gray-200 text-center">Ecosistema</div>
-          </div>
+          </div> */}
 
-          <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-2 items-center h-full p-1 md:p-1 md:px-1 md:py-1">
+          <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-2 items-center h-full p-1 md:p-1 md:px-1 md:py-1 border border-zinc-800">
               {/* 1. STOCK: Logo, Ticker, Nombre, CEO */}
               <div className="flex items-center gap-3">
                   <DialogTrigger asChild>
-                    <img 
-                      src={data.image} 
-                      alt={data.symbol} 
-                      className="w-12 h-12 object-contain cursor-pointer hover:opacity-80 transition-opacity border-none bg-white/5"
-                      onError={(e: any) => e.currentTarget.style.display = 'none'}
-                    />
+                    <div className="relative w-12 h-12 flex items-center justify-center bg-white/5 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity">
+                      <img 
+                        src={data.image} 
+                        alt={data.symbol} 
+                        className="w-full h-full object-contain"
+                        onError={(e: any) => {
+                           e.currentTarget.style.display = 'none';
+                           // Mostrar el span hermano
+                           const span = e.currentTarget.parentNode.querySelector('span');
+                           if (span) span.style.display = 'block';
+                        }}
+                      />
+                      <span className="hidden text-white font-bold text-sm" style={{ display: 'none' }}>
+                        {data.symbol?.slice(0, 2)}
+                      </span>
+                    </div>
                   </DialogTrigger>
                   <div className="flex flex-col min-w-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={onOpenSearchModal}>
                       <div className="flex items-center gap-2">

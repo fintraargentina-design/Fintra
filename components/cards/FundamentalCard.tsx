@@ -272,18 +272,12 @@ export default function FundamentalCard({
   useEffect(() => {
     if (!symbol) return;
 
-    // 1. CARGA RÁPIDA (Props)
-    if (ratiosData && metricsData) {
-      const initialRows = buildMetricRows(ratiosData, metricsData, { rev: [], net: [], eq: [] }, []);
-      setRows(initialRows);
-      setLoading(false);
-    } else {
-       setLoading(true);
-    }
-
-    // 2. CARGA DE FONDO (Historial para CAGR y FCF preciso)
-    const fetchHistory = async () => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      
       try {
+        // 1. Fetch History (siempre annual para CAGR y FCF consistente)
         const [incomeGrowth, balanceGrowth, cashflow] = await Promise.all([
           fmp.incomeStatementGrowth(symbol, { period: "annual", limit: 6 }),
           fmp.balanceSheetGrowth(symbol, { period: "annual", limit: 6 }),
@@ -297,31 +291,50 @@ export default function FundamentalCard({
         };
         const cfItems = Array.isArray(cashflow) ? cashflow : [];
 
-        // Recuperar o usar props
-        let currentRatios = ratiosData;
-        let currentMetrics = metricsData;
+        // 2. Determinar Ratios y Metrics según periodo seleccionado
+        let currentRatios;
+        let currentMetrics;
 
-        if (!currentRatios || !currentMetrics) {
-             const [r, k] = await Promise.all([
-                 fmp.ratiosTTM(symbol),
-                 fmp.keyMetricsTTM(symbol)
-             ]);
-             currentRatios = r?.[0] || {};
-             currentMetrics = k?.[0] || {};
+        if (period === 'ttm') {
+          // Si el usuario pide TTM, usamos props (que suelen ser TTM) si existen, o fetch explícito
+          if (ratiosData && metricsData) {
+            currentRatios = ratiosData;
+            currentMetrics = metricsData;
+          } else {
+            const [r, k] = await Promise.all([
+              fmp.ratiosTTM(symbol),
+              fmp.keyMetricsTTM(symbol)
+            ]);
+            currentRatios = r?.[0] || {};
+            currentMetrics = k?.[0] || {};
+          }
+        } else {
+          // Si el usuario pide Annual/Quarter, ignoramos props TTM y hacemos fetch específico
+          // Mapeo: 'annual' | 'FY' -> 'annual', cualquier otro (Q1..Q4, quarter) -> 'quarter'
+          const apiPeriod = (period === 'annual' || period === 'FY') ? 'annual' : 'quarter';
+          
+          const [r, k] = await Promise.all([
+            fmp.ratios(symbol, { period: apiPeriod, limit: 1 }),
+            fmp.keyMetrics(symbol, { period: apiPeriod, limit: 1 })
+          ]);
+          currentRatios = r?.[0] || {};
+          currentMetrics = k?.[0] || {};
         }
 
         const fullRows = buildMetricRows(currentRatios, currentMetrics, growthData, cfItems);
         setRows(fullRows);
-        setLoading(false);
-
+      
       } catch (err) {
-        console.error("Error fetching history:", err);
+        console.error("Error fetching history/data:", err);
+        setError("Error al cargar datos");
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchHistory();
+    fetchData();
 
-  }, [symbol, ratiosData, metricsData]);
+  }, [symbol, period, ratiosData, metricsData]);
 
   return (
     <>
