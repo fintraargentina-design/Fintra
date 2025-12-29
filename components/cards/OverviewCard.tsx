@@ -897,7 +897,7 @@ export default function OverviewCard({
                     <Skeleton className="h-6 w-10 bg-white/10 rounded-sm" />
                   ) : (
                      <>
-                        <div className="text-xl font-mono text-blue-400 font-bold">{snapshot?.ecosystem_health_score ?? "-"}</div>
+                        <div className="text-xl font-mono text-blue-400 font-bold">{snapshot?.ecosystem_score ?? "-"}</div>
                         <span className="text-[9px] text-gray-500 font-medium mt-[-2px]">Salud del ecosistema</span>
                      </>
                   )}

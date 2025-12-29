@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Share2, Globe, Wallet, AlertCircle } from "lucide-react"; 
+import { Share2, Globe, Wallet, AlertCircle, Loader2, RefreshCw, Zap } from "lucide-react"; 
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"; 
+import { Button } from "@/components/ui/button";
 import * as echarts from "echarts/core";
 import { GraphChart } from "echarts/charts";
 import { TooltipComponent, LegendComponent, GridComponent } from "echarts/components";
@@ -15,18 +16,11 @@ echarts.use([GraphChart, TooltipComponent, LegendComponent, GridComponent, Canva
 
 const ReactECharts = dynamic(() => import("echarts-for-react/lib/core"), { ssr: false });
 
-// --- DATA TYPES ---
-export interface EcoItem {
-  id: string;
-  n: string;
-  country?: string; 
-  dep: number; // Dependencia %
-  val: number; // Valuación
-  ehs: number; // Ecosystem Health Score
-  fgos: number; // Financial Score
-  geo_score?: number; // Geopolitical Score (100 = Seguro, 0 = Zona de Guerra)
-  txt: string; // Razón / Contexto
-}
+import { EcosystemDataJSON, EcoNodeJSON } from "@/lib/engine/types";
+
+// Reutilizamos EcoNodeJSON pero añadimos country opcional si no está
+// O simplemente usamos EcoNodeJSON directamente
+type EcoItem = EcoNodeJSON;
 
 // --- MOCK DATA: APPLE FORENSIC ANALYSIS (Basado en Reporte Fintra) ---
 const APPLE_MOCK_DATA = {
@@ -37,10 +31,9 @@ const APPLE_MOCK_DATA = {
       n: "TSMC", 
       country: "TW", 
       dep: 100, 
-      val: 90, 
+      market_sentiment: 90, 
       ehs: 95, 
-      fgos: 92, 
-      geo_score: 20, 
+      health_signal: 92, 
       txt: "Punto Único de Falla / Riesgo Invasión" 
     },
     { 
@@ -48,10 +41,9 @@ const APPLE_MOCK_DATA = {
       n: "Foxconn", 
       country: "CN", 
       dep: 60, 
-      val: 50, 
+      market_sentiment: 50, 
       ehs: 60, 
-      fgos: 55, 
-      geo_score: 40, 
+      health_signal: 55, 
       txt: "Dependencia Crítica de China" 
     },
     { 
@@ -59,10 +51,9 @@ const APPLE_MOCK_DATA = {
       n: "Tata Electronics", 
       country: "IN", 
       dep: 25, 
-      val: 65, 
+      market_sentiment: 65, 
       ehs: 70, 
-      fgos: 60, 
-      geo_score: 85, 
+      health_signal: 60, 
       txt: "Diversificación 'China Plus One'" 
     },
     { 
@@ -70,10 +61,9 @@ const APPLE_MOCK_DATA = {
       n: "Samsung Elec", 
       country: "KR", 
       dep: 70, 
-      val: 75, 
+      market_sentiment: 75, 
       ehs: 80, 
-      fgos: 82, 
-      geo_score: 65, 
+      health_signal: 82, 
       txt: "Oligopolio Memoria y Pantallas" 
     },
     { 
@@ -81,10 +71,9 @@ const APPLE_MOCK_DATA = {
       n: "Corning", 
       country: "US", 
       dep: 40, 
-      val: 55, 
+      market_sentiment: 55, 
       ehs: 85, 
-      fgos: 72, 
-      geo_score: 100, 
+      health_signal: 72,  
       txt: "Monopolio 'Ceramic Shield'" 
     }
   ],
@@ -94,10 +83,9 @@ const APPLE_MOCK_DATA = {
       n: "Alphabet (Google)", 
       country: "US", 
       dep: 20, 
-      val: 85, 
+      market_sentiment: 85, 
       ehs: 90, 
-      fgos: 95, 
-      geo_score: 30, 
+      health_signal: 95, 
       txt: "Riesgo Regulatorio (DOJ) $20MM/año" 
     },
     { 
@@ -105,10 +93,9 @@ const APPLE_MOCK_DATA = {
       n: "China Market", 
       country: "CN", 
       dep: 19, 
-      val: 40, 
+      market_sentiment: 40, 
       ehs: 50, 
-      fgos: 40, 
-      geo_score: 35, 
+      health_signal: 40, 
       txt: "Nacionalismo / Erosión de Cuota" 
     },
     { 
@@ -116,10 +103,9 @@ const APPLE_MOCK_DATA = {
       n: "USA Market", 
       country: "US", 
       dep: 42, 
-      val: 80, 
+      market_sentiment: 80, 
       ehs: 95, 
-      fgos: 90, 
-      geo_score: 95, 
+      health_signal: 90, 
       txt: "Mercado Core / Estable" 
     }
   ]
@@ -143,17 +129,73 @@ interface EcosystemCardProps {
   mainImage?: string;
   suppliers?: EcoItem[];
   clients?: EcoItem[];
+  data?: EcosystemDataJSON; // Nueva prop opcional para JSON completo
+  loading?: boolean; // Estado de carga/regeneración
 }
 
 export default function EcosystemCard({ 
   mainTicker = APPLE_MOCK_DATA.mainTicker, 
   mainImage,
-  suppliers = APPLE_MOCK_DATA.suppliers, 
-  clients = APPLE_MOCK_DATA.clients 
+  suppliers,
+  clients,
+  data,
+  loading: initialLoading = false
 }: EcosystemCardProps) {
+  
+  // --- LOCAL STATE MANAGEMENT ---
+  const [localData, setLocalData] = useState<EcosystemDataJSON | null>(data || null);
+  const [loading, setLoading] = useState(initialLoading);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Sincronizar props con estado local si cambian externamente
+  useEffect(() => {
+    if (data) setLocalData(data);
+  }, [data]);
+
+  // Normalizar datos: Usar estado local, props directas.
+  // ELIMINADO FALLBACK A MOCK para permitir estado vacío
+  const finalSuppliers = localData?.suppliers || suppliers || [];
+  const finalClients = localData?.clients || clients || [];
   
   // Estado para controlar la "Lente" de visión (Financiera vs Geopolítica)
   const [viewMode, setViewMode] = useState<"financial" | "geopolitical">("financial");
+
+  // --- FETCHING LOGIC ---
+  const fetchEcosystemData = useCallback(async () => {
+    if (!mainTicker) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`/api/ecosystem/analyze?ticker=${mainTicker}`);
+      
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.error) throw new Error(result.error);
+      
+      if (result.data) {
+        setLocalData(result.data);
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch ecosystem data:", err);
+      setError(err.message || "Error al actualizar datos");
+    } finally {
+      setLoading(false);
+    }
+  }, [mainTicker]);
+
+  // Auto-fetch on mount if no data provided
+  useEffect(() => {
+    const hasInitialData = (suppliers && suppliers.length > 0) || (clients && clients.length > 0) || (data?.suppliers && data.suppliers.length > 0);
+    if (!hasInitialData && mainTicker) {
+      fetchEcosystemData();
+    }
+  }, []); // Run once on mount
 
   const chartOption = useMemo(() => {
     const nodes: any[] = [];
@@ -176,13 +218,19 @@ export default function EcosystemCard({
 
     // 2. HELPER PARA PROCESAR NODOS
     const processNodes = (items: EcoItem[], isSupplier: boolean) => {
+      // Manejar caso items undefined
+      if (!items || !Array.isArray(items)) return;
+
       items.forEach((item, index) => {
         // Distribución vertical calculada para centrar los nodos
         const spreadY = (index - (items.length - 1) / 2) * 120;
         const xPos = isSupplier ? -350 : 350;
 
         // Determinar qué score usar (Switch Lógico)
-        const activeScore = viewMode === 'financial' ? item.fgos : (item.geo_score ?? 50);
+        // Usamos EHS como principal indicador de color ahora, fallback a health_signal o geo_score legacy
+        // Si existe 'ehs' (nuevo modelo), lo usamos. Si no, fallback.
+        const activeScore = item.ehs ?? (viewMode === 'financial' ? item.health_signal : 50);
+        
         const color = getHeatmapColor(activeScore);
         const isCriticalRisk = activeScore <= 30;
 
@@ -225,8 +273,8 @@ export default function EcosystemCard({
       });
     };
 
-    processNodes(suppliers, true);
-    processNodes(clients, false);
+    processNodes(finalSuppliers, true);
+    processNodes(finalClients, false);
 
     return {
       backgroundColor: "transparent",
@@ -243,12 +291,12 @@ export default function EcosystemCard({
           
           // Lógica de visualización del Tooltip
           const isGeoMode = viewMode === 'geopolitical';
-          const scoreLabel = isGeoMode ? "Estabilidad Geo." : "Salud Financiera";
-          const scoreValue = isGeoMode ? (d.geo_score ?? "N/A") : d.fgos;
-          const scoreColor = getHeatmapColor(isGeoMode ? d.geo_score : d.fgos);
+          const scoreLabel = "Ecosystem Health";
+          const scoreValue = d.ehs ?? d.health_signal ?? 50;
+          const scoreColor = getHeatmapColor(scoreValue);
           
           // Alerta visual en el header del tooltip
-          const isHighRisk = isGeoMode && d.geo_score && d.geo_score <= 40;
+          const isHighRisk = scoreValue <= 40;
           const headerClass = isHighRisk 
             ? "border-b border-red-900 bg-red-900/20 text-red-200" 
             : "border-b border-white/10";
@@ -277,11 +325,7 @@ export default function EcosystemCard({
                 </div>
 
                 <div class="mt-2 pt-2">
-                   ${isGeoMode 
-                      ? `<div class="text-[9px] uppercase tracking-wider text-gray-500 mb-1">Factor de Riesgo:</div>
-                         <div class="text-xs italic text-blue-200 font-medium leading-tight">"${d.txt}"</div>`
-                      : `<div class="text-[10px] italic text-gray-500 leading-tight">"${d.txt}"</div>`
-                   }
+                   <div class="text-[10px] italic text-gray-500 leading-tight">"${d.txt}"</div>
                 </div>
               </div>
             </div>
@@ -293,7 +337,7 @@ export default function EcosystemCard({
         layout: "none",
         symbol: "circle",
         roam: true, // Zoom y Pan habilitados
-        zoom: 0.8,
+        zoom: 0.7, // Ajustado a 0.7 según requerimientos anteriores
         label: { show: true, color: "#fff" },
         edgeSymbol: ['none', 'arrow'],
         edgeSymbolSize: [4, 10],
@@ -301,24 +345,79 @@ export default function EcosystemCard({
         links: links
       }]
     };
-  }, [mainTicker, suppliers, clients, viewMode, mainImage]);
+  }, [mainTicker, finalSuppliers, finalClients, viewMode, mainImage]);
 
-  // Estado vacío
-  if (!suppliers.length && !clients.length) {
+  // Estado de Carga Inicial (Sin datos)
+  const hasData = (finalSuppliers && finalSuppliers.length > 0) || (finalClients && finalClients.length > 0);
+
+  if (loading && !hasData) {
     return (
       <Card className="bg-tarjetas border-none shadow-lg h-full flex flex-col items-center justify-center p-6 text-gray-500">
-        <Globe className="w-12 h-12 mb-3 opacity-20" />
-        <span className="text-sm font-medium">Esperando datos de Inteligencia...</span>
+        <Loader2 className="w-10 h-10 mb-3 text-blue-500 animate-spin" />
+        <span className="text-sm font-medium animate-pulse">Analizando Ecosistema con IA...</span>
+        <span className="text-xs text-gray-600 mt-2">Esto puede tomar unos segundos</span>
+      </Card>
+    );
+  }
+
+  // Estado vacío (Sin datos y sin carga)
+  if (!hasData) {
+    return (
+      <Card className="bg-tarjetas border-none shadow-lg h-full flex flex-col items-center justify-center p-6 text-gray-500">
+        <Globe className="w-12 h-12 mb-4 opacity-20" />
+        <h3 className="text-sm font-medium mb-2">Sin datos de ecosistema</h3>
+        <p className="text-xs text-gray-500 text-center max-w-[200px] mb-4">
+          No hay información disponible para {mainTicker}. Puedes solicitar un análisis con IA.
+        </p>
+        <Button 
+          onClick={fetchEcosystemData}
+          disabled={loading}
+          variant="outline"
+          className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 transition-all"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Generando...
+            </>
+          ) : (
+            <>
+              <Zap className="w-4 h-4 mr-2" />
+              Generar Ecosistema con IA
+            </>
+          )}
+        </Button>
       </Card>
     );
   }
 
   return (
     <Card className="bg-tarjetas border-none shadow-lg h-full flex flex-col group relative overflow-hidden">
+      {/* Loading Overlay (Regenerating) */}
+      {loading && hasData && (
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] z-50 flex flex-col items-center justify-center text-white/80">
+           <Loader2 className="w-8 h-8 animate-spin mb-2 text-blue-400" />
+           <span className="text-xs font-medium tracking-wider">ACTUALIZANDO...</span>
+        </div>
+      )}
+
       <CardHeader className="pb-1 pt-0 px-4 flex flex-row items-center justify-between border-b border-white/5 shrink-0 z-10">
-        <CardTitle className="text-gray-300 text-sm flex gap-2 items-center"> 
-          <span>Mapa de Ecosistema</span>
-        </CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-gray-300 text-sm flex gap-2 items-center"> 
+            <span>Mapa de Ecosistema</span>
+          </CardTitle>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={fetchEcosystemData}
+            disabled={loading}
+            className="h-6 w-6 text-gray-500 hover:text-white hover:bg-white/10"
+            title="Actualizar análisis"
+          >
+             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
         
         {/* --- TOGGLE DE LENTES (FINANCIERO vs GEOPOLÍTICO) --- */}
         <div className="flex items-center gap-2">

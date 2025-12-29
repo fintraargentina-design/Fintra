@@ -51,14 +51,14 @@ export async function enrichStocksWithData(tickers: string[]): Promise<EnrichedS
       snapshotsData.data.forEach((row: any) => {
         if (!snapshotMap.has(row.ticker)) {
           snapshotMap.set(row.ticker, {
-             symbol: row.ticker,
+             ticker: row.ticker,
              date: row.calculated_at,
              fgos_score: row.fgos_score,
+             fgos_breakdown: {},
              valuation_score: row.valuation_score ?? 50,
-             ecosystem_health_score: row.ecosystem_score,
+             ecosystem_score: row.ecosystem_score,
              verdict_text: row.verdict_text ?? "N/A",
              valuation_status: row.valuation_status ?? "Fair",
-             sector: ""
           });
         }
       });
@@ -125,7 +125,7 @@ export async function enrichStocksWithData(tickers: string[]): Promise<EnrichedS
         targetPrice: targetPrice,
         fgos: snap?.fgos_score ?? 0, 
         valuation: snap?.valuation_status ?? "N/A",
-        ecosystem: snap?.ecosystem_health_score ?? 50
+        ecosystem: snap?.ecosystem_score ?? 50
       };
     });
 

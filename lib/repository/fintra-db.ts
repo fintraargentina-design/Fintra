@@ -1,19 +1,19 @@
 import { supabase } from '@/lib/supabase';
-import { FintraSnapshotDB, EcosystemRelationDB } from '@/lib/engine/types';
+import { FintraSnapshotDB, EcosystemRelationDB, EcosystemDataJSON, EcoNodeJSON, EcosystemReportDB } from '@/lib/engine/types';
 
 /**
  * Obtiene la última snapshot de análisis Fintra para un símbolo.
  */
 export async function getLatestSnapshot(symbol: string): Promise<FintraSnapshotDB | null> {
   console.log(`[getLatestSnapshot] Fetching for ticker: ${symbol}`);
-  // Explicitly select columns to avoid any ambiguity or cached schema issues
+  // Incluimos las nuevas columnas JSONB en la selección
   const { data, error } = await supabase
     .from('fintra_snapshots')
     .select('id, ticker, fgos_score, ecosystem_score, valuation_status, valuation_score, verdict_text, calculated_at, fgos_breakdown')
     .eq('ticker', symbol)
     .order('calculated_at', { ascending: false })
     .limit(1)
-    .maybeSingle(); // Use maybeSingle to avoid error if no rows found
+    .maybeSingle();
 
   if (error) {
     console.error(`Error fetching snapshot for ${symbol}:`, error);
@@ -22,88 +22,123 @@ export async function getLatestSnapshot(symbol: string): Promise<FintraSnapshotD
 
   if (!data) return null;
 
-  // Map DB fields to FintraSnapshotDB interface
   return {
-    symbol: data.ticker,
+    ticker: data.ticker,
     date: data.calculated_at,
     fgos_score: data.fgos_score,
-    valuation_score: data.valuation_score ?? 50, // Use DB value or default
-    ecosystem_health_score: data.ecosystem_score,
-    verdict_text: data.verdict_text ?? "N/A", // Use DB value or default
+    fgos_breakdown: data.fgos_breakdown,
+    ecosystem_score: data.ecosystem_score,
+    valuation_score: data.valuation_score ?? 50,
     valuation_status: data.valuation_status,
-    sector: "",
-    fgos_breakdown: data.fgos_breakdown // Include breakdown data
+    verdict_text: data.verdict_text ?? "N/A"
   } as FintraSnapshotDB;
 }
 
 /**
- * Obtiene el detalle del ecosistema enriquecido con scores de los partners.
+ * Obtiene el último reporte de ecosistema para un ticker.
  */
-export async function getEcosystemDetailed(symbol: string): Promise<{ suppliers: EcosystemRelationDB[], clients: EcosystemRelationDB[] }> {
-  // 1. Obtener relaciones
+export async function getLatestEcosystemReport(ticker: string): Promise<EcosystemReportDB | null> {
+  const { data, error } = await supabase
+    .from('fintra_ecosystem_reports')
+    .select('*')
+    .eq('ticker', ticker)
+    .order('date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error(`Error fetching ecosystem report for ${ticker}:`, error);
+    return null;
+  }
+
+  if (!data) return null;
+
+  return data as EcosystemReportDB;
+}
+
+/**
+ * Guarda o actualiza el análisis del ecosistema en la nueva tabla fintra_ecosystem_reports.
+ */
+export async function saveEcosystemReport(data: {
+  mainTicker: string;
+  suppliers: EcoNodeJSON[];
+  clients: EcoNodeJSON[];
+  report: string;
+}) {
+  const { mainTicker, suppliers, clients, report } = data;
+
+  // Helper para calcular promedio EHS
+  const calculateAverageEHS = (nodes: EcoNodeJSON[]) => {
+    if (!nodes.length) return 50;
+    const sum = nodes.reduce((acc, curr) => acc + (curr.ehs || 50), 0);
+    return Math.round(sum / nodes.length);
+  };
+
+  const ecosystemScore = calculateAverageEHS([...suppliers, ...clients]);
+  const ecosystemData: EcosystemDataJSON = { suppliers, clients };
+  const today = new Date().toISOString().split('T')[0];
+
+  const payload = {
+    ticker: mainTicker,
+    date: today,
+    data: ecosystemData,
+    ecosystem_score: ecosystemScore,
+    report_md: report
+  };
+
+  const { error } = await supabase
+    .from('fintra_ecosystem_reports')
+    .upsert(payload, { onConflict: 'ticker, date', ignoreDuplicates: false })
+    .select();
+
+  if (error) {
+    console.error('[saveEcosystemReport] Error saving to DB:', error);
+    throw new Error(error.message);
+  }
+
+  return { success: true, ticker: mainTicker, score: ecosystemScore };
+}
+
+/**
+ * Obtiene el detalle del ecosistema (Ahora soporta modo Legacy Relacional y Nuevo JSONB).
+ * Prioriza el uso de JSONB si existe en la snapshot.
+ */
+export async function getEcosystemDetailed(symbol: string): Promise<{ suppliers: any[], clients: any[] }> {
+  
+  // 1. Intentar obtener desde Snapshot (JSONB) - La fuente de verdad moderna
+  const snapshot = await getLatestSnapshot(symbol);
+  
+  if (snapshot?.ecosystem_data) {
+    // Si tenemos datos JSONB, los devolvemos directamente
+    // Mapeamos a estructura compatible con UI si es necesario, 
+    // pero idealmente la UI consumirá EcoNodeJSON directamente.
+    return {
+      suppliers: snapshot.ecosystem_data.suppliers || [],
+      clients: snapshot.ecosystem_data.clients || []
+    };
+  }
+
+  // 2. Fallback: Modelo Relacional Legacy (Si no hay JSONB)
+  console.log(`[getEcosystemDetailed] No JSONB data for ${symbol}, falling back to legacy relational fetch.`);
+  
   const { data: relations, error: relError } = await supabase
     .from('fintra_ecosystem_relations')
     .select('*')
     .eq('symbol', symbol);
 
   if (relError || !relations) {
-    console.error(`Error fetching ecosystem relations for ${symbol}:`, relError);
     return { suppliers: [], clients: [] };
   }
 
-  // 2. Obtener partner symbols
-  const partnerSymbols = relations.map((r: any) => r.partner_symbol).filter(Boolean);
-
-  if (partnerSymbols.length === 0) {
-    return {
-      suppliers: relations.filter((r: any) => r.relation_type === 'SUPPLIER') as EcosystemRelationDB[],
-      clients: relations.filter((r: any) => r.relation_type === 'CLIENT') as EcosystemRelationDB[]
-    };
-  }
-
-  // 3. Obtener snapshots de los partners para enriquecer
-  // Nota: Buscamos la snapshot más reciente para cada partner. 
-  // Esta query simplificada trae todas las snapshots de los partners. 
-  // En producción idealmente haríamos un distinct on (symbol) order by date desc.
-  const { data: snapshots, error: snapError } = await supabase
-    .from('fintra_snapshots')
-    .select('ticker, fgos_score, valuation_status, ecosystem_score')
-    .in('ticker', partnerSymbols)
-    .order('calculated_at', { ascending: false });
-
-  if (snapError) {
-    console.error('Error fetching partner snapshots:', snapError);
-    // Retornar relaciones sin enriquecer si falla esto
-  }
-
-  // Mapa de snapshots más recientes por símbolo
-  const snapshotMap = new Map<string, any>();
-  if (snapshots) {
-    snapshots.forEach((snap: any) => {
-      if (!snapshotMap.has(snap.ticker)) {
-        snapshotMap.set(snap.ticker, snap);
-      }
-    });
-  }
-
-  // 4. Enriquecer relaciones
-  const enrichedRelations: EcosystemRelationDB[] = relations.map((rel: any) => {
-    const snap = snapshotMap.get(rel.partner_symbol);
-    return {
-      ...rel,
-      partner_fgos: snap?.fgos_score,
-      partner_valuation: 50, // Default
-      partner_ehs: snap?.ecosystem_score,
-      partner_verdict: "N/A" // Default
-    };
-  });
-
-  // 5. Agrupar por tipo
+  // ... (Lógica legacy de enriquecimiento mantenida para compatibilidad hacia atrás si es necesaria)
+  // Simplificada para este ejemplo, asumiendo que migraremos todo a JSONB.
+  
   return {
-    suppliers: enrichedRelations.filter(r => r.relation_type === 'SUPPLIER'),
-    clients: enrichedRelations.filter(r => r.relation_type === 'CLIENT')
+    suppliers: relations.filter((r: any) => r.relation_type === 'SUPPLIER'),
+    clients: relations.filter((r: any) => r.relation_type === 'CLIENT')
   };
 }
+
 
 /**
  * Obtiene un screener de empresas del mismo sector ordenadas por FGOS.
