@@ -38,10 +38,13 @@ export default function IndicesTab() {
       // Fetch data for all indices in parallel
       const promises = INDICES.map(async (idx) => {
         try {
-          // Fetch last 100 days roughly
-          const res = await fmp.historicalPrice(idx.symbol, { timeseries: 100 });
+          // Fetch last 30 days roughly
+          const res = await fmp.indexHistoricalPrice(idx.symbol, { limit: 30 });
+          // Handle both array response and object with historical property
+          const rawData = Array.isArray(res) ? res : (res as any).historical || [];
+          
           // Reverse to have oldest first
-          const hist = (res.historical || []).reverse().map((item: any) => ({
+          const hist = rawData.reverse().map((item: any) => ({
             date: item.date,
             value: item.close,
           }));

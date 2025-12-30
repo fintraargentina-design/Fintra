@@ -16,6 +16,7 @@ import CompetidoresCard from '@/components/cards/CompetidoresCard';
 import OverviewCard from '@/components/cards/OverviewCard';
 import EstimacionCard from '@/components/cards/EstimacionCard';
 import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { Settings } from 'lucide-react';
 
@@ -259,8 +260,6 @@ export default function StockTerminal() {
         );
       case 'mercados':
         return <MercadosTab />;
-      case 'indices':
-        return <IndicesTab />;
       default:
         return (
           <ConclusionRapidaCard
@@ -366,7 +365,7 @@ export default function StockTerminal() {
                     </div>
                   </div>
                   
-                  <div className={`w-full flex-1 scrollbar-thin border border-t-0 border-zinc-800 ${activeTab === 'datos' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+                  <div className={`w-full flex-1 scrollbar-thin border border-t-0 border-zinc-800 ${(activeTab === 'datos' || activeTab === 'mercados') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
                     {renderTabContent()}
                   </div>
                 </div>
@@ -390,6 +389,7 @@ export default function StockTerminal() {
         onClose={() => setIsSearchOpen(false)} 
         onSelectSymbol={handleTopStockClick} 
       />
+      <Footer />
     </div>
   );
 }

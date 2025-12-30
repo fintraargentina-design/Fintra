@@ -48,12 +48,8 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
   return (
     <header className="w-full">
       <div className="w-full flex flex-wrap items-center justify-between gap-2 md:gap-3 px-3 py-1 md:py-1">
-        {/* Izquierda: botón + título */}
-        <div className="flex items-center gap-2 flex-[1_1_220px] min-w-0">          
-          <h1 className="text-xs font-medium text-white truncate">
-            Fintra - Dashboard 
-          </h1>
-        </div>
+        {/* Izquierda: vacía para mantener estructura si es necesario */}
+        <div className="flex-[1_1_220px] min-w-0" />
 
         {/* Centro: Espacio vacío para mantener balance si es necesario, o eliminado */}
         <div className="flex items-center justify-center gap-2 flex-[2_1_420px] min-w-0">
@@ -68,6 +64,13 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
               </div>
             </Card>
           </div>
+        </div>
+
+        {/* Derecha: Título */}
+        <div className="flex items-center justify-end gap-2 flex-[1_1_220px] min-w-0">          
+          <h1 className="text-xs font-medium text-white truncate">
+            Fintra - Dashboard 
+          </h1>
         </div>
 
         {/* Derecha: tiempos y estado del mercado */}

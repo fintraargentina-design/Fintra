@@ -16,7 +16,6 @@ export default function NavigationBar({
 }: NavigationBarProps) {
   const tabs = [
     { key: 'mercados', label: 'Mercados' },
-    { key: 'indices', label: 'Indices' },
     { key: 'datos', label: 'Datos' },
     { key: 'ecosistema', label: 'Ecosistema' },
     { key: 'estimacion', label: 'Estimación y Análisis IA' },
