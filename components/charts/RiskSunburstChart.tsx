@@ -206,12 +206,22 @@ export default function RiskSunburstChart() {
     </Card>
 
     <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-xl border-t-2">
-            <CountryStocksTreemap 
-                countryName={selectedCountry} 
-                stocks={countryStocks} 
-                loading={stocksLoading} 
-            />
+        <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-xl border-t-2 flex flex-col">
+             <div className="p-4 border-b flex items-center justify-between bg-card">
+                <div>
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                        {selectedCountry} 
+                        <span className="text-sm font-normal text-muted-foreground">Top Acciones por Capitalización de Mercado</span>
+                    </h3>
+                </div>
+             </div>
+            <div className="flex-1 overflow-hidden relative">
+                <CountryStocksTreemap 
+                    countryName={selectedCountry} 
+                    stocks={countryStocks} 
+                    loading={stocksLoading} 
+                />
+            </div>
         </SheetContent>
     </Sheet>
     </>
