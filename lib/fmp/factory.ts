@@ -16,6 +16,8 @@ import type {
   InstitutionalHoldersResponse,
   InsiderTradingResponse,
   MarketHoursResponse,
+  MarketRiskPremiumResponse,
+  ScreenerResponse,
 } from "@/lib/fmp/types";
 
 export type CacheOpt = RequestCache | undefined;
@@ -192,6 +194,19 @@ export function createFmpClient(get: FetcherFunction) {
     },
     marketHours(opts?: { cache?: CacheOpt }) {
       return get<MarketHoursResponse>("/market-hours", { cache: opts?.cache ?? "force-cache" });
+    },
+
+    /** Stock Screener */
+    screener(params: Record<string, any>, opts?: { cache?: CacheOpt }) {
+      return get<ScreenerResponse>("/stock-screener", {
+        params,
+        cache: opts?.cache ?? "force-cache",
+      });
+    },
+
+    /** Market Risk Premium (v4) */
+    marketRiskPremium(cache: CacheOpt = "force-cache") {
+      return get<MarketRiskPremiumResponse>("/market_risk_premium", { cache });
     },
 
     /** Generic fetch for unmapped endpoints */

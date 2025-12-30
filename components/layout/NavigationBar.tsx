@@ -1,25 +1,31 @@
 import { Button } from "@/components/ui/button"
 import type { TabKey } from "@/app/page"
 
+interface NavigationTab {
+  key: string;
+  label: string;
+}
+
 interface NavigationBarProps {
   orientation?: 'horizontal' | 'vertical';
-  activeTab: TabKey;
-  setActiveTab: (tab: TabKey) => void;
+  activeTab: string;
+  setActiveTab: (tab: any) => void;
   symbol?: string;
+  tabs?: NavigationTab[];
 }
 
 export default function NavigationBar({ 
   activeTab, 
   setActiveTab,
   symbol,
-  orientation = 'horizontal'
-}: NavigationBarProps) {
-  const tabs = [
-    { key: 'mercados', label: 'Mercados' },
+  orientation = 'horizontal',
+  tabs = [
+    /* { key: 'mercados', label: 'Mercados' }, */
     { key: 'datos', label: 'Datos' },
     { key: 'ecosistema', label: 'Ecosistema' },
     { key: 'estimacion', label: 'Estimación y Análisis IA' },
-  ];
+  ]
+}: NavigationBarProps) {
 
   if (orientation === 'vertical') {
     return (

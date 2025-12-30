@@ -98,212 +98,331 @@ export type FMPCompanyProfile = {
 /** ───────────── Crecimiento (api/v3/financial-growth) ─────────────
  *  FMP devuelve tasas como fracciones (0.10 = 10%)
  */
-export type FMPIncomeStatementGrowth = {
-  date: string;
+export type FMPGrowth = {
   symbol: string;
+  date: string;
   period: string;
-  revenueGrowth?: number;              // ✅ Nombre real de FMP
-  epsgrowth?: number;                  // ✅ Nombre real de FMP  
-  growthNetIncome?: number;
+
+  // Revenue
+  revenueGrowth?: number;
+  grossProfitGrowth?: number;
+  ebitgrowth?: number;
+  operatingIncomeGrowth?: number;
   netIncomeGrowth?: number;
-  growthOperatingIncome?: number;
-  stockholdersEquityGrowth?: number;   // ✅ Nombre real de FMP
+  epsgrowth?: number;
+  epsdilutedGrowth?: number;
+
+  // Cash Flow
+  operatingCashFlowGrowth?: number;
+  freeCashFlowGrowth?: number;
+  dividendsperShareGrowth?: number;
+
+  // Balance Sheet
+  assetGrowth?: number;
+  debtGrowth?: number;
+  bookValueperShareGrowth?: number;
+  
+  // Ratios
+  grossProfitMarginGrowth?: number; // ?
+  netProfitMarginGrowth?: number;   // ?
+  
+  // 3Y / 5Y / 10Y
+  threeYRevenueGrowthPerShare?: number;
+  fiveYRevenueGrowthPerShare?: number;
+  threeYNetIncomeGrowthPerShare?: number;
+  fiveYNetIncomeGrowthPerShare?: number;
+  tenYRevenueGrowthPerShare?: number;
+  tenYNetIncomeGrowthPerShare?: number;
+  tenYShareholdersEquityGrowthPerShare?: number;
+  
+  // Otros
+  rdexpenseGrowth?: number;
+  sgaexpensesGrowth?: number;
 };
 
 /** ───────────── Balance Sheet Growth (api/v3/balance-sheet-statement-growth) ───────────── */
-export type FMPBalanceSheetGrowth = {
+export type BalanceSheetGrowth = {
   symbol: string;
   date: string;
-  fiscalYear: string;
   period: string;
-  reportedCurrency: string;
-  growthTotalStockholdersEquity?: number;  // Este es el que necesitamos
+  growthReceivables?: number;
+  growthInventory?: number;
+  growthAccountsPayable?: number;
+  growthOtherAssets?: number;
+  growthOtherLiabilities?: number;
   growthTotalAssets?: number;
   growthTotalLiabilities?: number;
-  growthRetainedEarnings?: number;
-  growthCommonStock?: number;
-  // ... otros campos de crecimiento del balance
+  growthTotalEquity?: number;
+  growthShortTermDebt?: number;
+  growthNetDebt?: number;
 };
 
-export type BalanceSheetGrowthResponse = FMPBalanceSheetGrowth[];
-/** ───────────── Key Metrics (api/v3/key-metrics-ttm / key-metrics) ───────────── */
-
-export type OHLC = {
+/** ───────────── EOD (Historical Price Full) ───────────── */
+export type EodCandle = {
   date: string;
   open: number;
   high: number;
   low: number;
   close: number;
-  adjClose?: number;
+  adjClose: number;
   volume: number;
+  unadjustedVolume: number;
+  change: number;
+  changePercent: number;
+  vwap: number;
+  label: string;
+  changeOverTime: number;
 };
 
-export type FMPKeyMetrics = {
+/** ───────────── Peers ───────────── */
+export type PeersResponse = string[]; 
+
+export interface DetailedPeersResponse {
+  symbol: string;
+  peersList: string[];
+}
+
+/** ───────────── Performance ───────────── */
+export interface PerformanceResponse {
+  [key: string]: number; // dynamic keys or typed? Usually object with return1M, return1Y...
+}
+
+/** ───────────── Dividends ───────────── */
+export interface DividendItem {
+  date: string;
+  label: string;
+  adjDividend: number;
+  dividend: number;
+  recordDate: string;
+  paymentDate: string;
+  declarationDate: string;
+}
+export interface DividendsResponse {
+  symbol: string;
+  historical: DividendItem[];
+}
+
+/** ───────────── Valuation ───────────── */
+export interface ValuationItem {
+  symbol: string;
+  date: string;
+  peRatio?: number;
+  pegRatio?: number;
+  priceToSalesRatio?: number;
+  priceToBookRatio?: number;
+  priceToFreeCashFlowRatio?: number;
+  enterpriseValueMultiple?: number; // EV/EBITDA
+}
+
+/** ───────────── Financial Scores ───────────── */
+export interface FinancialScoreItem {
+  symbol: string;
+  altmanZScore: number;
+  piotroskiScore: number;
+  workingCapital?: number;
+  totalAssets?: number;
+  retainedEarnings?: number;
+  ebit?: number;
+  marketCap?: number;
+  totalLiabilities?: number;
+  revenue?: number;
+  reportedCurrency?: string;
+}
+
+/** ───────────── Key Metrics ───────────── */
+export interface KeyMetricsItem {
   symbol: string;
   date: string;
   period: string;
-  bookValuePerShare?: number;
-  // Alias TTM si FMP lo devuelve con sufijo
-  bookValuePerShareTTM?: number;
-  sharesOutstanding?: number;
+  
   revenuePerShare?: number;
-  revenuePerShareTTM?: number;
+  netIncomePerShare?: number;
+  operatingCashFlowPerShare?: number;
   freeCashFlowPerShare?: number;
-  freeCashFlowPerShareTTM?: number;
-  roicTTM?: number;
-  freeCashFlowYieldTTM?: number;
-  marketCapTTM?: number;
-};
+  cashPerShare?: number;
+  bookValuePerShare?: number;
+  tangibleBookValuePerShare?: number;
+  shareholdersEquityPerShare?: number;
+  interestDebtPerShare?: number;
+  marketCap?: number;
+  enterpriseValue?: number;
+  peRatio?: number;
+  priceToSalesRatio?: number;
+  pocfratio?: number;
+  pfcfRatio?: number;
+  pbRatio?: number;
+  ptbRatio?: number;
+  evToSales?: number;
+  enterpriseValueOverEBITDA?: number;
+  evToOperatingCashFlow?: number;
+  evToFreeCashFlow?: number;
+  earningsYield?: number;
+  freeCashFlowYield?: number;
+  debtToEquity?: number;
+  debtToAssets?: number;
+  netDebtToEBITDA?: number;
+  currentRatio?: number;
+  interestCoverage?: number;
+  incomeQuality?: number;
+  dividendYield?: number;
+  payoutRatio?: number;
+  salesGeneralAndAdministrativeToRevenue?: number;
+  researchAndDdevelopementToRevenue?: number;
+  intangiblesToTotalAssets?: number;
+  capexToOperatingCashFlow?: number;
+  capexToRevenue?: number;
+  capexToDepreciation?: number;
+  stockBasedCompensationToRevenue?: number;
+  grahamNumber?: number;
+  roic?: number;
+  returnOnTangibleAssets?: number;
+  grahamNetNet?: number;
+  workingCapital?: number;
+  tangibleAssetValue?: number;
+  netCurrentAssetValue?: number;
+  investedCapital?: number;
+  averageReceivables?: number;
+  averagePayables?: number;
+  averageInventory?: number;
+  daysSalesOutstanding?: number;
+  daysPayablesOutstanding?: number;
+  daysOfInventoryOnHand?: number;
+  receivablesTurnover?: number;
+  payablesTurnover?: number;
+  inventoryTurnover?: number;
+  roe?: number;
+  capexPerShare?: number;
+}
 
-export type FMPCashFlowStatement = {
+/** ───────────── Cash Flow ───────────── */
+export interface CashFlowItem {
   date: string;
   symbol: string;
+  reportedCurrency: string;
+  cik: string;
+  fillingDate: string;
+  acceptedDate: string;
+  calendarYear: string;
   period: string;
+  netIncome: number;
+  depreciationAndAmortization: number;
+  deferredIncomeTax: number;
+  stockBasedCompensation: number;
+  changeInWorkingCapital: number;
+  accountsReceivables: number;
+  inventory: number;
+  accountsPayables: number;
+  otherWorkingCapital: number;
+  otherNonCashItems: number;
+  netCashProvidedByOperatingActivities: number;
+  investmentsInPropertyPlantAndEquipment: number;
+  acquisitionsNet: number;
+  purchasesOfInvestments: number;
+  salesMaturitiesOfInvestments: number;
+  otherInvestingActivites: number;
+  netCashUsedForInvestingActivites: number;
+  debtRepayment: number;
+  commonStockIssued: number;
+  commonStockRepurchased: number;
+  dividendsPaid: number;
+  otherFinancingActivites: number;
+  netCashUsedProvidedByFinancingActivities: number;
+  effectOfForexChangesOnCash: number;
+  netChangeInCash: number;
+  cashAtEndOfPeriod: number;
+  cashAtBeginningOfPeriod: number;
   operatingCashFlow: number;
   capitalExpenditure: number;
   freeCashFlow: number;
-  netIncome: number;
-};
+  link: string;
+  finalLink: string;
+}
 
-/** ───────────── Tipos de Respuesta (Arrays) ───────────── */
-export type ProfileResponse = FMPCompanyProfile[];
-export type RatiosResponse = FMPFinancialRatio[];
-export type GrowthResponse = FMPIncomeStatementGrowth[];
-export type KeyMetricsResponse = FMPKeyMetrics[];
-export type CashFlowResponse = any[]; // TODO: definir tipo completo
-export type PeersResponse = string[]; // /v4/stock_peers?symbol=AAPL -> ["AAPL", "MSFT", ...]
-export type DetailedPeersResponse = any[]; // TODO: definir si se usa peers detailed
-export type PerformanceResponse = any; // Changed from any[] to allow property access
-export type DividendsResponse = any; // Changed from any[] to allow property access
-export type EodResponse = any[]; // TODO: definir
-export type FinancialScoreResponse = any[]; // TODO: definir
-
-export type ValuationResponse = {
-  symbol: string;
-  date: string | null;
-  pe: number | null;
-  forwardPe: number | null;
-  peg: number | null;
-  pb: number | null;
-  ps: number | null;
-  pfcf: number | null;
-  evEbitda: number | null;
-  evSales: number | null;
-  dividendYield: number | null; // %
-  pePercentile5y: number | null;
-  peZscorePeers: number | null;
-  impliedGrowth: number | null;
-  discountVsPt: number | null;
-  rawRatios?: any;
-  rawGrowth?: any[];
-  updatedAt: string;
-  source: "fmp";
-  error?: string;
-};
-
-export type InstitutionalHolder = {
+/** ───────────── Institutional Holders ───────────── */
+export interface InstitutionalHolderItem {
   holder: string;
   shares: number;
   dateReported: string;
   change: number;
-  weight: number;
-};
+}
 
-export type InsiderTrading = {
+/** ───────────── Insider Trading ───────────── */
+export interface InsiderTradingItem {
   symbol: string;
   filingDate: string;
   transactionDate: string;
-  reportingCik: string;
+  reportingName: string;
   transactionType: string;
   securitiesOwned: number;
-  companyCik: string;
-  reportingName: string;
-  typeOfOwner: string;
-  acquistionOrDisposition: string;
-  formType: string;
   securitiesTransacted: number;
   price: number;
-  securityName: string;
   link: string;
-};
+}
 
-export type InstitutionalHoldersResponse = InstitutionalHolder[];
-export type InsiderTradingResponse = InsiderTrading[];
-
-export type MarketHours = {
+/** ───────────── Market Hours ───────────── */
+export interface MarketHoursItem {
   openingHour: string;
   closingHour: string;
-  isTheStockMarketOpen: boolean;
-};
-export type SearchResult = {
+  timezone: string;
+}
+
+/** ───────────── OHLC ───────────── */
+export interface OHLC {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  adjClose: number;
+  volume: number;
+  unadjustedVolume: number;
+  change: number;
+  changePercent: number;
+  vwap: number;
+  label: string;
+  changeOverTime: number;
+}
+
+/** ───────────── Risk Premium (api/v4/market_risk_premium) ───────────── */
+export interface MarketRiskPremium {
+  country: string;
+  continent: string;
+  totalEquityRiskPremium: number;
+  countryRiskPremium: number;
+  riskFreeRate?: number; // Sometimes inferred
+}
+
+// Tipos de respuesta de API
+export type RatiosResponse = FMPFinancialRatio[];
+export type GrowthResponse = FMPGrowth[];
+export type BalanceSheetGrowthResponse = BalanceSheetGrowth[];
+export type EodResponse = { symbol: string; historical: EodCandle[] };
+export type ProfileResponse = FMPCompanyProfile[];
+export type ValuationResponse = ValuationItem[];
+export type FinancialScoreResponse = FinancialScoreItem[];
+export type KeyMetricsResponse = KeyMetricsItem[];
+export type CashFlowResponse = CashFlowItem[];
+export type InstitutionalHoldersResponse = InstitutionalHolderItem[];
+export type InsiderTradingResponse = InsiderTradingItem[];
+export type MarketHoursResponse = MarketHoursItem;
+export type MarketRiskPremiumResponse = MarketRiskPremium[];
+
+/** ───────────── Stock Screener (api/v3/stock-screener) ───────────── */
+export interface ScreenerItem {
   symbol: string;
-  name: string;
-  currency?: string;
-  stockExchange?: string;
-  exchangeShortName?: string;
-};
-
-export type SearchResponse = SearchResult[];
-
-export type MarketHoursResponse = Record<string, MarketHours>;
-
-export type StockData = {
-  symbol: string;
-  price: number;
-  beta: number;
-  volAvg: number;
-  mktCap: number;
-  lastDiv: number;
-  range: string;
-  changes: number;
   companyName: string;
-  currency: string;
-  cik: string;
-  isin: string;
-  cusip: string;
+  marketCap: number;
+  sector: string;
+  industry: string;
+  beta: number;
+  price: number;
+  lastAnnualDividend: number;
+  volume: number;
   exchange: string;
   exchangeShortName: string;
-  industry: string;
-  website: string;
-  description: string;
-  ceo: string;
-  sector: string;
   country: string;
-  fullTimeEmployees: string;
-  phone: string;
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
-  dcfDiff: number;
-  dcf: number;
-  image: string;
-  ipoDate: string;
-  defaultImage: boolean;
   isEtf: boolean;
   isActivelyTrading: boolean;
-  isAdr: boolean;
-  isFund: boolean;
-};
+}
 
-export type StockAnalysis = {
-  // Add specific fields if known, otherwise keep it flexible or partial
-  fgos_breakdown?: any;
-  [key: string]: any; 
-};
-
-export type StockPerformance = {
-    // Add specific fields if known
-    [key: string]: any;
-};
-
-export type StockReport = {
-    // Add specific fields if known
-    [key: string]: any;
-};
-
-export type StockEcosystem = {
-    // Add specific fields if known
-    [key: string]: any;
-};
-
+export type ScreenerResponse = ScreenerItem[];

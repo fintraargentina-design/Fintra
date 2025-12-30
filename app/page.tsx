@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { StockEcosystem } from '@/lib/fmp/types';
-import { StockData, StockAnalysis, StockPerformance, StockReport, searchStockData, getStockConclusionData } from '@/lib/stockQueries';
+import { StockEcosystem, StockData, StockAnalysis, StockPerformance, StockReport, searchStockData, getStockConclusionData } from '@/lib/stockQueries';
 import NavigationBar from '@/components/layout/NavigationBar';
 import DatosTab from '@/components/tabs/DatosTab';
 import ChartsTabHistoricos from '@/components/tabs/ChartsTabHistoricos';
@@ -27,9 +26,12 @@ import StockSearchModal from '@/components/modals/StockSearchModal';
 import EstimacionTab from '@/components/tabs/EstimacionTab';
 import MercadosTab from '@/components/tabs/MercadosTab';
 import IndicesTab from '@/components/tabs/IndicesTab';
+import RiskSunburstChart from '@/components/charts/RiskSunburstChart';
+import EmpresaEnVistaCard from '@/components/cards/EmpresaEnVistaCard';
 import { getLatestSnapshot, getEcosystemDetailed } from '@/lib/repository/fintra-db';
 
 export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'mercados' | 'indices';
+export type LeftTabKey = 'mercado' | 'mapa_global' | 'buscador' | 'sector_score' | string;
 
 export default function StockTerminal() {
   const [selectedStock, setSelectedStock] = useState<string | { symbol: string }>('AAPL');
@@ -45,7 +47,11 @@ export default function StockTerminal() {
   const [stockConclusion, setStockConclusion] = useState<any>(null);
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-
+  
+  // Left Panel State
+  const [activeLeftTab, setActiveLeftTab] = useState<LeftTabKey>('AAPL');
+  const [openTickerTabs, setOpenTickerTabs] = useState<string[]>(['AAPL']);
+  
   // Estados para FundamentalCard (Prop Drilling)
   const [stockRatios, setStockRatios] = useState<any>(null);
   const [stockMetrics, setStockMetrics] = useState<any>(null);
@@ -188,7 +194,11 @@ export default function StockTerminal() {
           setStockEcosystem(result.ecosystemData);
         }
 
-        setSelectedStock(result.basicData || sym); // mantiene objeto con {symbol} si viene
+        if (result.basicData) {
+          setSelectedStock({ symbol: result.basicData.symbol });
+        } else {
+          setSelectedStock({ symbol: sym });
+        }
 
         const conclusionData = await getStockConclusionData(sym);
         setStockConclusion(conclusionData);
@@ -215,6 +225,64 @@ export default function StockTerminal() {
 
   const handleTopStockClick = (symbol: string) => {
     buscarDatosAccion(symbol);
+  };
+
+  const handleLeftPanelStockSelect = (symbol: string) => {
+    // 1. Add to open tabs if not exists
+    if (!openTickerTabs.includes(symbol)) {
+      setOpenTickerTabs(prev => {
+        const newTabs = [...prev, symbol];
+        // FIFO if > 10
+        if (newTabs.length > 10) {
+          return newTabs.slice(1);
+        }
+        return newTabs;
+      });
+    }
+
+    // 2. Fetch Data (this updates global state for EmpresaEnVistaCard)
+    buscarDatosAccion(symbol);
+    
+    // 3. Set Active Tab
+    setActiveLeftTab(symbol);
+  };
+
+  const closeTickerTab = (symbol: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    setOpenTickerTabs(prev => {
+      const newTabs = prev.filter(t => t !== symbol);
+      
+      // Remove from cache when closing tab to save memory
+      // Or keep it? User might re-open. Let's keep it for now as per "cache" request, 
+      // but if memory is concern we could delete:
+      // const newCache = { ...stockDataCache };
+      // delete newCache[symbol];
+      // setStockDataCache(newCache);
+      
+      // If we are closing the active tab, switch to something else
+      if (activeLeftTab === symbol) {
+        // Try next tab, or previous, or default to 'mercado'
+        const index = prev.indexOf(symbol);
+        if (newTabs.length > 0) {
+          // If there are other tabs, pick one (e.g. the one before, or the first one)
+          const nextTab = newTabs[Math.max(0, index - 1)];
+          setActiveLeftTab(nextTab);
+          buscarDatosAccion(nextTab); // Load data for the new active tab
+        } else {
+          setActiveLeftTab('mercado');
+        }
+      }
+      
+      return newTabs;
+    });
+  };
+
+  const handleTickerTabClick = (symbol: string) => {
+    if (activeLeftTab !== symbol) {
+      setActiveLeftTab(symbol);
+      buscarDatosAccion(symbol);
+    }
   };
 
   const renderTabContent = () => {
@@ -298,55 +366,120 @@ export default function StockTerminal() {
           <div className="space-y-1 md:space-y-1 h-full">
 
             {/* Layout principal responsivo */}
-            <div className="grid grid-cols-1 xl:grid-cols-[55fr_45fr] gap-0 md:gap-1 items-start h-full">
+            <div className="grid grid-cols-1 xl:grid-cols-[50fr_50fr] gap-0 md:gap-1 items-start h-full">
               {/* Panel izquierdo */}
-              <div className="w-full xl:w-auto flex flex-col gap-1 min-h-0 h-full overflow-hidden">
-                {/* 1. Sector Analysis - 40% Fixed */}
-                <div className="h-[40%] shrink-0 min-h-0 relative">
-                  <SectorAnalysisPanel onStockSelect={handleTopStockClick} />
+              <div className="w-full xl:w-auto flex flex-col gap-1 min-h-0 h-full overflow-hidden border-r border-zinc-800">
+                {/* Left Panel Navigation */}
+                <div className="w-full border-b border-zinc-800 bg-transparent z-10 shrink-0">
+                  <div className="w-full overflow-x-auto scrollbar-thin whitespace-nowrap">
+                    <div className="flex w-full items-center justify-between min-w-full gap-0.5">
+                      {/* Fixed Tabs Group */}
+                      <div className="flex gap-0.5">
+                        {/* Mercado */}
+                        <button
+                          onClick={() => setActiveLeftTab('mercado')}
+                          className={`
+                            rounded-none border-b-2 px-2 py-1 text-xs transition-colors font-medium
+                            ${activeLeftTab === 'mercado' ? 'bg-[#0056FF] text-white border-[#0056FF]' : 'bg-zinc-900 border-black text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'}
+                          `}
+                        >
+                          Mercado
+                        </button>
+
+                        {/* Mapa Global */}
+                        <button
+                          onClick={() => setActiveLeftTab('mapa_global')}
+                          className={`
+                            rounded-none border-b-2 px-2 py-1 text-xs transition-colors font-medium
+                            ${activeLeftTab === 'mapa_global' ? 'bg-[#0056FF] text-white border-[#0056FF]' : 'bg-zinc-900 border-black text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'}
+                          `}
+                        >
+                          Mapa Global
+                        </button>
+                        
+                        {/* Buscador de Acciones */}
+                        <button
+                          onClick={() => setActiveLeftTab('buscador')}
+                          className={`
+                            rounded-none border-b-2 px-2 py-1 text-xs transition-colors font-medium
+                            ${activeLeftTab === 'buscador' ? 'bg-[#0056FF] text-white border-[#0056FF]' : 'bg-zinc-900 border-black text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'}
+                          `}
+                        >
+                          Buscador de Acciones
+                        </button>
+
+                        {/* Fintra Sector Score */}
+                        <button
+                          onClick={() => setActiveLeftTab('sector_score')}
+                          className={`
+                            rounded-none border-b-2 px-2 py-1 text-xs transition-colors font-medium
+                            ${activeLeftTab === 'sector_score' ? 'bg-[#0056FF] text-white border-[#0056FF]' : 'bg-zinc-900 border-black text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'}
+                          `}
+                        >
+                          Fintra Sector Score
+                        </button>
+                      </div>
+
+                      {/* Dynamic Tabs Group (Right Aligned) */}
+                      <div className="flex gap-0.5">
+                        {openTickerTabs.map((ticker) => (
+                          <div 
+                            key={ticker}
+                            className={`
+                              flex items-center gap-2 rounded-none border-b-2 px-2 py-1 text-xs transition-colors font-medium cursor-pointer
+                              ${activeLeftTab === ticker ? 'bg-black text-white border-white' : 'bg-zinc-900 border-black text-zinc-400 hover:text-zinc-200'}
+                            `}
+                            onClick={() => handleTickerTabClick(ticker)}
+                          >
+                            <span>{ticker}</span>
+                            <span 
+                              onClick={(e) => closeTickerTab(ticker, e)}
+                              className="hover:text-red-400 ml-1"
+                            >
+                              ✕
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* 2. Overview - Auto Height (Fixed) */}
-                <div className="shrink-0 w-full border border-zinc-800">
-                  <OverviewCard
-                      selectedStock={selectedStock}
-                      stockConclusion={stockConclusion}
-                      onStockSearch={buscarDatosAccion}
-                      onOpenSearchModal={() => setIsSearchOpen(true)}
-                      isParentLoading={isLoading}
-                      analysisData={stockAnalysis}
+                {/* Left Panel Content */}
+                <div className="flex-1 overflow-hidden relative">
+                  {activeLeftTab === 'mercado' && <MercadosTab />}
+
+                  {activeLeftTab === 'mapa_global' && (
+                    <div className="h-full w-full overflow-hidden p-2">
+                        <RiskSunburstChart />
+                    </div>
+                  )}
+                  
+                  {activeLeftTab === 'buscador' && (
+                     <div className="p-4 text-zinc-500 text-sm text-center">Buscador de Acciones (Próximamente)</div>
+                  )}
+
+                  {activeLeftTab === 'sector_score' && (
+                    <div className="h-full overflow-y-auto scrollbar-thin">
+                      <SectorAnalysisPanel onStockSelect={handleLeftPanelStockSelect} />
+                    </div>
+                  )}
+
+                  {/* Render EmpresaEnVistaCard if activeLeftTab is one of the open tickers */}
+                  {openTickerTabs.includes(activeLeftTab as string) && (
+                    <EmpresaEnVistaCard
+                        selectedStock={selectedStock}
+                        stockConclusion={stockConclusion}
+                        buscarDatosAccion={buscarDatosAccion}
+                        setIsSearchOpen={setIsSearchOpen}
+                        isLoading={isLoading}
+                        stockAnalysis={stockAnalysis}
+                        selectedSymbol={selectedSymbol}
+                        setSelectedCompetitor={setSelectedCompetitor}
+                        selectedCompetitor={selectedCompetitor}
+                        stockBasicData={stockBasicData}
                     />
-                </div>
-
-                {/* 3. Peers - Flexible (Takes remaining space) */}
-                <div className="flex-1 min-h-0 relative border border-zinc-800">
-                  <PeersAnalysisPanel 
-                    symbol={selectedSymbol} 
-                    onPeerSelect={setSelectedCompetitor}
-                    selectedPeer={selectedCompetitor}
-                  />
-                </div>
-
-                {/* 4. Charts - 30% Fixed */}
-                <div className="h-[30%] shrink-0 min-h-0 pb-1">
-                  <div className="flex flex-col lg:flex-row w-full h-full gap-1">
-                      {/* Chart 3/5 */}
-                      <div className="w-full lg:w-3/5 h-full">
-                          <ChartsTabHistoricos
-                            symbol={selectedSymbol}
-                            companyName={stockBasicData?.companyName}
-                            comparedSymbols={selectedCompetitor ? [selectedCompetitor] : []}
-                          />
-                      </div>
-                      {/* Radar 2/5 */}
-                      <div className="w-full lg:w-2/5 h-full border border-zinc-800">
-                           <FGOSRadarChart 
-                              symbol={selectedSymbol} 
-                              data={stockAnalysis?.fgos_breakdown} 
-                              comparedSymbol={selectedCompetitor}
-                           />
-                      </div>
-                  </div>                
+                  )}
                 </div>
               </div>
 

@@ -20,12 +20,10 @@ const MARKET_GROUPS = [
   },
   {
     title: "GLOBAL",
-    tickers: ["^FTSE", "^N225", "^MXX", "^MERV"],
+    tickers: ["^FTSE", "^N225"],
     names: { 
       "^FTSE": "FTSE 100 (UK)", 
-      "^N225": "Nikkei 225 (JP)", 
-      "^MXX": "IPC (MX)", 
-      "^MERV": "Merval (AR)" 
+      "^N225": "Nikkei 225 (JP)"
     }
   },
   {

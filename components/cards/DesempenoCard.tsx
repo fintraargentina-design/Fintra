@@ -74,7 +74,7 @@ export default function DesempenoCard({ symbol }: { symbol: string }) {
     if (!data?.returns) return [];
     
     return PERIODS.map(period => {
-      const ret = data.returns[period];
+      const ret = data.returns ? (data.returns as any)[period] : null;
       const score = gradeFromReturn(period, ret);
       
       return {

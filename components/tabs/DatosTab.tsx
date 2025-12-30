@@ -153,7 +153,7 @@ export default function DatosTab({
                   period={selectedPeriod} 
                 />
               </div>
-              <div className="bg-tarjetas border-none mt-0.5">
+              <div className="bg-tarjetas border-none">
                  <DesempenoCard symbol={symbol} />
               </div>
             </div>

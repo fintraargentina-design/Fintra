@@ -1,12 +1,11 @@
 import { supabase } from './supabase';
 import { fmp } from './fmp/client';
-import type { StockData as FMPStockData } from './fmp/types';
 
 export { supabase, registerStockSearch, getStockProyecciones } from './supabase';
 export type { StockProyeccionRow } from './supabase';
 
 // Interfaces para los tipos de datos
-export interface StockData extends FMPStockData {
+export interface StockData {
   // Agregar el objeto datos completo
   datos?: any;
   dividendos?: any;
@@ -75,6 +74,12 @@ export interface StockReport {
   analisisValoracion?: any;
   analisisDividendos?: any;
   analisisDesempeno?: any;
+  [key: string]: any;
+}
+
+export interface StockEcosystem {
+  suppliers: any[];
+  clients: any[];
   [key: string]: any;
 }
 
