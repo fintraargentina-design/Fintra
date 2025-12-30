@@ -480,12 +480,12 @@ export default function NoticiasTab({
                                         {/* <Brain className="w-3 h-3" /> */}
                                         AI Insight
                                     </button>
-                                    <button 
+                                    {/* <button 
                                         onClick={() => openNewsModal(item.url, item.title)}
                                         className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
                                     >
                                         <ExternalLink className="w-4 h-4" />
-                                    </button>
+                                    </button> */}
                                 </div>
                             </div>
                         </div>

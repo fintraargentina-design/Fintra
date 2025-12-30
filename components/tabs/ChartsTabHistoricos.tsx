@@ -286,7 +286,7 @@ export default function ChartsTabHistoricos({
     const commonOptions = {
       backgroundColor: "transparent",
       animation: false,
-      grid: { left: '1%', right: '10%', top: '5%', bottom: '12%', containLabel: true },
+      grid: { left: '1%', right: '7%', top: '5%', bottom: '12%', containLabel: true },
       dataZoom: [{ type: 'inside', realtime: true, start: 0, end: 100 }],
       legend: { 
         bottom: 0, 
@@ -445,7 +445,7 @@ export default function ChartsTabHistoricos({
         data: calculateDrawdown(getPrices('primary')),
         itemStyle: { color: '#FFA028' },
         areaStyle: { opacity: 0.2 },
-        endLabel: { show: true, formatter: '{a}', offset: [30, 0], color: 'inherit' }
+        endLabel: { show: true, formatter: '{a}', offset: [35, 0], color: 'inherit' }
       });
 
       // Others DD
@@ -460,7 +460,7 @@ export default function ChartsTabHistoricos({
           itemStyle: { color: isBenchmark ? '#9ca3af' : PEER_COLORS[idx % PEER_COLORS.length] },
           lineStyle: isBenchmark ? { type: 'dashed' } : { width: 1, opacity: 0.7 },
           areaStyle: isBenchmark ? { opacity: 0.1 } : undefined,
-          endLabel: { show: true, formatter: '{a}', offset: [30, 0], color: 'inherit' }
+          endLabel: { show: true, formatter: '{a}', offset: [35, 0], color: 'inherit' }
         });
       });
     }

@@ -25,9 +25,10 @@ import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
 import StockSearchModal from '@/components/modals/StockSearchModal';
 import EstimacionTab from '@/components/tabs/EstimacionTab';
 import MercadosTab from '@/components/tabs/MercadosTab';
+import IndicesTab from '@/components/tabs/IndicesTab';
 import { getLatestSnapshot, getEcosystemDetailed } from '@/lib/repository/fintra-db';
 
-export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'mercados';
+export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'mercados' | 'indices';
 
 export default function StockTerminal() {
   const [selectedStock, setSelectedStock] = useState<string | { symbol: string }>('AAPL');
@@ -258,6 +259,8 @@ export default function StockTerminal() {
         );
       case 'mercados':
         return <MercadosTab />;
+      case 'indices':
+        return <IndicesTab />;
       default:
         return (
           <ConclusionRapidaCard

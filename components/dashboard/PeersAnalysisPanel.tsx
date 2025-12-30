@@ -183,15 +183,15 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
         <table className="w-full text-sm">
           <TableHeader className="sticky top-0 z-10 bg-[#1D1D1D]">
             <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
-              <TableHead className="text-gray-300 text-[10px] h-6 w-[60px]">Ticker</TableHead>
-              <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[70px]">Ranking Sectorial</TableHead>
-              <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[80px]">Valuación</TableHead>
-              <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[50px]">Ecosistema</TableHead>
-              <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[60px]">Div. Yield</TableHead>
-              <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[60px]">Estimación</TableHead>
-              <TableHead className="text-gray-300 text-[10px] h-6 text-right w-[70px]">Last Price</TableHead>
-              <TableHead className="text-gray-300 text-[10px] h-6 text-right w-[60px]">YTD %</TableHead>
-              <TableHead className="text-gray-300 text-[10px] h-6 text-right w-[70px]">Mkt Cap</TableHead>
+              <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[60px]">Ticker</TableHead>
+              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[70px]">Ranking Sectorial</TableHead>
+              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[80px]">Valuación</TableHead>
+              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[50px]">Ecosistema</TableHead>
+              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[60px]">Div. Yield</TableHead>
+              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[60px]">Estimación</TableHead>
+              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[70px]">Last Price</TableHead>
+              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[60px]">YTD %</TableHead>
+              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[70px]">Mkt Cap</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
