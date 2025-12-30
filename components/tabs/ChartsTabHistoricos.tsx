@@ -18,7 +18,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { fmp } from "@/lib/fmp/client";
 import type { OHLC } from "@/lib/fmp/types";
 import { getBenchmarkTicker } from "@/lib/services/benchmarkService";
-import { alignSeries, normalizeRebase100 } from "@/lib/utils/finance-math";
+import { normalizeRebase100, calculateDrawdown } from "@/lib/utils/finance-math";
 
 echarts.use([
   LineChart,
@@ -63,6 +63,16 @@ const VIEWS = [
   { key: "drawdown", label: "Drawdown" },
 ] as const;
 type View = typeof VIEWS[number]["key"];
+
+const getBenchmarkName = (ticker: string) => {
+  if (ticker === '^GSPC') return 'S&P 500';
+  if (ticker === '^IXIC') return 'NASDAQ';
+  if (ticker === '^DJI') return 'Dow Jones';
+  if (ticker === '^RUT') return 'Russell 2000';
+  if (ticker === 'BTCUSD') return 'Bitcoin';
+  if (ticker === 'EURUSD') return 'EUR/USD';
+  return ticker;
+};
 
 export default function ChartsTabHistoricos({
   symbol,
@@ -115,7 +125,7 @@ export default function ChartsTabHistoricos({
            try {
              const res = await fmp.eod(ticker, { limit: 8000 });
              // Handle array vs object response
-             const data = Array.isArray(res) ? res : (res as any)?.historical || [];
+             const data = Array.isArray(res) ? res : (res as any)?.historical || (res as any)?.candles || [];
              // Sort ascending
              return { ticker, data: data.reverse() }; 
            } catch (err) {
@@ -213,15 +223,19 @@ export default function ChartsTabHistoricos({
     // Common Grid & Tooltip
     const commonOptions = {
       backgroundColor: "transparent",
-      animation: false,
+      animation: true,
+      animationDuration: 1000,
       grid: { left: '1%', right: '5%', top: '5%', bottom: '10%', containLabel: true },
       dataZoom: [{ type: 'inside', realtime: true, start: 0, end: 100 }],
       legend: { 
-        top: 'middle', 
-        left: 'left', 
-        orient: 'vertical', 
+        top: 'top', 
+        left: 'center', 
+        orient: 'horizontal', 
         textStyle: { color: "#9ca3af" },
-        data: [symbol, benchmark.symbol, ...peers.map(p => p.symbol)].filter(Boolean)
+        // En vista "precio", solo mostramos el símbolo principal en la leyenda
+        data: view === 'precio' 
+          ? [symbol] 
+          : [symbol, getBenchmarkName(benchmark.symbol), ...peers.map(p => p.symbol)].filter(Boolean)
       },
       tooltip: {
         trigger: 'axis',
@@ -266,39 +280,26 @@ export default function ChartsTabHistoricos({
         data: main.map(d => [d.date, d.close]),
         itemStyle: { color: '#FFA028' },
         areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: '#ffbf007c' },
-            { offset: 1, color: '#cf72008a' }
-          ])
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(255, 160, 40, 0.5)' },
+              { offset: 1, color: 'rgba(255, 160, 40, 0.05)' }
+            ]
+          }
+        },
+        endLabel: {
+            show: true,
+            formatter: '{a}',
+            distance: 20
         }
       });
 
-      // Peers (Lines)
-      peers.forEach((p, idx) => {
-        series.push({
-          name: p.symbol,
-          type: 'line',
-          showSymbol: false,
-          data: p.data.map(d => [d.date, d.close]),
-          itemStyle: { color: PEER_COLORS[idx % PEER_COLORS.length] },
-          lineStyle: { width: 2 }
-        });
-      });
-
-      // Benchmark (Dashed Line) - usually not shown in Price view unless requested?
-      // User said "Comparación Dinámica", often implies Relative.
-      // But let's include it if it exists.
-      if (benchmark.data.length) {
-         series.push({
-          name: benchmark.symbol,
-          type: 'line',
-          showSymbol: false,
-          data: benchmark.data.map(d => [d.date, d.close]),
-          itemStyle: { color: '#6b7280' },
-          lineStyle: { type: 'dashed', width: 2 }
-        });
-      }
-
+      
     } else if (view === "rel") {
       // Relative Performance (Base 100)
       yAxis = {
@@ -309,34 +310,62 @@ export default function ChartsTabHistoricos({
         splitLine: { show: false }
       };
 
-      // Normalize all
-      const normMain = normalizeRebase100(main);
-      const normBench = normalizeRebase100(benchmark.data);
+      // Normalize all - Aseguramos que data sea array válido antes de normalizar
+      const safeMain = Array.isArray(main) ? main : [];
+      const safeBench = Array.isArray(benchmark.data) ? benchmark.data : [];
+      
+      const normMain = normalizeRebase100(safeMain);
+      const normBench = normalizeRebase100(safeBench);
+      
       const normPeers = peers.map(p => ({ 
         symbol: p.symbol, 
-        data: normalizeRebase100(p.data) 
-      }));
+        data: normalizeRebase100(Array.isArray(p.data) ? p.data : []) 
+      })).filter(p => p.data.length > 0);
 
+      // --- FIX: Add Benchmark as primary series if missing ---
+      // Si el benchmark tiene datos pero la acción principal NO (o viceversa),
+      // ECharts necesita al menos una serie para pintar los ejes correctamente.
+      // Además, si el Benchmark se ve plano (0%), es posible que `normalizeRebase100` esté fallando
+      // o que la escala del eje Y esté forzada incorrectamente.
+      
+      // Aseguramos que el eje Y sea automático y no esté fijo en 0-1 si los valores son pequeños.
+      yAxis.scale = true; // Importante para que no empiece en 0 absoluto si no es necesario, aunque en relativo sí queremos ver el 0.
+      
       // Main
-      series.push({
-        name: symbol,
-        type: 'line',
-        showSymbol: false,
-        data: normMain.map(d => [d.date, d.value]),
-        itemStyle: { color: '#22c55e' }, // Green for relative
-        lineStyle: { width: 2 }
-      });
+      if (normMain.length > 0) {
+        series.push({
+          name: symbol,
+          type: 'line',
+          showSymbol: false,
+          data: normMain.map(d => [d.date, d.value]),
+          itemStyle: { color: '#22c55e' }, // Green for relative
+          lineStyle: { width: 4 },
+          endLabel: {
+              show: true,
+              formatter: '{a}',
+              distance: 20
+          }
+        });
+      }
 
       // Benchmark
-      if (normBench.length) {
+      if (normBench.length > 0) {
         series.push({
-          name: benchmark.symbol,
+          name: getBenchmarkName(benchmark.symbol),
           type: 'line',
           showSymbol: false,
           data: normBench.map(d => [d.date, d.value]),
           itemStyle: { color: '#f59e0b' }, // Amber
-          lineStyle: { width: 2, type: 'dashed' }
+          lineStyle: { width: 2, type: 'dashed' },
+          endLabel: {
+            show: true,
+            formatter: '{a}',
+            distance: 20
+          }
         });
+      } else {
+         // Debug: Si normBench es 0, es porque no hay datos o la normalización falló.
+         //console.warn("Benchmark data missing or normalization failed", benchmark.data);
       }
 
       // Peers
@@ -347,7 +376,12 @@ export default function ChartsTabHistoricos({
           showSymbol: false,
           data: p.data.map(d => [d.date, d.value]),
           itemStyle: { color: PEER_COLORS[idx % PEER_COLORS.length] },
-          lineStyle: { width: 2 }
+          lineStyle: { width: 2 },
+          endLabel: {
+            show: true,
+            formatter: '{a}',
+            distance: 20
+          }
         });
       });
 
@@ -362,45 +396,63 @@ export default function ChartsTabHistoricos({
       };
 
       // Helper for DD
-      const calcDD = (data: OHLC[]) => {
-        let peak = -Infinity;
-        return data.map(d => {
-          peak = Math.max(peak, d.close);
-          const dd = ((d.close - peak) / peak) * 100;
-          return [d.date, dd];
-        });
-      };
+      const safeMain = Array.isArray(main) ? main : [];
+      const safeBench = Array.isArray(benchmark.data) ? benchmark.data : [];
 
-      series.push({
-        name: symbol,
-        type: 'line',
-        showSymbol: false,
-        data: calcDD(main),
-        itemStyle: { color: '#ef4444' },
-        areaStyle: { opacity: 0.2 }
-      });
+      const ddMain = calculateDrawdown(safeMain);
+      const ddBench = calculateDrawdown(safeBench);
+      const ddPeers = peers.map(p => ({
+        symbol: p.symbol,
+        data: calculateDrawdown(Array.isArray(p.data) ? p.data : [])
+      })).filter(p => p.data.length > 0);
 
-      if (benchmark.data.length) {
+      if (ddMain.length > 0) {
         series.push({
-          name: benchmark.symbol,
+          name: symbol,
           type: 'line',
           showSymbol: false,
-          data: calcDD(benchmark.data),
+          data: ddMain.map(d => [d.date, d.value]),
+          itemStyle: { color: '#ef4444' },
+          areaStyle: { opacity: 0.2 },
+          endLabel: {
+              show: true,
+              formatter: '{a}',
+              distance: 20
+          }
+        });
+      }
+
+      if (ddBench.length > 0) {
+        series.push({
+          name: getBenchmarkName(benchmark.symbol),
+          type: 'line',
+          showSymbol: false,
+          data: ddBench.map(d => [d.date, d.value]),
           itemStyle: { color: '#94a3b8' },
           lineStyle: { type: 'dashed' },
-          areaStyle: { opacity: 0.1 }
+          areaStyle: { opacity: 0.1 },
+          endLabel: {
+            show: true,
+            formatter: '{a}',
+            distance: 20
+          }
         });
       }
       
-      // Peers Drawdown? Maybe too messy. Let's include them but thin.
-      peers.forEach((p, idx) => {
+      // Peers Drawdown
+      ddPeers.forEach((p, idx) => {
         series.push({
           name: p.symbol,
           type: 'line',
           showSymbol: false,
-          data: calcDD(p.data),
+          data: p.data.map(d => [d.date, d.value]),
           itemStyle: { color: PEER_COLORS[idx % PEER_COLORS.length] },
-          lineStyle: { width: 1, opacity: 0.7 }
+          lineStyle: { width: 1, opacity: 0.7 },
+          endLabel: {
+            show: true,
+            formatter: '{a}',
+            distance: 20
+          }
         });
       });
     }

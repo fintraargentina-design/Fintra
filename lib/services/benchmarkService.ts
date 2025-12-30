@@ -13,6 +13,8 @@ export function getBenchmarkForExchange(exchange: string): string {
 
   // US Markets -> S&P 500
   if (ex.includes('NASDAQ') || ex.includes('NYSE') || ex.includes('AMEX') || ex === 'US') {
+    // Para Nasdaq Composite (^IXIC) si es exchange NASDAQ
+    if (ex.includes('NASDAQ')) return '^IXIC';
     return '^GSPC';
   }
 

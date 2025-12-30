@@ -42,21 +42,7 @@ export default function StockTerminal() {
   const [user, setUser] = useState<any>(null);
   const [stockConclusion, setStockConclusion] = useState<any>(null);
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
-  const [selectedChartPeers, setSelectedChartPeers] = useState<string[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-
-  const handleToggleChartPeer = (peerSymbol: string) => {
-    setSelectedChartPeers(prev => {
-      if (prev.includes(peerSymbol)) {
-        return prev.filter(p => p !== peerSymbol);
-      }
-      if (prev.length >= 3) {
-        // Optional: Show toast "Max 3 peers"
-        return prev;
-      }
-      return [...prev, peerSymbol];
-    });
-  };
 
   // Estados para FundamentalCard (Prop Drilling)
   const [stockRatios, setStockRatios] = useState<any>(null);
@@ -261,7 +247,7 @@ export default function StockTerminal() {
           <ChartsTabHistoricos
             symbol={selectedSymbol}
             companyName={stockBasicData?.companyName}
-            comparedSymbols={selectedChartPeers}
+            comparedSymbols={selectedCompetitor ? [selectedCompetitor] : []}
           />
         );
       case 'estimacion':
@@ -336,8 +322,6 @@ export default function StockTerminal() {
                     symbol={selectedSymbol} 
                     onPeerSelect={setSelectedCompetitor}
                     selectedPeer={selectedCompetitor}
-                    chartPeers={selectedChartPeers}
-                    onToggleChartPeer={handleToggleChartPeer}
                   />
                 </div>
 
@@ -349,7 +333,7 @@ export default function StockTerminal() {
                           <ChartsTabHistoricos
                             symbol={selectedSymbol}
                             companyName={stockBasicData?.companyName}
-                            comparedSymbols={selectedChartPeers}
+                            comparedSymbols={selectedCompetitor ? [selectedCompetitor] : []}
                           />
                       </div>
                       {/* Radar 2/5 */}

@@ -134,6 +134,7 @@ export type OHLC = {
   high: number;
   low: number;
   close: number;
+  adjClose?: number;
   volume: number;
 };
 

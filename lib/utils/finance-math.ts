@@ -2,6 +2,37 @@
 import { OHLC } from "@/lib/fmp/types";
 
 /**
+ * Normalizes a single OHLC series to base 100 (relative performance).
+ * Returns array of objects with { date, value } where value is % change.
+ */
+export function normalizeRebase100(
+  data: OHLC[]
+): { date: string; value: number }[] {
+  if (!data || data.length === 0) return [];
+  
+  // Find first valid close price
+  const firstValid = data.find(d => {
+    const val = d.adjClose ?? d.close;
+    return val !== null && val !== undefined && val !== 0;
+  });
+  if (!firstValid) return [];
+
+  const basePrice = firstValid.adjClose ?? firstValid.close;
+
+  return data.map(d => {
+    const currentPrice = d.adjClose ?? d.close;
+    // Si falta un dato intermedio, retornamos null o mantenemos el valor previo si quisiéramos forward fill aquí.
+    // Para gráficos, es mejor null para romper la línea o dejar que ECharts interpole.
+    if (currentPrice === null || currentPrice === undefined) return { date: d.date, value: 0 }; 
+    
+    return {
+      date: d.date,
+      value: ((currentPrice - basePrice) / basePrice) * 100
+    };
+  });
+}
+
+/**
  * Align multiple time series to a common set of dates.
  * Uses the intersection of dates (dates present in ALL series) to ensure fair comparison.
  * 
@@ -79,7 +110,7 @@ export function alignSeries(
  * Input: Array of aligned objects { date, ticker1: 150, ticker2: 200 ... }
  * Output: Same structure but values are % change.
  */
-export function normalizeRebase100(
+export function normalizeRebase100Aligned(
     alignedData: { date: string; [key: string]: number | string }[],
     fields: string[]
 ): { date: string; [key: string]: number | string }[] {
@@ -117,11 +148,13 @@ export function normalizeRebase100(
  * Drawdown = (Current Price - Rolling Max Price) / Rolling Max Price * 100
  */
 export function calculateDrawdown(
-    prices: number[]
-): number[] {
+    data: OHLC[]
+): { date: string; value: number }[] {
     let peak = -Infinity;
-    return prices.map(price => {
+    return data.map(d => {
+        const price = d.adjClose ?? d.close;
         if (price > peak) peak = price;
-        return peak === 0 ? 0 : ((price - peak) / peak) * 100;
+        const dd = peak === 0 ? 0 : ((price - peak) / peak) * 100;
+        return { date: d.date, value: dd };
     });
 }
