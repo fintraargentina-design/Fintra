@@ -168,14 +168,14 @@ export default function MercadosTab() {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-thin p-1 pb-2">
-        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-1">
+      <div className="flex-1 overflow-y-auto scrollbar-thin p-0 pb-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-0.5">
           {MARKET_GROUPS.map((group) => (
-            <div key={group.title} className="flex flex-col gap-1">
-              <div className="bg-[#333] text-zinc-100 px-3 py-1 text-xs font-bold uppercase tracking-wider border-l-4 border-[#FFA028]">
+            <div key={group.title} className="flex flex-col gap-0.5">
+              <div className="bg-[#333] text-zinc-100 px-3 py-1 text-xs tracking-wider text-center">
                 {group.title}
               </div>
-              <div className="flex flex-col gap-1"> 
+              <div className="flex flex-col gap-0.5"> 
                 {group.tickers.map((ticker) => {
                   const data = quotes[ticker];
                   const name = group.names[ticker as keyof typeof group.names] || ticker;
@@ -188,10 +188,10 @@ export default function MercadosTab() {
                       className="border-none transition-all hover:brightness-110 cursor-default overflow-hidden relative shadow-sm"
                       style={{ backgroundColor: getHeatmapColor(change) }}
                     >
-                      <div className="p-3 flex flex-col justify-between h-[100px]">
+                      <div className="p-1 flex flex-col justify-between h-[100px]">
                         {/* Top: Name and Ticker */}
                         <div className="flex justify-between items-start w-full">
-                          <span className="text-white font-bold text-[11px] leading-tight line-clamp-2 max-w-[70%]">
+                          <span className="text-white text-[11px] leading-tight line-clamp-2 max-w-[70%]">
                             {name}
                           </span>
                            {change !== undefined && (
@@ -203,7 +203,7 @@ export default function MercadosTab() {
 
                         {/* Middle: Big Percentage Change */}
                         <div className="flex-1 flex items-center justify-end pr-2">
-                           <span className="text-2xl font-bold text-white tracking-tighter">
+                           <span className="text-2xl text-white tracking-tighter">
                              {data ? formatChange(change) : "---"}
                            </span>
                         </div>
