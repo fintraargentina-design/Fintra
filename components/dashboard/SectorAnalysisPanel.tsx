@@ -91,13 +91,13 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
           </div>
         </div>
 
-        <div className="py-1 border border-zinc-800 bg-white/[0.02] shrink-0">
+        <div className="py-1 bg-white/[0.02] shrink-0 border border-t-0 border-b-0 border-zinc-800">
           <h4 className="text-xs font-medium text-gray-400 text-center">
             Acciones del sector <span className="text-[#FFA028]">{selectedSector}</span>
           </h4>
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-thin relative p-0 border border-zinc-800">
+        <div className="flex-1 overflow-y-auto scrollbar-thin relative p-0 border border-t-0 border-zinc-800">
           <table className="w-full text-sm">
             <TableHeader className="sticky top-0 z-10 bg-[#1D1D1D]">
               <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">

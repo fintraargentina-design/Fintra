@@ -292,6 +292,9 @@ export default function ChartsTabHistoricos({
         bottom: 0, 
         left: 'center', 
         orient: 'horizontal', 
+        icon: 'rect',
+        itemHeight: 2,
+        itemWidth: 12,
         textStyle: { color: "#9ca3af" },
         // Mapeamos 'primary' al símbolo real para la leyenda
         data: [symbol, ...otherKeys] 
@@ -494,18 +497,18 @@ export default function ChartsTabHistoricos({
 
   return (
     <div className="flex flex-col h-full bg-tarjetas overflow-hidden border-none shadow-none">
-      <div className="flex items-center justify-between px-1 py-1 border-b border-zinc-800 bg-white/[0.02] shrink-0 z-10">
-        <div className="flex gap-0.5 flex-wrap">
+      <div className="flex items-center justify-between w-full border-b border-zinc-800 bg-transparent shrink-0 z-10">
+        <div className="flex gap-0.5">
           {(["1A", "3A", "5A", "MAX"] as RangeKey[]).map((r) => (
             <button
               key={r}
               onClick={() => setRange(r)}
               className={`
-                rounded-sm px-3 py-1 text-[10px] transition-all font-medium border border-transparent
+                rounded-none border-b-2 px-3 py-1 text-xs transition-colors font-medium
                 ${
                   range === r
-                    ? 'bg-[#0056FF] text-white shadow-sm'
-                    : 'bg-transparent text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+                    ? 'bg-[#0056FF] text-white border-[#0056FF]'
+                    : 'bg-zinc-900 border-black text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
                 }
               `}
             >
@@ -519,17 +522,17 @@ export default function ChartsTabHistoricos({
           <span className="text-[#FFA028]">{symbol}</span>
         </h4> */}
 
-        <div className="flex gap-0.5 bg-zinc-900/50 p-0.5 rounded-md border border-zinc-800/50">
+        <div className="flex gap-0.5">
           {VIEWS.map((v) => (
             <button
               key={v.key}
               onClick={() => setView(v.key)}
               className={`
-                rounded-sm px-2 py-0.5 text-[10px] transition-all font-medium
+                rounded-none border-b-2 px-3 py-1 text-xs transition-colors font-medium
                 ${
                   view === v.key
-                    ? 'bg-zinc-700 text-white shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+                    ? 'bg-[#0056FF] text-white border-[#0056FF]'
+                    : 'bg-zinc-900 border-black text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
                 }
               `}
             >
@@ -539,7 +542,7 @@ export default function ChartsTabHistoricos({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 relative w-full">
+      <div className="flex-1 min-h-0 relative w-full border border-t-0 border-zinc-800">
         {renderChart()}
       </div>
     </div>

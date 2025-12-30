@@ -877,7 +877,7 @@ export default function OverviewCard({
             <div className="text-[10px] text-gray-200 text-center">Ecosistema</div>
           </div> */}
 
-          <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-2 items-center h-full p-1 md:p-1 md:px-1 md:py-1 border border-zinc-800">
+          <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-2 items-center h-full p-1 md:p-1 md:px-1 md:py-1">
               {/* 1. STOCK: Logo, Ticker, Nombre, CEO */}
               <div className="flex items-center gap-3">
                   <DialogTrigger asChild>

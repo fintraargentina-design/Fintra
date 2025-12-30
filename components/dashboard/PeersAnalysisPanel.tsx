@@ -173,18 +173,18 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
   return (
     <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden mt-0">
             
-      <div className="px-1 py-1 border-b border-zinc-800 bg-white/[0.02] shrink-0">
+      <div className="px-1 py-1 bg-white/[0.02] shrink-0">
         <h4 className="text-xs font-medium text-gray-400 text-center">
           Competidores directos de <span className="text-[#FFA028]">{symbol}</span>
         </h4>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-thin relative p-0 border border-zinc-800">
+      <div className="flex-1 overflow-y-auto scrollbar-thin relative p-0">
         <table className="w-full text-sm">
           <TableHeader className="sticky top-0 z-10 bg-[#1D1D1D]">
             <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
               <TableHead className="text-gray-300 text-[10px] h-6 w-[60px]">Ticker</TableHead>
-              <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[50px]">Ranking Sectorial</TableHead>
+              <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[70px]">Ranking Sectorial</TableHead>
               <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[80px]">Valuación</TableHead>
               <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[50px]">Ecosistema</TableHead>
               <TableHead className="text-gray-300 text-[10px] h-6 text-center w-[60px]">Div. Yield</TableHead>

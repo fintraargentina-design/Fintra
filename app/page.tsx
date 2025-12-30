@@ -300,7 +300,7 @@ export default function StockTerminal() {
               {/* Panel izquierdo */}
               <div className="w-full xl:w-auto flex flex-col gap-1 min-h-0 h-full overflow-hidden">
                 {/* 1. Sector Analysis - 40% Fixed */}
-                <div className="h-[40%] shrink-0 min-h-0 relative border border-zinc-800">
+                <div className="h-[40%] shrink-0 min-h-0 relative">
                   <SectorAnalysisPanel onStockSelect={handleTopStockClick} />
                 </div>
 
@@ -329,7 +329,7 @@ export default function StockTerminal() {
                 <div className="h-[30%] shrink-0 min-h-0 pb-1">
                   <div className="flex flex-col lg:flex-row w-full h-full gap-1">
                       {/* Chart 3/5 */}
-                      <div className="w-full lg:w-3/5 h-full border border-zinc-800">
+                      <div className="w-full lg:w-3/5 h-full">
                           <ChartsTabHistoricos
                             symbol={selectedSymbol}
                             companyName={stockBasicData?.companyName}
@@ -351,7 +351,7 @@ export default function StockTerminal() {
               {/* Panel derecho */}
               <div className="w-full xl:w-auto h-full flex flex-col overflow-hidden pb-1 gap-1">
                 {/* Mitad Superior: Navigation Bar y Contenido de Tabs */}
-                <div className="h-[60%] flex flex-col min-h-0 border border-zinc-800">
+                <div className="h-[60%] flex flex-col min-h-0">
                   <div className="w-full flex items-center justify-between ">
                     <div className="flex-1">
                       <NavigationBar
@@ -363,7 +363,7 @@ export default function StockTerminal() {
                     </div>
                   </div>
                   
-                  <div className={`w-full flex-1 scrollbar-thin border border-zinc-800 ${activeTab === 'datos' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+                  <div className={`w-full flex-1 scrollbar-thin border border-t-0 border-zinc-800 ${activeTab === 'datos' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
                     {renderTabContent()}
                   </div>
                 </div>
