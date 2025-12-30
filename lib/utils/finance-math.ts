@@ -2,51 +2,17 @@
 import { OHLC } from "@/lib/fmp/types";
 
 /**
- * Normalizes a single OHLC series to base 100 (relative performance).
- * Returns array of objects with { date, value } where value is % change.
- */
-export function normalizeRebase100(
-  data: OHLC[]
-): { date: string; value: number }[] {
-  if (!data || data.length === 0) return [];
-  
-  // Find first valid close price
-  const firstValid = data.find(d => {
-    const val = d.adjClose ?? d.close;
-    return val !== null && val !== undefined && val !== 0;
-  });
-  if (!firstValid) return [];
-
-  const basePrice = firstValid.adjClose ?? firstValid.close;
-
-  return data.map(d => {
-    const currentPrice = d.adjClose ?? d.close;
-    // Si falta un dato intermedio, retornamos null o mantenemos el valor previo si quisiéramos forward fill aquí.
-    // Para gráficos, es mejor null para romper la línea o dejar que ECharts interpole.
-    if (currentPrice === null || currentPrice === undefined) return { date: d.date, value: 0 }; 
-    
-    return {
-      date: d.date,
-      value: ((currentPrice - basePrice) / basePrice) * 100
-    };
-  });
-}
-
-/**
- * Align multiple time series to a common set of dates.
- * Uses the intersection of dates (dates present in ALL series) to ensure fair comparison.
- * 
- * @param primarySeries The main series (usually the selected stock)
- * @param otherSeriesList List of other series (benchmark, peers)
- * @returns Object containing aligned arrays for each series
+ * Alinea múltiples series de tiempo (OHLC) a un eje de fechas común.
+ * Usa la serie "primary" (el ticker principal) como referencia para las filas devueltas,
+ * pero itera sobre la UNIÓN de todas las fechas para asegurar un Forward Fill correcto de los pares.
  */
 export function alignSeries(
   primarySeries: OHLC[], 
   otherSeriesList: { id: string; data: OHLC[] }[]
-): { date: string; [key: string]: number | string }[] {
+): { date: string; [key: string]: number | string | null }[] {
   if (!primarySeries || primarySeries.length === 0) return [];
 
-  // Create maps for fast lookup: date -> close price
+  // 1. Crear mapas rápidos (Date String -> Close Price)
   const primaryMap = new Map(primarySeries.map(d => [d.date.split('T')[0], d.close]));
   
   const otherMaps = otherSeriesList.map(s => ({
@@ -54,50 +20,46 @@ export function alignSeries(
     map: new Map(s.data.map(d => [d.date.split('T')[0], d.close]))
   }));
 
-  // Find intersection of dates
-  // Start with primary dates
-  let commonDates = primarySeries.map(d => d.date.split('T')[0]);
-
-  // Filter dates that exist in ALL other series
-  // Note: Strict intersection might be too aggressive if data has gaps.
-  // Alternative: Union of dates and fill gaps (forward fill). 
-  // For relative performance, Forward Fill is usually better to avoid dropping data.
-  
-  // Let's use Union of all dates, sort them, and Forward Fill.
-  const allDates = new Set<string>(commonDates);
+  // 2. Obtener la UNIÓN de todas las fechas para asegurar continuidad en el estado (Last Known Value)
+  const allDatesSet = new Set<string>(primarySeries.map(d => d.date.split('T')[0]));
   otherSeriesList.forEach(s => {
-      s.data.forEach(d => allDates.add(d.date.split('T')[0]));
+      s.data.forEach(d => allDatesSet.add(d.date.split('T')[0]));
   });
 
-  const sortedDates = Array.from(allDates).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+  const sortedAllDates = Array.from(allDatesSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
-  const result: { date: string; [key: string]: number | string }[] = [];
+  const result: { date: string; [key: string]: number | string | null }[] = [];
 
-  // Track last known values for forward fill
-  let lastPrimary = NaN;
+  // 3. Variables de Estado para Forward Fill
   const lastOthers: Record<string, number> = {};
   otherSeriesList.forEach(s => lastOthers[s.id] = NaN);
 
-  for (const date of sortedDates) {
-      const pVal = primaryMap.get(date);
-      if (pVal !== undefined) lastPrimary = pVal;
-
-      const row: any = { date };
-      row['primary'] = lastPrimary;
-
-      let allPresent = !isNaN(lastPrimary);
-
+  // 4. Iterar sobre TODAS las fechas cronológicamente
+  for (const date of sortedAllDates) {
+      // Actualizar estado de pares (Peers)
       for (const other of otherMaps) {
           const oVal = other.map.get(date);
-          if (oVal !== undefined) lastOthers[other.id] = oVal;
-          row[other.id] = lastOthers[other.id];
-          if (isNaN(lastOthers[other.id])) allPresent = false;
+          if (oVal !== undefined && oVal !== null) {
+              lastOthers[other.id] = oVal;
+          }
       }
 
-      // Only push rows where we have at least started tracking all series
-      // Or maybe just if we have primary? 
-      // For "Relative" chart starting at 0%, we need a common start date where ALL have values.
-      if (allPresent) {
+      // Solo generamos fila si es una fecha válida para el Primary
+      // (Mantenemos el eje X fiel al activo principal, pero con datos de pares actualizados correctamente)
+      if (primaryMap.has(date)) {
+          const pVal = primaryMap.get(date);
+          // Nota: Si pVal es 0 o null, lo tratamos como tal.
+          
+          const row: any = { date };
+          row['primary'] = pVal;
+
+          // Rellenar pares con su último valor conocido (Forward Fill)
+          for (const other of otherMaps) {
+              const val = lastOthers[other.id];
+              // Si es NaN, significa que el par aún no empezó a cotizar o no hay datos previos
+              row[other.id] = isNaN(val) ? null : val;
+          }
+
           result.push(row);
       }
   }
@@ -106,34 +68,36 @@ export function alignSeries(
 }
 
 /**
- * Normalizes price series to percentage change from the first available point (Base 100 or 0%).
- * Input: Array of aligned objects { date, ticker1: 150, ticker2: 200 ... }
- * Output: Same structure but values are % change.
+ * Normaliza los precios a Base 0% (Retorno Acumulado).
+ * El primer punto de datos válido de cada serie se convierte en 0%.
+ * Fórmula: ((Precio_Actual - Precio_Base) / Precio_Base) * 100
  */
-export function normalizeRebase100Aligned(
-    alignedData: { date: string; [key: string]: number | string }[],
-    fields: string[]
-): { date: string; [key: string]: number | string }[] {
-    if (alignedData.length === 0) return [];
+export function normalizeRebase100(
+    alignedData: { date: string; [key: string]: number | string | null }[],
+    fields: string[] 
+): { date: string; [key: string]: number | string | null }[] {
+    if (!alignedData || alignedData.length === 0) return [];
 
-    const firstRow = alignedData[0];
     const baseValues: Record<string, number> = {};
 
-    // Capture base values
+    // Encontrar base para cada campo independientemente
     for (const field of fields) {
-        const val = Number(firstRow[field]);
-        if (!isNaN(val) && val !== 0) {
-            baseValues[field] = val;
+        const validRow = alignedData.find(row => {
+            const val = row[field];
+            return typeof val === 'number' && !isNaN(val) && val !== 0;
+        });
+        if (validRow) {
+            baseValues[field] = validRow[field] as number;
         }
     }
 
     return alignedData.map(row => {
         const newRow: any = { date: row.date };
         for (const field of fields) {
-            const val = Number(row[field]);
+            const val = row[field];
             const base = baseValues[field];
-            if (base) {
-                // (Current - Base) / Base * 100
+            
+            if (typeof val === 'number' && !isNaN(val) && base) {
                 newRow[field] = ((val - base) / base) * 100;
             } else {
                 newRow[field] = null;
@@ -144,17 +108,29 @@ export function normalizeRebase100Aligned(
 }
 
 /**
- * Calculates Drawdown series.
- * Drawdown = (Current Price - Rolling Max Price) / Rolling Max Price * 100
+ * Calcula el Drawdown (Caída desde el máximo histórico en la ventana actual).
+ * Devuelve array alineado con la entrada.
  */
 export function calculateDrawdown(
-    data: OHLC[]
-): { date: string; value: number }[] {
+    prices: (number | null | undefined)[]
+): (number | null)[] {
     let peak = -Infinity;
-    return data.map(d => {
-        const price = d.adjClose ?? d.close;
+    
+    return prices.map(price => {
+        if (price === null || price === undefined || isNaN(price)) {
+            return null; // Mantener hueco
+        }
+
         if (price > peak) peak = price;
-        const dd = peak === 0 ? 0 : ((price - peak) / peak) * 100;
-        return { date: d.date, value: dd };
+        
+        // Evitar división por cero si el precio es 0 (no debería en stocks, pero por seguridad)
+        if (peak === 0) return 0;
+
+        // Drawdown es siempre <= 0
+        return ((price - peak) / peak) * 100;
     });
 }
+
+// Alias para mantener compatibilidad si se usa en otros lados con otro nombre, 
+// pero recomendamos usar normalizeRebase100 unificado.
+export const normalizeRebase100Aligned = normalizeRebase100;

@@ -28,6 +28,11 @@ export function getBenchmarkForExchange(exchange: string): string {
     return 'EURUSD'; // or ^EURUSD depending on FMP symbol for pair
   }
 
+  // Canada
+  if (ex.includes('TSX') || ex.includes('TORONTO') || ex.includes('CANADIAN')) {
+    return '^GSPTSE';
+  }
+
   // European Markets
   if (ex.includes('LSE') || ex.includes('LONDON')) {
     return '^FTSE';
@@ -38,6 +43,12 @@ export function getBenchmarkForExchange(exchange: string): string {
   if (ex.includes('EURONEXT') || ex.includes('PARIS')) {
     return '^FCHI';
   }
+  if (ex.includes('SWISS') || ex.includes('SIX')) {
+    return '^SSMI';
+  }
+  if (ex.includes('AMSTERDAM')) {
+    return '^AEX';
+  }
 
   // Asian Markets
   if (ex.includes('TOKYO') || ex.includes('JPX') || ex.includes('TSE')) {
@@ -45,6 +56,22 @@ export function getBenchmarkForExchange(exchange: string): string {
   }
   if (ex.includes('HONG KONG') || ex.includes('HKSE') || ex.includes('HKEX')) {
     return '^HSI';
+  }
+  if (ex.includes('SHANGHAI') || ex.includes('SHENZHEN') || ex.includes('CHINA')) {
+    return '000001.SS'; // SSE Composite
+  }
+  if (ex.includes('BOMBAY') || ex.includes('NSE') || ex.includes('INDIA')) {
+    return '^BSESN';
+  }
+
+  // Australia
+  if (ex.includes('ASX') || ex.includes('AUSTRALIAN')) {
+    return '^AXJO';
+  }
+
+  // Brazil
+  if (ex.includes('SAO PAULO') || ex.includes('BOVESPA')) {
+    return '^BVSP';
   }
 
   // Fallback

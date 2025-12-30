@@ -328,19 +328,21 @@ export default function NoticiasTab({
     <>
       <div className="flex flex-col h-full bg-tarjetas overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800 shrink-0">
-          <h3 className="text-[#FFA028] text-sm font-medium">Noticias de {symbol}</h3>
+        <div className="relative flex items-center justify-center px-1 py-1 border-b border-zinc-800 bg-white/[0.02] shrink-0">
+          <h4 className="text-xs font-medium text-gray-400 text-center">
+            Noticias de <span className="text-[#FFA028]">{symbol}</span>
+          </h4>
           
-          <div className="flex items-center gap-2">
+          <div className="absolute right-1 flex items-center gap-2">
             {/* Filter Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="hover:bg-transparent focus:bg-transparent active:bg-transparent data-[state=open]:bg-transparent border-none ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-zinc-400 hover:text-zinc-100"
+                  className="h-5 w-5 hover:bg-transparent focus:bg-transparent active:bg-transparent data-[state=open]:bg-transparent border-none ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-zinc-400 hover:text-zinc-100"
                 >
-                  <Filter className="h-4 w-4" />
+                  <Filter className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-auto bg-black border-zinc-800 text-zinc-300 rounded-none p-0">

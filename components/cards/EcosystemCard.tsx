@@ -205,14 +205,14 @@ export default function EcosystemCard({
     nodes.push({
       name: mainTicker,
       x: 0, y: 0,
-      symbol: mainImage ? `image://${mainImage}` : 'circle',
-      symbolSize: 100,
+      symbol: 'circle',
+      symbolSize: 80,
       itemStyle: {
         color: "#FFA028",
         shadowBlur: 15,
         shadowColor: viewMode === 'geopolitical' ? "#3b82f6" : "rgba(255,255,255,0.3)"
       },
-      label: { show: !mainImage, position: "inside", fontSize: 16, fontWeight: "bold", color: "#000" },
+      label: { show: true, position: "inside", fontSize: 16, fontWeight: "bold", color: "#000", formatter: '{b}' },
       tooltip: { formatter: `<div class="font-bold px-2 text-center text-sm">${mainTicker}</div>` }
     });
 
@@ -401,47 +401,52 @@ export default function EcosystemCard({
         </div>
       )}
 
-      <CardHeader className="pb-1 pt-0 px-4 flex flex-row items-center justify-between border-b border-white/5 shrink-0 z-10">
-        <div className="flex items-center gap-2">
-          <CardTitle className="text-gray-300 text-sm flex gap-2 items-center"> 
-            <span>Mapa de Ecosistema</span>
-          </CardTitle>
+      <CardHeader className="p-0 m-0 space-y-0 shrink-0 w-full border-b border-zinc-800 bg-transparent z-10">
+        <div className="flex items-center justify-between w-full">
+          {/* Título y Botón Refresh */}
+          <div className="flex items-center gap-2 pl-2">
+            <span className="text-xs font-medium text-zinc-400">Mapa Ecosistema</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={fetchEcosystemData}
+              disabled={loading}
+              className="h-5 w-5 text-zinc-500 hover:text-zinc-200"
+              title="Actualizar análisis"
+            >
+               <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
           
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={fetchEcosystemData}
-            disabled={loading}
-            className="h-6 w-6 text-gray-500 hover:text-white hover:bg-white/10"
-            title="Actualizar análisis"
-          >
-             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
-        
-        {/* --- TOGGLE DE LENTES (FINANCIERO vs GEOPOLÍTICO) --- */}
-        <div className="flex items-center gap-2">
-          <ToggleGroup 
-            type="single" 
-            value={viewMode} 
-            onValueChange={(val) => val && setViewMode(val as any)}
-            className="scale-90 origin-right border border-white/10 rounded-md p-0.5 bg-black/20"
-          >
-            <ToggleGroupItem 
-              value="financial" 
-              aria-label="Financiero" 
-              className="data-[state=on]:bg-[#FFA028] data-[state=on]:text-black text-gray-400 text-[10px] px-2 h-6 rounded-sm transition-all hover:text-white"
+          {/* --- TOGGLE DE LENTES (Estilo ChartsTab) --- */}
+          <div className="flex gap-0.5">
+            <button
+              onClick={() => setViewMode('financial')}
+              className={`
+                rounded-none border-b-2 px-2 py-1 text-xs transition-colors font-medium flex items-center gap-1.5
+                ${
+                  viewMode === 'financial'
+                    ? 'bg-[#0056FF] text-white border-[#0056FF]'
+                    : 'bg-zinc-900 border-black text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
+                }
+              `}
             >
-              <Wallet className="w-3 h-3 mr-1.5" /> Finanzas
-            </ToggleGroupItem>
-            <ToggleGroupItem 
-              value="geopolitical" 
-              aria-label="Geopolítico" 
-              className="data-[state=on]:bg-blue-600 data-[state=on]:text-white text-gray-400 text-[10px] px-2 h-6 rounded-sm transition-all hover:text-white"
+              <Wallet className="w-3 h-3" /> Finanzas
+            </button>
+            <button
+              onClick={() => setViewMode('geopolitical')}
+              className={`
+                rounded-none border-b-2 px-2 py-1 text-xs transition-colors font-medium flex items-center gap-1.5
+                ${
+                  viewMode === 'geopolitical'
+                    ? 'bg-[#0056FF] text-white border-[#0056FF]'
+                    : 'bg-zinc-900 border-black text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
+                }
+              `}
             >
-              <Globe className="w-3 h-3 mr-1.5" /> Geopolítica
-            </ToggleGroupItem>
-          </ToggleGroup>
+              <Globe className="w-3 h-3" /> Geopolítica
+            </button>
+          </div>
         </div>
       </CardHeader>
 

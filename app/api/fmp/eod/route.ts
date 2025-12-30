@@ -71,6 +71,7 @@ export async function GET(req: Request) {
         if (!b.ok) {
           // Intentamos fallback a 4hour chart (suele estar disponible en Free Tier)
           if (b.status === 402 || b.status === 403 || /Premium|forbidden/i.test(b.text)) {
+            // Intentamos fallback a 1hour chart
             const freeUrl = `${BASE}/api/v3/historical-chart/4hour/${encodeURIComponent(symbol)}?apikey=${KEY}`;
             const c = await fetchText(freeUrl);
             
@@ -87,6 +88,22 @@ export async function GET(req: Request) {
               });
             }
 
+            // Si falla 4hour, intentamos 1hour
+            const oneHourUrl = `${BASE}/api/v3/historical-chart/1hour/${encodeURIComponent(symbol)}?apikey=${KEY}`;
+            const d = await fetchText(oneHourUrl);
+            if (d.ok) {
+               const out = normalize(symbol, d.json);
+               const sliced = limit ? { ...out, candles: out.candles.slice(-limit) } : out;
+               return NextResponse.json(sliced, {
+                 status: 200,
+                 headers: {
+                   "Content-Type": "application/json",
+                   "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=900",
+                   "X-Source": "1hour-fallback",
+                 },
+               });
+            }
+            
             // Si falla también el fallback, entonces sí bloqueamos
             premiumBlocked = true;
             const out = normalize(symbol, { historical: [] });
@@ -112,6 +129,22 @@ export async function GET(req: Request) {
           },
         });
       }
+      // Si el error es 404, puede ser que el símbolo no exista en "stable" pero sí en v3
+      if (a.status === 404) {
+          const b = await fetchText(v3URL);
+          if (b.ok) {
+             const out = normalize(symbol, b.json);
+             const sliced = limit ? { ...out, candles: out.candles.slice(-limit) } : out;
+             return NextResponse.json(sliced, {
+               status: 200,
+               headers: {
+                 "Content-Type": "application/json",
+                 "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=900",
+               },
+             });
+          }
+      }
+
       // otro error (no premium): reventamos controladamente
       throw new Error(`FMP stable ${a.status} ${a.text.slice(0, 160)}`);
     }

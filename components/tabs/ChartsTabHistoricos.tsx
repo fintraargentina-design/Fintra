@@ -18,7 +18,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { fmp } from "@/lib/fmp/client";
 import type { OHLC } from "@/lib/fmp/types";
 import { getBenchmarkTicker } from "@/lib/services/benchmarkService";
-import { normalizeRebase100, calculateDrawdown } from "@/lib/utils/finance-math";
+import { alignSeries, normalizeRebase100, calculateDrawdown } from "@/lib/utils/finance-math";
 
 echarts.use([
   LineChart,
@@ -48,7 +48,7 @@ const applyRange = (data: OHLC[], range: RangeKey) => {
 };
 
 // Colors for peers
-const PEER_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f43f5e'];
+const PEER_COLORS = ['#0056FF'];
 
 type Props = {
   symbol: string;
@@ -64,16 +64,6 @@ const VIEWS = [
 ] as const;
 type View = typeof VIEWS[number]["key"];
 
-const getBenchmarkName = (ticker: string) => {
-  if (ticker === '^GSPC') return 'S&P 500';
-  if (ticker === '^IXIC') return 'NASDAQ';
-  if (ticker === '^DJI') return 'Dow Jones';
-  if (ticker === '^RUT') return 'Russell 2000';
-  if (ticker === 'BTCUSD') return 'Bitcoin';
-  if (ticker === 'EURUSD') return 'EUR/USD';
-  return ticker;
-};
-
 export default function ChartsTabHistoricos({
   symbol,
   companyName,
@@ -88,6 +78,7 @@ export default function ChartsTabHistoricos({
   const [dataMap, setDataMap] = React.useState<Record<string, OHLC[]>>({});
   const [benchmarkTicker, setBenchmarkTicker] = React.useState<string>("");
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
 
   // 1. Determine Benchmark & Fetch All Data
   React.useEffect(() => {
@@ -95,25 +86,31 @@ export default function ChartsTabHistoricos({
     
     const fetchData = async () => {
       setLoading(true);
+      setError(null);
+
+      if (!symbol) {
+        if (alive) {
+          setLoading(false);
+          setError("Símbolo no especificado");
+        }
+        return;
+      }
+
       try {
         // A. Determine Benchmark
-        // We need profile to know exchange/sector, but for now we'll assume a default
-        // or fetch profile if needed. Ideally passed or handled by service.
-        // For this implementation, we'll try to get it via service if we had the profile,
-        // but since we only have symbol, we'll fetch profile or use default.
-        // Let's assume NASDAQ default if unknown, or rely on service logic.
-        // The service `getBenchmarkTicker` might need a profile object or just ticker?
-        // Let's check the service signature if I could... but I'll assume I need to fetch profile first.
-        
-        // Actually, let's fetch profile first to get accurate benchmark
         let profile: any = null;
         try {
           const profiles = await fmp.profile(symbol);
           profile = profiles?.[0];
         } catch (e) { console.warn("Profile fetch failed", e); }
 
-        const bench = await getBenchmarkTicker(symbol, profile); // Should handle null profile gracefully
-        setBenchmarkTicker(bench);
+        let bench = "";
+        try {
+          bench = await getBenchmarkTicker(symbol, profile); 
+        } catch (e) {
+          console.warn("Benchmark error", e);
+        }
+        if (alive) setBenchmarkTicker(bench);
 
         // B. Prepare list of symbols to fetch
         const symbolsToFetch = new Set<string>([symbol]);
@@ -123,11 +120,44 @@ export default function ChartsTabHistoricos({
         // C. Fetch in parallel
         const promises = Array.from(symbolsToFetch).map(async (ticker) => {
            try {
+             // Fetch limit depends on range, but fetching enough for 5Y+ is safe
              const res = await fmp.eod(ticker, { limit: 8000 });
-             // Handle array vs object response
-             const data = Array.isArray(res) ? res : (res as any)?.historical || (res as any)?.candles || [];
-             // Sort ascending
-             return { ticker, data: data.reverse() }; 
+
+             console.log(`[ChartsTab] Raw API response for ${ticker}:`, res);
+             if (res && typeof res === 'object') {
+                 console.log(`[ChartsTab] Response keys for ${ticker}:`, Object.keys(res));
+             }
+             
+             // --- FIX: Map response to OHLC[] explicitly ---
+             let data: OHLC[] = [];
+             if (Array.isArray(res)) {
+                 data = res as unknown as OHLC[];
+             } else if ((res as any)?.candles) {
+                 // New internal API format returns { symbol: '...', candles: [...] }
+                 data = (res as any).candles;
+             } else if ((res as any)?.historical) {
+                 // Old FMP format
+                 data = (res as any).historical;
+             }
+
+             console.log(`[ChartsTab] Parsed data for ${ticker}: ${data.length} records.`);
+             if (data.length > 0) {
+                 console.log(`[ChartsTab] First item for ${ticker}:`, data[0]);
+             } else {
+                 console.warn(`[ChartsTab] No records parsed for ${ticker}. Raw res:`, res);
+             }
+             
+             // Sort ascending (oldest first) if needed
+             // Check if already sorted by date ascending
+             if (data.length > 1) {
+                const d1 = new Date(data[0].date).getTime();
+                const d2 = new Date(data[data.length-1].date).getTime();
+                if (d1 > d2) {
+                    data.reverse();
+                }
+             }
+
+             return { ticker, data }; 
            } catch (err) {
              console.error(`Error fetching ${ticker}`, err);
              return { ticker, data: [] };
@@ -141,7 +171,6 @@ export default function ChartsTabHistoricos({
         const newDataMap: Record<string, OHLC[]> = {};
         results.forEach(({ ticker, data }) => {
           if (data.length === 0 && ticker !== symbol && ticker !== bench) {
-             // Toast for missing peer data
              toast({
                variant: "destructive",
                title: "Datos no disponibles",
@@ -151,8 +180,19 @@ export default function ChartsTabHistoricos({
           newDataMap[ticker] = data;
         });
 
+        // Check if main symbol has data
+      if (!newDataMap[symbol] || newDataMap[symbol].length === 0) {
+        console.warn(`[ChartsTab] No data found for main symbol: ${symbol}. Check API response.`);
+        console.log(`[ChartsTab] Full results keys: ${results.map(r => r.ticker).join(', ')}`);
+        results.forEach(r => console.log(`[ChartsTab] ${r.ticker}: ${r.data.length} records`));
+        setError(`No hay datos históricos disponibles para ${symbol}`);
+      } else {
         setDataMap(newDataMap);
+      }
 
+      } catch (err) {
+        console.error("[ChartsTab] Critical error in fetchData:", err);
+        setError("Error inesperado al cargar datos");
       } finally {
         if (alive) setLoading(false);
       }
@@ -161,81 +201,100 @@ export default function ChartsTabHistoricos({
     fetchData();
 
     return () => { alive = false; };
-  }, [symbol, showBenchmark, comparedSymbols, toast]); // Re-fetch if comparison changes
+  }, [symbol, showBenchmark, comparedSymbols, toast]);
 
   // 2. Prepare Data for Chart (Align & Filter)
   const chartData = React.useMemo(() => {
     const mainData = dataMap[symbol] || [];
-    const benchData = benchmarkTicker ? (dataMap[benchmarkTicker] || []) : [];
+
+    if (mainData.length > 0) {
+      // no-op
+    }
     
-    // Filter by Range first to reduce processing
+    // Filter Main by Range first
     const mainR = applyRange(mainData, range);
-    // For alignment, we need the date range of the MAIN symbol
-    if (!mainR.length) return null;
 
-    const peersData = comparedSymbols.map(s => ({
-      symbol: s,
-      data: dataMap[s] || []
-    })).filter(p => p.data.length > 0);
+    if (!mainR.length) {
+      return null;
+    }
 
-    // Align all series to Main Symbol's dates
-    // alignSeries signature: (main: OHLC[], others: { symbol: string, data: OHLC[] }[])
-    // We pass the ALREADY FILTERED main data as the "master" timeline
-    // But wait, alignSeries usually expects full history to find common start?
-    // Actually, "alignSeries" in finance-math usually takes full arrays and returns aligned arrays.
-    // Let's use the full arrays for alignment, THEN filter by range.
-    
-    // RE-THINK: If we filter Main by "1Y", we only want 1Y of peers.
-    // So filtering first is correct for the X-axis (Date).
-    // However, for "Relative" (Base 100), we need them to start at 100 at the beginning of the range.
-    
-    // Let's filter Main first.
-    // Then filter others to match the start date of Main.
-    
+    // Start Date for filtering others
     const startDate = new Date(mainR[0].date);
-    
     const filterByDate = (arr: OHLC[]) => arr.filter(d => new Date(d.date) >= startDate);
-    
-    const benchR = filterByDate(benchData);
-    const peersR = peersData.map(p => ({
-      symbol: p.symbol,
-      data: filterByDate(p.data)
-    }));
 
-    // Now we have arrays covering the same time window (roughly).
-    // We need to map them to the exact dates of mainR for ECharts "category" axis or use "time" axis.
-    // ECharts "time" axis handles uneven dates well.
-    
+    // Prepare other series list for alignment
+    const otherSeriesList: { id: string; data: OHLC[] }[] = [];
+
+    // Add Benchmark
+    if (benchmarkTicker && dataMap[benchmarkTicker]?.length) {
+      otherSeriesList.push({ 
+        id: benchmarkTicker, 
+        data: filterByDate(dataMap[benchmarkTicker]) 
+      });
+    }
+
+    // Add Peers
+    comparedSymbols.forEach(s => {
+      if (dataMap[s]?.length) {
+        otherSeriesList.push({ id: s, data: filterByDate(dataMap[s]) });
+      }
+    });
+
     return {
       main: mainR,
-      benchmark: { symbol: benchmarkTicker, data: benchR },
-      peers: peersR
+      others: otherSeriesList
     };
   }, [dataMap, symbol, benchmarkTicker, comparedSymbols, range]);
 
   // 3. Generate ECharts Options
   const getOption = React.useMemo(() => {
-    if (!chartData || !chartData.main.length) return null;
+    if (!chartData) {
+      console.log("[ChartsTab] getOption: chartData is null");
+      return null;
+    }
 
-    const { main, benchmark, peers } = chartData;
-    const dates = main.map(d => d.date);
+    const { main, others } = chartData;
+    console.log(`[ChartsTab] getOption: Aligning ${main.length} main points with ${others.length} other series`);
 
-    // Common Grid & Tooltip
+    // --- PASO CRÍTICO: ALINEACIÓN ---
+    // alignSeries ahora usa la UNIÓN de fechas y maneja gaps correctamente.
+    const aligned = alignSeries(main, others);
+
+    // Lista de claves (IDs) en el objeto alineado, excluyendo 'date' y 'primary'
+    const otherKeys = others.map(o => o.id);
+    const allKeys = ['primary', ...otherKeys];
+
+    // Tooltip Formatter para manejar gaps y nulls
+    const tooltipFormatter = (params: any) => {
+        if (!Array.isArray(params) || params.length === 0) return '';
+        const date = params[0].axisValue;
+        let str = `<div style="font-weight:bold;margin-bottom:4px;color:#fff">${date}</div>`;
+        params.forEach((p: any) => {
+            const val = p.value;
+            // Solo mostrar si el valor es válido
+            if (val !== null && val !== undefined && val !== "" && !Number.isNaN(Number(val))) {
+                str += `<div style="display:flex;justify-content:space-between;gap:12px;font-size:12px">
+                          <span style="color:${p.color}">${p.seriesName}</span>
+                          <span style="font-weight:bold;color:#fff">${typeof val === 'number' ? val.toFixed(2) : val}%</span>
+                        </div>`;
+            }
+        });
+        return str;
+    };
+
+    // Common Options
     const commonOptions = {
       backgroundColor: "transparent",
-      animation: true,
-      animationDuration: 1000,
-      grid: { left: '1%', right: '5%', top: '5%', bottom: '10%', containLabel: true },
+      animation: false,
+      grid: { left: '1%', right: '10%', top: '5%', bottom: '12%', containLabel: true },
       dataZoom: [{ type: 'inside', realtime: true, start: 0, end: 100 }],
       legend: { 
-        top: 'top', 
+        bottom: 0, 
         left: 'center', 
         orient: 'horizontal', 
         textStyle: { color: "#9ca3af" },
-        // En vista "precio", solo mostramos el símbolo principal en la leyenda
-        data: view === 'precio' 
-          ? [symbol] 
-          : [symbol, getBenchmarkName(benchmark.symbol), ...peers.map(p => p.symbol)].filter(Boolean)
+        // Mapeamos 'primary' al símbolo real para la leyenda
+        data: [symbol, ...otherKeys] 
       },
       tooltip: {
         trigger: 'axis',
@@ -243,10 +302,12 @@ export default function ChartsTabHistoricos({
         backgroundColor: 'rgba(20, 20, 20, 0.9)',
         borderColor: '#333',
         textStyle: { color: '#eee' },
-        valueFormatter: (value: number) => value?.toFixed(2)
+        formatter: view === 'precio' ? undefined : tooltipFormatter, // Default formatter for Price is fine
+        valueFormatter: view === 'precio' ? (value: number) => value?.toFixed(2) : undefined
       },
       xAxis: {
-        type: 'time',
+        type: 'category', 
+        data: aligned.map(d => d.date),
         boundaryGap: false,
         axisLine: { lineStyle: { color: "#475569" } },
         axisLabel: { color: "#cbd5e1" },
@@ -254,54 +315,69 @@ export default function ChartsTabHistoricos({
       }
     };
 
-    // Build Series based on View
     let series: any[] = [];
     let yAxis: any = {};
 
-    if (view === "precio") {
-      // Price View: Absolute values. Hard to compare if scales differ wildly.
-      // Usually "Price" view only shows Main. Peers might be on secondary axis?
-      // For simplicity in this requirement, "Comparación Dinámica" usually implies Relative view.
-      // But if user wants Price, we just plot them.
-      
-      yAxis = { 
-        type: 'value', 
-        position: 'right', 
-        scale: true,
-        splitLine: { show: false, lineStyle: { color: "rgba(148,163,184,0.15)" } },
-        axisLabel: { color: "#cbd5e1" }
-      };
+    // --- LÓGICA POR VISTA ---
 
-      // Main Series (Area)
+    if (view === "precio") {
+      // PRECIO: Usamos dos ejes Y para manejar la diferencia de escala entre la acción y el índice (benchmark)
+      const hasBenchmark = otherKeys.includes(benchmarkTicker);
+      
+      yAxis = [
+        { 
+          type: 'value', 
+          position: 'right', 
+          scale: true,
+          splitLine: { show: false, lineStyle: { color: "rgba(148,163,184,0.15)" } },
+          axisLabel: { color: "#cbd5e1" }
+        },
+        {
+          type: 'value',
+          position: 'left',
+          scale: true,
+          show: hasBenchmark, // Solo mostrar si hay benchmark
+          splitLine: { show: false },
+          axisLabel: { color: "#9ca3af", formatter: '{value}' } // Gris más oscuro para el benchmark
+        }
+      ];
+
+      // Main Series (Stock) -> Axis 0
       series.push({
         name: symbol,
         type: 'line',
+        yAxisIndex: 0,
         showSymbol: false,
-        data: main.map(d => [d.date, d.close]),
+        connectNulls: false, // Mostrar huecos si faltan datos
+        data: aligned.map(d => d['primary']), 
         itemStyle: { color: '#FFA028' },
+        endLabel: { show: true, formatter: '{a}', offset: [30, 0], color: 'inherit' },
         areaStyle: {
-          color: {
-            type: 'linear',
-            x: 0,
-            y: 0,
-            x2: 0,
-            y2: 1,
-            colorStops: [
-              { offset: 0, color: 'rgba(255, 160, 40, 0.5)' },
-              { offset: 1, color: 'rgba(255, 160, 40, 0.05)' }
-            ]
-          }
-        },
-        endLabel: {
-            show: true,
-            formatter: '{a}',
-            distance: 20
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#ffbf007c' },
+            { offset: 1, color: '#cf72008a' }
+          ])
         }
       });
 
-      
+      // Others
+      otherKeys.forEach((key, idx) => {
+        const isBenchmark = key === benchmarkTicker;
+        series.push({
+          name: key,
+          type: 'line',
+          yAxisIndex: isBenchmark ? 1 : 0, // Benchmark al eje secundario
+          showSymbol: false,
+          connectNulls: false,
+          data: aligned.map(d => d[key]),
+          itemStyle: { color: isBenchmark ? '#9ca3af' : PEER_COLORS[idx % PEER_COLORS.length] }, // Benchmark gris claro
+          lineStyle: isBenchmark ? { type: 'dashed', width: 2, opacity: 0.7 } : { width: 2 },
+          endLabel: { show: true, formatter: '{a}', offset: [30, 0], color: 'inherit' }
+        });
+      });
+
     } else if (view === "rel") {
-      // Relative Performance (Base 100)
+      // RELATIVO: Normalizamos usando la función robusta
       yAxis = {
         type: 'value',
         position: 'right',
@@ -310,83 +386,37 @@ export default function ChartsTabHistoricos({
         splitLine: { show: false }
       };
 
-      // Normalize all - Aseguramos que data sea array válido antes de normalizar
-      const safeMain = Array.isArray(main) ? main : [];
-      const safeBench = Array.isArray(benchmark.data) ? benchmark.data : [];
-      
-      const normMain = normalizeRebase100(safeMain);
-      const normBench = normalizeRebase100(safeBench);
-      
-      const normPeers = peers.map(p => ({ 
-        symbol: p.symbol, 
-        data: normalizeRebase100(Array.isArray(p.data) ? p.data : []) 
-      })).filter(p => p.data.length > 0);
+      const normalizedData = normalizeRebase100(aligned, allKeys);
 
-      // --- FIX: Add Benchmark as primary series if missing ---
-      // Si el benchmark tiene datos pero la acción principal NO (o viceversa),
-      // ECharts necesita al menos una serie para pintar los ejes correctamente.
-      // Además, si el Benchmark se ve plano (0%), es posible que `normalizeRebase100` esté fallando
-      // o que la escala del eje Y esté forzada incorrectamente.
-      
-      // Aseguramos que el eje Y sea automático y no esté fijo en 0-1 si los valores son pequeños.
-      yAxis.scale = true; // Importante para que no empiece en 0 absoluto si no es necesario, aunque en relativo sí queremos ver el 0.
-      
       // Main
-      if (normMain.length > 0) {
-        series.push({
-          name: symbol,
-          type: 'line',
-          showSymbol: false,
-          data: normMain.map(d => [d.date, d.value]),
-          itemStyle: { color: '#22c55e' }, // Green for relative
-          lineStyle: { width: 4 },
-          endLabel: {
-              show: true,
-              formatter: '{a}',
-              distance: 20
-          }
-        });
-      }
+      series.push({
+        name: symbol,
+        type: 'line',
+        showSymbol: false,
+        connectNulls: false,
+        data: normalizedData.map(d => d['primary']),
+        itemStyle: { color: '#FFA028' },
+        lineStyle: { width: 2 },
+        endLabel: { show: true, formatter: '{a}', offset: [40, 0], color: 'inherit' }
+      });
 
-      // Benchmark
-      if (normBench.length > 0) {
+      // Others
+      otherKeys.forEach((key, idx) => {
+        const isBenchmark = key === benchmarkTicker;
         series.push({
-          name: getBenchmarkName(benchmark.symbol),
+          name: key,
           type: 'line',
           showSymbol: false,
-          data: normBench.map(d => [d.date, d.value]),
-          itemStyle: { color: '#f59e0b' }, // Amber
-          lineStyle: { width: 2, type: 'dashed' },
-          endLabel: {
-            show: true,
-            formatter: '{a}',
-            distance: 20
-          }
-        });
-      } else {
-         // Debug: Si normBench es 0, es porque no hay datos o la normalización falló.
-         //console.warn("Benchmark data missing or normalization failed", benchmark.data);
-      }
-
-      // Peers
-      normPeers.forEach((p, idx) => {
-        series.push({
-          name: p.symbol,
-          type: 'line',
-          showSymbol: false,
-          data: p.data.map(d => [d.date, d.value]),
-          itemStyle: { color: PEER_COLORS[idx % PEER_COLORS.length] },
-          lineStyle: { width: 2 },
-          endLabel: {
-            show: true,
-            formatter: '{a}',
-            distance: 20
-          }
+          connectNulls: false,
+          data: normalizedData.map(d => d[key]),
+          itemStyle: { color: isBenchmark ? '#9ca3af' : PEER_COLORS[idx % PEER_COLORS.length] },
+          lineStyle: isBenchmark ? { width: 2, type: 'dashed' } : { width: 2 },
+          endLabel: { show: true, formatter: '{a}', offset: [40, 0], color: 'inherit' }
         });
       });
 
     } else if (view === "drawdown") {
-      // Drawdown View
+      // DRAWDOWN: Calculamos sobre los datos alineados para consistencia visual
       yAxis = {
         type: 'value',
         position: 'right',
@@ -395,64 +425,39 @@ export default function ChartsTabHistoricos({
         splitLine: { show: false }
       };
 
-      // Helper for DD
-      const safeMain = Array.isArray(main) ? main : [];
-      const safeBench = Array.isArray(benchmark.data) ? benchmark.data : [];
+      // Función auxiliar para extraer array numérico (con nulls/NaNs)
+      const getPrices = (key: string) => aligned.map(d => {
+        const val = d[key];
+        return (val === null || val === undefined || val === "" || Number.isNaN(Number(val))) 
+             ? null 
+             : Number(val);
+      });
 
-      const ddMain = calculateDrawdown(safeMain);
-      const ddBench = calculateDrawdown(safeBench);
-      const ddPeers = peers.map(p => ({
-        symbol: p.symbol,
-        data: calculateDrawdown(Array.isArray(p.data) ? p.data : [])
-      })).filter(p => p.data.length > 0);
+      // Main DD
+      series.push({
+        name: symbol,
+        type: 'line',
+        showSymbol: false,
+        connectNulls: false,
+        data: calculateDrawdown(getPrices('primary')),
+        itemStyle: { color: '#FFA028' },
+        areaStyle: { opacity: 0.2 },
+        endLabel: { show: true, formatter: '{a}', offset: [30, 0], color: 'inherit' }
+      });
 
-      if (ddMain.length > 0) {
+      // Others DD
+      otherKeys.forEach((key, idx) => {
+        const isBenchmark = key === benchmarkTicker;
         series.push({
-          name: symbol,
+          name: key,
           type: 'line',
           showSymbol: false,
-          data: ddMain.map(d => [d.date, d.value]),
-          itemStyle: { color: '#ef4444' },
-          areaStyle: { opacity: 0.2 },
-          endLabel: {
-              show: true,
-              formatter: '{a}',
-              distance: 20
-          }
-        });
-      }
-
-      if (ddBench.length > 0) {
-        series.push({
-          name: getBenchmarkName(benchmark.symbol),
-          type: 'line',
-          showSymbol: false,
-          data: ddBench.map(d => [d.date, d.value]),
-          itemStyle: { color: '#94a3b8' },
-          lineStyle: { type: 'dashed' },
-          areaStyle: { opacity: 0.1 },
-          endLabel: {
-            show: true,
-            formatter: '{a}',
-            distance: 20
-          }
-        });
-      }
-      
-      // Peers Drawdown
-      ddPeers.forEach((p, idx) => {
-        series.push({
-          name: p.symbol,
-          type: 'line',
-          showSymbol: false,
-          data: p.data.map(d => [d.date, d.value]),
-          itemStyle: { color: PEER_COLORS[idx % PEER_COLORS.length] },
-          lineStyle: { width: 1, opacity: 0.7 },
-          endLabel: {
-            show: true,
-            formatter: '{a}',
-            distance: 20
-          }
+          connectNulls: false,
+          data: calculateDrawdown(getPrices(key)),
+          itemStyle: { color: isBenchmark ? '#9ca3af' : PEER_COLORS[idx % PEER_COLORS.length] },
+          lineStyle: isBenchmark ? { type: 'dashed' } : { width: 1, opacity: 0.7 },
+          areaStyle: isBenchmark ? { opacity: 0.1 } : undefined,
+          endLabel: { show: true, formatter: '{a}', offset: [30, 0], color: 'inherit' }
         });
       });
     }
@@ -466,11 +471,18 @@ export default function ChartsTabHistoricos({
 
   const renderChart = () => {
     if (loading) return <div className="h-full w-full animate-pulse bg-zinc-900/50 rounded-md" />;
-    if (!getOption) return <div className="h-full grid place-items-center text-zinc-500">Sin datos</div>;
+    if (!getOption) {
+      console.warn(`[ChartsTab] renderChart: getOption returned null for ${symbol}. chartData is:`, chartData);
+      console.log(`[ChartsTab] DataMap keys:`, Object.keys(dataMap));
+      if (dataMap[symbol]) {
+          console.log(`[ChartsTab] Main symbol data length:`, dataMap[symbol].length);
+      }
+      return <div className="h-full grid place-items-center text-zinc-500">Sin datos</div>;
+    }
 
     return (
       <ReactECharts
-        key={`${symbol}-${view}-${range}-${comparedSymbols.join('-')}`} // Force remount on major changes
+        key={`${symbol}-${view}-${range}-${comparedSymbols.join('-')}`} 
         echarts={echarts as any}
         option={getOption}
         notMerge
@@ -481,54 +493,55 @@ export default function ChartsTabHistoricos({
   };
 
   return (
-    <Card className="bg-tarjetas border-none p-0 m-0 shadow-none h-full flex flex-col">
-      <CardHeader className="p-0 m-0 space-y-0 shrink-0 w-full border-b border-zinc-800 bg-transparent z-10">
-        <div className="flex items-center justify-between w-full">
-          {/* Range Selectors */}
-          <div className="flex gap-0.5 flex-wrap">
-            {(["1A", "3A", "5A", "MAX"] as RangeKey[]).map((r) => (
-              <button
-                key={r}
-                onClick={() => setRange(r)}
-                className={`
-                  rounded-none border-b-2 px-2 py-1 text-xs transition-colors font-medium
-                  ${
-                    range === r
-                      ? 'bg-[#0056FF] text-white border-[#0056FF]'
-                      : 'bg-zinc-900 border-black text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
-                  }
-                `}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
-
-          {/* View Selectors */}
-          <div className="flex gap-0.5">
-            {VIEWS.map((v) => (
-              <button
-                key={v.key}
-                onClick={() => setView(v.key)}
-                className={`
-                  rounded-none border-b-2 px-2 py-1 text-xs transition-colors font-medium
-                  ${
-                    view === v.key
-                      ? 'bg-[#0056FF] text-white border-[#0056FF]'
-                      : 'bg-zinc-900 border-black text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
-                  }
-                `}
-              >
-                {v.label}
-              </button>
-            ))}
-          </div>
+    <div className="flex flex-col h-full bg-tarjetas overflow-hidden border-none shadow-none">
+      <div className="flex items-center justify-between px-1 py-1 border-b border-zinc-800 bg-white/[0.02] shrink-0 z-10">
+        <div className="flex gap-0.5 flex-wrap">
+          {(["1A", "3A", "5A", "MAX"] as RangeKey[]).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={`
+                rounded-sm px-3 py-1 text-[10px] transition-all font-medium border border-transparent
+                ${
+                  range === r
+                    ? 'bg-[#0056FF] text-white shadow-sm'
+                    : 'bg-transparent text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+                }
+              `}
+            >
+              {r}
+            </button>
+          ))}
         </div>
-      </CardHeader>
 
-      <CardContent className="p-0 m-0 flex-1 min-h-0 relative">
+        {/* Optional Title Placeholder if needed, but keeping clean for now */}
+        {/* <h4 className="text-xs font-medium text-gray-400 hidden sm:block">
+          <span className="text-[#FFA028]">{symbol}</span>
+        </h4> */}
+
+        <div className="flex gap-0.5 bg-zinc-900/50 p-0.5 rounded-md border border-zinc-800/50">
+          {VIEWS.map((v) => (
+            <button
+              key={v.key}
+              onClick={() => setView(v.key)}
+              className={`
+                rounded-sm px-2 py-0.5 text-[10px] transition-all font-medium
+                ${
+                  view === v.key
+                    ? 'bg-zinc-700 text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+                }
+              `}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0 relative w-full">
         {renderChart()}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
