@@ -304,7 +304,11 @@ export default function OverviewCard({
   useEffect(() => {
     let active = true;
     (async () => {
-      if (!currentSymbol) return;
+      if (!currentSymbol) {
+        console.log("[OverviewCard] No currentSymbol, skipping fetch");
+        return;
+      }
+      console.log(`[OverviewCard] Starting fetch for symbol: ${currentSymbol}`);
       setLoading(true);
       setError(null);
       try {
@@ -315,12 +319,35 @@ export default function OverviewCard({
           fmp.scores(currentSymbol)
         ]);
         
-        const rawProfile = Array.isArray(profileArr) && profileArr.length ? profileArr[0] : null;
-        const rawQuote = Array.isArray(quoteArr) && quoteArr.length ? quoteArr[0] : null;
+        console.log("[OverviewCard] API Responses:", { 
+            profileLength: Array.isArray(profileArr) ? profileArr.length : 'not-array', 
+            quoteLength: Array.isArray(quoteArr) ? quoteArr.length : 'not-array',
+            scores: scores ? 'present' : 'missing'
+        });
+
+        // Asegurarse de que rawProfile y rawQuote sean objetos válidos
+        // La API puede devolver [ {...} ] o simplemente {...} a veces si hay proxies intermedios, aunque fmp client suele normalizar.
+        // Pero aquí profileArr viene de fmp.profile que devuelve T (que es any[] según client.ts si no se especifica)
         
+        let rawProfile = null;
+        if (Array.isArray(profileArr)) {
+             rawProfile = profileArr.length > 0 ? profileArr[0] : null;
+        } else if (profileArr && typeof profileArr === 'object') {
+             rawProfile = profileArr;
+        }
+
+        let rawQuote = null;
+        if (Array.isArray(quoteArr)) {
+             rawQuote = quoteArr.length > 0 ? quoteArr[0] : null;
+        } else if (quoteArr && typeof quoteArr === 'object') {
+             rawQuote = quoteArr;
+        }
+
+        console.log("[OverviewCard] Raw Data:", { rawProfile, rawQuote });
+
         // Combinar datos de profile y quote
         const combinedData = {
-          ...rawProfile,
+          ...(rawProfile || {}),
           // Sobrescribir con datos de quote si están disponibles
           ...(rawQuote && {
             price: rawQuote.price,
@@ -330,8 +357,13 @@ export default function OverviewCard({
           })
         };
         
+        console.log("[OverviewCard] Combined Data for Normalize:", combinedData);
+
         if (!active) return;
-        setProfile(normalizeProfile(combinedData));
+        const normalized = normalizeProfile(combinedData);
+        console.log("[OverviewCard] Normalized Data:", normalized);
+        
+        setProfile(normalized);
         setScoresData(scores);
       } catch (err: any) {
         console.error("Error fetching company data:", err);
@@ -833,7 +865,7 @@ export default function OverviewCard({
 
   return (
     <Dialog>
-      <Card className="w-full bg-tarjetas border border-white/5 rounded-none overflow-hidden shadow-sm px-0 py-0">
+      <Card className="w-full bg-tarjetas border-none rounded-none overflow-hidden shadow-sm px-0 py-0">
         <CardContent className="p-0">
           {/* Header Row - Visible on Desktop */}
           {/* <div className="hidden md:grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-2 items-center bg-[#1D1D1D] px-4 py-1 border-b border-white/10 sticky top-0 z-10">

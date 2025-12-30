@@ -73,9 +73,9 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-tarjetas border-white/10 border-zinc-800 rounded-none overflow-hidden shadow-sm">
+    <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden shadow-sm">
       <Tabs defaultValue="Technology" onValueChange={setSelectedSector} className="w-full h-full flex flex-col">
-        <div className="w-full border-b border-zinc-800 bg-transparent z-10 border-white/10 shrink-0">
+        <div className="w-full border-b border-zinc-800 bg-transparent z-10 shrink-0">
           <div className="w-full overflow-x-auto scrollbar-thin whitespace-nowrap">
             <TabsList className="bg-transparent h-auto p-0 flex min-w-full w-max gap-0.5 border-b-2 border-black ">
               {SECTORS.map((sector) => (

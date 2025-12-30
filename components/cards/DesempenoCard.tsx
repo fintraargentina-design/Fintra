@@ -78,7 +78,7 @@ export default function DesempenoCard({ symbol }: { symbol: string }) {
       const score = gradeFromReturn(period, ret);
       
       return {
-        label: `${period}`,
+        label: `Desempeño ${period}`,
         value: ret,
         display: ret != null ? `${ret.toFixed(2)}%` : 'N/A',
         score,
@@ -89,56 +89,59 @@ export default function DesempenoCard({ symbol }: { symbol: string }) {
 
   const performanceMetrics = buildPerformanceMetrics();
 
+  const getHeatmapColor = (score: number) => {
+    if (score >= 90) return "#008000"; 
+    if (score >= 80) return "#006600"; 
+    if (score >= 70) return "#004D00"; 
+    if (score >= 60) return "#003300"; 
+    if (score >= 50) return "#001A00"; 
+    if (score <= 10) return "#800000"; 
+    if (score <= 20) return "#660000"; 
+    if (score <= 30) return "#4D0000"; 
+    if (score <= 40) return "#330000"; 
+    return "#1A0000";
+  };
+
   return (
-    <div className="bg-tarjetas border-none">
-      <div className="pb-2 px-6 pt-6">
-        <div className="text-[#FFA028] text-lg flex items-center gap-2">
-          <div className="text-gray-400">
-           Desempeño
-          </div>
+    <div className="bg-tarjetas border-none px-6 pb-0 pt-2">
+      {loading ? (
+        <div className="h-32 grid place-items-center text-gray-500 text-sm">
+          Cargando datos de desempeño...
         </div>
-      </div>
-      <div className="pt-0 px-6 pb-6">
-        {loading ? (
-          <div className="h-32 grid place-items-center text-gray-500 text-sm">
-            Cargando datos de desempeño...
-          </div>
-        ) : !data ? (
-          <div className="h-32 grid place-items-center text-gray-500 text-sm">
-            No hay datos disponibles
-          </div>
-        ) : (
-          <div className="grid grid-cols-6 gap-2">
-            {performanceMetrics.map((metric, index) => {
-              const scoreColor = getScoreColor(metric.score);
-              const scoreLevel = getScoreLevel(metric.score);
-              
-              return (
-                <div 
-                  key={index} 
-                  className="bg-gray-800/50 rounded p-3 hover:bg-gray-800/70 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="text-gray-400 text-xs">{metric.label}</div>
-                    <div 
-                      className="text-xs text-gray-500"
-                      style={{ color: scoreColor }}
-                    >
-                      {scoreLevel}
-                    </div>
-                  </div>
-                  <div 
-                    className="font-mono text-lg mt-1"
-                    style={{ color: scoreColor }}
-                  >
-                    {metric.display}
-                  </div>                    
+      ) : !data ? (
+        <div className="h-32 grid place-items-center text-gray-500 text-sm">
+          No hay datos disponibles
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-0.5">
+          {/* Rellenar con elementos vacíos si hay menos de 6 para mantener alineación */}
+          {[...performanceMetrics, ...Array(Math.max(0, 6 - performanceMetrics.length)).fill(null)].map((metric, index) => {
+            if (!metric) {
+               return <div key={`empty-${index}`} className="bg-transparent" />;
+            }
+            
+            const scoreLevel = getScoreLevel(metric.score);
+            
+            return (
+              <div 
+                key={index} 
+                className="relative flex flex-col items-center justify-center px-3 py-3 gap-1 cursor-pointer hover:brightness-110 transition-all border border-white/5"
+                style={{ backgroundColor: getHeatmapColor(metric.score) }}
+              >
+                <div className="text-white/70 text-[10px] font-medium text-center leading-none line-clamp-1">
+                  {metric.label}
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                <div className="text-white text-sm tracking-tight leading-tight">
+                  {metric.display}
+                </div>
+                <div className="text-[9px] text-white/90 font-medium uppercase tracking-wider bg-black/20 px-1 py-0 rounded leading-none">
+                  {scoreLevel}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

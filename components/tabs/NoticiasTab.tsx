@@ -326,14 +326,12 @@ export default function NoticiasTab({
 
   return (
     <>
-      <div className="bg-transparent border border-zinc-800 overflow-hidden h-full flex flex-col shadow-2xl">
-        {/* Header Section */}
-        <div className="border-b border-zinc-800 bg-transparent shrink-0 z-10 flex items-center relative h-6 px-4">
-          <h4 className="absolute left-1/2 -translate-x-1/2 text-xs font-medium text-gray-400 text-center">
-            Noticias de <span className="text-[#FFA028]">{symbol}</span>
-          </h4>
+      <div className="flex flex-col h-full bg-tarjetas overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800 shrink-0">
+          <h3 className="text-[#FFA028] text-sm font-medium">Noticias de {symbol}</h3>
           
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-2">
             {/* Filter Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

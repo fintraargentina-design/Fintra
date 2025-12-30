@@ -72,7 +72,6 @@ export default function DatosTab({
 
   const tabs = [
     { id: "financials", label: "Datos Financieros" },
-    { id: "performance", label: "Desempeño" },
     { id: "dividends", label: "Dividendos" },
   ];
 
@@ -154,12 +153,9 @@ export default function DatosTab({
                   period={selectedPeriod} 
                 />
               </div>
-            </div>
-          )}
-
-          {activeTab === "performance" && (
-            <div className="bg-tarjetas border-none p-4">
-              <DesempenoCard symbol={symbol} />
+              <div className="bg-tarjetas border-none mt-0.5">
+                 <DesempenoCard symbol={symbol} />
+              </div>
             </div>
           )}
 

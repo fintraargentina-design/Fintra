@@ -1,4 +1,3 @@
-// components/tabs/ChartsTabHistoricos.tsx
 "use client";
 
 import React from "react";
@@ -14,10 +13,12 @@ import {
   DataZoomComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { useToast } from "@/components/ui/use-toast";
 import { fmp } from "@/lib/fmp/client";
 import type { OHLC } from "@/lib/fmp/types";
+import { getBenchmarkTicker } from "@/lib/services/benchmarkService";
+import { alignSeries, normalizeRebase100 } from "@/lib/utils/finance-math";
 
 echarts.use([
   LineChart,
@@ -33,10 +34,8 @@ echarts.use([
 const ReactECharts = dynamic(() => import("echarts-for-react/lib/core"), { ssr: false });
 
 type RangeKey = "1A" | "3A" | "5A" | "MAX";
-type Market = "NASDAQ" | "NYSE" | "AMEX";
-const getBenchmarkTicker = (m: Market) => (m === "NASDAQ" ? "^NDX" : "^GSPC");
 
-
+// Helper to filter data by range
 const applyRange = (data: OHLC[], range: RangeKey) => {
   if (!data?.length) return [];
   if (range === "MAX") return data;
@@ -48,50 +47,14 @@ const applyRange = (data: OHLC[], range: RangeKey) => {
   return data.filter((d) => new Date(d.date) >= start);
 };
 
-// helpers
-const sma = (arr: number[], w: number) => {
-  const out = new Array(arr.length).fill(NaN);
-  let sum = 0;
-  for (let i = 0; i < arr.length; i++) {
-    sum += arr[i];
-    if (i >= w) sum -= arr[i - w];
-    if (i >= w - 1) out[i] = sum / w;
-  }
-  return out;
-};
-const stdev = (arr: number[], w: number) => {
-  const out = new Array(arr.length).fill(NaN);
-  for (let i = w - 1; i < arr.length; i++) {
-    const slice = arr.slice(i - w + 1, i + 1);
-    const m = slice.reduce((a, b) => a + b, 0) / w;
-    const v = slice.reduce((a, b) => a + Math.pow(b - m, 2), 0) / (w - 1 || 1);
-    out[i] = Math.sqrt(v);
-  }
-  return out;
-};
-const pct = (x: number) => x * 100;
-
-// Anchored VWAP (desde el inicio del rango)
-const anchoredVWAP = (candles: OHLC[]) => {
-  let cumPV = 0;
-  let cumVol = 0;
-  const out: number[] = [];
-  for (const c of candles) {
-    const typical = (c.high + c.low + c.close) / 3;
-    const v = c.volume ?? 0;
-    cumPV += typical * v;
-    cumVol += v;
-    out.push(cumVol > 0 ? cumPV / cumVol : NaN);
-  }
-  return out;
-};
+// Colors for peers
+const PEER_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f43f5e'];
 
 type Props = {
   symbol: string;
   companyName?: string;
   showBenchmark?: boolean;
-  market?: Market;
-  comparedSymbol?: string | null;
+  comparedSymbols?: string[]; // Array of tickers
 };
 
 const VIEWS = [
@@ -105,362 +68,371 @@ export default function ChartsTabHistoricos({
   symbol,
   companyName,
   showBenchmark = true,
-  market = "NASDAQ",
-  comparedSymbol,
+  comparedSymbols = [],
 }: Props) {
+  const { toast } = useToast();
   const [range, setRange] = React.useState<RangeKey>("3A");
   const [view, setView] = React.useState<View>("precio");
-  const [px, setPx] = React.useState<OHLC[]>([]);
-  const [bm, setBm] = React.useState<OHLC[]>([]);
-  const [peerPx, setPeerPx] = React.useState<OHLC[]>([]);
+  
+  // Store all data: Main Symbol, Benchmark, and Peers
+  const [dataMap, setDataMap] = React.useState<Record<string, OHLC[]>>({});
+  const [benchmarkTicker, setBenchmarkTicker] = React.useState<string>("");
   const [loading, setLoading] = React.useState(true);
 
+  // 1. Determine Benchmark & Fetch All Data
   React.useEffect(() => {
     let alive = true;
-    (async () => {
+    
+    const fetchData = async () => {
       setLoading(true);
       try {
-        const benchTicker = getBenchmarkTicker(market);
-        let a: OHLC[] = [];
-        let b: OHLC[] = [];
-        let c: OHLC[] = [];
-
+        // A. Determine Benchmark
+        // We need profile to know exchange/sector, but for now we'll assume a default
+        // or fetch profile if needed. Ideally passed or handled by service.
+        // For this implementation, we'll try to get it via service if we had the profile,
+        // but since we only have symbol, we'll fetch profile or use default.
+        // Let's assume NASDAQ default if unknown, or rely on service logic.
+        // The service `getBenchmarkTicker` might need a profile object or just ticker?
+        // Let's check the service signature if I could... but I'll assume I need to fetch profile first.
+        
+        // Actually, let's fetch profile first to get accurate benchmark
+        let profile: any = null;
         try {
-          const promises = [
-            fmp.eod(symbol, { limit: 8000, cache: "no-store" }),
-            showBenchmark
-              ? fmp.eod(benchTicker, { limit: 8000, cache: "force-cache" })
-              : Promise.resolve([] as OHLC[]),
-          ];
+          const profiles = await fmp.profile(symbol);
+          profile = profiles?.[0];
+        } catch (e) { console.warn("Profile fetch failed", e); }
 
-          if (comparedSymbol && comparedSymbol !== "none") {
-            promises.push(fmp.eod(comparedSymbol, { limit: 8000, cache: "no-store" }));
-          } else {
-            promises.push(Promise.resolve([] as OHLC[]));
-          }
+        const bench = await getBenchmarkTicker(symbol, profile); // Should handle null profile gracefully
+        setBenchmarkTicker(bench);
 
-          const [resA, resB, resC] = await Promise.all(promises);
+        // B. Prepare list of symbols to fetch
+        const symbolsToFetch = new Set<string>([symbol]);
+        if (showBenchmark && bench) symbolsToFetch.add(bench);
+        comparedSymbols.forEach(s => symbolsToFetch.add(s));
 
-          // EodResponse está tipado como any[] pero viene como { symbol, candles } o array directo
-          const rawA = resA as any;
-          const rawB = resB as any;
-          const rawC = resC as any;
-          
-          a = Array.isArray(rawA) ? rawA : (rawA?.historical || rawA?.candles || []);
-          b = Array.isArray(rawB) ? rawB : (rawB?.historical || rawB?.candles || []);
-          c = Array.isArray(rawC) ? rawC : (rawC?.historical || rawC?.candles || []);
-          
-          // Revertir si viene de más nuevo a más viejo
-          if (a.length > 1 && new Date(a[0].date) > new Date(a[a.length-1].date)) a.reverse();
-          if (b.length > 1 && new Date(b[0].date) > new Date(b[b.length-1].date)) b.reverse();
-          if (c.length > 1 && new Date(c[0].date) > new Date(c[c.length-1].date)) c.reverse();
+        // C. Fetch in parallel
+        const promises = Array.from(symbolsToFetch).map(async (ticker) => {
+           try {
+             const res = await fmp.eod(ticker, { limit: 8000 });
+             // Handle array vs object response
+             const data = Array.isArray(res) ? res : (res as any)?.historical || [];
+             // Sort ascending
+             return { ticker, data: data.reverse() }; 
+           } catch (err) {
+             console.error(`Error fetching ${ticker}`, err);
+             return { ticker, data: [] };
+           }
+        });
 
-          // c = Array.isArray(rawC) ? rawC : (rawC?.candles || []); // Ya asignado arriba
-        } catch (err: any) {
-          console.error("ChartsTabHistoricos error fetch", err);
-        }
-
+        const results = await Promise.all(promises);
+        
         if (!alive) return;
-        setPx(Array.isArray(a) ? a : []);
-        setBm(Array.isArray(b) ? b : []);
-        setPeerPx(Array.isArray(c) ? c : []);
+
+        const newDataMap: Record<string, OHLC[]> = {};
+        results.forEach(({ ticker, data }) => {
+          if (data.length === 0 && ticker !== symbol && ticker !== bench) {
+             // Toast for missing peer data
+             toast({
+               variant: "destructive",
+               title: "Datos no disponibles",
+               description: `No se encontraron datos históricos para ${ticker}`
+             });
+          }
+          newDataMap[ticker] = data;
+        });
+
+        setDataMap(newDataMap);
+
       } finally {
         if (alive) setLoading(false);
       }
-    })();
-    return () => {
-      alive = false;
     };
-  }, [symbol, showBenchmark, market, comparedSymbol]);
 
-  // rango aplicado
-  const dataR = React.useMemo(() => applyRange(px, range), [px, range]);
-  const bmR = React.useMemo(() => applyRange(bm, range), [bm, range]);
-  const peerR = React.useMemo(() => applyRange(peerPx, range), [peerPx, range]);
+    fetchData();
 
-  const dates = React.useMemo(() => dataR.map((d) => d.date), [dataR]);
-  const closes = React.useMemo(() => dataR.map((d) => d.close), [dataR]);
-  const volumes = React.useMemo(() => dataR.map((d) => d.volume ?? 0), [dataR]);
+    return () => { alive = false; };
+  }, [symbol, showBenchmark, comparedSymbols, toast]); // Re-fetch if comparison changes
 
-  // Función para calcular EMA (Media Móvil Exponencial)
-  const ema = (arr: number[], period: number) => {
-    const result: number[] = new Array(arr.length).fill(NaN);
-    if (arr.length === 0 || period <= 0) return result;
+  // 2. Prepare Data for Chart (Align & Filter)
+  const chartData = React.useMemo(() => {
+    const mainData = dataMap[symbol] || [];
+    const benchData = benchmarkTicker ? (dataMap[benchmarkTicker] || []) : [];
     
-    const multiplier = 2 / (period + 1);
-    let emaValue = arr[0]; // Primer valor como semilla
-    result[0] = emaValue;
+    // Filter by Range first to reduce processing
+    const mainR = applyRange(mainData, range);
+    // For alignment, we need the date range of the MAIN symbol
+    if (!mainR.length) return null;
+
+    const peersData = comparedSymbols.map(s => ({
+      symbol: s,
+      data: dataMap[s] || []
+    })).filter(p => p.data.length > 0);
+
+    // Align all series to Main Symbol's dates
+    // alignSeries signature: (main: OHLC[], others: { symbol: string, data: OHLC[] }[])
+    // We pass the ALREADY FILTERED main data as the "master" timeline
+    // But wait, alignSeries usually expects full history to find common start?
+    // Actually, "alignSeries" in finance-math usually takes full arrays and returns aligned arrays.
+    // Let's use the full arrays for alignment, THEN filter by range.
     
-    for (let i = 1; i < arr.length; i++) {
-      if (!isNaN(arr[i])) {
-        emaValue = (arr[i] * multiplier) + (emaValue * (1 - multiplier));
-        result[i] = emaValue;
+    // RE-THINK: If we filter Main by "1Y", we only want 1Y of peers.
+    // So filtering first is correct for the X-axis (Date).
+    // However, for "Relative" (Base 100), we need them to start at 100 at the beginning of the range.
+    
+    // Let's filter Main first.
+    // Then filter others to match the start date of Main.
+    
+    const startDate = new Date(mainR[0].date);
+    
+    const filterByDate = (arr: OHLC[]) => arr.filter(d => new Date(d.date) >= startDate);
+    
+    const benchR = filterByDate(benchData);
+    const peersR = peersData.map(p => ({
+      symbol: p.symbol,
+      data: filterByDate(p.data)
+    }));
+
+    // Now we have arrays covering the same time window (roughly).
+    // We need to map them to the exact dates of mainR for ECharts "category" axis or use "time" axis.
+    // ECharts "time" axis handles uneven dates well.
+    
+    return {
+      main: mainR,
+      benchmark: { symbol: benchmarkTicker, data: benchR },
+      peers: peersR
+    };
+  }, [dataMap, symbol, benchmarkTicker, comparedSymbols, range]);
+
+  // 3. Generate ECharts Options
+  const getOption = React.useMemo(() => {
+    if (!chartData || !chartData.main.length) return null;
+
+    const { main, benchmark, peers } = chartData;
+    const dates = main.map(d => d.date);
+
+    // Common Grid & Tooltip
+    const commonOptions = {
+      backgroundColor: "transparent",
+      animation: false,
+      grid: { left: '1%', right: '5%', top: '5%', bottom: '10%', containLabel: true },
+      dataZoom: [{ type: 'inside', realtime: true, start: 0, end: 100 }],
+      legend: { 
+        top: 'middle', 
+        left: 'left', 
+        orient: 'vertical', 
+        textStyle: { color: "#9ca3af" },
+        data: [symbol, benchmark.symbol, ...peers.map(p => p.symbol)].filter(Boolean)
+      },
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } },
+        backgroundColor: 'rgba(20, 20, 20, 0.9)',
+        borderColor: '#333',
+        textStyle: { color: '#eee' },
+        valueFormatter: (value: number) => value?.toFixed(2)
+      },
+      xAxis: {
+        type: 'time',
+        boundaryGap: false,
+        axisLine: { lineStyle: { color: "#475569" } },
+        axisLabel: { color: "#cbd5e1" },
+        splitLine: { show: false }
       }
-    }
-    
-    return result;
-  };
+    };
 
-  // Cálculo de indicadores técnicos
-  const ema50 = React.useMemo(() => ema(closes, 50), [closes]);
-  const ema200 = React.useMemo(() => ema(closes, 200), [closes]);
-  const vwap = React.useMemo(() => anchoredVWAP(dataR), [dataR]);
+    // Build Series based on View
+    let series: any[] = [];
+    let yAxis: any = {};
 
-  // 1) Large Area Chart Style (Precio Solamente)
-  const optionCandles = React.useMemo(() => {
-    // Transformar datos para eje de tiempo: [timestamp/string, value]
-    const dataPrice = dataR.map(d => [d.date, d.close]);
-    const peerPrice = peerR.map(d => [d.date, d.close]);
-    
-    const seriesList: any[] = [
-      {
+    if (view === "precio") {
+      // Price View: Absolute values. Hard to compare if scales differ wildly.
+      // Usually "Price" view only shows Main. Peers might be on secondary axis?
+      // For simplicity in this requirement, "Comparación Dinámica" usually implies Relative view.
+      // But if user wants Price, we just plot them.
+      
+      yAxis = { 
+        type: 'value', 
+        position: 'right', 
+        scale: true,
+        splitLine: { show: false, lineStyle: { color: "rgba(148,163,184,0.15)" } },
+        axisLabel: { color: "#cbd5e1" }
+      };
+
+      // Main Series (Area)
+      series.push({
         name: symbol,
         type: 'line',
-        symbol: 'none',
-        sampling: 'lttb',
-        itemStyle: {
-          color: '#FFA028'
-        },
+        showSymbol: false,
+        data: main.map(d => [d.date, d.close]),
+        itemStyle: { color: '#FFA028' },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
             { offset: 0, color: '#ffbf007c' },
             { offset: 1, color: '#cf72008a' }
           ])
-        },
-        data: dataPrice
+        }
+      });
+
+      // Peers (Lines)
+      peers.forEach((p, idx) => {
+        series.push({
+          name: p.symbol,
+          type: 'line',
+          showSymbol: false,
+          data: p.data.map(d => [d.date, d.close]),
+          itemStyle: { color: PEER_COLORS[idx % PEER_COLORS.length] },
+          lineStyle: { width: 2 }
+        });
+      });
+
+      // Benchmark (Dashed Line) - usually not shown in Price view unless requested?
+      // User said "Comparación Dinámica", often implies Relative.
+      // But let's include it if it exists.
+      if (benchmark.data.length) {
+         series.push({
+          name: benchmark.symbol,
+          type: 'line',
+          showSymbol: false,
+          data: benchmark.data.map(d => [d.date, d.close]),
+          itemStyle: { color: '#6b7280' },
+          lineStyle: { type: 'dashed', width: 2 }
+        });
       }
-    ];
 
-    if (comparedSymbol && peerPrice.length > 0) {
-      seriesList.push({
-        name: comparedSymbol,
+    } else if (view === "rel") {
+      // Relative Performance (Base 100)
+      yAxis = {
+        type: 'value',
+        position: 'right',
+        scale: true,
+        axisLabel: { formatter: '{value}%', color: "#cbd5e1" },
+        splitLine: { show: false }
+      };
+
+      // Normalize all
+      const normMain = normalizeRebase100(main);
+      const normBench = normalizeRebase100(benchmark.data);
+      const normPeers = peers.map(p => ({ 
+        symbol: p.symbol, 
+        data: normalizeRebase100(p.data) 
+      }));
+
+      // Main
+      series.push({
+        name: symbol,
         type: 'line',
-        symbol: 'none',
-        sampling: 'lttb',
-        itemStyle: {
-          color: '#0056FF' // Tono azul solicitado
-        },
-        lineStyle: {
-          width: 2
-        },
-        data: peerPrice
+        showSymbol: false,
+        data: normMain.map(d => [d.date, d.value]),
+        itemStyle: { color: '#22c55e' }, // Green for relative
+        lineStyle: { width: 2 }
+      });
+
+      // Benchmark
+      if (normBench.length) {
+        series.push({
+          name: benchmark.symbol,
+          type: 'line',
+          showSymbol: false,
+          data: normBench.map(d => [d.date, d.value]),
+          itemStyle: { color: '#f59e0b' }, // Amber
+          lineStyle: { width: 2, type: 'dashed' }
+        });
+      }
+
+      // Peers
+      normPeers.forEach((p, idx) => {
+        series.push({
+          name: p.symbol,
+          type: 'line',
+          showSymbol: false,
+          data: p.data.map(d => [d.date, d.value]),
+          itemStyle: { color: PEER_COLORS[idx % PEER_COLORS.length] },
+          lineStyle: { width: 2 }
+        });
+      });
+
+    } else if (view === "drawdown") {
+      // Drawdown View
+      yAxis = {
+        type: 'value',
+        position: 'right',
+        max: 0,
+        axisLabel: { formatter: '{value}%', color: "#cbd5e1" },
+        splitLine: { show: false }
+      };
+
+      // Helper for DD
+      const calcDD = (data: OHLC[]) => {
+        let peak = -Infinity;
+        return data.map(d => {
+          peak = Math.max(peak, d.close);
+          const dd = ((d.close - peak) / peak) * 100;
+          return [d.date, dd];
+        });
+      };
+
+      series.push({
+        name: symbol,
+        type: 'line',
+        showSymbol: false,
+        data: calcDD(main),
+        itemStyle: { color: '#ef4444' },
+        areaStyle: { opacity: 0.2 }
+      });
+
+      if (benchmark.data.length) {
+        series.push({
+          name: benchmark.symbol,
+          type: 'line',
+          showSymbol: false,
+          data: calcDD(benchmark.data),
+          itemStyle: { color: '#94a3b8' },
+          lineStyle: { type: 'dashed' },
+          areaStyle: { opacity: 0.1 }
+        });
+      }
+      
+      // Peers Drawdown? Maybe too messy. Let's include them but thin.
+      peers.forEach((p, idx) => {
+        series.push({
+          name: p.symbol,
+          type: 'line',
+          showSymbol: false,
+          data: calcDD(p.data),
+          itemStyle: { color: PEER_COLORS[idx % PEER_COLORS.length] },
+          lineStyle: { width: 1, opacity: 0.7 }
+        });
       });
     }
-    
-    return {
-      backgroundColor: "transparent",
-      animation: false,
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: {
-          type: 'cross',
-          animation: false
-        },
-        backgroundColor: 'rgba(20, 20, 20, 0.9)',
-        borderWidth: 1,
-        borderColor: '#333',
-        textStyle: { color: '#eee' },
-        formatter: function (params: any) {
-          if (!Array.isArray(params) || params.length === 0) return '';
-          const date = new Date(params[0].axisValue);
-          const dateStr = date.toLocaleDateString();
-          let result = `<b>${dateStr}</b><br/>`;
-          params.forEach((param: any) => {
-            const seriesName = param.seriesName;
-            const value = param.value[1]; 
-            if (value === undefined || value === null) return;
-            let displayValue = typeof value === 'number' ? value.toFixed(2) : value;
-            result += `${param.marker} ${seriesName}: ${displayValue}<br/>`;
-          });
-          return result;
-        }
-      },
-      legend: {
-        top: 'middle',
-        left: 'left',
-        orient: 'vertical',
-        data: [symbol, ...(comparedSymbol && peerPrice.length > 0 ? [comparedSymbol] : [])],
-        textStyle: { color: "#9ca3af" }
-      },
-      toolbox: {
-        feature: {
-          dataZoom: { yAxisIndex: 'none' },
-          restore: {},
-          saveAsImage: {}
-        },
-        iconStyle: { borderColor: '#9ca3af' }
-      },
-      axisPointer: { link: { xAxisIndex: 'all' } },
-      dataZoom: [
-        {
-          type: 'inside',
-          realtime: true,
-          start: 0,
-          end: 100,
-          xAxisIndex: [0]
-        }
-      ],
-      grid: {
-        left: '1%',
-        right: '1%',
-        top: '2%',
-        bottom: '10%',
-        containLabel: true
-      },
-      xAxis: [
-        {
-          type: 'time',
-          boundaryGap: false,
-          axisLine: { onZero: false, lineStyle: { color: "#475569" } },
-          splitLine: { show: false },
-          axisPointer: { z: 100 },
-          axisLabel: { color: "#cbd5e1" }
-        }
-      ],
-      yAxis: [
-        {
-          type: 'value',
-          position: 'right',
-          scale: true,
-          splitArea: { show: false },
-          axisLabel: { color: "#cbd5e1" },
-          splitLine: { show: false, lineStyle: { color: "rgba(148,163,184,0.15)" } },
-          boundaryGap: [0, '100%']
-        }
-      ],
-      series: seriesList
-    };
-  }, [dataR, peerR, symbol, comparedSymbol]);
-
-  // 2) Drawdown comparativo
-  const optionDD = React.useMemo(() => {
-    const mS = Object.fromEntries(dataR.map((d) => [d.date, d.close]));
-    const mB = Object.fromEntries(bmR.map((d) => [d.date, d.close]));
-    const common = Object.keys(mS).filter((d) => d in mB).sort();
-    let peakS = -Infinity, peakB = -Infinity;
-    const s = common.map((d) => { const v = mS[d]; peakS = Math.max(peakS, v); return pct((v - peakS) / peakS); });
-    const b = common.map((d) => { const v = mB[d]; peakB = Math.max(peakB, v); return pct((v - peakB) / peakB); });
 
     return {
-      backgroundColor: "transparent",
-      tooltip: { trigger: "axis" as const },
-      legend: { top: "middle", left: "left", orient: "vertical", textStyle: { color: "#9ca3af" } },
-      grid: { left: 55, right: 25, top: 20, bottom: 35 },
-      xAxis: { type: "category" as const, data: common, axisLabel: { color: "#cbd5e1" }, axisLine: { lineStyle: { color: "#475569" } } },
-      yAxis: { type: "value" as const, position: "right", axisLabel: { color: "#cbd5e1", formatter: "{value}%" }, splitLine: { lineStyle: { color: "rgba(148,163,184,0.15)" } }, max: 0, min: -90 },
-      series: [
-        { name: `${symbol} DD%`, type: "line" as const, data: s, smooth: true, showSymbol: false, areaStyle: { opacity: 0.12 }, lineStyle: { color: "#ef4444" } },
-        { name: "Benchmark DD%", type: "line" as const, data: b, smooth: true, showSymbol: false, areaStyle: { opacity: 0.08 }, lineStyle: { color: "#94a3b8" } },
-      ],
+      ...commonOptions,
+      yAxis,
+      series
     };
-  }, [dataR, bmR, symbol]);
+  }, [chartData, view, symbol, benchmarkTicker, comparedSymbols]);
 
-  // 5) Performance relativa acumulada vs benchmark
-  const optionRel = React.useMemo(() => {
-    const mS = Object.fromEntries(dataR.map((d) => [d.date, d.close]));
-    const mB = Object.fromEntries(bmR.map((d) => [d.date, d.close]));
-    const common = Object.keys(mS).filter((d) => d in mB).sort();
-    
-    let finalDates = common;
-    let finalS: number[] = [];
-    let finalB: number[] = [];
-
-    if (!common.length) {
-      // VALORES DEMO para visualización cuando no hay datos coincidentes
-      const demoCount = 50;
-      finalDates = Array.from({length: demoCount}, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - (demoCount - i));
-        return d.toISOString().split('T')[0];
-      });
-      // Simular curvas de rendimiento relativo
-      finalS = finalDates.map((_, i) => (Math.sin(i * 0.2) * 5) + (i * 0.5)); 
-      finalB = finalDates.map((_, i) => (i * 0.3) + (Math.random() * 2));
-    } else {
-      const s0 = mS[common[0]] || 1;
-      const b0 = mB[common[0]] || 1;
-      finalS = common.map((d) => pct(mS[d] / s0 - 1));
-      finalB = common.map((d) => pct(mB[d] / b0 - 1));
-    }
-
-    return {
-      backgroundColor: "transparent",
-      tooltip: { trigger: "axis" as const, valueFormatter: (v: any) => `${(v).toFixed(2)}%` },
-      legend: { top: "middle", left: "left", orient: "vertical", textStyle: { color: "#9ca3af" } },
-      grid: { left: 55, right: 25, top: 20, bottom: 35 },
-      xAxis: { type: "category" as const, data: finalDates, axisLabel: { color: "#cbd5e1" }, axisLine: { lineStyle: { color: "#475569" } } },
-      yAxis: { type: "value" as const, position: "right", axisLabel: { color: "#cbd5e1", formatter: "{value}%" }, splitLine: { lineStyle: { color: "rgba(148,163,184,0.15)" } } },
-      series: [
-        { name: `${symbol} %`, type: "line" as const, data: finalS, showSymbol: false, lineStyle: { color: "#22c55e" } },
-        { name: "Benchmark %", type: "line" as const, data: finalB, showSymbol: false, lineStyle: { color: "#f59e0b" } },
-      ],
-    };
-  }, [dataR, bmR, symbol]);
-
-  // Render del gráfico según tab
   const renderChart = () => {
-    if (loading) {
-      return <div className="h-full w-full animate-pulse bg-gray-800/40 rounded-md" />;
-    }
-    switch (view) {
-      case "precio":
-        return (
-          <ReactECharts
-            key={`k-${symbol}-${range}`}
-            echarts={echarts as any}
-            option={optionCandles as any}
-            notMerge
-            lazyUpdate
-            style={{ height: "100%", width: "100%" }}
-          />
-        );
-      case "drawdown":
-        return bmR.length ? (
-          <ReactECharts
-            key={`dd-${symbol}-${range}`}
-            echarts={echarts}
-            option={optionDD}
-            notMerge={true}
-            lazyUpdate={true}
-            style={{ height: "100%", width: "100%" }}
-          />
-        ) : (
-          <div className="h-full grid place-items-center text-gray-500 text-sm">
-            Sin benchmark configurado
-          </div>
-        );
-      case "rel":
-        return bmR.length ? (
-          <ReactECharts
-            key={`rel-${symbol}-${range}`}
-            echarts={echarts as any}
-            option={optionRel as any}
-            notMerge
-            lazyUpdate
-            style={{ height: "100%", width: "100%" }}
-          />
-        ) : (
-          <div className="h-full grid place-items-center text-gray-500 text-sm">
-            Sin benchmark configurado
-          </div>
-        );
-      default:
-        return null;
-    }
+    if (loading) return <div className="h-full w-full animate-pulse bg-zinc-900/50 rounded-md" />;
+    if (!getOption) return <div className="h-full grid place-items-center text-zinc-500">Sin datos</div>;
+
+    return (
+      <ReactECharts
+        key={`${symbol}-${view}-${range}-${comparedSymbols.join('-')}`} // Force remount on major changes
+        echarts={echarts as any}
+        option={getOption}
+        notMerge
+        lazyUpdate
+        style={{ height: "100%", width: "100%" }}
+      />
+    );
   };
 
   return (
     <Card className="bg-tarjetas border-none p-0 m-0 shadow-none h-full flex flex-col">
-      <CardHeader className="p-0 m-0 space-y-0 shrink-0 w-full border-b border-zinc-800 bg-transparent z-10 border-white/10">
+      <CardHeader className="p-0 m-0 space-y-0 shrink-0 w-full border-b border-zinc-800 bg-transparent z-10">
         <div className="flex items-center justify-between w-full">
-          {/* <CardTitle className="text-blue-400 text-lg">
-            Análisis Histórico — {companyName || "—"}{" "}
-            <Badge variant="outline" className="ml-2 border-blue-500/50 text-blue-300">
-              {symbol}
-            </Badge>
-          </CardTitle> */}
-
-          {/* Rango */}
+          {/* Range Selectors */}
           <div className="flex gap-0.5 flex-wrap">
             {(["1A", "3A", "5A", "MAX"] as RangeKey[]).map((r) => (
               <button
@@ -480,7 +452,7 @@ export default function ChartsTabHistoricos({
             ))}
           </div>
 
-          {/* Tabs de gráfico */}
+          {/* View Selectors */}
           <div className="flex gap-0.5">
             {VIEWS.map((v) => (
               <button
@@ -502,7 +474,9 @@ export default function ChartsTabHistoricos({
         </div>
       </CardHeader>
 
-      <CardContent className="p-0 m-0 flex-1 min-h-0">{renderChart()}</CardContent>
+      <CardContent className="p-0 m-0 flex-1 min-h-0 relative">
+        {renderChart()}
+      </CardContent>
     </Card>
   );
 }

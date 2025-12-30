@@ -152,6 +152,27 @@ export function createFmpClient(get: FetcherFunction) {
       });
     },
 
+    /** 1. Obtener lista de todos los índices soportados */
+    availableIndexes(cache: CacheOpt = "force-cache") {
+      return get<any[]>("/available-indexes", { cache });
+    },
+
+    /** 2. Obtener histórico de un índice (Reutiliza lógica EOD) */
+    indexHistoricalPrice(symbol: string, opts?: { limit?: number; cache?: CacheOpt }) {
+      return get<EodResponse>("/eod", {
+        params: { symbol, ...(opts?.limit ? { limit: opts.limit } : {}) },
+        cache: opts?.cache ?? "no-store",
+      });
+    },
+
+    /** 3. Obtener cotización actual de índice */
+    indexQuote(symbol: string, opts?: { cache?: CacheOpt }) {
+      return get<any[]>("/quote", {
+        params: { symbol },
+        cache: opts?.cache ?? "no-cache",
+      });
+    },
+
     balanceSheetGrowth(symbol: string, opts?: { period?: "annual" | "quarter"; limit?: number; cache?: CacheOpt }) {
       return get<BalanceSheetGrowthResponse>("/balance-sheet-growth", {
         params: { symbol, period: opts?.period || "annual", limit: opts?.limit || 5 },

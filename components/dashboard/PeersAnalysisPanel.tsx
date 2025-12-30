@@ -171,9 +171,9 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-tarjetas border border-white/5 rounded-none overflow-hidden mt-0">
+    <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden mt-0">
             
-      <div className="px-1 py-1 border border-zinc-800 bg-white/[0.02] shrink-0">
+      <div className="px-1 py-1 border-b border-zinc-800 bg-white/[0.02] shrink-0">
         <h4 className="text-xs font-medium text-gray-400 text-center">
           Competidores directos de <span className="text-[#FFA028]">{symbol}</span>
         </h4>
@@ -197,13 +197,13 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
           <TableBody>
             {isLoading ? (
                 <TableRow className="border-zinc-800">
-                    <TableCell colSpan={9} className="text-center text-gray-500 py-8 text-xs">
+                    <TableCell colSpan={10} className="text-center text-gray-500 py-8 text-xs">
                         Cargando competidores...
                     </TableCell>
                 </TableRow>
             ) : peers.length === 0 ? (
                 <TableRow className="border-zinc-800">
-                    <TableCell colSpan={9} className="text-center text-gray-500 py-8 text-xs">
+                    <TableCell colSpan={10} className="text-center text-gray-500 py-8 text-xs">
                         No se encontraron competidores para {symbol}.
                     </TableCell>
                 </TableRow>

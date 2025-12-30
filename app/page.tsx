@@ -42,7 +42,21 @@ export default function StockTerminal() {
   const [user, setUser] = useState<any>(null);
   const [stockConclusion, setStockConclusion] = useState<any>(null);
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
+  const [selectedChartPeers, setSelectedChartPeers] = useState<string[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  const handleToggleChartPeer = (peerSymbol: string) => {
+    setSelectedChartPeers(prev => {
+      if (prev.includes(peerSymbol)) {
+        return prev.filter(p => p !== peerSymbol);
+      }
+      if (prev.length >= 3) {
+        // Optional: Show toast "Max 3 peers"
+        return prev;
+      }
+      return [...prev, peerSymbol];
+    });
+  };
 
   // Estados para FundamentalCard (Prop Drilling)
   const [stockRatios, setStockRatios] = useState<any>(null);
@@ -247,7 +261,7 @@ export default function StockTerminal() {
           <ChartsTabHistoricos
             symbol={selectedSymbol}
             companyName={stockBasicData?.companyName}
-            comparedSymbol={selectedCompetitor}
+            comparedSymbols={selectedChartPeers}
           />
         );
       case 'estimacion':
@@ -298,51 +312,44 @@ export default function StockTerminal() {
             {/* Layout principal responsivo */}
             <div className="grid grid-cols-1 xl:grid-cols-[55fr_45fr] gap-0 md:gap-1 items-start h-full">
               {/* Panel izquierdo */}
-              <div className="w-full xl:w-auto flex flex-col gap-0 min-h-0 h-full overflow-hidden">
-                {/* Top Section: 3/5 height (60%) */}
-                <div className="w-full flex flex-col h-[70%] min-h-0 shrink-0">
-                  <div className="flex-1 min-h-0 relative">
-                    <SectorAnalysisPanel onStockSelect={handleTopStockClick} />
-                  </div>
-                  <div className="w-full shrink-0">
-                    <OverviewCard
-                        selectedStock={selectedStock}
-                        stockConclusion={stockConclusion}
-                        onStockSearch={buscarDatosAccion}
-                        onOpenSearchModal={() => setIsSearchOpen(true)}
-                        isParentLoading={isLoading}
-                        analysisData={stockAnalysis}
-                      />
-                  </div>
-                  <div className="flex-1 min-h-0 relative">
-                    <PeersAnalysisPanel 
-                      symbol={selectedSymbol} 
-                      onPeerSelect={setSelectedCompetitor}
-                      selectedPeer={selectedCompetitor}
-                    />
-                  </div>
+              <div className="w-full xl:w-auto flex flex-col gap-1 min-h-0 h-full overflow-hidden">
+                {/* 1. Sector Analysis - 40% Fixed */}
+                <div className="h-[40%] shrink-0 min-h-0 relative border border-zinc-800">
+                  <SectorAnalysisPanel onStockSelect={handleTopStockClick} />
                 </div>
 
-                {/* Bottom Section: 2/5 height (40%) */}
-                <div className="w-full flex flex-col h-[30%] min-h-0 shrink-0">
-                  {/* <div className="w-full shrink-0">
-                    <OverviewCard
-                        selectedStock={selectedStock}
-                        stockConclusion={stockConclusion}
-                        onStockSearch={buscarDatosAccion}
-                        onOpenSearchModal={() => setIsSearchOpen(true)}
-                        isParentLoading={isLoading}
-                        analysisData={stockAnalysis}
-                      />
-                  </div> */}
+                {/* 2. Overview - Auto Height (Fixed) */}
+                <div className="shrink-0 w-full border border-zinc-800">
+                  <OverviewCard
+                      selectedStock={selectedStock}
+                      stockConclusion={stockConclusion}
+                      onStockSearch={buscarDatosAccion}
+                      onOpenSearchModal={() => setIsSearchOpen(true)}
+                      isParentLoading={isLoading}
+                      analysisData={stockAnalysis}
+                    />
+                </div>
 
-                  {/* Charts & Radar Row */}
-                  <div className="flex flex-col lg:flex-row w-full flex-1 min-h-0">
+                {/* 3. Peers - Flexible (Takes remaining space) */}
+                <div className="flex-1 min-h-0 relative border border-zinc-800">
+                  <PeersAnalysisPanel 
+                    symbol={selectedSymbol} 
+                    onPeerSelect={setSelectedCompetitor}
+                    selectedPeer={selectedCompetitor}
+                    chartPeers={selectedChartPeers}
+                    onToggleChartPeer={handleToggleChartPeer}
+                  />
+                </div>
+
+                {/* 4. Charts - 30% Fixed */}
+                <div className="h-[30%] shrink-0 min-h-0 pb-1">
+                  <div className="flex flex-col lg:flex-row w-full h-full gap-1">
                       {/* Chart 3/5 */}
                       <div className="w-full lg:w-3/5 h-full border border-zinc-800">
                           <ChartsTabHistoricos
                             symbol={selectedSymbol}
                             companyName={stockBasicData?.companyName}
+                            comparedSymbols={selectedChartPeers}
                           />
                       </div>
                       {/* Radar 2/5 */}
@@ -358,9 +365,9 @@ export default function StockTerminal() {
               </div>
 
               {/* Panel derecho */}
-              <div className="w-full xl:w-auto h-[calc(100vh-64px)] flex flex-col">
+              <div className="w-full xl:w-auto h-full flex flex-col overflow-hidden pb-1 gap-1">
                 {/* Mitad Superior: Navigation Bar y Contenido de Tabs */}
-                <div className="h-3/5 flex flex-col min-h-0 border-b border-white/5">
+                <div className="h-[60%] flex flex-col min-h-0 border border-zinc-800">
                   <div className="w-full flex items-center justify-between ">
                     <div className="flex-1">
                       <NavigationBar
@@ -378,7 +385,7 @@ export default function StockTerminal() {
                 </div>
 
                 {/* Mitad Inferior: Noticias */}
-                <div className="h-2/5 flex flex-col min-h-0">
+                <div className="flex-1 flex flex-col min-h-0 border border-zinc-800">
                   {/* <div className="p-2 border-b border-white/5 bg-white/[0.02]">
                     <h3 className="text-[#FFA028] font-medium text-center text-sm">Noticias</h3>
                   </div> */}
