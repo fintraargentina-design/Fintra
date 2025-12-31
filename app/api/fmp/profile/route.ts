@@ -31,22 +31,34 @@ export async function GET(req: Request) {
   const symbol = rawSymbol.toUpperCase();
 
   try {
-    // FMP: /stable/profile?symbol={symbol}
-    // NOTA: Para múltiples símbolos separados por coma, FMP prefiere el formato /v3/profile/AAPL,MSFT
-    // El endpoint /stable/profile?symbol=A,B a veces falla o devuelve solo el primero.
-    // Vamos a detectar si hay comas para usar el path v3 que soporta batch.
-    let endpointPath = '/stable/profile';
-    const params: Record<string, string> = { symbol };
+    // FMP: /v3/profile/{symbol} (Preferred)
+    // Supports batch requests (comma separated) and is the standard endpoint.
+    let endpointPath = `/api/v3/profile/${symbol}`;
+    const params: Record<string, string> = {};
 
+    // If symbol has commas, it works the same way in v3
     if (symbol.includes(',')) {
-       // Eliminar espacios alrededor de comas
        const cleanSymbol = symbol.split(',').map(s => s.trim()).filter(Boolean).join(',');
        endpointPath = `/api/v3/profile/${cleanSymbol}`;
-       // Al usar path param, no necesitamos query param symbol
-       delete params.symbol;
     }
 
-    const data = await fmpGet<any[]>(endpointPath, params);
+    let data: any[] = [];
+    try {
+        data = await fmpGet<any[]>(endpointPath, params);
+    } catch (err) {
+        console.warn(`[/api/fmp/profile] Primary endpoint ${endpointPath} failed:`, err);
+        // data remains []
+    }
+
+    // Fallback to stable endpoint if v3 returns empty/error for single symbol
+    if ((!data || data.length === 0) && !symbol.includes(',')) {
+        console.warn(`[/api/fmp/profile] No data from v3 for ${symbol}, trying /stable/profile...`);
+        try {
+            data = await fmpGet<any[]>('/stable/profile', { symbol });
+        } catch (fallbackErr) {
+            console.error("[/api/fmp/profile] Fallback failed:", fallbackErr);
+        }
+    }
 
     // Si no hay datos, no cachear por largo plazo para evitar guardar errores/vacíos
     if (!data || data.length === 0) {

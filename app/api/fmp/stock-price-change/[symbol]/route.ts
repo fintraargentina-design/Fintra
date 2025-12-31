@@ -9,9 +9,11 @@ export async function GET(
   { params }: { params: Promise<{ symbol: string }> }
 ) {
   try {
-    const symbol = (await params).symbol.toUpperCase();
+    const paramsData = await params;
+    const symbol = decodeURIComponent(paramsData.symbol).toUpperCase();
     
     // FMP: /stock-price-change/{symbol}
+    // Note: FMP supports batching for this endpoint with comma-separated symbols
     const data = await fmpGet<any[]>(
       `/api/v3/stock-price-change/${symbol}`
     );

@@ -94,19 +94,35 @@ export async function enrichStocksWithData(tickers: string[]): Promise<EnrichedS
       profiles.forEach((p: any) => profileMap.set(p.symbol, p));
     }
 
-    // 2. Fetch detailed data for each stock (YTD, Target) in parallel with limit
+    // 2. Fetch detailed data
+    // 2a. Batch fetch Price Change (optimization to reduce request count)
+    const priceChangeMap = new Map<string, any>();
+    try {
+        if (uniqueTickers.length > 0) {
+            const batchSymbol = uniqueTickers.join(',');
+            const priceChanges = await fmp.fetch<any[]>(`/stock-price-change/${batchSymbol}`).catch((err) => {
+                console.warn("Batch price change fetch failed:", err);
+                return [];
+            });
+            if (Array.isArray(priceChanges)) {
+                priceChanges.forEach((pc: any) => {
+                    if (pc.symbol) priceChangeMap.set(pc.symbol, pc);
+                });
+            }
+        }
+    } catch (e) {
+        console.error("Batch price change error:", e);
+    }
+
+    // 2b. Fetch Consensus (individual) and merge
     const detailedDataPromises = uniqueTickers.map(async (ticker) => {
       try {
-        // We use fetch directly to allow fail-safe
-        const [priceChange, consensus] = await Promise.all([
-           // FMP endpoints via client
-           fmp.fetch(`/stock-price-change/${ticker}`).catch(() => null) as Promise<any>,
-           fmp.priceTargetConsensus(ticker).catch(() => [])
-        ]);
+        const consensus = await fmp.priceTargetConsensus(ticker).catch(() => []);
+        const pc = priceChangeMap.get(ticker);
 
         return {
           ticker,
-          ytd_actual: priceChange?.[0]?.['ytd'] || 0,
+          ytd_actual: pc?.['ytd'] || 0,
           target: consensus?.[0]?.targetMedian || 0
         };
       } catch (e) {

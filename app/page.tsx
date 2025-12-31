@@ -29,7 +29,7 @@ import MarketHoursCard from '@/components/cards/MarketHoursCard';
 import IndicesTab from '@/components/tabs/IndicesTab';
 import { getLatestSnapshot, getEcosystemDetailed } from '@/lib/repository/fintra-db';
 
-export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'mercados' | 'indices';
+export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'mercados' | 'indices' | 'horarios';
 
 export default function StockTerminal() {
   const [selectedStock, setSelectedStock] = useState<string | { symbol: string }>('AAPL');
@@ -176,11 +176,11 @@ export default function StockTerminal() {
           } else {
              // Si no hay datos en DB, usar lo que venga de la API o mantener null para que EcosystemCard use sus mocks por defecto si se desea,
              // o setear null explícitamente.
-             setStockEcosystem(result.ecosystemData || null);
+             setStockEcosystem(result.ecosystemData ?? null);
           }
         } catch (dbErr) {
           console.error("Error fetching from Fintra DB:", dbErr);
-          setStockEcosystem(result.ecosystemData);
+          setStockEcosystem(result.ecosystemData ?? null);
         }
 
         setSelectedStock(result.basicData || sym); // mantiene objeto con {symbol} si viene
@@ -215,11 +215,6 @@ export default function StockTerminal() {
         return (
           <EcosystemCard 
             mainTicker={selectedSymbol}
-            mainImage={
-              typeof selectedStock === 'string' 
-                ? (stockBasicData?.image || '') 
-                : ('image' in selectedStock ? (selectedStock as any).image : stockBasicData?.image || '')
-            }
             suppliers={stockEcosystem?.suppliers}
             clients={stockEcosystem?.clients}
           />

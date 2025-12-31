@@ -8,6 +8,12 @@ import { Button } from "@/components/ui/button";
 import { fmp } from "@/lib/fmp/client";
 import type { ExchangeMarketHours } from "@/lib/fmp/types";
 
+// Extended type for internal use
+type ExtendedMarketHours = ExchangeMarketHours & {
+  displayName: string;
+  countryCode?: string;
+};
+
 // Mercados clave a mostrar y sus banderas/nombres amigables
 const KEY_MARKETS = [
   { id: "nyse", name: "New York Stock Exchange", label: "NYSE", country: "US" },
@@ -22,7 +28,7 @@ const KEY_MARKETS = [
 ];
 
 export default function MarketHoursCard() {
-  const [data, setData] = useState<ExchangeMarketHours[]>([]);
+  const [data, setData] = useState<ExtendedMarketHours[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -53,7 +59,7 @@ export default function MarketHoursCard() {
             displayName: k.label,
             countryCode: k.country
           };
-        }).filter(Boolean) as (ExchangeMarketHours & { displayName: string, countryCode: string })[];
+        }).filter(Boolean) as ExtendedMarketHours[];
 
         setData(filtered);
         setLastUpdated(new Date());

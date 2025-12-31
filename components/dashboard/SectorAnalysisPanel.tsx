@@ -7,36 +7,63 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { getHeatmapColor } from "@/lib/utils";
 import { enrichStocksWithData, EnrichedStockData } from "@/lib/services/stock-enrichment";
+import { getAvailableSectors, getTickersBySector } from "@/lib/repository/fintra-db";
 import { Loader2 } from "lucide-react";
 
-const SECTORS_MAP: Record<string, string[]> = {
-  "Technology": ["NVDA", "MSFT", "GOOGL", "AMD", "ORCL", "AAPL", "CRM", "ADBE", "CSCO", "INTC", "IBM", "QCOM"],
-  "Healthcare": ["LLY", "JNJ", "PFE", "UNH", "ABBV", "MRK", "TMO", "ABT", "AMGN", "BMY", "DHR"],
-  "Financials": ["JPM", "V", "MA", "BAC", "WFC", "GS", "MS", "C", "BLK", "AXP", "SPGI"],
-  "Energy": ["XOM", "CVX", "COP", "SLB", "EOG", "MPC", "BP", "SHEL", "TTE", "OXY", "KMI"],
-  "Materials": ["LIN", "APD", "FCX", "NEM", "SCCO", "SHW", "ECL", "DOW", "NUE", "PPG"],
-  "Consumer Disc.": ["AMZN", "TSLA", "HD", "MCD", "NKE", "SBUX", "LOW", "BKNG", "TJX", "TGT"],
-  "Consumer Staples": ["PG", "COST", "WMT", "KO", "PEP", "PM", "MO", "EL", "CL", "KMB"],
-  "Industrials": ["GE", "CAT", "HON", "UNP", "UPS", "BA", "LMT", "DE", "MMM", "ADP"],
-  "Utilities": ["NEE", "SO", "DUK", "SRE", "AEP", "D", "PEG", "ED", "XEL", "PCG"],
-  "Comm. Services": ["META", "GOOG", "NFLX", "DIS", "TMUS", "CMCSA", "VZ", "T", "CHTR", "WBD"]
-};
-
-const SECTORS = Object.keys(SECTORS_MAP);
-
 export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?: (symbol: string) => void }) {
-  const [selectedSector, setSelectedSector] = useState("Technology");
+  const [sectors, setSectors] = useState<string[]>([]);
+  const [selectedSector, setSelectedSector] = useState("");
   const [stocks, setStocks] = useState<EnrichedStockData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingSectors, setLoadingSectors] = useState(true);
   
+  // 1. Load sectors from DB
   useEffect(() => {
     let mounted = true;
     
+    const fetchSectors = async () => {
+      setLoadingSectors(true);
+      try {
+        const availableSectors = await getAvailableSectors();
+        if (mounted) {
+          if (availableSectors.length > 0) {
+            setSectors(availableSectors);
+            // Default to "Technology" if exists, otherwise first one
+            const defaultSector = availableSectors.find(s => s === "Technology") || availableSectors[0];
+            setSelectedSector(defaultSector);
+          } else {
+             setSectors([]);
+          }
+        }
+      } catch (err) {
+        console.error("Error loading sectors:", err);
+      } finally {
+        if (mounted) setLoadingSectors(false);
+      }
+    };
+    
+    fetchSectors();
+    
+    return () => { mounted = false; };
+  }, []);
+
+  // 2. Load stocks when sector changes
+  useEffect(() => {
+    let mounted = true;
+    if (!selectedSector) return;
+    
     const fetchData = async () => {
       setLoading(true);
-      const tickers = SECTORS_MAP[selectedSector] || [];
       
       try {
+        // Fetch tickers from DB for this sector
+        const tickers = await getTickersBySector(selectedSector);
+        
+        if (tickers.length === 0) {
+             if (mounted) setStocks([]);
+             return;
+        }
+
         const enriched = await enrichStocksWithData(tickers);
         if (mounted) {
           // Sort by FGOS by default
@@ -72,13 +99,29 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
     return val.toFixed(0);
   };
 
+  if (loadingSectors) {
+      return (
+        <div className="w-full h-full flex items-center justify-center bg-tarjetas text-gray-400 text-xs">
+            <Loader2 className="w-4 h-4 animate-spin mr-2" /> Cargando sectores...
+        </div>
+      );
+  }
+
+  if (sectors.length === 0) {
+      return (
+        <div className="w-full h-full flex items-center justify-center bg-tarjetas text-gray-400 text-xs">
+            No hay datos sectoriales disponibles.
+        </div>
+      );
+  }
+
   return (
     <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden shadow-sm">
-      <Tabs defaultValue="Technology" onValueChange={setSelectedSector} className="w-full h-full flex flex-col">
+      <Tabs value={selectedSector} onValueChange={setSelectedSector} className="w-full h-full flex flex-col">
         <div className="w-full border-b border-zinc-800 bg-transparent z-10 shrink-0">
           <div className="w-full overflow-x-auto scrollbar-thin whitespace-nowrap">
             <TabsList className="bg-transparent h-auto p-0 flex min-w-full w-max gap-0.5 border-b-2 border-black ">
-              {SECTORS.map((sector) => (
+              {sectors.map((sector) => (
                 <TabsTrigger 
                   key={sector} 
                   value={sector} 

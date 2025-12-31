@@ -9,7 +9,7 @@ export async function getLatestSnapshot(symbol: string): Promise<FintraSnapshotD
   // Incluimos las nuevas columnas JSONB en la selección
   const { data, error } = await supabase
     .from('fintra_snapshots')
-    .select('id, ticker, fgos_score, ecosystem_score, valuation_status, valuation_score, verdict_text, calculated_at, fgos_breakdown')
+    .select('id, ticker, fgos_score, valuation_status, valuation_score, verdict_text, calculated_at, fgos_breakdown')
     .eq('ticker', symbol)
     .order('calculated_at', { ascending: false })
     .limit(1)
@@ -27,7 +27,7 @@ export async function getLatestSnapshot(symbol: string): Promise<FintraSnapshotD
     date: data.calculated_at,
     fgos_score: data.fgos_score,
     fgos_breakdown: data.fgos_breakdown,
-    ecosystem_score: data.ecosystem_score,
+    // ecosystem_score removed as it is now in fintra_ecosystem_reports
     valuation_score: data.valuation_score ?? 50,
     valuation_status: data.valuation_status,
     verdict_text: data.verdict_text ?? "N/A"
@@ -100,26 +100,66 @@ export async function saveEcosystemReport(data: {
 }
 
 /**
+ * Obtiene la lista de sectores disponibles en fintra_snapshots.
+ */
+export async function getAvailableSectors(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('fintra_snapshots')
+    .select('sector');
+
+  if (error) {
+    console.error('Error fetching sectors:', error);
+    return [];
+  }
+
+  // Filtrar nulos y obtener únicos
+  const sectors = Array.from(new Set(data.map((item: any) => item.sector)))
+    .filter((s): s is string => typeof s === 'string' && s.length > 0)
+    .sort();
+    
+  return sectors;
+}
+
+/**
+ * Obtiene los tickers asociados a un sector específico desde fintra_snapshots.
+ */
+export async function getTickersBySector(sector: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('fintra_snapshots')
+    .select('ticker')
+    .eq('sector', sector);
+
+  if (error) {
+    console.error(`Error fetching tickers for sector ${sector}:`, error);
+    return [];
+  }
+
+  // Filtrar nulos y duplicados
+  const tickers = Array.from(new Set(data.map((item: any) => item.ticker)))
+    .filter((t): t is string => typeof t === 'string' && t.length > 0);
+    
+  return tickers;
+}
+
+/**
  * Obtiene el detalle del ecosistema (Ahora soporta modo Legacy Relacional y Nuevo JSONB).
  * Prioriza el uso de JSONB si existe en la snapshot.
  */
 export async function getEcosystemDetailed(symbol: string): Promise<{ suppliers: any[], clients: any[] }> {
   
-  // 1. Intentar obtener desde Snapshot (JSONB) - La fuente de verdad moderna
-  const snapshot = await getLatestSnapshot(symbol);
+  // 1. Intentar obtener desde fintra_ecosystem_reports (Nueva fuente de verdad)
+  const report = await getLatestEcosystemReport(symbol);
   
-  if (snapshot?.ecosystem_data) {
+  if (report?.data) {
     // Si tenemos datos JSONB, los devolvemos directamente
-    // Mapeamos a estructura compatible con UI si es necesario, 
-    // pero idealmente la UI consumirá EcoNodeJSON directamente.
     return {
-      suppliers: snapshot.ecosystem_data.suppliers || [],
-      clients: snapshot.ecosystem_data.clients || []
+      suppliers: report.data.suppliers || [],
+      clients: report.data.clients || []
     };
   }
 
-  // 2. Fallback: Modelo Relacional Legacy (Si no hay JSONB)
-  console.log(`[getEcosystemDetailed] No JSONB data for ${symbol}, falling back to legacy relational fetch.`);
+  // 2. Fallback: Modelo Relacional Legacy (Si no hay reporte nuevo)
+  console.log(`[getEcosystemDetailed] No ecosystem report for ${symbol}, falling back to legacy relational fetch.`);
   
   const { data: relations, error: relError } = await supabase
     .from('fintra_ecosystem_relations')
@@ -129,9 +169,6 @@ export async function getEcosystemDetailed(symbol: string): Promise<{ suppliers:
   if (relError || !relations) {
     return { suppliers: [], clients: [] };
   }
-
-  // ... (Lógica legacy de enriquecimiento mantenida para compatibilidad hacia atrás si es necesaria)
-  // Simplificada para este ejemplo, asumiendo que migraremos todo a JSONB.
   
   return {
     suppliers: relations.filter((r: any) => r.relation_type === 'SUPPLIER'),

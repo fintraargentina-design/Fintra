@@ -3,13 +3,13 @@ import { NextResponse } from 'next/server';
 
 // Configuración para Vercel
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300; // 5 minutos
+export const maxDuration = 300; 
 
 // LISTA TOP 10 LÍDERES POR SECTOR (GICS)
 // Total: 110 Tickers (Optimizado para Cron Job rápido)
 const WATCHLIST_MVP = [
   // 1. Technology
-  'AAPL', /* 'MSFT', 'NVDA', 'AVGO', 'ORCL', 'CRM', 'ADBE', 'AMD', 
+  'AAPL', 'MSFT', 'NVDA', 'AVGO', 'ORCL', 'CRM', 'ADBE', 'AMD', 
 
   // 2. Communication Services
   'GOOGL', 'META', 'NFLX', 'DIS', 'CMCSA', 'TMUS', 'VZ', 'T', 
@@ -39,7 +39,7 @@ const WATCHLIST_MVP = [
   'PLD', 'AMT', 'EQIX', 'CCI', 'O', 'SPG', 'PSA', 'DLR', 
 
   // 11. Utilities
-  'NEE', 'SO', 'DUK', 'SRE', 'AEP', 'D', 'PEG', 'EXC',  */
+  'NEE', 'SO', 'DUK', 'SRE', 'AEP', 'D', 'PEG', 'EXC', 
 ];
 
 export async function GET() {
@@ -56,11 +56,11 @@ export async function GET() {
   });
 
   const results = { success: [] as string[], failed: [] as string[] };
-  console.log(`🚀 Iniciando Cron Job MASSIVE para ${WATCHLIST_MVP.length} acciones...`);
+  console.log(`🚀 Iniciando Cron Job LIMPIO...`);
 
   for (const symbol of WATCHLIST_MVP) {
     try {
-      // 1. OBTENER DATOS (Agregamos 'profile' para obtener el Sector)
+      // 1. OBTENER DATOS
       const [quoteRes, ratiosRes, growthRes, profileRes] = await Promise.all([
         fetch(`https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${fmpKey}`),
         fetch(`https://financialmodelingprep.com/api/v3/ratios-ttm/${symbol}?apikey=${fmpKey}`),
@@ -79,15 +79,14 @@ export async function GET() {
         continue; 
       }
 
-      // Extraemos métricas
       const q = quoteData[0];
       const r = ratiosData[0];
       const g = growthData[0] || {};
-      const p = profileData?.[0] || {}; // Datos de perfil (Sector)
+      const p = profileData?.[0] || {};
 
       const price = q.price;
       const priceAvg200 = q.priceAvg200 || price;
-      const sector = p.sector || 'Unknown'; // <-- Extraemos el sector aquí
+      const sector = p.sector || 'Unknown';
       
       const pe = r.priceEarningsRatioTTM || 0;
       const roe = r.returnOnEquityTTM || 0;
@@ -96,9 +95,7 @@ export async function GET() {
       const grossMargin = r.grossProfitMarginTTM || 0;
       const revGrowth = g.revenueGrowth || 0;
 
-      // -------------------------------------------------------
       // 2. CÁLCULO DE SCORES (FGOS)
-      // -------------------------------------------------------
       const scoreProfit = Math.min(100, Math.max(0, (roe * 100) * 5)); 
       const scoreSolvency = Math.min(100, Math.max(0, 100 - (debtToEquity * 30)));
       const scoreEfficiency = Math.min(100, Math.max(0, (netMargin * 100) * 4));
@@ -135,30 +132,27 @@ export async function GET() {
          valuationStatus = 'Pérdidas (Sin PE)';
       }
 
-      // Veredicto
       let verdict = "Neutral";
       if (finalFgos > 75 && valuationStatus === 'Infravalorada') verdict = "Oportunidad de Calidad";
       else if (finalFgos > 80) verdict = "Calidad (Hold)";
       else if (finalFgos < 40) verdict = "Alto Riesgo";
       else if (valuationStatus === 'Sobrevalorada') verdict = "Cara / Esperar";
 
-      // 3. UPSERT A SUPABASE (Incluyendo Sector)
+      // 3. UPSERT LIMPIO (Sin ecosystem_*)
       const { error } = await supabase.from('fintra_snapshots').upsert({
         ticker: symbol,
         date: new Date().toISOString().split('T')[0],
         
-        // Scores
+        // Datos Core
         fgos_score: finalFgos,
         fgos_breakdown: fgosBreakdown,
         valuation_score: Math.round(valuationScore),
         valuation_status: valuationStatus,
         verdict_text: verdict,
-        
-        // Nuevos Campos
-        sector: sector, // <-- Guardamos el sector
+        sector: sector,
         pe_ratio: pe,
-        ecosystem_score: 50, // Placeholder hasta que corra el análisis de ecosistema real
         
+        // Metadatos
         calculated_at: new Date().toISOString()
       }, { onConflict: 'ticker, date' });
 
