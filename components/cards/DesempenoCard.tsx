@@ -61,8 +61,14 @@ export default function DesempenoCard({ symbol }: { symbol: string }) {
     setLoading(true);
     
     fmp.performance(symbol, 'force-cache')
-      .then((d) => { if (alive) setData(d); })
-      .catch(() => { if (alive) setData(null); })
+      .then((d) => { 
+        console.log(`[DesempenoCard] Data received for ${symbol}:`, d);
+        if (alive) setData(d); 
+      })
+      .catch((err) => { 
+        console.error(`[DesempenoCard] Error fetching for ${symbol}:`, err);
+        if (alive) setData(null); 
+      })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [symbol]);
@@ -88,6 +94,7 @@ export default function DesempenoCard({ symbol }: { symbol: string }) {
   };
 
   const performanceMetrics = buildPerformanceMetrics();
+  console.log(`[DesempenoCard] Metrics built for ${symbol}:`, performanceMetrics);
 
   const getHeatmapColor = (score: number) => {
     if (score >= 90) return "#008000"; 

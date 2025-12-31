@@ -44,8 +44,14 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
     let alive = true;
     setLoading(true);
     fmp.dividends(symbol, 'force-cache')
-      .then((d) => { if (alive) setData(d); })
-      .catch(() => { if (alive) setData(null); })
+      .then((d) => { 
+        console.log(`[DividendosCard] Data received for ${symbol}:`, d);
+        if (alive) setData(d); 
+      })
+      .catch((err) => { 
+        console.error(`[DividendosCard] Error fetching for ${symbol}:`, err);
+        if (alive) setData(null); 
+      })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [symbol]);

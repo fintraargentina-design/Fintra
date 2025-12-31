@@ -321,7 +321,10 @@ export default function FundamentalCard({
           currentMetrics = k?.[0] || {};
         }
 
+        console.log(`[FundamentalCard] Inputs for ${symbol}:`, { currentRatios, currentMetrics, growthData });
+
         const fullRows = buildMetricRows(currentRatios, currentMetrics, growthData, cfItems);
+        console.log(`[FundamentalCard] Rows built for ${symbol}:`, fullRows);
         setRows(fullRows);
       
       } catch (err) {

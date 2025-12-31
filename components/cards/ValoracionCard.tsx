@@ -197,6 +197,7 @@ export default function ValoracionCard({ symbol, period = "ttm", ratiosData }: {
 
 
   useEffect(() => {
+    console.log(`[ValoracionCard] Effect triggered for ${symbol} period=${period}`);
     // Lógica híbrida: si tenemos datos por props, usarlos directamente
     if (ratiosData) {
       try {

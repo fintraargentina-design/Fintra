@@ -40,7 +40,7 @@ export default function StockTerminal() {
   const [stockEcosystem, setStockEcosystem] = useState<StockEcosystem | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<TabKey>('ecosistema');
+  const [activeTab, setActiveTab] = useState<TabKey>('mercados');
   const [user, setUser] = useState<any>(null);
   const [stockConclusion, setStockConclusion] = useState<any>(null);
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
