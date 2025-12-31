@@ -46,7 +46,7 @@ async function checkData() {
     const incomeGrowth = await fmp.incomeStatementGrowth(symbol, { period: "annual", limit: 3 });
     console.log("Income Growth Length:", Array.isArray(incomeGrowth) ? incomeGrowth.length : "Not array");
     if (Array.isArray(incomeGrowth) && incomeGrowth.length > 0) {
-        console.log("Sample Growth Revenue:", incomeGrowth[0].growthRevenue);
+        console.log("Sample Growth Revenue:", incomeGrowth[0].revenueGrowth);
     }
 
   } catch (err) {

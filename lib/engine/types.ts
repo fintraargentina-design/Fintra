@@ -39,6 +39,7 @@ export interface FintraSnapshotDB {
   
   // Campos Ecosistema (Referencia o Score resumen)
   ecosystem_score?: number;
+  ecosystem_data?: EcosystemDataJSON;
   
   // Legacy / Otros
   valuation_status?: string;
@@ -59,4 +60,25 @@ export interface EcosystemRelationDB {
   partner_valuation?: number;
   partner_ehs?: number;
   partner_verdict?: string;
+}
+
+// --- TIPOS PARA EL CÁLCULO DE FGOS (Brain) ---
+
+export interface FgosBreakdown {
+  growth: number;
+  profitability: number;
+  efficiency: number;
+  solvency: number;
+  moat: number;
+  sentiment: number;
+}
+
+export interface FgosResult {
+  ticker: string;
+  fgos_score: number;
+  fgos_breakdown: FgosBreakdown;
+  valuation_status: string;
+  ecosystem_score: number;
+  calculated_at: string;
+  price: number;
 }
