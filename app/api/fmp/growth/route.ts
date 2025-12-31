@@ -12,7 +12,7 @@ const QuerySchema = z.object({
     .string()
     .trim()
     .min(1, "symbol requerido")
-    .regex(/^[A-Z.\-]+$/i, "símbolo inválido") // ✅ regex ANTES de transform
+    .regex(/^[A-Z0-9.\-\^]+$/i, "símbolo inválido") // ✅ regex ANTES de transform
     .transform((s) => s.toUpperCase()),
   period: z.enum(["annual", "quarter"]).default("annual"),
   limit: z.coerce.number().int().positive().max(40).default(5),
