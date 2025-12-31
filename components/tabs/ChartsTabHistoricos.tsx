@@ -64,6 +64,31 @@ const VIEWS = [
 ] as const;
 type View = typeof VIEWS[number]["key"];
 
+const INDEX_NAMES: Record<string, string> = {
+  '^GSPC': 'S&P 500',
+  '^IXIC': 'Nasdaq',
+  '^DJI': 'Dow Jones',
+  '^GSPTSE': 'S&P/TSX',
+  '^FTSE': 'FTSE 100',
+  '^GDAXI': 'DAX',
+  '^FCHI': 'CAC 40',
+  '^SSMI': 'SMI',
+  '^AEX': 'AEX',
+  '^N225': 'Nikkei 225',
+  '^HSI': 'Hang Seng',
+  '000001.SS': 'SSE Composite',
+  '^BSESN': 'BSE SENSEX',
+  '^AXJO': 'ASX 200',
+  '^BVSP': 'IBOVESPA',
+  'BTCUSD': 'Bitcoin',
+  'EURUSD': 'EUR/USD',
+  '^RUT': 'Russell 2000',
+  '^VIX': 'VIX',
+  '^TNX': '10-Year Treasury',
+};
+
+const getLabel = (symbol: string) => INDEX_NAMES[symbol] || symbol;
+
 export default function ChartsTabHistoricos({
   symbol,
   companyName,
@@ -286,7 +311,7 @@ export default function ChartsTabHistoricos({
     const commonOptions = {
       backgroundColor: "transparent",
       animation: false,
-      grid: { left: '1%', right: '7%', top: '5%', bottom: '12%', containLabel: true },
+      grid: { left: '1%', right: '10%', top: '5%', bottom: '12%', containLabel: true },
       dataZoom: [{ type: 'inside', realtime: true, start: 0, end: 100 }],
       legend: { 
         bottom: 0, 
@@ -297,7 +322,7 @@ export default function ChartsTabHistoricos({
         itemWidth: 12,
         textStyle: { color: "#9ca3af" },
         // Mapeamos 'primary' al símbolo real para la leyenda
-        data: [symbol, ...otherKeys] 
+        data: [getLabel(symbol), ...otherKeys.map(getLabel)] 
       },
       tooltip: {
         trigger: 'axis',
@@ -347,7 +372,7 @@ export default function ChartsTabHistoricos({
 
       // Main Series (Stock) -> Axis 0
       series.push({
-        name: symbol,
+        name: getLabel(symbol),
         type: 'line',
         yAxisIndex: 0,
         showSymbol: false,
@@ -367,7 +392,7 @@ export default function ChartsTabHistoricos({
       otherKeys.forEach((key, idx) => {
         const isBenchmark = key === benchmarkTicker;
         series.push({
-          name: key,
+          name: getLabel(key),
           type: 'line',
           yAxisIndex: isBenchmark ? 1 : 0, // Benchmark al eje secundario
           showSymbol: false,
@@ -393,7 +418,7 @@ export default function ChartsTabHistoricos({
 
       // Main
       series.push({
-        name: symbol,
+        name: getLabel(symbol),
         type: 'line',
         showSymbol: false,
         connectNulls: false,
@@ -407,7 +432,7 @@ export default function ChartsTabHistoricos({
       otherKeys.forEach((key, idx) => {
         const isBenchmark = key === benchmarkTicker;
         series.push({
-          name: key,
+          name: getLabel(key),
           type: 'line',
           showSymbol: false,
           connectNulls: false,
@@ -438,7 +463,7 @@ export default function ChartsTabHistoricos({
 
       // Main DD
       series.push({
-        name: symbol,
+        name: getLabel(symbol),
         type: 'line',
         showSymbol: false,
         connectNulls: false,
@@ -452,7 +477,7 @@ export default function ChartsTabHistoricos({
       otherKeys.forEach((key, idx) => {
         const isBenchmark = key === benchmarkTicker;
         series.push({
-          name: key,
+          name: getLabel(key),
           type: 'line',
           showSymbol: false,
           connectNulls: false,

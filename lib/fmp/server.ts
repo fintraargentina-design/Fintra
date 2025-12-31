@@ -114,6 +114,7 @@ export async function fmpGet<T>(
   }
   
   const url = buildUrl(path, query);
+  console.log(`[FMP DEBUG] Fetching (Global Key): ${maskApiKey(url)}`); // Debug log
 
   const res = await fetchWithRetry(
     url,

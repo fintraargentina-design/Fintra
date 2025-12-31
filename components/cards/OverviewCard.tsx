@@ -31,13 +31,11 @@ import {
 import { fmp } from "@/lib/fmp/client";
 import { getLatestSnapshot } from "@/lib/repository/fintra-db";
 import { FintraSnapshotDB } from "@/lib/engine/types";
-import { getConclusionColors } from "@/lib/conclusionColors";
 import { useResponsive } from "@/hooks/use-responsive";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface OverviewCardProps {
   selectedStock: any; // string ("AAPL") o { symbol: "AAPL", ... }
-  stockConclusion?: any;
   onStockSearch?: (symbol: string) => Promise<any> | any;
   onOpenSearchModal?: () => void;
   isParentLoading?: boolean; // Nueva prop para el estado de carga del padre
@@ -142,11 +140,10 @@ function formatPercentage(value?: number) {
 
 export default function OverviewCard({
   selectedStock,
-  stockConclusion,
   onStockSearch,
   onOpenSearchModal,
-  isParentLoading,
-  analysisData,
+  isParentLoading = false,
+  analysisData
 }: OverviewCardProps) {
   // Primero declarar TODOS los hooks
   const { isMobile, isTablet } = useResponsive();
@@ -429,10 +426,6 @@ export default function OverviewCard({
       setSearchError(null);
     }
   };
-
-  // análisis IA
-  const conclusion = stockConclusion?.conclusion?.Conclusión;
-  const colors = getConclusionColors(conclusion);
 
   // AHORA sí podemos hacer returns condicionales basados en estado
   if ((loading || isParentLoading) && !data.symbol) {

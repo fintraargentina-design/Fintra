@@ -10,16 +10,16 @@ import { enrichStocksWithData, EnrichedStockData } from "@/lib/services/stock-en
 import { Loader2 } from "lucide-react";
 
 const SECTORS_MAP: Record<string, string[]> = {
-  "Technology": ["NVDA", "MSFT", "GOOGL", "AMD", "ORCL", "AAPL"],
-  "Healthcare": ["LLY", "JNJ", "PFE", "UNH", "ABBV", "MRK"],
-  "Financials": ["JPM", "V", "MA", "BAC", "WFC", "GS"],
-  "Energy": ["XOM", "CVX", "COP", "SLB", "EOG", "MPC"],
-  "Materials": ["LIN", "APD", "FCX", "NEM", "SCCO", "SHW"],
-  "Consumer Disc.": ["AMZN", "TSLA", "HD", "MCD", "NKE", "SBUX"],
-  "Consumer Staples": ["PG", "COST", "WMT", "KO", "PEP", "PM"],
-  "Industrials": ["GE", "CAT", "HON", "UNP", "UPS", "BA"],
-  "Utilities": ["NEE", "SO", "DUK", "SRE", "AEP", "D"],
-  "Comm. Services": ["META", "GOOG", "NFLX", "DIS", "TMUS", "CMCSA"]
+  "Technology": ["NVDA", "MSFT", "GOOGL", "AMD", "ORCL", "AAPL", "CRM", "ADBE", "CSCO", "INTC", "IBM", "QCOM"],
+  "Healthcare": ["LLY", "JNJ", "PFE", "UNH", "ABBV", "MRK", "TMO", "ABT", "AMGN", "BMY", "DHR"],
+  "Financials": ["JPM", "V", "MA", "BAC", "WFC", "GS", "MS", "C", "BLK", "AXP", "SPGI"],
+  "Energy": ["XOM", "CVX", "COP", "SLB", "EOG", "MPC", "BP", "SHEL", "TTE", "OXY", "KMI"],
+  "Materials": ["LIN", "APD", "FCX", "NEM", "SCCO", "SHW", "ECL", "DOW", "NUE", "PPG"],
+  "Consumer Disc.": ["AMZN", "TSLA", "HD", "MCD", "NKE", "SBUX", "LOW", "BKNG", "TJX", "TGT"],
+  "Consumer Staples": ["PG", "COST", "WMT", "KO", "PEP", "PM", "MO", "EL", "CL", "KMB"],
+  "Industrials": ["GE", "CAT", "HON", "UNP", "UPS", "BA", "LMT", "DE", "MMM", "ADP"],
+  "Utilities": ["NEE", "SO", "DUK", "SRE", "AEP", "D", "PEG", "ED", "XEL", "PCG"],
+  "Comm. Services": ["META", "GOOG", "NFLX", "DIS", "TMUS", "CMCSA", "VZ", "T", "CHTR", "WBD"]
 };
 
 const SECTORS = Object.keys(SECTORS_MAP);
@@ -144,7 +144,8 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                     {stock.divYield ? `${stock.divYield.toFixed(2)}%` : '-'}
                   </TableCell>
                   <TableCell 
-                    className={`text-center px-2 py-0.5 text-[10px] font-medium ${stock.estimation > 0 ? 'text-green-400' : 'text-red-400'}`}
+                    className="text-center px-2 py-0.5 text-[10px] font-medium text-white"
+                    style={{ backgroundColor: getHeatmapColor(stock.estimation) }}
                   >
                     {stock.estimation ? `${stock.estimation > 0 ? '+' : ''}${stock.estimation.toFixed(1)}%` : '-'}
                   </TableCell>

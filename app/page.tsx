@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { StockEcosystem } from '@/lib/fmp/types';
-import { StockData, StockAnalysis, StockPerformance, StockReport, searchStockData, getStockConclusionData } from '@/lib/stockQueries';
+import { StockData, StockAnalysis, StockPerformance, searchStockData } from '@/lib/stockQueries';
 import NavigationBar from '@/components/layout/NavigationBar';
 import DatosTab from '@/components/tabs/DatosTab';
 import ChartsTabHistoricos from '@/components/tabs/ChartsTabHistoricos';
@@ -11,7 +11,6 @@ import MetodologiaTab from '../components/tabs/MetodologiaTab';
 import { supabase, registerStockSearch } from '@/lib/supabase';
 import { fmp } from '@/lib/fmp/client';
 import EcosystemCard from '@/components/cards/EcosystemCard';
-import ConclusionRapidaCard from '@/components/cards/ConclusionRapidaCard';
 import CompetidoresCard from '@/components/cards/CompetidoresCard';
 import OverviewCard from '@/components/cards/OverviewCard';
 import EstimacionCard from '@/components/cards/EstimacionCard';
@@ -26,6 +25,7 @@ import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
 import StockSearchModal from '@/components/modals/StockSearchModal';
 import EstimacionTab from '@/components/tabs/EstimacionTab';
 import MercadosTab from '@/components/tabs/MercadosTab';
+import MarketHoursCard from '@/components/cards/MarketHoursCard';
 import IndicesTab from '@/components/tabs/IndicesTab';
 import { getLatestSnapshot, getEcosystemDetailed } from '@/lib/repository/fintra-db';
 
@@ -36,13 +36,11 @@ export default function StockTerminal() {
   const [stockBasicData, setStockBasicData] = useState<StockData | null>(null);
   const [stockAnalysis, setStockAnalysis] = useState<StockAnalysis | null>(null);
   const [stockPerformance, setStockPerformance] = useState<StockPerformance | null>(null);
-  const [stockReport, setStockReport] = useState<StockReport | null>(null);
   const [stockEcosystem, setStockEcosystem] = useState<StockEcosystem | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<TabKey>('mercados');
   const [user, setUser] = useState<any>(null);
-  const [stockConclusion, setStockConclusion] = useState<any>(null);
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
@@ -97,9 +95,7 @@ export default function StockTerminal() {
     setStockBasicData(null);
     setStockAnalysis(null);
     setStockPerformance(null);
-    setStockReport(null);
     setStockEcosystem(null);
-    setStockConclusion(null);
     // Opcional: limpiar también competidor seleccionado si se desea
     // setSelectedCompetitor(null); 
 
@@ -136,7 +132,6 @@ export default function StockTerminal() {
         setStockBasicData(result.basicData || null);
         setStockAnalysis(result.analysisData || null);
         setStockPerformance(result.performanceData || null);
-        setStockReport(result.reportData || null);
         // setStockEcosystem(result.ecosystemData);
 
         // --- INTEGRACIÓN FINTRA DB ---
@@ -189,9 +184,6 @@ export default function StockTerminal() {
         }
 
         setSelectedStock(result.basicData || sym); // mantiene objeto con {symbol} si viene
-
-        const conclusionData = await getStockConclusionData(sym);
-        setStockConclusion(conclusionData);
       } else {
         const errorMessage = result.error || 'Error al buscar datos';
         setError(errorMessage);
@@ -238,7 +230,6 @@ export default function StockTerminal() {
             stockAnalysis={stockAnalysis}
             stockPerformance={stockPerformance}
             stockBasicData={stockBasicData}
-            stockReport={stockReport}
             symbol={selectedSymbol}
             ratios={stockRatios}
             metrics={stockMetrics}
@@ -260,14 +251,10 @@ export default function StockTerminal() {
         );
       case 'mercados':
         return <MercadosTab />;
+      case 'horarios':
+        return <MarketHoursCard />;
       default:
-        return (
-          <ConclusionRapidaCard
-            stockBasicData={stockBasicData}
-            stockAnalysis={stockAnalysis}
-            stockConclusion={stockConclusion}
-          />
-        );
+        return null;
     }
   };
 
@@ -310,7 +297,6 @@ export default function StockTerminal() {
                 <div className="shrink-0 w-full border border-zinc-800">
                   <OverviewCard
                       selectedStock={selectedStock}
-                      stockConclusion={stockConclusion}
                       onStockSearch={buscarDatosAccion}
                       onOpenSearchModal={() => setIsSearchOpen(true)}
                       isParentLoading={isLoading}

@@ -80,6 +80,11 @@ async function directFetcher<T>(path: string, { params = {}, cache }: GetOpts = 
       query.symbol = requireSymbol();
       break;
 
+    case "/price-target-consensus":
+      fmpPath = `/v4/price-target-consensus`;
+      query.symbol = requireSymbol();
+      break;
+
     default:
       // Fallback generic mapping
       console.warn(`[fmpDirect] Unhandled path mapping: ${path}, trying generic /stable.`);

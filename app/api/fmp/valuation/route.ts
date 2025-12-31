@@ -103,8 +103,26 @@ export async function GET(req: NextRequest) {
       const ratios = await fmpGet<any[]>(`/api/v3/ratios/${symbol}`, { limit: 1, period });
       r = Array.isArray(ratios) && ratios.length ? ratios[0] : {};
     }// Growth (sin TTM en API): usa annual/quarter según periodo
-    const growthPeriod = period === "ttm" ? "annual" : period;
-    const growth = await fmpGet<any[]>(`/api/v3/financial-growth/${symbol}`, { period: growthPeriod, limit: 5 });
+    let growth: any[] = [];
+    if (["Q1", "Q2", "Q3", "Q4", "quarter"].includes(period)) {
+      const rawGrowth = await fmpGet<any[]>(`/api/v3/financial-growth/${symbol}`, { period: "quarter", limit: 8 });
+      if (["Q1", "Q2", "Q3", "Q4"].includes(period)) {
+        // Filtrar por el trimestre específico
+        const want = period;
+        const filtered = (Array.isArray(rawGrowth) ? rawGrowth : []).filter((node) => {
+          const d = String(node?.date || "");
+          const m = Number(d.slice(5, 7));
+          const q = m >= 1 && m <= 3 ? "Q1" : m <= 6 ? "Q2" : m <= 9 ? "Q3" : "Q4";
+          return q === want;
+        });
+        growth = filtered;
+      } else {
+        growth = Array.isArray(rawGrowth) ? rawGrowth : [];
+      }
+    } else {
+      // annual, FY, ttm (fallback to annual for growth)
+      growth = await fmpGet<any[]>(`/api/v3/financial-growth/${symbol}`, { period: "annual", limit: 5 });
+    }
 
     // Nuevo: fallback de forward P/E usando crecimiento de EPS
     const peValue = num(r?.priceEarningsRatio ?? r?.priceEarningsRatioTTM ?? r?.peRatioTTM);

@@ -235,6 +235,18 @@ export type MarketHours = {
   closingHour: string;
   isTheStockMarketOpen: boolean;
 };
+
+export type ExchangeMarketHours = {
+  name: string;
+  openingHour: string;
+  closingHour: string;
+  timezone: string;
+  isMarketOpen: boolean;
+  openingAdditional?: string;
+  closingAdditional?: string;
+  exchange?: string;
+};
+
 export type SearchResult = {
   symbol: string;
   name: string;
@@ -246,6 +258,15 @@ export type SearchResult = {
 export type SearchResponse = SearchResult[];
 
 export type MarketHoursResponse = Record<string, MarketHours>;
+export type AllMarketHoursResponse = ExchangeMarketHours[];
+
+export type PriceTargetConsensus = {
+  symbol: string;
+  targetHigh: number;
+  targetLow: number;
+  targetConsensus: number;
+  targetMedian: number;
+};
 
 export type StockData = {
   symbol: string;

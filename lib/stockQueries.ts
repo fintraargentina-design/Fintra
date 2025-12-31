@@ -2,8 +2,7 @@ import { supabase } from './supabase';
 import { fmp } from './fmp/client';
 import type { StockData as FMPStockData } from './fmp/types';
 
-export { supabase, registerStockSearch, getStockProyecciones } from './supabase';
-export type { StockProyeccionRow } from './supabase';
+export { supabase, registerStockSearch } from './supabase';
 
 // Interfaces para los tipos de datos
 export interface StockData extends FMPStockData {
@@ -67,318 +66,85 @@ export interface StockPerformance {
   [key: string]: any;
 }
 
-// Nueva interfaz para los datos del informe
-export interface StockReport {
-  symbol: string;
-  analisisFundamental?: any;
-  analisisCualitativo?: any;
-  analisisValoracion?: any;
-  analisisDividendos?: any;
-  analisisDesempeno?: any;
-  [key: string]: any;
-}
-
 // Función principal para buscar todos los datos de una acción
 export async function searchStockData(symbol: string) {
   try {
-    // Buscar en Supabase primero
-    const { data: datosData, error: datosError } = await supabase
-      .from('datos_accion')
-      .select(`symbol, fecha_de_creacion, datos`)
-      .eq('symbol', symbol.toUpperCase())
-      .order('fecha_de_creacion', { ascending: false })
-      .limit(1)
-      .single();
-
-    // Si no se encuentra en Supabase, buscar en APIs externas
-    if (datosError && datosError.code === 'PGRST116') {
-      console.log(`Ticker ${symbol} no encontrado en Supabase, buscando en APIs externas...`);
-      
-      try {
-        // Usar SOLO el cliente FMP que llama a /api/fmp/*
-        const profileData = await fmp.profile(symbol);
-        
-        if (profileData && profileData.length > 0) {
-          const profile = profileData[0];
-          // Formatear datos para que coincidan con la estructura esperada
-          const processedData: StockData = {
-            ...profile,
-            symbol: symbol.toUpperCase(),
-            companyName: profile.companyName,
-            price: profile.price,
-            mktCap: profile.mktCap,
-            // Mapping fields that might differ or be required by interface
-            changes: profile.changes,
-            currency: profile.currency,
-            exchange: profile.exchange,
-            industry: profile.industry,
-            sector: profile.sector,
-            description: profile.description,
-            ceo: profile.ceo,
-            website: profile.website,
-            image: profile.image,
-            
-            // Legacy/Extra fields compatibility
-            company_name: profile.companyName,
-            current_price: profile.price,
-            market_cap: profile.mktCap,
-            
-            analysisData: null,
-            performanceData: null,
-            reportData: null
-          };
-          
-          return {
-            basicData: processedData,
-            analysisData: null, // No disponible desde API externa
-            performanceData: null, // No disponible desde API externa
-            reportData: null, // No disponible desde API externa
-            success: true,
-            fromExternalAPI: true // Flag para indicar origen
-          };
-        }
-      } catch (apiError) {
-        console.error('Error en APIs externas:', apiError);
-        throw new Error(`No se pudieron obtener datos para ${symbol}`);
-      }
-    }
+    console.log(`Buscando ${symbol} en APIs externas...`);
     
-    // Si llegamos aquí, usar los datos de Supabase (datosData ya está declarado arriba)
-    if (datosError) {
-      console.error('Error buscando datos en Supabase:', datosError);
-      return { 
-        success: false, 
-        error: datosError.message || 'Error al buscar datos en la base de datos'
-      };
+    // Inicializar variables
+    let processedData: StockData | null = null;
+    let analysisData = null;
+    let performanceData = null;
+    let ecosystemData = null;
+
+    // 1. Fetch Basic Data from FMP
+    try {
+      const profileData = await fmp.profile(symbol);
+      
+      if (profileData && profileData.length > 0) {
+        const profile = profileData[0];
+        // Formatear datos para que coincidan con la estructura esperada
+        processedData = {
+          ...profile,
+          symbol: symbol.toUpperCase(),
+          companyName: profile.companyName,
+          price: profile.price,
+          mktCap: profile.mktCap,
+          // Mapping fields that might differ or be required by interface
+          changes: profile.changes,
+          currency: profile.currency,
+          exchange: profile.exchange,
+          industry: profile.industry,
+          sector: profile.sector,
+          description: profile.description,
+          ceo: profile.ceo,
+          website: profile.website,
+          image: profile.image,
+          
+          // Legacy/Extra fields compatibility
+          company_name: profile.companyName,
+          current_price: profile.price,
+          market_cap: profile.mktCap,
+          
+          // Initialize optional fields
+          dividendos: null,
+          valoracion: null
+        };
+      }
+    } catch (apiError) {
+      console.error('Error en APIs externas (FMP):', apiError);
     }
 
-    // Remove the duplicate declaration - datosData is already available from line 89
-    // const { data: datosData, error: datosError } = await supabase... <- REMOVE THIS
-
-    // Buscar análisis
-    const { data: analysisData, error: analysisError } = await supabase
+    // 2. Buscar análisis (Supabase)
+    const { data: analysisResult, error: analysisError } = await supabase
       .from('stock_analysis')
       .select('*')
       .eq('symbol', symbol.toUpperCase())
       .single();
 
-    // Only log if there's actually an error and it's not the "no rows" error or "table missing" error
     if (analysisError && analysisError.code && analysisError.code !== 'PGRST116' && analysisError.code !== '42P01') {
       console.error('Error en análisis:', {
         message: analysisError.message || 'Sin mensaje',
-        details: analysisError.details || 'Sin detalles',
-        hint: analysisError.hint || 'Sin hint',
-        code: analysisError.code || 'Sin código',
-        fullError: analysisError
+        code: analysisError.code || 'Sin código'
       });
     }
-    
-    // Remove or modify this section that's causing the empty object log
-    if (analysisError && !analysisError.code) {
-      // Only log if the error object actually has meaningful content
-      if (Object.keys(analysisError).length > 0) {
-        console.warn('analysisError sin código:', {
-          error: analysisError,
-          type: typeof analysisError,
-          keys: Object.keys(analysisError || {}),
-          stringified: JSON.stringify(analysisError)
-        });
-      }
-    }
+    analysisData = analysisResult;
 
-    // Si no hay datos de análisis, crear un objeto por defecto
-    if (!analysisData && analysisError?.code === 'PGRST116') {
-      console.info(`No se encontraron datos de análisis para ${symbol}`);
-    }
-    
-    // Buscar rendimiento
-    const { data: performanceData, error: performanceError } = await supabase
+    // 3. Buscar rendimiento (Supabase)
+    const { data: performanceResult, error: performanceError } = await supabase
       .from('stock_performance')
       .select('*')
       .eq('symbol', symbol.toUpperCase())
       .single();
 
-    // Mejorar el manejo de errores de performance
     if (performanceError) {
-      // Solo hacer log si hay un error real (no "no rows found" y no "table missing")
       if (performanceError.code && performanceError.code !== 'PGRST116' && performanceError.code !== '42P01') {
-        console.error('Error en rendimiento:', {
-          message: performanceError.message || 'Sin mensaje',
-          details: performanceError.details || 'Sin detalles',
-          hint: performanceError.hint || 'Sin sugerencia',
-          code: performanceError.code || 'Sin código',
-          fullError: performanceError
-        });
-      }
-      // Si es PGRST116 (no rows found), es normal y no es un error
-      else if (performanceError.code === 'PGRST116') {
-        console.info(`No se encontraron datos de rendimiento para ${symbol}`);
+        console.error('Error en rendimiento:', performanceError);
       }
     }
+    performanceData = performanceResult;
 
-    // Buscar informe de analisis_accion
-    const { data: reportData, error: reportError } = await supabase
-      .from('analisis_accion')
-      .select(`
-        symbol,
-        fecha_de_creacion,
-        informe
-      `)
-      .eq('symbol', symbol.toUpperCase())
-      .order('fecha_de_creacion', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (reportError && reportError.code !== 'PGRST116') {
-      console.error('Error en informe:', reportError);
-    }
-
-    // Procesar datos básicos si existen
-    let processedData: StockData | null = null;
-    if (datosData && datosData.datos) {
-      try {
-        const parsedData = typeof datosData.datos === 'string' 
-          ? JSON.parse(datosData.datos) 
-          : datosData.datos;
-        
-        processedData = {
-          // Base FMPStockData fields (defaults where missing)
-          symbol: datosData.symbol,
-          companyName: parsedData.name || parsedData.company_name || parsedData.companyName || "",
-          price: parsedData.currentPrice || parsedData.current_price || parsedData.price || 0,
-          mktCap: parsedData.valoracion?.marketCap || parsedData.marketCap || parsedData.market_cap || parsedData.mktCap || 0,
-          beta: parsedData.beta || 0,
-          volAvg: parsedData.volAvg || parsedData.averageVolume || 0,
-          lastDiv: parsedData.lastDiv || 0,
-          range: parsedData.range || "",
-          changes: parsedData.change || parsedData.changes || 0,
-          currency: parsedData.currency || "USD",
-          cik: parsedData.cik || "",
-          isin: parsedData.isin || "",
-          cusip: parsedData.cusip || "",
-          exchange: parsedData.exchange || "",
-          exchangeShortName: parsedData.exchangeShortName || "",
-          industry: parsedData.industry || "",
-          website: parsedData.website || "",
-          description: parsedData.description || "",
-          ceo: parsedData.ceo || "",
-          sector: parsedData.sector || "",
-          country: parsedData.country || "",
-          fullTimeEmployees: parsedData.fullTimeEmployees || "",
-          phone: parsedData.phone || "",
-          address: parsedData.address || "",
-          city: parsedData.city || "",
-          state: parsedData.state || "",
-          zip: parsedData.zip || "",
-          dcfDiff: parsedData.dcfDiff || 0,
-          dcf: parsedData.dcf || 0,
-          image: parsedData.image || "",
-          ipoDate: parsedData.ipoDate || "",
-          defaultImage: parsedData.defaultImage || false,
-          isEtf: parsedData.isEtf || false,
-          isActivelyTrading: parsedData.isActivelyTrading || true,
-          isAdr: parsedData.isAdr || false,
-          isFund: parsedData.isFund || false,
-
-          // Legacy fields mapping
-          company_name: parsedData.name || parsedData.company_name,
-          current_price: parsedData.currentPrice || parsedData.current_price,
-          market_cap: parsedData.valoracion?.marketCap || parsedData.marketCap || parsedData.market_cap,
-          pe_ratio: parsedData.valoracion?.pe || parsedData.peRatio || parsedData.pe_ratio,
-          volume: parsedData.desempeno?.averageVolume || parsedData.volume,
-          high: parsedData.high,
-          low: parsedData.low,
-          open: parsedData.open,
-          close: parsedData.close,
-          change: parsedData.change,
-          changePercent: parsedData.changePercent || parsedData.change_percent,
-          competitive_advantage: parsedData.moat,
-          business_complexity: parsedData.isEasy,
-          
-          // Agregar datos de valoración específicos
-          datos: parsedData, // Mantener el objeto completo para acceso directo
-          
-          // Datos de performance específicos desde desempeno.performance
-          performance_1m: parsedData.desempeno?.performance?.['1M'] ? parseFloat(parsedData.desempeno.performance['1M']) : undefined,
-          performance_3m: parsedData.desempeno?.performance?.['3M'] ? parseFloat(parsedData.desempeno.performance['3M']) : undefined,
-          performance_ytd: parsedData.desempeno?.performance?.['YTD'] ? parseFloat(parsedData.desempeno.performance['YTD']) : undefined,
-          performance_1y: parsedData.desempeno?.performance?.['1Y'] ? parseFloat(parsedData.desempeno.performance['1Y']) : undefined,
-          performance_3y: parsedData.desempeno?.performance?.['3Y'] ? parseFloat(parsedData.desempeno.performance['3Y']) : undefined,
-          performance_5y: parsedData.desempeno?.performance?.['5Y'] ? parseFloat(parsedData.desempeno.performance['5Y']) : undefined,
-          
-          // Datos fundamentales existentes
-          roe: parsedData.fundamentales?.roe,
-          roic: parsedData.fundamentales?.roic,
-          net_margin: parsedData.fundamentales?.netMargin,
-          gross_margin: parsedData.fundamentales?.grossMargin,
-          debt_equity: parsedData.fundamentales?.debtToEquity,
-          free_cash_flow: parsedData.fundamentales?.freeCashFlow,
-          current_ratio: parsedData.fundamentales?.currentRatio,
-          equity_cagr_5y: parsedData.fundamentales?.equityCAGR_5Y,
-          revenue_cagr_5y: parsedData.fundamentales?.revenueCAGR_5Y,
-          interest_coverage: parsedData.fundamentales?.interestCoverage,
-          net_income_cagr_5y: parsedData.fundamentales?.netIncomeCAGR_5Y,
-          book_value_per_share: parsedData.fundamentales?.bookValuePerShare,
-          shares_outstanding: parsedData.fundamentales?.sharesOutstanding,
-          quick_ratio: parsedData.fundamentales?.quick_ratio,
-          
-          // Datos de valoración específicos para fácil acceso
-          valoracion_pe: parsedData.valoracion?.pe,
-          valoracion_peg: parsedData.valoracion?.peg,
-          valoracion_pbv: parsedData.valoracion?.pbv,
-          valoracion_implied_growth: parsedData.valoracion?.impliedGrowth,
-          dividend_yield: parsedData.dividendos?.dividendYield
-        };
-      } catch (parseError) {
-        console.error('Error al parsear datos:', parseError);
-      }
-    }
-
-    // Procesar datos del informe si existen
-    let processedReport: StockReport | null = null;
-    if (reportData && reportData.informe) {
-      try {
-        const parsedReport = typeof reportData.informe === 'string' 
-          ? JSON.parse(reportData.informe) 
-          : reportData.informe;
-        
-        processedReport = {
-          symbol: reportData.symbol,
-          analisisFundamental: {
-            // Preservar propiedades del nivel superior
-            ...parsedReport.analisisFundamental,
-            // Sobrescribir con el contenido anidado si existe
-            ...(parsedReport.analisisFundamental?.analisisFundamental || {})
-          },
-          analisisCualitativo: {
-            ...parsedReport.analisisCualitativo,
-          },
-          analisisValoracion: {
-            // Preservar propiedades del nivel superior
-            ...parsedReport.analisisValoracion,
-            // Sobrescribir con el contenido anidado si existe
-            ...(parsedReport.analisisValoracion?.analisisValoracion || {})
-          },
-          analisisDividendos: {
-            // Preservar propiedades del nivel superior
-            ...parsedReport.analisisDividendos,
-            // Sobrescribir con el contenido anidado si existe
-            ...(parsedReport.analisisDividendos?.analisisDividendos || {})
-          },
-          analisisDesempeno: {
-            // Preservar propiedades del nivel superior
-            ...parsedReport.analisisDesempeno,
-            // Sobrescribir con el contenido anidado si existe
-            ...(parsedReport.analisisDesempeno?.analisisDesempeno || {})
-          }
-        };
-      } catch (parseError) {
-        console.error('Error al parsear informe:', parseError);
-      }
-    }
-
-    // Buscar datos del ecosistema (holders e insiders) desde FMP
-    let ecosystemData: any = null;
+    // 5. Buscar datos del ecosistema (holders e insiders) desde FMP
     try {
       const [holders, insiders] = await Promise.all([
         fmp.institutionalHolders(symbol.toUpperCase()),
@@ -393,10 +159,9 @@ export async function searchStockData(symbol: string) {
       basicData: processedData,
       analysisData: analysisData as StockAnalysis,
       performanceData: performanceData as StockPerformance,
-      reportData: processedReport,
       ecosystemData,
-      success: true,
-      error: null
+      success: !!processedData,
+      error: processedData ? null : 'No se encontraron datos básicos'
     };
 
   } catch (error) {
@@ -405,7 +170,6 @@ export async function searchStockData(symbol: string) {
       basicData: null,
       analysisData: null,
       performanceData: null,
-      reportData: null,
       success: false,
       error: error instanceof Error ? error.message : 'Error desconocido'
     };
@@ -413,35 +177,40 @@ export async function searchStockData(symbol: string) {
 }
 
 // Función para buscar solo datos básicos
-
 export async function getBasicStockData(symbol: string): Promise<StockData | null> {
   try {
-    const { data, error } = await supabase
-      .from('datos_accion')
-      .select('*, datos')
-      .eq('symbol', symbol.toUpperCase())
-      .order('fecha_de_creacion', { ascending: false })
-      .limit(1)
-      .single();
+    const profileData = await fmp.profile(symbol);
 
-    if (error) {
-      console.error('Error al obtener datos básicos:', error);
-      return null;
-    }
-
-    // Verificar que data existe y no es un error
-    if (!data) {
+    if (!profileData || profileData.length === 0) {
       console.warn('No se encontraron datos para el símbolo:', symbol);
       return null;
     }
 
-    // Extraer dividendos y valoracion del JSON de forma segura
-    const parsedData = data.datos || {};
+    const profile = profileData[0];
     return {
-      ...data,
-      dividendos: parsedData?.dividendos || null,
-      valoracion: parsedData?.valoracion || null
-    };
+      ...profile,
+      symbol: symbol.toUpperCase(),
+      companyName: profile.companyName,
+      price: profile.price,
+      mktCap: profile.mktCap,
+      changes: profile.changes,
+      currency: profile.currency,
+      exchange: profile.exchange,
+      industry: profile.industry,
+      sector: profile.sector,
+      description: profile.description,
+      ceo: profile.ceo,
+      website: profile.website,
+      image: profile.image,
+      
+      // Legacy compatibility
+      company_name: profile.companyName,
+      current_price: profile.price,
+      market_cap: profile.mktCap,
+      
+      dividendos: null,
+      valoracion: null
+    } as StockData;
   } catch (error) {
     console.error('Error en getBasicStockData:', error);
     return null;
@@ -496,34 +265,4 @@ export async function getStockPerformanceData(symbol: string): Promise<StockPerf
   }
 }
 
-// Agregar nueva interface después de las existentes
-export interface StockConclusion {
-  symbol: string;
-  conclusion?: any;
-  [key: string]: any;
-}
 
-// Agregar nueva función al final del archivo
-export async function getStockConclusionData(symbol: string): Promise<StockConclusion | null> {
-  try {
-    const { data, error } = await supabase
-      .from('conclusion_rapida')
-      .select('*')
-      .eq('symbol', symbol.toUpperCase())
-      .order('fecha_de_creacion', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (error) {
-      if (error.code !== 'PGRST116') {
-        console.error('Error al obtener conclusión rápida:', error);
-      }
-      return null;
-    }
-
-    return data;
-  } catch (error) {
-    console.error('Error en getStockConclusionData:', error);
-    return null;
-  }
-}

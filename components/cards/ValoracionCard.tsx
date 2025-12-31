@@ -348,7 +348,7 @@ export default function ValoracionCard({ symbol, period = "ttm", ratiosData }: {
   return (
     <>
       <div className="bg-tarjetas border-none">
-        <div className="pb-0 px-6">
+        <div className="px-6">
           {loading ? (
             <div className="h-32 grid place-items-center text-gray-500 text-sm">
               Cargando datos de Valoración…

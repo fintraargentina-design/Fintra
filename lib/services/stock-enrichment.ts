@@ -34,15 +34,23 @@ export async function enrichStocksWithData(tickers: string[]): Promise<EnrichedS
 
   try {
     // 1. Parallel Fetching
-    const [quotes, snapshotsData] = await Promise.all([
+    const [quotes, profiles, snapshotsData, ecosystemReportsData] = await Promise.all([
       fmp.quote(batchString).catch(() => []),
+      fmp.profile(batchString).catch(() => []),
       
       // Supabase: Intelligence
       supabase
         .from('fintra_snapshots')
         .select('*')
         .in('ticker', uniqueTickers)
-        .order('calculated_at', { ascending: false })
+        .order('calculated_at', { ascending: false }),
+
+      // Supabase: Ecosystem Reports (New Source)
+      supabase
+        .from('fintra_ecosystem_reports')
+        .select('ticker, ecosystem_score, date')
+        .in('ticker', uniqueTickers)
+        .order('date', { ascending: false })
     ]);
 
     // Map snapshots by ticker (using the most recent one per ticker)
@@ -64,10 +72,26 @@ export async function enrichStocksWithData(tickers: string[]): Promise<EnrichedS
       });
     }
 
+    // Map Ecosystem Reports
+    const ecosystemMap = new Map<string, number>();
+    if (ecosystemReportsData.data) {
+      ecosystemReportsData.data.forEach((row: any) => {
+        if (!ecosystemMap.has(row.ticker)) {
+          ecosystemMap.set(row.ticker, row.ecosystem_score);
+        }
+      });
+    }
+
     // Map quotes
     const quoteMap = new Map<string, any>();
     if (Array.isArray(quotes)) {
       quotes.forEach((q: any) => quoteMap.set(q.symbol, q));
+    }
+
+    // Map profiles
+    const profileMap = new Map<string, any>();
+    if (Array.isArray(profiles)) {
+      profiles.forEach((p: any) => profileMap.set(p.symbol, p));
     }
 
     // 2. Fetch detailed data for each stock (YTD, Target) in parallel with limit
@@ -77,7 +101,7 @@ export async function enrichStocksWithData(tickers: string[]): Promise<EnrichedS
         const [priceChange, consensus] = await Promise.all([
            // FMP endpoints via client
            fmp.fetch(`/stock-price-change/${ticker}`).catch(() => null) as Promise<any>,
-           fmp.fetch(`/price-target-consensus?symbol=${ticker}`).catch(() => null) as Promise<any>
+           fmp.priceTargetConsensus(ticker).catch(() => [])
         ]);
 
         return {
@@ -97,6 +121,7 @@ export async function enrichStocksWithData(tickers: string[]): Promise<EnrichedS
     // 3. Merge
     return uniqueTickers.map(ticker => {
       const quote = quoteMap.get(ticker) || {};
+      const profile = profileMap.get(ticker) || {};
       const snap = snapshotMap.get(ticker);
       const details = detailsMap.get(ticker) || {};
       
@@ -108,11 +133,12 @@ export async function enrichStocksWithData(tickers: string[]): Promise<EnrichedS
         upside = ((targetPrice - currentPrice) / currentPrice) * 100;
       }
 
-      // Hack for Div Yield if missing in quote
-      // Use random mock if strictly needed or 0. 
-      // User asked to calculate or use field. 
-      // Since we don't fetch profile/ratios for all, we accept 0 or check if quote has it.
-      // Note: FMP Quote doesn't have yield usually.
+      // Calculate Div Yield
+      const lastDiv = profile.lastDiv || 0;
+      let divYield = 0;
+      if (currentPrice > 0) {
+          divYield = (lastDiv / currentPrice) * 100;
+      }
       
       return {
         ticker,
@@ -120,12 +146,12 @@ export async function enrichStocksWithData(tickers: string[]): Promise<EnrichedS
         price: currentPrice,
         marketCap: quote.marketCap || 0,
         ytd: details.ytd_actual || 0,
-        divYield: 0, 
+        divYield, 
         estimation: upside,
         targetPrice: targetPrice,
         fgos: snap?.fgos_score ?? 0, 
         valuation: snap?.valuation_status ?? "N/A",
-        ecosystem: snap?.ecosystem_score ?? 50
+        ecosystem: ecosystemMap.get(ticker) ?? 50 // Default to 50 if no report found
       };
     });
 

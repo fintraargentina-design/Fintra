@@ -15,7 +15,6 @@ interface DatosTabProps {
   stockAnalysis: any;
   stockPerformance?: any;
   stockBasicData?: any;
-  stockReport?: any;
   symbol: string;             // ← NUEVO
   period?: PeriodSel;         // periodo seleccionado (por defecto annual)
   ratios?: any;               // Data TTM desde el padre
@@ -26,7 +25,6 @@ export default function DatosTab({
   stockAnalysis,
   stockPerformance,
   stockBasicData,
-  stockReport,
   symbol,
   period = "annual",
   ratios,
@@ -153,7 +151,7 @@ export default function DatosTab({
                   period={selectedPeriod} 
                 />
               </div>
-              <div className="bg-tarjetas border-none mt-0.5">
+              <div className="bg-tarjetas border-none">
                  <DesempenoCard symbol={symbol} />
               </div>
             </div>

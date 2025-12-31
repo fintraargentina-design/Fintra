@@ -64,10 +64,10 @@ export default function AIAnalysisButton({
 
     try {
       // Acceder correctamente a los datos de FMP
-      const fmpData = overviewData?.datos || {};
-      const fundamentales = fundamentalData || fmpData.fundamentales || {};
-      const valoracion = valoracionData || fmpData.valoracion || {};
-      const financialScores = financialScoresData || fmpData.financialScores || {};
+      const fmpData = {}; // overviewData?.datos was removed
+      const fundamentales = fundamentalData || {};
+      const valoracion = valoracionData || {};
+      const financialScores = financialScoresData || {};
       
       // NUEVO: Acceder a los scores desde las APIs correctas
       const scoresData = await fetch(`/api/fmp/financial-scores?symbol=${symbol}`).then(r => r.json()).catch(() => ({}));

@@ -16,6 +16,7 @@ import type {
   InstitutionalHoldersResponse,
   InsiderTradingResponse,
   MarketHoursResponse,
+  AllMarketHoursResponse,
 } from "@/lib/fmp/types";
 
 export type CacheOpt = RequestCache | undefined;
@@ -192,6 +193,17 @@ export function createFmpClient(get: FetcherFunction) {
     },
     marketHours(opts?: { cache?: CacheOpt }) {
       return get<MarketHoursResponse>("/market-hours", { cache: opts?.cache ?? "force-cache" });
+    },
+    
+    allMarketHours(opts?: { cache?: CacheOpt }) {
+      return get<AllMarketHoursResponse>("/all-exchange-market-hours", { cache: opts?.cache ?? "force-cache" });
+    },
+
+    priceTargetConsensus(symbol: string, opts?: { cache?: CacheOpt }) {
+      return get<import("@/lib/fmp/types").PriceTargetConsensus[]>(
+        "/price-target-consensus",
+        { params: { symbol }, cache: opts?.cache ?? "force-cache" }
+      );
     },
 
     /** Generic fetch for unmapped endpoints */

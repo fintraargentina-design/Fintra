@@ -110,7 +110,7 @@ export default function DesempenoCard({ symbol }: { symbol: string }) {
   };
 
   return (
-    <div className="bg-tarjetas border-none px-6 pb-0 pt-2">
+    <div className="bg-tarjetas border-none px-6 pb-0">
       {loading ? (
         <div className="h-32 grid place-items-center text-gray-500 text-sm">
           Cargando datos de desempeño...
