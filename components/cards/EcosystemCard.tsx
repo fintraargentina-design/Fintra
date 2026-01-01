@@ -224,7 +224,7 @@ export default function EcosystemCard({
       series: {
         type: "sunburst",
         data: sunburstData,
-        radius: [0, "95%"],
+        radius: [0, "90%"],
         sort: undefined, // undefined mantiene orden de entrada (mejor para agrupar)
         emphasis: { focus: "ancestor" },
         levels: [
@@ -236,7 +236,7 @@ export default function EcosystemCard({
           { r0: "25%", r: "40%", itemStyle: { borderWidth: 1 }, label: { rotate: "tangential", align: "center", color: "#fff", fontSize: 9 } },
           // Nivel 3: Corteza (Risk Crust)
           { 
-            r0: "40%", r: "70%", 
+            r0: "41%", r: "67%", 
             itemStyle: { borderWidth: 0.5 }, 
             label: { 
                 rotate: "tangential", 

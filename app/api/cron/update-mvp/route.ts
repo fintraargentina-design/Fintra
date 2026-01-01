@@ -5,41 +5,36 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; 
 
-// LISTA TOP 10 LÍDERES POR SECTOR (GICS)
-// Total: 110 Tickers (Optimizado para Cron Job rápido)
+// --- MAPA DE TRADUCCIÓN DE SECTORES ---
+const SECTOR_TRANSLATIONS: Record<string, string> = {
+  'Technology': 'Tecnología',
+  'Communication Services': 'Comunicación',
+  'Consumer Cyclical': 'Consumo Discrecional',
+  'Consumer Defensive': 'Consumo Masivo',
+  'Financial Services': 'Finanzas',
+  'Healthcare': 'Salud',
+  'Industrials': 'Industria',
+  'Energy': 'Energía',
+  'Basic Materials': 'Materiales',
+  'Real Estate': 'Inmobiliario',
+  'Utilities': 'Servicios Públicos',
+  'Conglomerates': 'Conglomerados',
+  'Unknown': 'Desconocido'
+};
+
+// LISTA TOP 10 LÍDERES POR SECTOR (GICS) - Total 110 Tickers
 const WATCHLIST_MVP = [
-  // 1. Technology
-  'AAPL', 'MSFT', 'NVDA', 'AVGO', 'ORCL', 'CRM', 'ADBE', 'AMD', 
-
-  // 2. Communication Services
-  'GOOGL', 'META', 'NFLX', 'DIS', 'CMCSA', 'TMUS', 'VZ', 'T', 
-
-  // 3. Consumer Discretionary
-  'AMZN', 'TSLA', 'HD', 'MCD', 'NKE', 'SBUX', 'LOW', 'BKNG', 
-
-  // 4. Consumer Staples
-  'WMT', 'PG', 'KO', 'PEP', 'COST', 'PM', 'MO', 'EL', 
-
-  // 5. Financials
-  'JPM', 'BAC', 'V', 'MA', 'BRK.B', 'GS', 'MS', 'WFC', 
-
-  // 6. Healthcare
-  'LLY', 'UNH', 'JNJ', 'ABBV', 'MRK', 'PFE', 'TMO', 'ABT', 
-
-  // 7. Industrials
-  'CAT', 'GE', 'HON', 'UNP', 'UPS', 'BA', 'DE', 'LMT', 
-
-  // 8. Energy
-  'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'OXY', 'MPC', 'PSX',
-
-  // 9. Materials
-  'LIN', 'SHW', 'FCX', 'SCCO', 'NEM', 'DOW', 'APD', 'ECL', 
-
-  // 10. Real Estate
-  'PLD', 'AMT', 'EQIX', 'CCI', 'O', 'SPG', 'PSA', 'DLR', 
-
-  // 11. Utilities
-  'NEE', 'SO', 'DUK', 'SRE', 'AEP', 'D', 'PEG', 'EXC', 
+  'AAPL', 'MSFT', 'NVDA', 'AVGO', 'ORCL', 'CRM', 'ADBE', // Tech
+  'GOOGL', 'META', 'NFLX', 'DIS', 'CMCSA', 'TMUS', 'VZ',  // Comm
+  'AMZN', 'TSLA', 'HD', 'MCD', 'NKE', 'SBUX', 'LOW', // Cons Disc
+  'WMT', 'PG', 'KO', 'PEP', 'COST', 'PM', 'MO', // Cons Stap
+  'JPM', 'BAC', 'V', 'MA', 'BRK.B', 'GS', 'MS', // Fin
+  'LLY', 'UNH', 'JNJ', 'ABBV', 'MRK', 'PFE', 'TMO', // Health
+  'CAT', 'GE', 'HON', 'UNP', 'UPS', 'BA', 'DE', // Ind
+  'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'OXY', 'MPC', // Energy
+  'LIN', 'SHW', 'FCX', 'SCCO', 'NEM', 'DOW', 'APD', // Mat
+  'PLD', 'AMT', 'EQIX', 'CCI', 'O', 'SPG', 'PSA', // Real Estate
+  'NEE', 'SO', 'DUK', 'SRE', 'AEP', 'D', 'PEG', // Util
 ];
 
 export async function GET() {
@@ -56,7 +51,7 @@ export async function GET() {
   });
 
   const results = { success: [] as string[], failed: [] as string[] };
-  console.log(`🚀 Iniciando Cron Job LIMPIO...`);
+  console.log(`🚀 Iniciando Cron Job ESPAÑOL para ${WATCHLIST_MVP.length} acciones...`);
 
   for (const symbol of WATCHLIST_MVP) {
     try {
@@ -84,9 +79,13 @@ export async function GET() {
       const g = growthData[0] || {};
       const p = profileData?.[0] || {};
 
+      // --- TRADUCCIÓN DEL SECTOR ---
+      const rawSector = p.sector || 'Unknown';
+      // Si existe en el mapa, usa la traducción. Si no, usa el original (fallback)
+      const sectorSpanish = SECTOR_TRANSLATIONS[rawSector] || rawSector;
+
       const price = q.price;
       const priceAvg200 = q.priceAvg200 || price;
-      const sector = p.sector || 'Unknown';
       
       const pe = r.priceEarningsRatioTTM || 0;
       const roe = r.returnOnEquityTTM || 0;
@@ -138,21 +137,22 @@ export async function GET() {
       else if (finalFgos < 40) verdict = "Alto Riesgo";
       else if (valuationStatus === 'Sobrevalorada') verdict = "Cara / Esperar";
 
-      // 3. UPSERT LIMPIO (Sin ecosystem_*)
+      // 3. UPSERT (GUARDANDO EN ESPAÑOL)
       const { error } = await supabase.from('fintra_snapshots').upsert({
         ticker: symbol,
         date: new Date().toISOString().split('T')[0],
         
-        // Datos Core
+        // Scores
         fgos_score: finalFgos,
         fgos_breakdown: fgosBreakdown,
         valuation_score: Math.round(valuationScore),
         valuation_status: valuationStatus,
         verdict_text: verdict,
-        sector: sector,
-        pe_ratio: pe,
         
-        // Metadatos
+        // AQUÍ GUARDAMOS EL SECTOR TRADUCIDO
+        sector: sectorSpanish, 
+        
+        pe_ratio: pe,
         calculated_at: new Date().toISOString()
       }, { onConflict: 'ticker, date' });
 

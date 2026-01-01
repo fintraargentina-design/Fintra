@@ -64,7 +64,7 @@ export async function enrichStocksWithData(tickers: string[]): Promise<EnrichedS
              fgos_score: row.fgos_score,
              fgos_breakdown: {},
              valuation_score: row.valuation_score ?? 50,
-             ecosystem_score: row.ecosystem_score,
+             // ecosystem_score: row.ecosystem_score, // REMOVED: Now fetched from fintra_ecosystem_reports
              verdict_text: row.verdict_text ?? "N/A",
              valuation_status: row.valuation_status ?? "Fair",
           });
@@ -72,7 +72,7 @@ export async function enrichStocksWithData(tickers: string[]): Promise<EnrichedS
       });
     }
 
-    // Map Ecosystem Reports
+    // Map Ecosystem Reports (Source: fintra_ecosystem_reports)
     const ecosystemMap = new Map<string, number>();
     if (ecosystemReportsData.data) {
       ecosystemReportsData.data.forEach((row: any) => {

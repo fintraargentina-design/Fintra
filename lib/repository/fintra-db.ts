@@ -22,12 +22,16 @@ export async function getLatestSnapshot(symbol: string): Promise<FintraSnapshotD
 
   if (!data) return null;
 
+  // Fetch ecosystem score separately from the new table
+  const ecoReport = await getLatestEcosystemReport(symbol);
+
   return {
     ticker: data.ticker,
     date: data.calculated_at,
     fgos_score: data.fgos_score,
     fgos_breakdown: data.fgos_breakdown,
     // ecosystem_score removed as it is now in fintra_ecosystem_reports
+    ecosystem_score: ecoReport?.ecosystem_score ?? 50, // Default to 50 if not found
     valuation_score: data.valuation_score ?? 50,
     valuation_status: data.valuation_status,
     verdict_text: data.verdict_text ?? "N/A"

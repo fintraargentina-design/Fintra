@@ -101,13 +101,13 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
   const getValBadge = (v: string, isSelected: boolean = false) => {
     if (isSelected) {
         let label = "Sobrevalorada";
-        if (v === "Undervalued") label = "Infravalorada";
-        if (v === "Fair") label = "Justa";
+        if (v === "Undervalued" || v === "Infravalorada") label = "Infravalorada";
+        if (v === "Fair" || v === "Justa") label = "Justa";
         return <span className="text-gray-300 text-[9px]">{label}</span>;
     }
 
-    if (v === "Undervalued") return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Infravalorada</Badge>;
-    if (v === "Fair") return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Justa</Badge>;
+    if (v === "Undervalued" || v === "Infravalorada") return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Infravalorada</Badge>;
+    if (v === "Fair" || v === "Justa") return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Justa</Badge>;
     return <Badge className="text-red-400 bg-red-400/10 border-red-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Sobrevalorada</Badge>;
   };
 

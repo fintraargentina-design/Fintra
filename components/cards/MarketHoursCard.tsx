@@ -37,7 +37,7 @@ export default function MarketHoursCard() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fmp.allMarketHours();
+      const res = await fmp.allMarketHours({ cache: 'no-store' });
       if (res && Array.isArray(res)) {
         // Filtrar y ordenar según nuestra lista de KEY_MARKETS
         const filtered = KEY_MARKETS.map((k) => {
@@ -140,7 +140,7 @@ export default function MarketHoursCard() {
                   ${market.isMarketOpen ? 'bg-[#001A00]' : 'bg-[#1A0000]'}
                 `}
               >
-                <div className="p-2 flex flex-col justify-between h-[100px]">
+                <div className="p-3 flex flex-col justify-between h-[140px]">
                   {/* Header: Name + Badge */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex flex-col">
@@ -153,26 +153,31 @@ export default function MarketHoursCard() {
                       </span>
                     </div>
                     
-                    <div className="flex flex-col items-end gap-1">
-                      <Badge 
-                        variant="outline" 
-                        className={`
-                          text-[9px] px-1 py-0 h-4 border-0 font-bold
-                          ${market.isMarketOpen 
-                            ? 'bg-green-500/20 text-green-400' 
-                            : 'bg-red-500/20 text-red-400'}
-                        `}
-                      >
-                        {market.isMarketOpen ? 'OPEN' : 'CLOSED'}
-                      </Badge>
-                      <span className="text-white font-mono text-[10px] bg-zinc-900/50 px-1 rounded">
-                        {formatTimeInZone(market.timezone)}
+                    <Badge 
+                      variant="outline" 
+                      className={`
+                        text-[9px] px-1 py-0 h-4 border-0 font-bold
+                        ${market.isMarketOpen 
+                          ? 'bg-green-500/20 text-green-400' 
+                          : 'bg-red-500/20 text-red-400'}
+                      `}
+                    >
+                      {market.isMarketOpen ? 'OPEN' : 'CLOSED'}
+                    </Badge>
+                  </div>
+
+                  {/* Big Clock Center */}
+                  <div className="flex items-center justify-center my-2">
+                    <span className="text-3xl font-mono font-bold text-white tracking-wider">
+                      {formatTimeInZone(market.timezone).slice(0, 5)}
+                      <span className="text-sm text-zinc-500 ml-1 align-top mt-1 inline-block">
+                         {formatTimeInZone(market.timezone).slice(6)}
                       </span>
-                    </div>
+                    </span>
                   </div>
 
                   {/* Hours */}
-                  <div className="mt-1 pt-1 border-t border-white/5 flex flex-col gap-0.5 justify-end flex-1">
+                  <div className="mt-1 pt-1 border-t border-white/5 flex flex-col gap-0.5 justify-end">
                     <div className="flex items-center justify-between text-[10px] leading-tight">
                       <span className="text-zinc-500">{market.openingAdditional ? 'Sesión 1' : 'Horario'}</span>
                       <span className="text-zinc-300 font-mono">
