@@ -37,6 +37,8 @@ export type FMPFinancialRatio = {
   priceToFreeCashFlowsRatio?: number;  // P/FCF (a veces)
   priceToFreeCashFlowRatio?: number;   // alias alternativo
   priceEarningsToGrowthRatio?: number; // PEG Ratio
+  pegRatio?: number;                   // alias corto
+
 
   // Otros
   freeCashFlowOperatingCashFlowRatio?: number;
@@ -50,6 +52,8 @@ export type FMPFinancialRatio = {
   grossProfitMarginTTM?: number;
   returnOnCapitalEmployedTTM?: number;
   currentRatioTTM?: number;
+  priceEarningsRatioTTM?: number;
+  pegRatioTTM?: number;
 };
 
 /** ───────────── Perfil (api/v3/profile) ───────────── */
@@ -103,6 +107,7 @@ export type FMPIncomeStatementGrowth = {
   symbol: string;
   period: string;
   revenueGrowth?: number;              // ✅ Nombre real de FMP
+  growthRevenue?: number;              // Alias o posible campo
   epsgrowth?: number;                  // ✅ Nombre real de FMP  
   growthNetIncome?: number;
   netIncomeGrowth?: number;
