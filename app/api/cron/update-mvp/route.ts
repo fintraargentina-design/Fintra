@@ -28,7 +28,7 @@ const WATCHLIST_MVP = [
   'GOOGL', 'META', 'NFLX', 'DIS', 'CMCSA', 'TMUS', 'VZ',  // Comm
   'AMZN', 'TSLA', 'HD', 'MCD', 'NKE', 'SBUX', 'LOW', // Cons Disc
   'WMT', 'PG', 'KO', 'PEP', 'COST', 'PM', 'MO', // Cons Stap
-  'JPM', 'BAC', 'V', 'MA', 'BRK.B', 'GS', 'MS', // Fin
+  'JPM', 'BAC', 'V', 'MA', 'BRKC', 'GS', 'MS', // Fin
   'LLY', 'UNH', 'JNJ', 'ABBV', 'MRK', 'PFE', 'TMO', // Health
   'CAT', 'GE', 'HON', 'UNP', 'UPS', 'BA', 'DE', // Ind
   'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'OXY', 'MPC', // Energy
@@ -41,6 +41,8 @@ export async function GET() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!; 
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const fmpKey = process.env.FMP_API_KEY!;
+
+  const today = new Date().toISOString().slice(0, 10);
 
   if (!supabaseKey || !fmpKey) {
     return NextResponse.json({ error: 'Faltan API Keys' }, { status: 500 });
@@ -140,7 +142,7 @@ export async function GET() {
       // 3. UPSERT (GUARDANDO EN ESPAÑOL)
       const { error } = await supabase.from('fintra_snapshots').upsert({
         ticker: symbol,
-        date: new Date().toISOString().split('T')[0],
+        date: today,
         
         // Scores
         fgos_score: finalFgos,
