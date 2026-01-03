@@ -12,27 +12,6 @@ export interface EcoNodeJSON {
   country?: string; // Opcional, usado en UI
 }
 
-// --- TIPOS FGOS (Fintra Global Opportunity Score) ---
-export interface FgosBreakdown {
-  growth: number;
-  profitability: number;
-  efficiency: number;
-  solvency: number;
-  moat: number;
-  sentiment: number;
-  note?: string;
-}
-
-export interface FgosResult {
-  ticker: string;
-  fgos_score: number;
-  fgos_breakdown: FgosBreakdown;
-  valuation_status: string;
-  ecosystem_score: number;
-  calculated_at: string;
-  price: number;
-}
-
 // --- TIPOS PARA LA BASE DE DATOS (Output) ---
 export interface EcosystemDataJSON {
   suppliers: EcoNodeJSON[];

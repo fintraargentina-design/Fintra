@@ -3,17 +3,19 @@ import { NextResponse } from 'next/server';
 
 // Inicializar cliente de Supabase con permisos de Admin (Service Role)
 // Asegúrate de tener estas variables en tu archivo .env.local
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-const supabase = (supabaseUrl && supabaseServiceKey) 
-  ? createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    })
-  : null;
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('Faltan variables de entorno de Supabase (URL o Service Key)');
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+});
 
 // Tipos para los datos del ecosistema
 interface EcoItem {
@@ -49,13 +51,6 @@ export async function POST(req: Request) {
     const { mainTicker, suppliers, clients, report } = body;
 
     // Validación básica
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Configuración de servidor incompleta (Supabase Keys faltantes)' },
-        { status: 500 }
-      );
-    }
-
     if (!mainTicker) {
       return NextResponse.json(
         { error: 'Falta el campo mainTicker en el cuerpo de la solicitud' },
