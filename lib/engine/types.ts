@@ -1,5 +1,27 @@
 // lib/engine/types.ts
 
+export interface FgosBreakdown {
+  growth: number;
+  profitability: number;
+  efficiency: number;
+  solvency: number;
+  moat: number;
+  sentiment: number;
+}
+
+export interface FgosResult {
+  ticker?: string;
+  fgos_score?: number;
+  fgos_breakdown: FgosBreakdown;
+  valuation_status?: string;
+  ecosystem_score?: number;
+  calculated_at?: string;
+  price?: number;
+  score?: number; // legacy
+  valuation_gap?: number; // legacy
+  fair_value?: number; // legacy
+}
+
 // --- TIPOS PARA LA IA (Input) ---
 export interface EcoNodeJSON {
   id: string;
