@@ -3,8 +3,8 @@
 export const SECTOR_BENCHMARKS: Record<string, any> = {
   Technology: {
     pe_ratio: 25,
-    ev_ebitda: 18,     // Nuevo
-    p_fcf: 25,         // Nuevo
+    ev_ebitda: 18,
+    p_fcf: 25,
     net_margin: 0.15,
     roe: 0.20,
     debt_to_equity: 0.5,
@@ -30,7 +30,7 @@ export const SECTOR_BENCHMARKS: Record<string, any> = {
   },
   "Financial Services": {
     pe_ratio: 13,
-    ev_ebitda: 10, // Bancos usan P/B, pero EV/EBITDA sirve de proxy general
+    ev_ebitda: 10,
     p_fcf: 12,
     net_margin: 0.18,
     roe: 0.11,
@@ -85,7 +85,7 @@ export const SECTOR_BENCHMARKS: Record<string, any> = {
   "Real Estate": {
     pe_ratio: 35, 
     ev_ebitda: 20,
-    p_fcf: 20, // En REITs es P/FFO, usamos esto como proxy
+    p_fcf: 20,
     net_margin: 0.15,
     roe: 0.05,
     debt_to_equity: 2.5,
@@ -111,14 +111,19 @@ export const SECTOR_BENCHMARKS: Record<string, any> = {
   }
 };
 
-// ... (Mantenemos la función getBenchmarksForSector igual) ...
 export const getBenchmarksForSector = (sector: string | undefined) => {
   if (!sector) return SECTOR_BENCHMARKS.General;
+  
   const cleanSector = sector.trim();
+
+  // 1. Búsqueda Exacta
   if (SECTOR_BENCHMARKS[cleanSector]) return SECTOR_BENCHMARKS[cleanSector];
+
+  // 2. Búsqueda Aproximada (Case Insensitive y sin espacios)
   const key = Object.keys(SECTOR_BENCHMARKS).find(k => 
     cleanSector.toLowerCase().replace(/ /g,'').includes(k.toLowerCase().replace(/ /g,'')) || 
     k.toLowerCase().replace(/ /g,'').includes(cleanSector.toLowerCase().replace(/ /g,''))
   );
+
   return key ? SECTOR_BENCHMARKS[key] : SECTOR_BENCHMARKS.General;
 };
