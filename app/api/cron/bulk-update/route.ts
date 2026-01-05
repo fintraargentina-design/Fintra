@@ -112,9 +112,12 @@ export async function GET(req: Request) {
             valuation_status: fgos.valuation_status,
             valuation_score: fgos.valuation_score || 0, // Usamos el nuevo campo explícito
             verdict_text: fgos.valuation_status,
+            investment_verdict: fgos.investment_verdict,
             
             sector: sectorEs,
+            pe: pe,
             pe_ratio: pe,
+            sector_pe_ratio: fgos.sector_pe || 0,
             calculated_at: new Date().toISOString()
          });
       }

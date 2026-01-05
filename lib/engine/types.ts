@@ -21,6 +21,8 @@ export interface FgosResult {
   score?: number; // legacy
   valuation_gap?: number; // legacy
   fair_value?: number; // legacy
+  investment_verdict?: string;
+  sector_pe?: number;
 }
 
 // --- TIPOS PARA LA IA (Input) ---

@@ -152,6 +152,13 @@ export function calculateFGOSFromData(
     // --- B. CÁLCULO DE VALUACIÓN ---
     const valuation = calculateValuationThermometer(ratios, metrics, benchmarks);
 
+    // --- C. INVESTMENT VERDICT ---
+    // Combinación de Calidad (FGOS) y Valuación
+    let investment_verdict = 'Hold';
+    if (fgosScore >= 65 && valuation.score >= 70) investment_verdict = 'Strong Buy';
+    else if (fgosScore >= 60 && valuation.score >= 50) investment_verdict = 'Buy';
+    else if (fgosScore <= 40 || valuation.score <= 30) investment_verdict = 'Sell';
+
     return {
       ticker: ticker.toUpperCase(),
       fgos_score: Math.round(fgosScore),
@@ -167,7 +174,9 @@ export function calculateFGOSFromData(
       valuation_status: valuation.status,
       ecosystem_score: Math.round(fgosScore * 0.9), // Legacy
       calculated_at: new Date().toISOString(),
-      price: price
+      price: price,
+      investment_verdict,
+      sector_pe: benchmarks.pe_ratio
     };
 
   } catch (error) {
