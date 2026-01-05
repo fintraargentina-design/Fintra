@@ -20,14 +20,101 @@ echarts.use([SunburstChart, TooltipComponent, LegendComponent, GridComponent, Ca
 const ReactECharts = dynamic(() => import("echarts-for-react/lib/core"), { ssr: false });
 
 // --- MOCK DATA (Fallback si falla la API) ---
-const APPLE_MOCK_DATA = {
-  mainTicker: "AAPL",
+const TSLA_MOCK_DATA = {
+  mainTicker: "TSLA",
   suppliers: [
-    { id: "TSM", n: "TSMC", country: "TW", dep: 100, ehs: 30, health_signal: 95, txt: "Riesgo crítico por invasión." },
-    { id: "FOX", n: "Foxconn", country: "CN", dep: 60, ehs: 40, health_signal: 50, txt: "Dependencia laboral." },
+    { 
+      id: "CATL", 
+      n: "Contemporary Amperex Technology", 
+      dep: 90, 
+      health_signal: 88, 
+      ehs: 35, 
+      country: "CN", 
+      txt: "Critical supplier of LFP batteries for Model 3/Y. High geopolitical exposure due to US-China tensions." 
+    },
+    { 
+      id: "PANASONIC", 
+      n: "Panasonic Holdings Corp", 
+      dep: 75, 
+      health_signal: 65, 
+      ehs: 85, 
+      country: "JP", 
+      txt: "Long-term partner for 2170/4680 cells at Giga Nevada. Stable but facing margin pressure." 
+    },
+    { 
+      id: "ALB", 
+      n: "Albemarle Corporation", 
+      dep: 60, 
+      health_signal: 70, 
+      ehs: 90, 
+      country: "US", 
+      txt: "Key lithium provider. Essential for IRA tax credit eligibility. Volatile commodity pricing impact." 
+    },
+    { 
+      id: "NVDA", 
+      n: "NVIDIA Corporation", 
+      dep: 55, 
+      health_signal: 98, 
+      ehs: 80, 
+      country: "US", 
+      txt: "Crucial for AI training clusters (H100) used in FSD v12 development. High cost dependency." 
+    },
+    { 
+      id: "IDRA", 
+      n: "IDRA Group", 
+      dep: 40, 
+      health_signal: 50, 
+      ehs: 75, 
+      country: "IT", 
+      txt: "Sole supplier of Giga Press die-casting machines. Single-point-of-failure risk for Cybertruck ramp." 
+    },
+    { 
+      id: "VALE", 
+      n: "Vale S.A.", 
+      dep: 45, 
+      health_signal: 60, 
+      ehs: 55, 
+      country: "BR", 
+      txt: "Major nickel supplier from Canada/Brazil operations. ESG concerns regarding mining practices." 
+    }
   ],
   clients: [
-    { id: "GOOGL", n: "Google", country: "US", dep: 20, ehs: 90, health_signal: 95, txt: "Pagos TAC bajo riesgo DOJ." }
+    { 
+      id: "HERTZ", 
+      n: "Hertz Global Holdings", 
+      dep: 15, 
+      health_signal: 30, 
+      ehs: 90, 
+      country: "US", 
+      txt: "Major fleet customer reducing EV commitment due to repair costs. Financial health deteriorating." 
+    },
+    { 
+      id: "PGE", 
+      n: "PG&E Corporation", 
+      dep: 25, 
+      health_signal: 55, 
+      ehs: 95, 
+      country: "US", 
+      txt: "Key Megapack utility partner (Moss Landing). Critical for Energy division growth." 
+    },
+    { 
+      id: "UBER", 
+      n: "Uber Technologies", 
+      dep: 10, 
+      health_signal: 85, 
+      ehs: 90, 
+      country: "US", 
+      txt: "Strategic partner for driver incentives and future Robotaxi network deployment." 
+    },
+    { 
+      id: "EU_GOV", 
+      n: "European Commission", 
+      dep: 20, 
+      health_signal: 99, 
+      ehs: 70, 
+      country: "EU", 
+      txt: "Regulatory credit pooling revenue source. Risk of declining value as legacy auto meets targets." 
+    }
   ]
 };
 
@@ -40,7 +127,7 @@ interface EcosystemCardProps {
 }
 
 export default function EcosystemCard({ 
-  mainTicker = "AAPL", 
+  mainTicker = "TSLA", 
   suppliers,
   clients,
   data,
@@ -48,7 +135,7 @@ export default function EcosystemCard({
 }: EcosystemCardProps) {
   
   // --- STATE ---
-  const [localData, setLocalData] = useState<EcosystemDataJSON | null>(data || null);
+  const [localData, setLocalData] = useState<any | null>(data || TSLA_MOCK_DATA);
   const [loading, setLoading] = useState(initialLoading);
   
   useEffect(() => {
