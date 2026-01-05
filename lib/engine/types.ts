@@ -13,6 +13,7 @@ export interface FgosResult {
   ticker?: string;
   fgos_score?: number;
   fgos_breakdown: FgosBreakdown;
+  valuation_score?: number;
   valuation_status?: string;
   ecosystem_score?: number;
   calculated_at?: string;

@@ -30,12 +30,12 @@ const MARKET_GROUPS = [
   },
   {
     title: "COMMODITIES",
-    tickers: ["GC=F", "CL=F", "SI=F", "NG=F"],
+    tickers: ["GCUSD", "CLUSD", "SIUSD", "NGUSD"],
     names: { 
-      "GC=F": "Oro", 
-      "CL=F": "Petróleo WTI", 
-      "SI=F": "Plata", 
-      "NG=F": "Gas Natural" 
+      "GCUSD": "Oro", 
+      "CLUSD": "Petróleo WTI", 
+      "SIUSD": "Plata", 
+      "NGUSD": "Gas Natural" 
     }
   },
   {

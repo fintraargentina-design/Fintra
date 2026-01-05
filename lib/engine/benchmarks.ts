@@ -1,45 +1,109 @@
-// Benchmarks por sector para normalizar puntajes
-// Estos son valores aproximados "ideales" o "promedio" para comparar
+// lib/engine/benchmarks.ts
 
 export const SECTOR_BENCHMARKS: Record<string, any> = {
   Technology: {
     pe_ratio: 25,
+    ev_ebitda: 18,     // Nuevo
+    p_fcf: 25,         // Nuevo
     net_margin: 0.15,
     roe: 0.20,
     debt_to_equity: 0.5,
-    revenue_growth: 0.10
+    revenue_growth: 0.12
+  },
+  "Communication Services": {
+    pe_ratio: 20,
+    ev_ebitda: 14,
+    p_fcf: 20,
+    net_margin: 0.12,
+    roe: 0.15,
+    debt_to_equity: 0.7,
+    revenue_growth: 0.09
   },
   Healthcare: {
     pe_ratio: 22,
+    ev_ebitda: 16,
+    p_fcf: 22,
     net_margin: 0.10,
     roe: 0.15,
     debt_to_equity: 0.6,
     revenue_growth: 0.08
   },
-  Financial: {
-    pe_ratio: 12,
-    net_margin: 0.20,
-    roe: 0.12,
-    debt_to_equity: 1.5, // Bancos suelen tener más apalancamiento
+  "Financial Services": {
+    pe_ratio: 13,
+    ev_ebitda: 10, // Bancos usan P/B, pero EV/EBITDA sirve de proxy general
+    p_fcf: 12,
+    net_margin: 0.18,
+    roe: 0.11,
+    debt_to_equity: 2.0,
+    revenue_growth: 0.05
+  },
+  "Consumer Cyclical": {
+    pe_ratio: 22,
+    ev_ebitda: 15,
+    p_fcf: 20,
+    net_margin: 0.06,
+    roe: 0.15,
+    debt_to_equity: 0.8,
+    revenue_growth: 0.08
+  },
+  "Consumer Defensive": {
+    pe_ratio: 20,
+    ev_ebitda: 14,
+    p_fcf: 18,
+    net_margin: 0.05,
+    roe: 0.18,
+    debt_to_equity: 1.2,
+    revenue_growth: 0.04
+  },
+  Industrials: {
+    pe_ratio: 18,
+    ev_ebitda: 12,
+    p_fcf: 18,
+    net_margin: 0.07,
+    roe: 0.14,
+    debt_to_equity: 0.9,
     revenue_growth: 0.05
   },
   Energy: {
     pe_ratio: 10,
+    ev_ebitda: 6,
+    p_fcf: 8,
     net_margin: 0.08,
     roe: 0.10,
     debt_to_equity: 0.8,
+    revenue_growth: 0.04
+  },
+  "Basic Materials": {
+    pe_ratio: 15,
+    ev_ebitda: 9,
+    p_fcf: 12,
+    net_margin: 0.06,
+    roe: 0.10,
+    debt_to_equity: 0.6,
+    revenue_growth: 0.04
+  },
+  "Real Estate": {
+    pe_ratio: 35, 
+    ev_ebitda: 20,
+    p_fcf: 20, // En REITs es P/FFO, usamos esto como proxy
+    net_margin: 0.15,
+    roe: 0.05,
+    debt_to_equity: 2.5,
+    revenue_growth: 0.05
+  },
+  Utilities: {
+    pe_ratio: 18,
+    ev_ebitda: 11,
+    p_fcf: 15,
+    net_margin: 0.10,
+    roe: 0.09,
+    debt_to_equity: 1.5,
     revenue_growth: 0.03
   },
-  ConsumerCyclical: {
-    pe_ratio: 18,
-    net_margin: 0.06,
-    roe: 0.15,
-    debt_to_equity: 0.7,
-    revenue_growth: 0.06
-  },
-  // Default fallback
   General: {
     pe_ratio: 18,
+    ev_ebitda: 12,
+    p_fcf: 15,
     net_margin: 0.10,
     roe: 0.15,
     debt_to_equity: 1.0,
@@ -47,13 +111,14 @@ export const SECTOR_BENCHMARKS: Record<string, any> = {
   }
 };
 
+// ... (Mantenemos la función getBenchmarksForSector igual) ...
 export const getBenchmarksForSector = (sector: string | undefined) => {
   if (!sector) return SECTOR_BENCHMARKS.General;
-  
-  // Intento simple de matching, podría mejorarse con string similarity
+  const cleanSector = sector.trim();
+  if (SECTOR_BENCHMARKS[cleanSector]) return SECTOR_BENCHMARKS[cleanSector];
   const key = Object.keys(SECTOR_BENCHMARKS).find(k => 
-    sector.toLowerCase().includes(k.toLowerCase())
+    cleanSector.toLowerCase().replace(/ /g,'').includes(k.toLowerCase().replace(/ /g,'')) || 
+    k.toLowerCase().replace(/ /g,'').includes(cleanSector.toLowerCase().replace(/ /g,''))
   );
-  
   return key ? SECTOR_BENCHMARKS[key] : SECTOR_BENCHMARKS.General;
 };
