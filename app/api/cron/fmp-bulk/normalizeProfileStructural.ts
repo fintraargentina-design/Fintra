@@ -1,7 +1,7 @@
 // Fintra/app/api/cron/fmp-bulk/normalizeProfileStructural.ts
 
 export function normalizeProfileStructural(
-  profile: any,
+  profile: any | null,
   ratios: any,
   scores: any
 ) {

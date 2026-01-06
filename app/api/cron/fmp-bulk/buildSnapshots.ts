@@ -1,13 +1,14 @@
 // Fintra/app/api/cron/fmp-bulk/buildSnapshots.ts
 
-import { normalizeFinancials } from './normalizeFinancials';
 import { normalizeValuation } from './normalizeValuation';
 import { normalizePerformance } from './normalizePerformance';
 import { calculateFGOSFromData } from '@/lib/engine/fintra-brain';
 import { normalizeProfileStructural } from './normalizeProfileStructural';
 import { resolveInvestmentVerdict } from '@/lib/engine/resolveInvestmentVerdict';
+import { rollingFYGrowth } from '@/lib/utils/rollingGrowth';
 
-// Helper estándar FINTRA para bloques pendientes (JSONB válido)
+
+
 function pending(reason: string, extra: any = {}) {
   return {
     status: 'pending',
@@ -17,51 +18,69 @@ function pending(reason: string, extra: any = {}) {
   };
 }
 
+function discard(sym: string, reason: string, extra: any = {}) {
+  console.warn('📉 TICKER DISCARDED', { sym, reason, ...extra });
+  return null;
+}
+
 export function buildSnapshot(
   sym: string,
   profile: any,
   ratios: any,
   metrics: any,
   quote: any,
-  priceChange: any,
-  scores: any
+  _priceChange: any,
+  scores: any,
+  incomeGrowthRows: any[] = [],
+  cashflowGrowthRows: any[] = []
 ) {
   console.log('🧪 SNAPSHOT START', sym);
 
   const today = new Date().toISOString().slice(0, 10);
 
-  // 1️⃣ PROFILE STRUCTURAL (identidad + clasificación + scores financieros)
-  const profileStructural = normalizeProfileStructural(profile, ratios, scores);
-  if (!profileStructural) {
-    console.log('❌ PROFILE STRUCTURAL NULL', sym);
-    return null;
-  }
+  // 1️⃣ PROFILE (tolerante)
+  const profileStructural = profile
+    ? normalizeProfileStructural(profile, ratios, scores)
+    : pending('Profile not available in bulk');
 
-  // 2️⃣ PERFORMANCE (precio, retornos, dividendos)
+  // 2️⃣ PERFORMANCE
   const performance = normalizePerformance(
-    profile,
-    quote,
-    priceChange,
-    metrics,
-    ratios
+    profile ?? {},
+    quote ?? {},
+    null,
+    metrics ?? {},
+    ratios ?? {}
   );
 
-  // 3️⃣ FINANCIAL NORMALIZATION (raw, sin inteligencia)
-  const financials = normalizeFinancials(sym, profile, ratios, metrics, quote);
+  // 3️⃣ GROWTH REAL
+  const fundamentalsGrowth = {
+    revenue_cagr: rollingFYGrowth(incomeGrowthRows, 'growthRevenue'),
+    earnings_cagr: rollingFYGrowth(incomeGrowthRows, 'growthNetIncome'),
+    fcf_cagr: rollingFYGrowth(cashflowGrowthRows, 'growthFreeCashFlow')
+  };
 
-  // 4️⃣ FGOS (INTELIGENCIA — puede fallar)
+  // mínimos obligatorios
+  if (!ratios || !Object.keys(ratios).length) {
+    return discard(sym, 'missing_ratios');
+  }
+  if (!metrics || !Object.keys(metrics).length) {
+    return discard(sym, 'missing_metrics');
+  }
+
+  // 4️⃣ FGOS (PUEDE SER Pending)
   const fgos = calculateFGOSFromData(
     sym,
-    profile,
+    profile ?? {},
     ratios,
     metrics,
-    {},      // growth bulk aún no incorporado
+    fundamentalsGrowth,
     quote
   );
 
-  // 5️⃣ VALUATION (CRUDA, NO depende de FGOS)
-  const valuation = normalizeValuation(ratios, profile);
+  console.log('🧠 FGOS OUTPUT RAW', { sym, fgos });
 
+  // 5️⃣ VALUATION
+  const valuation = normalizeValuation(ratios, profile ?? {});
   const valuationBlock = valuation
     ? {
         score: valuation.valuation_score,
@@ -69,53 +88,53 @@ export function buildSnapshot(
       }
     : pending('Valuation not available');
 
-  // 6️⃣ INVESTMENT VERDICT (CRÍTICO, pero tolerante a faltantes)
+  // 6️⃣ VERDICT (solo si confiable)
   const investmentVerdict =
-    fgos && typeof fgos.fgos_score === 'number' && valuation
+    valuation &&
+    fgos &&
+    typeof fgos.fgos_score === 'number' &&
+    fgos.confidence >= 60
       ? resolveInvestmentVerdict(
           fgos.fgos_score,
           valuation.valuation_status as any
         )
-      : pending('Verdict requires FGOS and Valuation');
+      : pending('Verdict not computable');
 
-  // 7️⃣ MARKET POSITION (placeholder válido — modelo pendiente)
-  const marketPosition = pending(
-    'Market position model not implemented yet'
-  );
+  const sector =
+  profileStructural?.classification?.sector ?? null;
 
-  console.log('✅ SNAPSHOT OK', sym);
 
-  // 8️⃣ SNAPSHOT FINAL — NUNCA NULL EN CAMPOS NOT NULL
+  // 7️⃣ SNAPSHOT FINAL (DB-COMPATIBLE)
   return {
     ticker: sym,
     snapshot_date: today,
     engine_version: 'v2.0',
+    
+    sector,
 
-    // JSONB estructural (usado también para display)
     profile_structural: profileStructural,
 
-    // JSONB mercado (si no hay datos, queda pendiente)
-    market_snapshot: performance ?? pending('No price/performance data'),
+    market_snapshot: performance ?? pending('No performance data'),
 
-    // FGOS
-    fgos_score: fgos ? fgos.fgos_score : 0,
-    fgos_components: fgos
-      ? fgos.fgos_breakdown
-      : pending('FGOS components missing'),
+    fundamentals_growth: fundamentalsGrowth,
 
-    // Valuation
+    fgos_score: typeof fgos?.fgos_score === 'number' ? fgos.fgos_score : null,
+
+    fgos_components:
+      fgos?.fgos_breakdown && Object.keys(fgos.fgos_breakdown).length
+        ? fgos.fgos_breakdown
+        : pending('FGOS pending'),
+
     valuation: valuationBlock,
 
-    // Market position (no null)
-    market_position: marketPosition,
+    market_position: pending('Market position model not implemented yet'),
 
-    // Verdict (no null)
     investment_verdict: investmentVerdict,
 
-    // Calidad de datos
     data_confidence: {
       has_profile: !!profile,
-      has_fgos: !!fgos,
+      has_growth: Object.values(fundamentalsGrowth).some(v => v != null),
+      has_fgos: typeof fgos?.fgos_score === 'number',
       has_valuation: !!valuation,
       has_performance: !!performance
     }

@@ -1,20 +1,20 @@
 // Fintra/app/api/cron/fmp-bulk/route.ts
 
+// Fintra/app/api/cron/fmp-bulk/route.ts
+
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { fetchAllFmpData } from './fetchBulk';
 import { buildSnapshot } from './buildSnapshots';
 import { upsertSnapshots } from './upsertSnapshots';
-
+import { resolveValuationFromSector } from '@/lib/engine/resolveValuationFromSector';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 const CRON_NAME = 'fmp_bulk_snapshots';
 const MIN_COVERAGE = 0.7;
-
-// 🔎 DEBUG: ticker puntual
-const DEBUG_TICKER = 'AAPL'; // ← CAMBIÁ SI QUERÉS
+const DEBUG_TICKER = 'AAPL';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -32,11 +32,13 @@ export async function GET(req: Request) {
     auth: { persistSession: false }
   });
 
-  try {
-    const tStart = performance.now();
-    const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  const tStart = performance.now();
 
-    // Cursor
+  try {
+    // ─────────────────────────────────────────
+    // CURSOR
+    // ─────────────────────────────────────────
     const { data: state } = await supabase
       .from('cron_state')
       .select('last_run_date')
@@ -47,78 +49,152 @@ export async function GET(req: Request) {
       return NextResponse.json({ skipped: true, date: today });
     }
 
-    // Fetch BULKs
-    const { profiles, ratios, metrics, scores } = await fetchAllFmpData(fmpKey);
+    // ─────────────────────────────────────────
+    // FETCH BULKS
+    // ─────────────────────────────────────────
+    const bulk = await fetchAllFmpData(fmpKey);
+    const { profiles, ratios, metrics, scores } = bulk;
 
-    // Universo activo
+    // ─────────────────────────────────────────
+    // SECTOR STATS
+    // ─────────────────────────────────────────
+    const { data: sectorStatsRows } = await supabase
+      .from('sector_stats')
+      .select('*')
+      .eq('stats_date', today);
+
+    const sectorStatsMap: Record<string, any> = {};
+    for (const row of sectorStatsRows ?? []) {
+      sectorStatsMap[row.sector] ??= {};
+      sectorStatsMap[row.sector][row.metric] = row;
+    }
+
+    // ─────────────────────────────────────────
+    // UNIVERSO ACTIVO
+    // ─────────────────────────────────────────
     const { data: activeStocks } = await supabase
       .from('fintra_active_stocks')
       .select('ticker');
 
-    if (!activeStocks) throw new Error('No active stocks');
+    if (!activeStocks?.length) {
+      return NextResponse.json({ error: 'No active stocks' }, { status: 500 });
+    }
 
     const tickers = activeStocks.map(s => s.ticker).slice(0, limit);
-
     const snapshotsToUpsert: any[] = [];
 
-    for (const sym of tickers) {
-      const profile = profiles.get(sym)?.[0];
-      if (!profile) continue;
+    const discardStats: Record<string, number> = {};
 
-      // 🧪 DEBUG INPUT
-      if (sym === DEBUG_TICKER) {
-        console.log('🧪 DEBUG INPUT', {
+    // ─────────────────────────────────────────
+    // LOOP PRINCIPAL
+    // ─────────────────────────────────────────
+    for (const sym of tickers) {
+      try {
+        const profile = profiles.get(sym)?.[0] ?? null;
+
+          if (!profile) {
+            console.warn('⚠️ PROFILE MISSING (bulk)', sym);
+          }
+
+
+        const snapshot = buildSnapshot(
           sym,
           profile,
-          ratios: ratios.get(sym)?.[0],
-          metrics: metrics.get(sym)?.[0],
-        });
-      }
+          ratios.get(sym)?.[0] ?? {},
+          metrics.get(sym)?.[0] ?? {},
+          bulk.quotes.get(sym)?.[0] ?? {},
+          {},
+          scores.get(sym)?.[0] ?? {},
+          bulk.income_growth.get(sym) ?? [],
+          bulk.cashflow_growth.get(sym) ?? []
+        );
 
-      const snapshot = buildSnapshot(
-        sym,
-        profile,
-        ratios.get(sym)?.[0] ?? {},
-        metrics.get(sym)?.[0] ?? {},
-        {},
-        {},
-        scores.get(sym)?.[0] ?? {}
-      );
+        if (!snapshot) {
+          const discard = (global as any).__LAST_DISCARD_REASON__;
 
-      // 🧪 DEBUG OUTPUT
-      if (sym === DEBUG_TICKER) {
-        console.log('🧪 DEBUG OUTPUT', snapshot);
-      }
+          const reason =
+            discard?.sym === sym ? discard.reason : 'unknown';
 
-      if (snapshot) {
+          discardStats[reason] = (discardStats[reason] ?? 0) + 1;
+
+          console.warn('📉 TICKER DISCARDED', {
+            sym,
+            reason
+          });
+
+          continue;
+        }
+
+        const sector =
+          snapshot.profile_structural?.classification?.sector ?? null;
+
+        if (sector && sectorStatsMap[sector]) {
+          const valuationResolved = resolveValuationFromSector(
+            {
+              sector,
+              pe_ratio: snapshot.valuation?.pe_ratio,
+              ev_ebitda: snapshot.valuation?.ev_ebitda,
+              price_to_fcf: snapshot.valuation?.price_to_fcf
+            },
+            sectorStatsMap[sector]
+          );
+
+          snapshot.valuation = {
+            ...snapshot.valuation,
+            score: valuationResolved.valuation_score,
+            status: valuationResolved.valuation_status
+          };
+        }
+
         snapshot.snapshot_date = today;
         snapshotsToUpsert.push(snapshot);
+
+        if (sym === DEBUG_TICKER) {
+          console.log('🧪 DEBUG SNAPSHOT FINAL', snapshot);
+        }
+      } catch (err) {
+        discardStats['exception'] =
+          (discardStats['exception'] ?? 0) + 1;
+
+        console.warn(`⚠️ SNAPSHOT ERROR ${sym}`, err);
+        continue;
       }
     }
 
-    // Upsert
+    // ─────────────────────────────────────────
+    // UPSERT
+    // ─────────────────────────────────────────
     const CHUNK_SIZE = 100;
     let inserted = 0;
 
     for (let i = 0; i < snapshotsToUpsert.length; i += CHUNK_SIZE) {
       const chunk = snapshotsToUpsert.slice(i, i + CHUNK_SIZE);
-      await upsertSnapshots(supabase, chunk);
-      inserted += chunk.length;
+      try {
+        await upsertSnapshots(supabase, chunk);
+        inserted += chunk.length;
+      } catch (err) {
+        console.error('❌ UPSERT CHUNK FAILED', err);
+      }
     }
 
-    // Benchmarks sectoriales
-    await supabase.rpc('build_sector_fgos_benchmarks', {
-      snap_date: today
-    });
+    // ─────────────────────────────────────────
+    // REBUILD STATS
+    // ─────────────────────────────────────────
+    try {
+      await supabase.rpc('build_sector_stats', { snap_date: today });
+    } catch {}
 
-    // ALERTA A
+    console.log('📊 DISCARD SUMMARY', discardStats);
+
+    // ─────────────────────────────────────────
+    // ALERTAS
+    // ─────────────────────────────────────────
     if (inserted === 0) {
       await sendCriticalAlert(
-        `🚨 FINTRA ALERTA\nCron corrió sin inserts.\nFecha: ${today}`
+        `🚨 FINTRA ALERTA\nCron sin inserts.\nFecha: ${today}`
       );
     }
 
-    // ALERTA B
     const { data: coverage } = await supabase.rpc(
       'fintra_snapshot_coverage',
       { snap_date: today }
@@ -130,23 +206,6 @@ export async function GET(req: Request) {
       );
     }
 
-    // ALERTA C
-    const { data: sanityIssues } = await supabase.rpc(
-      'fintra_fgos_sanity_issues',
-      { snap_date: today }
-    );
-
-    if (Number(sanityIssues) > 0) {
-      await sendCriticalAlert(
-        `🚨 FINTRA ALERTA\nFGOS inválido detectado.\nFecha: ${today}\nRegistros: ${sanityIssues}`
-      );
-    }
-
-    // Update cursor
-    await supabase
-      .from('cron_state')
-      .upsert({ name: CRON_NAME, last_run_date: today });
-
     const tEnd = performance.now();
 
     return NextResponse.json({
@@ -155,9 +214,9 @@ export async function GET(req: Request) {
       processed: tickers.length,
       inserted,
       coverage,
-      sanity_issues: sanityIssues,
       time_ms: Math.round(tEnd - tStart),
-      mode: 'FINTRA v2 CSV BULK + DEBUG FASE 2'
+      discard_stats: discardStats,
+      mode: 'FINTRA v2 – BULK ESTABLE'
     });
 
   } catch (e: any) {

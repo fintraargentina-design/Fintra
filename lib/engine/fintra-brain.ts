@@ -1,251 +1,201 @@
-// Fintra\lib\engine\fintra-brain.ts
+// Fintra/lib/engine/fintra-brain.ts
+
+// FGOS VERSION 3 — FINAL
 
 import "server-only";
 import type { FgosResult, FgosBreakdown } from './types';
 export type { FgosResult, FgosBreakdown };
+
 import { getBenchmarksForSector } from './benchmarks';
+import { applyQualityBrakes } from './applyQualityBrakes';
 import { fmp } from '@/lib/fmp/client';
 
+/* ================================
+   Helpers
+================================ */
 
-// PESOS DE CALIDAD (FGOS)
-const QUALITY_WEIGHTS = {
-  growth: 0.20,
-  profitability: 0.20,
-  efficiency: 0.20,
-  solvency: 0.15,
-  moat: 0.15,
-  sentiment: 0.10 // Sentimiento técnico (Trend), no de precio
-};
+function percentileFromStats(
+  value: number | null | undefined,
+  stats?: { p10: number; p25: number; p50: number; p75: number; p90: number }
+): number | null {
+  if (value === null || value === undefined || !stats) return null;
 
-// PESOS DE VALUACIÓN (THERMOMETER)
-const VALUATION_WEIGHTS = {
-  pe: 0.40,
-  ev_ebitda: 0.35,
-  p_fcf: 0.25
-};
-
-// Normaliza: 0 a 100
-function normalize(value: number | undefined, target: number, higherIsBetter = true): number {
-  if (value === undefined || value === null || isNaN(value)) return 50;
-  if (target === 0) return 50;
-
-  let score = 0;
-  if (higherIsBetter) {
-    // Para Calidad: (Valor / Meta) * 60. Si llegas a la meta del sector tienes 60pts (Aprobado).
-    score = (value / target) * 60; 
-  } else {
-    // Para Valuación (Precio): (Meta / Valor) * 50.
-    // Si Meta Sector PE es 20, y tu PE es 10 -> (20/10)*50 = 100 (Excelente/Barato)
-    // Si Meta Sector PE es 20, y tu PE es 40 -> (20/40)*50 = 25 (Malo/Caro)
-    const safeValue = value <= 0 ? 0.1 : value; 
-    score = (target / safeValue) * 50; 
-  }
-
-  return Math.min(Math.max(score, 0), 100);
+  if (value <= stats.p10) return 10;
+  if (value <= stats.p25) return 25;
+  if (value <= stats.p50) return 50;
+  if (value <= stats.p75) return 75;
+  if (value <= stats.p90) return 90;
+  return 95;
 }
 
-// Proxy de percentil: 0 (Barato/Bajo) a 100 (Caro/Alto)
-function calculatePercentileProxy(value: number, benchmark: number): number {
-  if (!value || value <= 0) return 50; // Neutral si no hay datos
-  if (!benchmark || benchmark <= 0) return 50;
-  
-  // Si value = benchmark -> ratio 1 -> 50
-  // Si value = 0.5 * benchmark -> ratio 0.5 -> 25 (Barato)
-  // Si value = 2.0 * benchmark -> ratio 2 -> 100 (Caro)
-  const ratio = value / benchmark;
-  const percentile = ratio * 50;
-  return Math.min(Math.max(percentile, 0), 100);
+function avg(values: Array<number | null>): number | null {
+  const valid = values.filter(v => typeof v === 'number') as number[];
+  if (!valid.length) return null;
+  return valid.reduce((a, b) => a + b, 0) / valid.length;
 }
 
-// CÁLCULO DEL TERMÓMETRO DE PRECIO
-function calculateValuationThermometer(
-  ratios: any, 
-  metrics: any, 
-  benchmarks: any
-): { score: number, status: string } {
-  
-  // Extraer Ratios
-  const pe = Number(ratios?.priceEarningsRatioTTM || ratios?.peRatioTTM || ratios?.peRatio || 0);
-  
-  const ev_ebitda = Number(
-    ratios?.enterpriseValueMultipleTTM || 
-    metrics?.enterpriseValueOverEBITDATTM || 
-    ratios?.enterpriseValueMultiple || 
-    0
-  );
-
-  const p_fcf = Number(
-    ratios?.priceToFreeCashFlowsRatioTTM || 
-    metrics?.priceToFreeCashFlowsRatioTTM ||
-    ratios?.priceToFreeCashFlowsRatio || 
-    0
-  );
-
-  // Calcular Percentiles Proxy (0=Cheap, 100=Expensive)
-  const p_pe_proxy = calculatePercentileProxy(pe, benchmarks.pe_ratio || 20);
-  const p_ev_proxy = calculatePercentileProxy(ev_ebitda, benchmarks.ev_ebitda || 12);
-  const p_fcf_proxy = calculatePercentileProxy(p_fcf, benchmarks.p_fcf || 15);
-
-  // Combined Score (Percentile Weighted)
-  const combinedPercentile = 
-    (p_pe_proxy * VALUATION_WEIGHTS.pe) +
-    (p_ev_proxy * VALUATION_WEIGHTS.ev_ebitda) +
-    (p_fcf_proxy * VALUATION_WEIGHTS.p_fcf);
-
-  // Definir Status basado en Percentil Combinado
-  // 0-30 -> Cheap (Barato)
-  // 30-70 -> Fair (Justa)
-  // 70-100 -> Expensive (Caro)
-  let status = 'Justa';
-  if (combinedPercentile <= 30) status = 'Barato';
-  else if (combinedPercentile >= 70) status = 'Caro';
-
-  // Nota: El "valuation_score" que espera el sistema suele ser "Higher is Better" (Cheap=High Score).
-  // Pero el usuario pidió "Percentile" logic para el status.
-  // Para mantener compatibilidad visual (si el UI espera 100=Bueno), invertimos el score para el output numérico.
-  // Percentil Bajo (Cheap) -> Score Alto (Good)
-  const finalValScore = 100 - combinedPercentile; 
-
-  return { score: Math.round(finalValScore), status };
+function clamp(v: number): number {
+  return Math.max(0, Math.min(100, v));
 }
+
+/* ================================
+   FGOS v3 – FINTRA v2 DEFINITIVO
+================================ */
 
 export function calculateFGOSFromData(
   ticker: string,
   profile: any,
   ratios: any,
   metrics: any,
-  growth: any,
-  quote: any
+  growth: {
+    revenue_cagr?: number | null;
+    earnings_cagr?: number | null;
+    fcf_cagr?: number | null;
+  },
+  _quote: any
 ): FgosResult | null {
   try {
-    if (!profile) return null;
-
-    // Normalizar claves CSV/JSON
-    const sector = profile.sector || profile.Sector;
-    const price = Number(quote?.price || profile?.price || profile?.Price || 0);
-
-    if (!sector) return null;
+    const sector = profile?.sector || profile?.Sector;
+    if (!sector) {
+      return {
+        ticker,
+        fgos_score: null,
+        fgos_category: 'Pending',
+        fgos_breakdown: {} as FgosBreakdown,
+        confidence: 0,
+        calculated_at: new Date().toISOString()
+      };
+    }
 
     const benchmarks = getBenchmarksForSector(sector);
-
-    // --- A. CÁLCULO DE CALIDAD (FGOS) ---
-    const revG = Number(growth?.revenueGrowth || 0);
-    const incG = Number(growth?.netIncomeGrowth || 0);
-    const s_rev = normalize(revG, benchmarks.revenue_growth || 0.10);
-    const s_inc = normalize(incG, benchmarks.revenue_growth || 0.10); 
-    const scoreGrowth = (s_rev + s_inc) / 2;
-
-    const roe = Number(ratios?.returnOnEquityTTM || ratios?.returnOnEquity || 0);
-    const netMargin = Number(ratios?.netProfitMarginTTM || ratios?.netProfitMargin || 0);
-    const s_roe = normalize(roe, benchmarks.roe || 0.15);
-    const s_margin = normalize(netMargin, benchmarks.net_margin || 0.10);
-    const scoreProfitability = (s_roe + s_margin) / 2;
-
-    const roic = Number(metrics?.roicTTM || metrics?.ROIC || 0);
-    const assetTurn = Number(ratios?.assetTurnoverTTM || ratios?.assetTurnover || 0.8);
-    const s_roic = normalize(roic, benchmarks.roe || 0.15);
-    const s_asset_turn = normalize(assetTurn, 0.8);
-    const scoreEfficiency = (s_roic + s_asset_turn) / 2;
-
-    const debtEq = Number(ratios?.debtEquityRatioTTM || ratios?.debtEquityRatio || 1.0);
-    const intCov = Number(ratios?.interestCoverageTTM || ratios?.interestCoverage || 5);
-    const s_debt = normalize(debtEq, benchmarks.debt_to_equity || 1.0, false);
-    const s_int = normalize(intCov, 5);
-    const scoreSolvency = (s_debt + s_int) / 2;
-
-    const grossMargin = Number(ratios?.grossProfitMarginTTM || ratios?.grossProfitMargin || 0);
-    const fcfYield = Number(metrics?.freeCashFlowYieldTTM || metrics?.FreeCashFlowYield || 0);
-    const s_gross = normalize(grossMargin, 0.40);
-    const s_fcf = normalize(fcfYield, 0.05); 
-    const scoreMoat = (s_gross + s_fcf) / 2;
-
-    // Sentiment Técnico (SMA 200)
-    const sma200 = Number(quote?.priceAvg200 || price);
-    let scoreSentiment = 50;
-    if (quote?.priceAvg200 && price > 0) {
-        scoreSentiment = price > sma200 ? 75 : 25;
+    if (!benchmarks) {
+      return {
+        ticker,
+        fgos_score: null,
+        fgos_category: 'Pending',
+        fgos_breakdown: {} as FgosBreakdown,
+        confidence: 0,
+        calculated_at: new Date().toISOString()
+      };
     }
 
-    const fgosScore = 
-      (scoreGrowth * QUALITY_WEIGHTS.growth) +
-      (scoreProfitability * QUALITY_WEIGHTS.profitability) +
-      (scoreEfficiency * QUALITY_WEIGHTS.efficiency) +
-      (scoreSolvency * QUALITY_WEIGHTS.solvency) +
-      (scoreMoat * QUALITY_WEIGHTS.moat) +
-      (scoreSentiment * QUALITY_WEIGHTS.sentiment);
+    /* ---------- Growth (REAL, Bulk) ---------- */
+    const growthScore = avg([
+      percentileFromStats(growth?.revenue_cagr, benchmarks.revenue_cagr),
+      percentileFromStats(growth?.earnings_cagr, benchmarks.earnings_cagr),
+      percentileFromStats(growth?.fcf_cagr, benchmarks.fcf_cagr)
+    ]);
 
-    // --- B. CÁLCULO DE VALUACIÓN ---
-    const valuation = calculateValuationThermometer(ratios, metrics, benchmarks);
+    /* ---------- Profitability ---------- */
+    const profitabilityScore = avg([
+      percentileFromStats(metrics?.roicTTM, benchmarks.roic),
+      percentileFromStats(ratios?.operatingProfitMarginTTM, benchmarks.operating_margin),
+      percentileFromStats(ratios?.netProfitMarginTTM, benchmarks.net_margin)
+    ]);
 
-    // --- C. INVESTMENT VERDICT ---
-    // Categorización FGOS
-    let fgosCategory = 'Medium';
-    if (fgosScore >= 60) fgosCategory = 'High';
-    else if (fgosScore <= 40) fgosCategory = 'Low';
+    /* ---------- Efficiency ---------- */
+    const efficiencyScore = avg([
+      percentileFromStats(metrics?.roicTTM, benchmarks.roic),
+      percentileFromStats(metrics?.freeCashFlowMarginTTM, benchmarks.fcf_margin)
+    ]);
 
-    // Categorización Valuación (Mapeo de status existente)
-    // status: 'Barato' (Cheap), 'Justo' (Fair), 'Caro' (Expensive)
-    const valCategory = valuation.status;
+    /* ---------- Solvency ---------- */
+    const solvencyScore = avg([
+      percentileFromStats(
+        ratios?.debtEquityRatioTTM != null
+          ? 100 - ratios.debtEquityRatioTTM
+          : null,
+        benchmarks.debt_to_equity
+      ),
+      percentileFromStats(ratios?.interestCoverageTTM, benchmarks.interest_coverage)
+    ]);
 
-    let investment_verdict = 'Sin interpretación disponible';
+    /* ---------- FGOS BASE ---------- */
+    const WEIGHTS = {
+      growth: 0.25,
+      profitability: 0.30,
+      efficiency: 0.20,
+      solvency: 0.25
+    };
 
-    // Lógica de decisión Fintra
-    if (fgosCategory === 'High') {
-        if (valCategory === 'Barato') investment_verdict = "Oportunidad clara";
-        else if (valCategory === 'Justo') investment_verdict = "Buena empresa, esperar mejor precio";
-        else if (valCategory === 'Caro') investment_verdict = "Excelente empresa, expectativas exigentes";
-    } else if (fgosCategory === 'Medium') {
-        if (valCategory === 'Barato') investment_verdict = "Potencial especulativo";
-        else if (valCategory === 'Justo') investment_verdict = "Observar"; // Reasonable default
-        else if (valCategory === 'Caro') investment_verdict = "Evitar"; // Reasonable default
-    } else if (fgosCategory === 'Low') {
-        if (valCategory === 'Barato') investment_verdict = "Barata por una razón";
-        else if (valCategory === 'Justo') investment_verdict = "Evitar"; // Reasonable default
-        else if (valCategory === 'Caro') investment_verdict = "Evitar";
+    const baseScore = avg([
+      growthScore != null ? growthScore * WEIGHTS.growth : null,
+      profitabilityScore != null ? profitabilityScore * WEIGHTS.profitability : null,
+      efficiencyScore != null ? efficiencyScore * WEIGHTS.efficiency : null,
+      solvencyScore != null ? solvencyScore * WEIGHTS.solvency : null
+    ]);
+
+    if (baseScore == null) {
+      return {
+        ticker,
+        fgos_score: null,
+        fgos_category: 'Pending',
+        fgos_breakdown: {
+          growth: growthScore,
+          profitability: profitabilityScore,
+          efficiency: efficiencyScore,
+          solvency: solvencyScore
+        } as FgosBreakdown,
+        confidence: 0,
+        calculated_at: new Date().toISOString()
+      };
     }
+
+    const baseFgos = clamp(Math.round(baseScore));
+
+    /* ---------- QUALITY BRAKES ---------- */
+    const brakes = applyQualityBrakes({
+      fgosScore: baseFgos,
+      altmanZ: metrics?.altmanZScore,
+      piotroskiScore: metrics?.piotroskiScore
+    });
+
+    let category: 'High' | 'Medium' | 'Low' | 'Pending' = 'Medium';
+    if (brakes.adjustedScore >= 70) category = 'High';
+    else if (brakes.adjustedScore < 40) category = 'Low';
 
     return {
       ticker: ticker.toUpperCase(),
-      fgos_score: Math.round(fgosScore),
+      fgos_score: brakes.adjustedScore,
+      fgos_category: category,
       fgos_breakdown: {
-        growth: Math.round(scoreGrowth),
-        profitability: Math.round(scoreProfitability),
-        efficiency: Math.round(scoreEfficiency),
-        solvency: Math.round(scoreSolvency),
-        moat: Math.round(scoreMoat),
-        sentiment: Math.round(scoreSentiment)
-      },
-      valuation_score: valuation.score,
-      valuation_status: valuation.status,
-      ecosystem_score: Math.round(fgosScore * 0.9), // Legacy
-      calculated_at: new Date().toISOString(),
-      price: price,
-      investment_verdict,
-      confidence: 'Medium', // Placeholder
-      sector_pe: benchmarks.pe_ratio
+        growth: growthScore,
+        profitability: profitabilityScore,
+        efficiency: efficiencyScore,
+        solvency: solvencyScore
+      } as FgosBreakdown,
+      confidence: brakes.confidence,
+      quality_warnings: brakes.warnings,
+      calculated_at: new Date().toISOString()
     };
 
-  } catch (error) {
-    console.error(`FGOS Brain Error ${ticker}:`, error);
+  } catch (err) {
+    console.error(`FGOS Error ${ticker}`, err);
     return null;
   }
 }
 
-// Wrapper Legacy
-export async function calculateFGOS(ticker: string): Promise<FgosResult | null> {
-    const [profileRes, ratiosRes, metricsRes, growthRes, quoteRes] = await Promise.allSettled([
-      fmp.profile(ticker),
-      fmp.ratiosTTM(ticker),
-      fmp.keyMetricsTTM(ticker),
-      fmp.growth(ticker),
-      fmp.quote(ticker)
-    ]);
-    
-    const profile = profileRes.status === 'fulfilled' ? profileRes.value?.[0] : null;
-    const ratios = ratiosRes.status === 'fulfilled' ? ratiosRes.value?.[0] : {};
-    const metrics = metricsRes.status === 'fulfilled' ? metricsRes.value?.[0] : {};
-    const growth = growthRes.status === 'fulfilled' ? growthRes.value?.[0] : {};
-    const quote = quoteRes.status === 'fulfilled' ? quoteRes.value?.[0] : {};
+/* ================================
+   Legacy Wrapper (NO TOCAR)
+================================ */
 
-    return calculateFGOSFromData(ticker, profile, ratios, metrics, growth, quote);
+export async function calculateFGOS(ticker: string): Promise<FgosResult | null> {
+  const [profileRes, ratiosRes, metricsRes] = await Promise.allSettled([
+    fmp.profile(ticker),
+    fmp.ratiosTTM(ticker),
+    fmp.keyMetricsTTM(ticker)
+  ]);
+
+  const profile = profileRes.status === 'fulfilled' ? profileRes.value?.[0] : null;
+  const ratios = ratiosRes.status === 'fulfilled' ? ratiosRes.value?.[0] : {};
+  const metrics = metricsRes.status === 'fulfilled' ? metricsRes.value?.[0] : {};
+
+  return calculateFGOSFromData(
+    ticker,
+    profile,
+    ratios,
+    metrics,
+    {},   // growth legacy
+    {}
+  );
 }
