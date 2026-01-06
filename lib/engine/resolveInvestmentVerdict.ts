@@ -1,0 +1,52 @@
+export type ValuationStatus = 'Barata' | 'Justa' | 'Cara';
+
+export interface InvestmentVerdict {
+  verdict: string;
+  category: 'High' | 'Medium' | 'Low';
+  valuation: ValuationStatus;
+  confidence: 'High' | 'Medium' | 'Low';
+}
+
+export function resolveInvestmentVerdict(
+  fgosScore: number,
+  valuationStatus: ValuationStatus
+): InvestmentVerdict {
+
+  let category: 'High' | 'Medium' | 'Low' = 'Medium';
+
+  if (fgosScore >= 60) category = 'High';
+  else if (fgosScore < 40) category = 'Low';
+
+  let verdict = 'Neutral';
+
+  if (category === 'High') {
+    if (valuationStatus === 'Barata') verdict = 'Oportunidad clara';
+    else if (valuationStatus === 'Justa') verdict = 'Buena empresa, esperar mejor precio';
+    else verdict = 'Excelente empresa, expectativas exigentes';
+  }
+
+  if (category === 'Medium') {
+    if (valuationStatus === 'Barata') verdict = 'Potencial selectivo';
+    else if (valuationStatus === 'Justa') verdict = 'Neutral';
+    else verdict = 'Precio exigente';
+  }
+
+  if (category === 'Low') {
+    if (valuationStatus === 'Barata') verdict = 'Barata por una razón';
+    else verdict = 'Evitar';
+  }
+
+  const confidence =
+    category === 'High' && valuationStatus === 'Barata'
+      ? 'High'
+      : category === 'Low' && valuationStatus === 'Cara'
+      ? 'High'
+      : 'Medium';
+
+  return {
+    verdict,
+    category,
+    valuation: valuationStatus,
+    confidence
+  };
+}

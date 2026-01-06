@@ -1,7 +1,11 @@
+// Fintra\lib\engine\fintra-brain.ts
+
 import "server-only";
-import { FgosResult, FgosBreakdown } from './types';
+import type { FgosResult, FgosBreakdown } from './types';
+export type { FgosResult, FgosBreakdown };
 import { getBenchmarksForSector } from './benchmarks';
 import { fmp } from '@/lib/fmp/client';
+
 
 // PESOS DE CALIDAD (FGOS)
 const QUALITY_WEIGHTS = {
@@ -40,6 +44,19 @@ function normalize(value: number | undefined, target: number, higherIsBetter = t
   return Math.min(Math.max(score, 0), 100);
 }
 
+// Proxy de percentil: 0 (Barato/Bajo) a 100 (Caro/Alto)
+function calculatePercentileProxy(value: number, benchmark: number): number {
+  if (!value || value <= 0) return 50; // Neutral si no hay datos
+  if (!benchmark || benchmark <= 0) return 50;
+  
+  // Si value = benchmark -> ratio 1 -> 50
+  // Si value = 0.5 * benchmark -> ratio 0.5 -> 25 (Barato)
+  // Si value = 2.0 * benchmark -> ratio 2 -> 100 (Caro)
+  const ratio = value / benchmark;
+  const percentile = ratio * 50;
+  return Math.min(Math.max(percentile, 0), 100);
+}
+
 // CÁLCULO DEL TERMÓMETRO DE PRECIO
 function calculateValuationThermometer(
   ratios: any, 
@@ -47,7 +64,7 @@ function calculateValuationThermometer(
   benchmarks: any
 ): { score: number, status: string } {
   
-  // Extraer Ratios (Soporte CSV y JSON keys)
+  // Extraer Ratios
   const pe = Number(ratios?.priceEarningsRatioTTM || ratios?.peRatioTTM || ratios?.peRatio || 0);
   
   const ev_ebitda = Number(
@@ -64,22 +81,30 @@ function calculateValuationThermometer(
     0
   );
 
-  // Calcular Scores Individuales (false = Menor es mejor)
-  const s_pe = normalize(pe, benchmarks.pe_ratio || 15, false);
-  const s_ev = normalize(ev_ebitda, benchmarks.ev_ebitda || 12, false);
-  const s_fcf = normalize(p_fcf, benchmarks.p_fcf || 15, false);
+  // Calcular Percentiles Proxy (0=Cheap, 100=Expensive)
+  const p_pe_proxy = calculatePercentileProxy(pe, benchmarks.pe_ratio || 20);
+  const p_ev_proxy = calculatePercentileProxy(ev_ebitda, benchmarks.ev_ebitda || 12);
+  const p_fcf_proxy = calculatePercentileProxy(p_fcf, benchmarks.p_fcf || 15);
 
-  const finalValScore = 
-    (s_pe * VALUATION_WEIGHTS.pe) +
-    (s_ev * VALUATION_WEIGHTS.ev_ebitda) +
-    (s_fcf * VALUATION_WEIGHTS.p_fcf);
+  // Combined Score (Percentile Weighted)
+  const combinedPercentile = 
+    (p_pe_proxy * VALUATION_WEIGHTS.pe) +
+    (p_ev_proxy * VALUATION_WEIGHTS.ev_ebitda) +
+    (p_fcf_proxy * VALUATION_WEIGHTS.p_fcf);
 
-  // Definir Status
-  // > 70: Barato (Undervalued)
-  // < 30: Caro (Overvalued)
-  let status = 'Justo';
-  if (finalValScore >= 70) status = 'Barato';
-  else if (finalValScore <= 30) status = 'Caro';
+  // Definir Status basado en Percentil Combinado
+  // 0-30 -> Cheap (Barato)
+  // 30-70 -> Fair (Justa)
+  // 70-100 -> Expensive (Caro)
+  let status = 'Justa';
+  if (combinedPercentile <= 30) status = 'Barato';
+  else if (combinedPercentile >= 70) status = 'Caro';
+
+  // Nota: El "valuation_score" que espera el sistema suele ser "Higher is Better" (Cheap=High Score).
+  // Pero el usuario pidió "Percentile" logic para el status.
+  // Para mantener compatibilidad visual (si el UI espera 100=Bueno), invertimos el score para el output numérico.
+  // Percentil Bajo (Cheap) -> Score Alto (Good)
+  const finalValScore = 100 - combinedPercentile; 
 
   return { score: Math.round(finalValScore), status };
 }
@@ -153,11 +178,31 @@ export function calculateFGOSFromData(
     const valuation = calculateValuationThermometer(ratios, metrics, benchmarks);
 
     // --- C. INVESTMENT VERDICT ---
-    // Combinación de Calidad (FGOS) y Valuación
-    let investment_verdict = 'Hold';
-    if (fgosScore >= 65 && valuation.score >= 70) investment_verdict = 'Strong Buy';
-    else if (fgosScore >= 60 && valuation.score >= 50) investment_verdict = 'Buy';
-    else if (fgosScore <= 40 || valuation.score <= 30) investment_verdict = 'Sell';
+    // Categorización FGOS
+    let fgosCategory = 'Medium';
+    if (fgosScore >= 60) fgosCategory = 'High';
+    else if (fgosScore <= 40) fgosCategory = 'Low';
+
+    // Categorización Valuación (Mapeo de status existente)
+    // status: 'Barato' (Cheap), 'Justo' (Fair), 'Caro' (Expensive)
+    const valCategory = valuation.status;
+
+    let investment_verdict = 'Sin interpretación disponible';
+
+    // Lógica de decisión Fintra
+    if (fgosCategory === 'High') {
+        if (valCategory === 'Barato') investment_verdict = "Oportunidad clara";
+        else if (valCategory === 'Justo') investment_verdict = "Buena empresa, esperar mejor precio";
+        else if (valCategory === 'Caro') investment_verdict = "Excelente empresa, expectativas exigentes";
+    } else if (fgosCategory === 'Medium') {
+        if (valCategory === 'Barato') investment_verdict = "Potencial especulativo";
+        else if (valCategory === 'Justo') investment_verdict = "Observar"; // Reasonable default
+        else if (valCategory === 'Caro') investment_verdict = "Evitar"; // Reasonable default
+    } else if (fgosCategory === 'Low') {
+        if (valCategory === 'Barato') investment_verdict = "Barata por una razón";
+        else if (valCategory === 'Justo') investment_verdict = "Evitar"; // Reasonable default
+        else if (valCategory === 'Caro') investment_verdict = "Evitar";
+    }
 
     return {
       ticker: ticker.toUpperCase(),
@@ -176,6 +221,7 @@ export function calculateFGOSFromData(
       calculated_at: new Date().toISOString(),
       price: price,
       investment_verdict,
+      confidence: 'Medium', // Placeholder
       sector_pe: benchmarks.pe_ratio
     };
 

@@ -22,6 +22,7 @@ export interface FgosResult {
   valuation_gap?: number; // legacy
   fair_value?: number; // legacy
   investment_verdict?: string;
+  confidence?: string;
   sector_pe?: number;
 }
 
