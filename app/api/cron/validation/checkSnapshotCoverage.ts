@@ -1,8 +1,8 @@
 // cron/validation/checkSnapshotCoverage.ts
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function checkSnapshotCoverage(minSnapshots = 30) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('fintra_snapshots')
     .select('ticker, snapshot_date');
 

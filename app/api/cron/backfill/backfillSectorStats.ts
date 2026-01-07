@@ -1,6 +1,6 @@
 // cron/backfill/backfillSectorStats.ts
 
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 const METRICS = [
   'revenue_cagr',
@@ -61,7 +61,7 @@ do update set
 `;
 
 
-    const { error } = await supabase.rpc('execute_sql', {
+    const { error } = await supabaseAdmin.rpc('execute_sql', {
       sql: query
     });
 

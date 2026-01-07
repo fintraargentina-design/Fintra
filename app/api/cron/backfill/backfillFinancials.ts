@@ -1,6 +1,6 @@
 // cron/backfill/backfillFinancials.ts
 
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getBulkFinancialData } from '../shared/bulkCache';
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
@@ -85,7 +85,7 @@ export async function backfillFinancialsForDate(date: string) {
   // UPSERT datos_financieros
   // -------------------------
   if (rows.length) {
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('datos_financieros')
       .upsert(rows, {
         onConflict: 'ticker,period_type,period_label'

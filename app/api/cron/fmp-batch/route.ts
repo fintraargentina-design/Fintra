@@ -1,7 +1,7 @@
 // Fintra\app\api\cron\fmp-batch\route.ts
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { loadFmpBulkOnce } from '@/lib/fmp/loadFmpBulkOnce';
 import { processTickerFromBulk } from '@/lib/fmp/processTickerFromBulk';
 
@@ -9,10 +9,7 @@ import { processTickerFromBulk } from '@/lib/fmp/processTickerFromBulk';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, serviceRoleKey);
+const supabase = supabaseAdmin;
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -32,7 +29,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, processed: 0 });
   }
 
-  const tickers = rows.map(r => r.ticker);
+  const tickers = rows.map((r: { ticker: string }) => r.ticker);
   const fmp = await loadFmpBulkOnce();
 
     for (const ticker of tickers) {

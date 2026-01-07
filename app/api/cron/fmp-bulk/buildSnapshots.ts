@@ -6,8 +6,11 @@ import { calculateFGOSFromData } from '@/lib/engine/fintra-brain';
 import { normalizeProfileStructural } from './normalizeProfileStructural';
 import { resolveInvestmentVerdict } from '@/lib/engine/resolveInvestmentVerdict';
 import { rollingFYGrowth } from '@/lib/utils/rollingGrowth';
+import type { FinancialSnapshot, FmpProfile, FmpRatios, FmpMetrics, FmpQuote } from '@/lib/engine/types';
 
-
+/* ================================
+   Helpers
+================================ */
 
 function pending(reason: string, extra: any = {}) {
   return {
@@ -23,120 +26,131 @@ function discard(sym: string, reason: string, extra: any = {}) {
   return null;
 }
 
+/* ================================
+   SNAPSHOT BUILDER
+================================ */
+
 export function buildSnapshot(
   sym: string,
-  profile: any,
-  ratios: any,
-  metrics: any,
-  quote: any,
+  profile: FmpProfile | null,
+  ratios: FmpRatios | null,
+  metrics: FmpMetrics | null,
+  quote: FmpQuote | null,
   _priceChange: any,
   scores: any,
   incomeGrowthRows: any[] = [],
   cashflowGrowthRows: any[] = []
-) {
+): FinancialSnapshot {
   console.log('🧪 SNAPSHOT START', sym);
 
   const today = new Date().toISOString().slice(0, 10);
 
-  // 1️⃣ PROFILE (tolerante)
-  const profileStructural = profile
-    ? normalizeProfileStructural(profile, ratios, scores)
-    : pending('Profile not available in bulk');
+  /* --------------------------------
+     SECTOR (FUENTE ÚNICA)
+  -------------------------------- */
+  const sector =
+    profile?.sector ??
+    profile?.Sector ??
+    null;
 
-  // 2️⃣ PERFORMANCE
+  if (!sector) {
+    console.warn('⚠️ SECTOR MISSING', sym);
+  }
+
+  /* --------------------------------
+     PROFILE STRUCTURAL (TOLERANTE)
+  -------------------------------- */
+  const profileStructural =
+    profile
+      ? normalizeProfileStructural(profile, ratios, scores)
+      : pending('Profile not available in bulk');
+
+  /* --------------------------------
+     PERFORMANCE (TOLERANTE)
+  -------------------------------- */
   const performance = normalizePerformance(
-    profile ?? {},
-    quote ?? {},
+    profile,
+    quote,
     null,
-    metrics ?? {},
-    ratios ?? {}
+    metrics,
+    ratios
   );
 
-  // 3️⃣ GROWTH REAL
+  /* --------------------------------
+     GROWTH REAL (BULK)
+  -------------------------------- */
   const fundamentalsGrowth = {
     revenue_cagr: rollingFYGrowth(incomeGrowthRows, 'growthRevenue'),
     earnings_cagr: rollingFYGrowth(incomeGrowthRows, 'growthNetIncome'),
     fcf_cagr: rollingFYGrowth(cashflowGrowthRows, 'growthFreeCashFlow')
   };
 
-  // mínimos obligatorios
-  if (!ratios || !Object.keys(ratios).length) {
-    return discard(sym, 'missing_ratios');
-  }
-  if (!metrics || !Object.keys(metrics).length) {
-    return discard(sym, 'missing_metrics');
-  }
+  /* --------------------------------
+     FGOS (NUNCA DESCARTA SNAPSHOT)
+  -------------------------------- */
+  const fgos =
+    sector
+      ? calculateFGOSFromData(
+          sym,
+          profile ?? {},
+          ratios ?? {},
+          metrics ?? {},
+          fundamentalsGrowth,
+          quote ?? {}
+        )
+      : null;
 
-  // 4️⃣ FGOS (PUEDE SER Pending)
-  const fgos = calculateFGOSFromData(
-    sym,
-    profile ?? {},
-    ratios,
-    metrics,
-    fundamentalsGrowth,
-    quote
-  );
+  const fgosStatus =
+    fgos && typeof fgos.fgos_score === 'number'
+      ? 'computed'
+      : 'pending';
 
-  console.log('🧠 FGOS OUTPUT RAW', { sym, fgos });
+  /* --------------------------------
+     VALUATION
+  -------------------------------- */
+  const valuation = normalizeValuation(ratios, profile);
 
-  // 5️⃣ VALUATION
-  const valuation = normalizeValuation(ratios, profile ?? {});
-  const valuationBlock = valuation
-    ? {
-        score: valuation.valuation_score,
-        status: valuation.valuation_status
-      }
-    : pending('Valuation not available');
-
-  // 6️⃣ VERDICT (solo si confiable)
+  /* --------------------------------
+     INVESTMENT VERDICT
+     (REGLA DURA DE DOMINIO)
+  -------------------------------- */
   const investmentVerdict =
-    valuation &&
-    fgos &&
-    typeof fgos.fgos_score === 'number' &&
-    fgos.confidence >= 60
+    fgosStatus === 'computed' &&
+    typeof fgos?.fgos_score === 'number' &&
+    valuation
       ? resolveInvestmentVerdict(
           fgos.fgos_score,
           valuation.valuation_status as any
         )
       : pending('Verdict not computable');
 
-  const sector =
-  profileStructural?.classification?.sector ?? null;
-
-
-  // 7️⃣ SNAPSHOT FINAL (DB-COMPATIBLE)
+  /* --------------------------------
+     SNAPSHOT FINAL
+  -------------------------------- */
   return {
     ticker: sym,
     snapshot_date: today,
     engine_version: 'v2.0',
-    
+
+    // 🔴 Persistencia explícita
     sector,
 
     profile_structural: profileStructural,
+    market_snapshot: performance ?? null,
 
-    market_snapshot: performance ?? pending('No performance data'),
+    fgos_score: fgos?.fgos_score ?? null,
+    fgos_components: fgos?.fgos_breakdown ?? null,
 
-    fundamentals_growth: fundamentalsGrowth,
-
-    fgos_score: typeof fgos?.fgos_score === 'number' ? fgos.fgos_score : null,
-
-    fgos_components:
-      fgos?.fgos_breakdown && Object.keys(fgos.fgos_breakdown).length
-        ? fgos.fgos_breakdown
-        : pending('FGOS pending'),
-
-    valuation: valuationBlock,
-
+    valuation: valuation,
     market_position: pending('Market position model not implemented yet'),
-
     investment_verdict: investmentVerdict,
 
     data_confidence: {
       has_profile: !!profile,
-      has_growth: Object.values(fundamentalsGrowth).some(v => v != null),
-      has_fgos: typeof fgos?.fgos_score === 'number',
+      has_financials: !!ratios || !!metrics,
       has_valuation: !!valuation,
-      has_performance: !!performance
+      has_performance: !!performance,
+      has_fgos: fgosStatus === 'computed'
     }
   };
 }

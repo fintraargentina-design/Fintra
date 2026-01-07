@@ -1,24 +1,34 @@
-import { supabase } from '@/lib/supabase';
-// Point to the actual implementation or mock if it doesn't exist
+import { supabaseAdmin as supabase } from '@/lib/supabase-admin';
 import { calculateFGOSFromData } from '@/lib/engine/fintra-brain'; 
 import dayjs from 'dayjs';
-
-// Adapter to match expected signature if needed
-function calculateFGOS(fin: any, sectorStats: any) {
-    // Assuming fin contains necessary fields or mapping is needed.
-    // For now, this is a placeholder to satisfy the linter.
-    // In reality, you'd map 'fin' properties to what calculateFGOSFromData expects.
-    return calculateFGOSFromData(
-        fin.ticker,
-        { sector: fin.sector }, // Profile
-        fin, // Ratios (assuming flattened)
-        fin, // Metrics (assuming flattened)
-        {},
-        { price: 0 }
-    );
-}
+import type { FmpProfile, FmpRatios, FmpMetrics } from '@/lib/engine/types';
+import { normalizeProfileStructural } from '../fmp-bulk/normalizeProfileStructural';
 
 const ENGINE_VERSION = 'fintra-engine@2.0.0';
+
+// Adapter to map DB columns to FMP camelCase expected by the engine
+function mapDbToFmp(fin: any): { profile: FmpProfile, ratios: FmpRatios, metrics: FmpMetrics } {
+  return {
+    profile: {
+      sector: fin.sector,
+      industry: fin.industry,
+      symbol: fin.ticker,
+      companyName: fin.company_name // Assuming column exists
+    },
+    ratios: {
+      operatingProfitMarginTTM: fin.operating_margin,
+      netProfitMarginTTM: fin.net_margin,
+      debtEquityRatioTTM: fin.debt_to_equity,
+      interestCoverageTTM: fin.interest_coverage,
+    },
+    metrics: {
+      roicTTM: fin.roic,
+      freeCashFlowMarginTTM: fin.fcf_margin,
+      altmanZScore: fin.altman_z,
+      piotroskiScore: fin.piotroski
+    }
+  };
+}
 
 export async function backfillSnapshotsForDate(date: string) {
   const asOf = dayjs(date);
@@ -54,31 +64,28 @@ export async function backfillSnapshotsForDate(date: string) {
     if (!sector) continue;
 
     // -----------------------------
-    // 4. Sector stats
+    // 4. Sector stats (Unused in current engine but kept for reference)
     // -----------------------------
-    const { data: statsRows } = await supabase
-      .from('sector_stats')
-      .select('*')
-      .eq('sector', sector)
-      .eq('stats_date', date);
-
-    if (!statsRows || !statsRows.length) continue;
-
-    const sectorStats: any = {};
-    for (const r of statsRows) {
-      sectorStats[r.metric] = {
-        p10: r.p10,
-        p25: r.p25,
-        p50: r.p50,
-        p75: r.p75,
-        p90: r.p90
-      };
-    }
-
+    // Engine v2 loads benchmarks internally via getBenchmarksForSector
+    // Ideally we should inject historical benchmarks here
+    
     // -----------------------------
     // 5. FGOS
     // -----------------------------
-    const fgos = calculateFGOS(fin, sectorStats);
+    const { profile, ratios, metrics } = mapDbToFmp(fin);
+    
+    const fgos = calculateFGOSFromData(
+        fin.ticker,
+        profile,
+        ratios,
+        metrics,
+        {
+          revenue_cagr: fin.revenue_cagr,
+          earnings_cagr: fin.earnings_cagr,
+          fcf_cagr: fin.fcf_cagr // Assuming column exists
+        },
+        { price: 0 } // No price in financials, usually from quote
+    );
 
     // -----------------------------
     // 6. Valuación
@@ -98,26 +105,49 @@ export async function backfillSnapshotsForDate(date: string) {
       .from('datos_performance')
       .select('*')
       .eq('ticker', ticker)
-      .eq('performance_date', date);
-
-    const marketPosition: any = {};
-    perfRows?.forEach((r: any) => {
-      marketPosition[r.window_code] = r.return_percent;
-    });
-
-    // -----------------------------
-    // 8. Verdict
-    // -----------------------------
-    const verdict = buildVerdict(fgos, valuation);
+      .lte('date', date)
+      .order('date', { ascending: false })
+      .limit(1);
+      
+    const perf = perfRows?.[0] || null;
 
     // -----------------------------
-    // 9. Snapshot final
-    // TODO: Insert logic
+    // 8. Build Snapshot
+    // -----------------------------
+    // TODO: Use a typed builder or reuse buildSnapshot logic if possible
+    // For now constructing object manually to match schema
+    
+    const snapshot = {
+        ticker,
+        snapshot_date: date,
+        engine_version: ENGINE_VERSION,
+        sector: sector,
+        profile_structural: normalizeProfileStructural(profile, ratios, metrics),
+        market_snapshot: perf ? {
+            price: perf.close,
+            ytd_percent: null, // Hard to calc without history
+            div_yield: null
+        } : null,
+        fgos_score: fgos?.fgos_score ?? null,
+        fgos_components: fgos?.fgos_breakdown ?? null,
+        valuation: valuation ? {
+            pe_ratio: valuation.pe_ratio,
+            ev_ebitda: valuation.ev_ebitda,
+            price_to_fcf: valuation.price_to_fcf,
+            valuation_status: 'Pending' // Logic missing here
+        } : null,
+        market_position: null,
+        investment_verdict: null,
+        data_confidence: {
+            has_profile: true,
+            has_financials: true,
+            has_valuation: !!valuation,
+            has_performance: !!perf,
+            has_fgos: !!fgos
+        }
+    };
+
+    // Upsert
+    await supabase.from('fintra_snapshots').upsert(snapshot, { onConflict: 'ticker,snapshot_date' });
   }
-}
-
-function buildVerdict(fgos: any, valuation: any) {
-    if (!fgos || !valuation) return "Sin datos suficientes";
-    // Implement simple logic or reuse fintra-brain
-    return "Neutral";
 }

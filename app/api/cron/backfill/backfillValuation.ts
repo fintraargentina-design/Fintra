@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getBulkPriceData } from '../shared/bulkCache';
 import dayjs from 'dayjs';
 
@@ -22,7 +22,7 @@ export async function backfillValuationForDate(date: string) {
     // -----------------------
     // 2. Fundamentals vigentes
     // -----------------------
-    const { data: fin } = await supabase
+    const { data: fin } = await supabaseAdmin
       .from('datos_financieros')
       .select('*')
       .eq('ticker', ticker)
@@ -57,7 +57,7 @@ export async function backfillValuationForDate(date: string) {
     // -----------------------
     // 5. Percentiles sectoriales
     // -----------------------
-    const { data: stats } = await supabase
+    const { data: stats } = await supabaseAdmin
       .from('sector_stats')
       .select('*')
       .eq('sector', sector)
@@ -65,8 +65,8 @@ export async function backfillValuationForDate(date: string) {
 
     if (!stats || !stats.length) continue;
 
-    const peStats = stats.find(s => s.metric === 'pe_ratio');
-    const pfcfStats = stats.find(s => s.metric === 'p_fcf');
+    const peStats = stats.find((s: any) => s.metric === 'pe_ratio');
+    const pfcfStats = stats.find((s: any) => s.metric === 'p_fcf');
 
     const pePercentile = percentileFromStats(pe, peStats);
     const pfcfPercentile = percentileFromStats(pfcf, pfcfStats);
@@ -107,7 +107,7 @@ export async function backfillValuationForDate(date: string) {
 
 async function resolveSectorFromSnapshot(ticker: string, date: string): Promise<string | null> {
     // Attempt to find sector from other sources or previous snapshots
-    const { data } = await supabase
+    const { data } = await supabaseAdmin
         .from('fintra_snapshots')
         .select('sector')
         .eq('ticker', ticker)

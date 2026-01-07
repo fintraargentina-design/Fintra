@@ -1,5 +1,5 @@
 // cron/validation/utils.ts
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin as supabase } from '@/lib/supabase-admin';
 
 export async function runCheck(
   name: string,

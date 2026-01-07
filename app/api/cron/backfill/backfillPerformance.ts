@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getBulkPriceData } from '../shared/bulkCache';
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
@@ -75,7 +75,7 @@ export async function backfillPerformanceForDate(date: string) {
   }
 
   if (rows.length) {
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('datos_performance')
       .upsert(rows, {
         onConflict: 'ticker,performance_date,window_code'

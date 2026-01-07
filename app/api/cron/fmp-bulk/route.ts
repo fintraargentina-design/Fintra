@@ -2,12 +2,13 @@
 
 // Fintra/app/api/cron/fmp-bulk/route.ts
 
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { NextResponse } from 'next/server';
 import { fetchAllFmpData } from './fetchBulk';
 import { buildSnapshot } from './buildSnapshots';
 import { upsertSnapshots } from './upsertSnapshots';
 import { resolveValuationFromSector } from '@/lib/engine/resolveValuationFromSector';
+import type { ValuationResult } from '@/lib/engine/types';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -21,16 +22,11 @@ export async function GET(req: Request) {
   const limit = parseInt(searchParams.get('limit') || '100');
 
   const fmpKey = process.env.FMP_API_KEY!;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
-  if (!fmpKey || !supabaseKey || !supabaseUrl) {
+  if (!fmpKey) {
     return NextResponse.json({ error: 'Missing env vars' }, { status: 500 });
   }
-
-  const supabase = createClient(supabaseUrl, supabaseKey, {
-    auth: { persistSession: false }
-  });
+  const supabase = supabaseAdmin;
 
   const today = new Date().toISOString().slice(0, 10);
   const tStart = performance.now();
@@ -80,7 +76,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'No active stocks' }, { status: 500 });
     }
 
-    const tickers = activeStocks.map(s => s.ticker).slice(0, limit);
+    const tickers = activeStocks.map((s: { ticker: string }) => s.ticker).slice(0, limit);
     const snapshotsToUpsert: any[] = [];
 
     const discardStats: Record<string, number> = {};
@@ -139,10 +135,20 @@ export async function GET(req: Request) {
             sectorStatsMap[sector]
           );
 
+          const baseValuation: ValuationResult = snapshot.valuation ?? {
+            pe_ratio: null,
+            ev_ebitda: null,
+            price_to_fcf: null,
+            valuation_status: 'Pending'
+          };
+
           snapshot.valuation = {
-            ...snapshot.valuation,
-            score: valuationResolved.valuation_score,
-            status: valuationResolved.valuation_status
+            pe_ratio: baseValuation.pe_ratio,
+            ev_ebitda: baseValuation.ev_ebitda,
+            price_to_fcf: baseValuation.price_to_fcf,
+            valuation_status: valuationResolved.valuation_status,
+            intrinsic_value: baseValuation.intrinsic_value ?? null,
+            upside_potential: baseValuation.upside_potential ?? null
           };
         }
 

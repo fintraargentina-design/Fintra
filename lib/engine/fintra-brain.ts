@@ -1,10 +1,7 @@
-// Fintra/lib/engine/fintra-brain.ts
-
-// FGOS VERSION 3 — FINAL
+// FGOS VERSION 3.1 — BENCHMARK CONFIDENCE AWARE
 
 import "server-only";
-import type { FgosResult, FgosBreakdown } from './types';
-export type { FgosResult, FgosBreakdown };
+import type { FgosResult, FgosBreakdown, FmpProfile, FmpRatios, FmpMetrics } from './types';
 
 import { getBenchmarksForSector } from './benchmarks';
 import { applyQualityBrakes } from './applyQualityBrakes';
@@ -16,16 +13,30 @@ import { fmp } from '@/lib/fmp/client';
 
 function percentileFromStats(
   value: number | null | undefined,
-  stats?: { p10: number; p25: number; p50: number; p75: number; p90: number }
+  stats?: {
+    p10: number;
+    p25: number;
+    p50: number;
+    p75: number;
+    p90: number;
+    confidence_level?: 'low' | 'medium' | 'high';
+  }
 ): number | null {
-  if (value === null || value === undefined || !stats) return null;
+  if (value == null || !stats) return null;
 
-  if (value <= stats.p10) return 10;
-  if (value <= stats.p25) return 25;
-  if (value <= stats.p50) return 50;
-  if (value <= stats.p75) return 75;
-  if (value <= stats.p90) return 90;
-  return 95;
+  let score: number;
+
+  if (value <= stats.p10) score = 10;
+  else if (value <= stats.p25) score = 25;
+  else if (value <= stats.p50) score = 50;
+  else if (value <= stats.p75) score = 75;
+  else score = 90;
+
+  // Penalización suave por baja confianza
+  if (stats.confidence_level === 'low') score *= 0.85;
+  if (stats.confidence_level === 'medium') score *= 0.95;
+
+  return score;
 }
 
 function avg(values: Array<number | null>): number | null {
@@ -39,7 +50,7 @@ function clamp(v: number): number {
 }
 
 /* ================================
-   FGOS v3 – FINTRA v2 DEFINITIVO
+   FGOS CORE
 ================================ */
 
 export function calculateFGOSFromData(
@@ -55,7 +66,7 @@ export function calculateFGOSFromData(
   _quote: any
 ): FgosResult | null {
   try {
-    const sector = profile?.sector || profile?.Sector;
+    const sector = profile?.sector;
     if (!sector) {
       return {
         ticker,
@@ -79,27 +90,27 @@ export function calculateFGOSFromData(
       };
     }
 
-    /* ---------- Growth (REAL, Bulk) ---------- */
+    /* ---------- GROWTH ---------- */
     const growthScore = avg([
-      percentileFromStats(growth?.revenue_cagr, benchmarks.revenue_cagr),
-      percentileFromStats(growth?.earnings_cagr, benchmarks.earnings_cagr),
-      percentileFromStats(growth?.fcf_cagr, benchmarks.fcf_cagr)
+      percentileFromStats(growth.revenue_cagr, benchmarks.revenue_cagr),
+      percentileFromStats(growth.earnings_cagr, benchmarks.earnings_cagr),
+      percentileFromStats(growth.fcf_cagr, benchmarks.fcf_cagr)
     ]);
 
-    /* ---------- Profitability ---------- */
+    /* ---------- PROFITABILITY ---------- */
     const profitabilityScore = avg([
       percentileFromStats(metrics?.roicTTM, benchmarks.roic),
       percentileFromStats(ratios?.operatingProfitMarginTTM, benchmarks.operating_margin),
       percentileFromStats(ratios?.netProfitMarginTTM, benchmarks.net_margin)
     ]);
 
-    /* ---------- Efficiency ---------- */
+    /* ---------- EFFICIENCY ---------- */
     const efficiencyScore = avg([
       percentileFromStats(metrics?.roicTTM, benchmarks.roic),
       percentileFromStats(metrics?.freeCashFlowMarginTTM, benchmarks.fcf_margin)
     ]);
 
-    /* ---------- Solvency ---------- */
+    /* ---------- SOLVENCY ---------- */
     const solvencyScore = avg([
       percentileFromStats(
         ratios?.debtEquityRatioTTM != null
@@ -107,10 +118,12 @@ export function calculateFGOSFromData(
           : null,
         benchmarks.debt_to_equity
       ),
-      percentileFromStats(ratios?.interestCoverageTTM, benchmarks.interest_coverage)
+      percentileFromStats(
+        ratios?.interestCoverageTTM,
+        benchmarks.interest_coverage
+      )
     ]);
 
-    /* ---------- FGOS BASE ---------- */
     const WEIGHTS = {
       growth: 0.25,
       profitability: 0.30,
@@ -192,10 +205,10 @@ export async function calculateFGOS(ticker: string): Promise<FgosResult | null> 
 
   return calculateFGOSFromData(
     ticker,
-    profile,
-    ratios,
-    metrics,
-    {},   // growth legacy
+    profile as FmpProfile,
+    ratios as FmpRatios,
+    metrics as FmpMetrics,
+    {},
     {}
   );
 }

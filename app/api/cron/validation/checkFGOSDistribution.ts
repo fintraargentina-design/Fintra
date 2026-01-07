@@ -1,9 +1,9 @@
 // cron/validation/checkFGOSDistribution.ts
 
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function checkFGOSDistribution() {
-  const { data, error } = await supabase.rpc('execute_sql', {
+  const { data, error } = await supabaseAdmin.rpc('execute_sql', {
     sql: `
       select
         min(fgos_score) as min,

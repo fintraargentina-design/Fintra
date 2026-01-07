@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { NextResponse } from 'next/server';
 import { calculateFGOSFromData } from '@/lib/engine/fintra-brain';
 import { fmpGet } from '@/lib/fmp/server';
@@ -62,16 +62,12 @@ async function fetchBulkData(tickers: string[]) {
 }
 
 export async function GET() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!; 
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
   if (!supabaseKey) {
     return NextResponse.json({ error: 'Faltan API Keys (SUPABASE_SERVICE_ROLE_KEY)' }, { status: 500 });
   }
-
-  const supabase = createClient(supabaseUrl, supabaseKey, {
-    auth: { persistSession: false }
-  });
+  const supabase = supabaseAdmin;
 
   const today = new Date().toISOString().slice(0, 10);
   const results = { success: [] as string[], failed: [] as string[] };
@@ -132,9 +128,9 @@ export async function GET() {
             date: today,
             fgos_score: analysis.fgos_score,
             fgos_breakdown: analysis.fgos_breakdown,
-            valuation_status: analysis.valuation_status,
-            valuation_score: analysis.score || 0,
-            verdict_text: analysis.valuation_status,
+            valuation_status: (analysis as any).valuation_status,
+            valuation_score: (analysis as any).valuation_score || (analysis as any).score || 0,
+            verdict_text: (analysis as any).valuation_status,
             sector: sectorSpanish,
             pe_ratio: 0,
             calculated_at: new Date().toISOString()

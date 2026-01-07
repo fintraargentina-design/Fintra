@@ -1,8 +1,8 @@
 // cron/validation/checkNoFutureData.ts
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function checkNoFutureData() {
-  const { data, error } = await supabase.rpc('execute_sql', {
+  const { data, error } = await supabaseAdmin.rpc('execute_sql', {
     sql: `
       select count(*) as cnt
       from fintra_snapshots s

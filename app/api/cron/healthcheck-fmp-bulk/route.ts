@@ -1,6 +1,6 @@
 // Fintra/app/api/cron/healthcheck-fmp-bulk/route.ts
 
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -8,14 +8,9 @@ export const dynamic = 'force-dynamic';
 const CRON_NAME = 'fmp_bulk_snapshots';
 
 export async function GET() {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
   const today = new Date().toISOString().slice(0, 10);
 
-  const { data: state } = await supabase
+  const { data: state } = await supabaseAdmin
     .from('cron_state')
     .select('last_run_date')
     .eq('name', CRON_NAME)
@@ -40,16 +35,24 @@ export async function GET() {
 
 // --- ALERTA TELEGRAM ---
 async function sendAlert(message: string) {
-  const token = process.env.TELEGRAM_BOT_TOKEN!;
-  const chatId = process.env.TELEGRAM_CHAT_ID!;
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
 
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: message
-    })
-  });
+  if (!token || !chatId) {
+    console.warn('Telegram env vars missing, skipping alert');
+    return;
+  }
+
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message
+      })
+    });
+  } catch (error) {
+    console.error('Failed to send Telegram alert', error);
+  }
 }
-// Empty

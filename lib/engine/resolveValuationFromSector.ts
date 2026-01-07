@@ -1,103 +1,114 @@
 // Fintra/lib/engine/resolveValuationFromSector.ts
 
-export type ValuationStatus = 'Barata' | 'Justa' | 'Cara';
+import type { ValuationResult } from './types';
 
-interface SectorMetricStats {
-  p10: number | null;
-  p25: number | null;
-  p50: number | null;
-  p75: number | null;
-  p90: number | null;
-}
+type SectorBenchmarkMetric = {
+  p10: number;
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
+  sample_size?: number;
+  confidence_level?: 'low' | 'medium' | 'high';
+};
 
-interface SectorStatsMap {
-  [metric: string]: SectorMetricStats;
-}
+type SectorBenchmarkMap = Record<string, SectorBenchmarkMetric>;
 
 interface ValuationInput {
-  sector: string | null;
+  sector: string;
   pe_ratio?: number | null;
   ev_ebitda?: number | null;
   price_to_fcf?: number | null;
 }
 
-/**
- * Dado un valor y los percentiles del sector,
- * devuelve un percentil aproximado (0–100)
- */
-function estimatePercentile(
-  value: number,
-  stats: SectorMetricStats
-): number {
-  if (!stats || value <= 0) return 50;
-
-  if (stats.p10 !== null && value <= stats.p10) return 10;
-  if (stats.p25 !== null && value <= stats.p25) return 25;
-  if (stats.p50 !== null && value <= stats.p50) return 50;
-  if (stats.p75 !== null && value <= stats.p75) return 75;
-  if (stats.p90 !== null && value <= stats.p90) return 90;
-
-  return 95;
-}
-
-/**
- * Resuelve valuation relativa al sector.
- * NO usa FGOS. NO usa precios.
- */
 export function resolveValuationFromSector(
   input: ValuationInput,
-  sectorStats: SectorStatsMap
+  sectorBenchmarks: SectorBenchmarkMap
 ): {
-  valuation_status: ValuationStatus;
-  valuation_score: number;
-  debug?: any;
+  valuation_score: number | null;
+  valuation_status: ValuationResult['valuation_status'];
+  confidence: number;
+  warnings: string[];
 } {
-  const percentiles: number[] = [];
+  const scores: number[] = [];
+  const warnings: string[] = [];
 
-  if (input.pe_ratio && sectorStats.pe_ratio) {
-    percentiles.push(
-      estimatePercentile(input.pe_ratio, sectorStats.pe_ratio)
-    );
+  function scoreMetric(
+    value: number | null | undefined,
+    stats?: SectorBenchmarkMetric,
+    inverse = false
+  ): number | null {
+    if (value == null || !stats) return null;
+
+    let score: number;
+
+    if (value <= stats.p25) score = inverse ? 75 : 90;
+    else if (value <= stats.p50) score = inverse ? 60 : 75;
+    else if (value <= stats.p75) score = inverse ? 40 : 50;
+    else score = inverse ? 20 : 25;
+
+    // Ajuste por baja confianza estadística
+    if (stats.confidence_level === 'low') {
+      score *= 0.85;
+      warnings.push('Low sector benchmark confidence');
+    } else if (stats.confidence_level === 'medium') {
+      score *= 0.95;
+    }
+
+    return score;
   }
 
-  if (input.ev_ebitda && sectorStats.ev_ebitda) {
-    percentiles.push(
-      estimatePercentile(input.ev_ebitda, sectorStats.ev_ebitda)
-    );
-  }
+  const peScore = scoreMetric(
+    input.pe_ratio,
+    sectorBenchmarks.pe_ratio,
+    true
+  );
 
-  if (input.price_to_fcf && sectorStats.price_to_fcf) {
-    percentiles.push(
-      estimatePercentile(input.price_to_fcf, sectorStats.price_to_fcf)
-    );
-  }
+  const evScore = scoreMetric(
+    input.ev_ebitda,
+    sectorBenchmarks.ev_ebitda,
+    true
+  );
 
-  // Si no hay métricas comparables
-  if (percentiles.length === 0) {
+  const fcfScore = scoreMetric(
+    input.price_to_fcf,
+    sectorBenchmarks.price_to_fcf,
+    true
+  );
+
+  if (peScore != null) scores.push(peScore);
+  if (evScore != null) scores.push(evScore);
+  if (fcfScore != null) scores.push(fcfScore);
+
+  if (!scores.length) {
     return {
-      valuation_status: 'Justa',
-      valuation_score: 50,
-      debug: { reason: 'No comparable valuation metrics' }
+      valuation_score: null,
+      valuation_status: 'Pending',
+      confidence: 0,
+      warnings: ['Insufficient valuation data']
     };
   }
 
-  // Percentil combinado (promedio simple)
-  const avgPercentile =
-    percentiles.reduce((a, b) => a + b, 0) / percentiles.length;
+  const avgScore =
+    scores.reduce((a, b) => a + b, 0) / scores.length;
 
-  let status: ValuationStatus = 'Justa';
-  if (avgPercentile <= 25) status = 'Barata';
-  else if (avgPercentile >= 75) status = 'Cara';
+  let status: 'Undervalued' | 'Fair' | 'Overvalued' = 'Fair';
 
-  // Score: barato = mejor
-  const score = Math.round(100 - avgPercentile);
+  if (avgScore >= 70) status = 'Undervalued';
+  else if (avgScore < 40) status = 'Overvalued';
+
+  // Confidence basada en calidad del benchmark
+  const confidence =
+    sectorBenchmarks.pe_ratio?.confidence_level === 'high'
+      ? 90
+      : sectorBenchmarks.pe_ratio?.confidence_level === 'medium'
+      ? 70
+      : 50;
 
   return {
+    valuation_score: Math.round(avgScore),
     valuation_status: status,
-    valuation_score: score,
-    debug: {
-      percentiles,
-      avgPercentile
-    }
+    confidence,
+    warnings
   };
 }

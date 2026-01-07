@@ -1,20 +1,17 @@
 // app/api/cron/sync-universe/route.ts
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const FMP_API_KEY = process.env.FMP_API_KEY;
 
-if (!supabaseUrl || !serviceRoleKey || !FMP_API_KEY) {
+if (!FMP_API_KEY) {
   throw new Error('Missing required env vars');
 }
-
-const supabase = createClient(supabaseUrl, serviceRoleKey);
+const supabase = supabaseAdmin;
 
 const FMP_STOCK_LIST =
   'https://financialmodelingprep.com/api/v3/stock/list';

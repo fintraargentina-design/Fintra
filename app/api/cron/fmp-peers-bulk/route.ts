@@ -1,14 +1,11 @@
 import { NextResponse } from 'next/server';
 import Papa from 'papaparse';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = supabaseAdmin;
 
 export async function GET(request: Request) {
   try {
@@ -71,7 +68,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const activeSet = new Set(activeStocks.map(s => s.ticker));
+    const activeSet = new Set(activeStocks.map((s: { ticker: string }) => s.ticker));
 
     // --------------------------------------------------
     // 6. Build relations (limit applies to active tickers)

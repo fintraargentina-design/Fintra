@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { NextResponse } from 'next/server';
 import { calculateFGOSFromData } from '@/lib/engine/fintra-brain';
 import Papa from 'papaparse';
@@ -53,12 +53,9 @@ export async function GET(req: Request) {
   const limit = parseInt(searchParams.get('limit') || '1000');
   const offset = parseInt(searchParams.get('offset') || '0');
   const fmpKey = process.env.FMP_API_KEY!;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  if (!fmpKey) return NextResponse.json({ error: 'Missing Keys' }, { status: 500 });
 
-  if (!fmpKey || !supabaseKey) return NextResponse.json({ error: 'Missing Keys' }, { status: 500 });
-
-  const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+  const supabase = supabaseAdmin;
 
   try {
     console.log("🚀 Iniciando BULK CSV Fetch...");
@@ -186,15 +183,15 @@ export async function GET(req: Request) {
             fgos_breakdown: fgos.fgos_breakdown,
             
             // VALUACIÓN (Nuevo Termómetro)
-            valuation_status: fgos.valuation_status,
-            valuation_score: fgos.valuation_score || 0, // Usamos el nuevo campo explícito
-            verdict_text: fgos.valuation_status,
-            investment_verdict: fgos.investment_verdict,
+            valuation_status: (fgos as any).valuation_status,
+            valuation_score: (fgos as any).valuation_score || 0,
+            verdict_text: (fgos as any).valuation_status,
+            investment_verdict: (fgos as any).investment_verdict,
             
             sector: sectorEs,
             // pe: pe, // Campo 'pe' no existe en schema, usamos pe_ratio
             pe_ratio: pe,
-            sector_pe_ratio: fgos.sector_pe || 0,
+            sector_pe_ratio: (fgos as any).sector_pe || 0,
             calculated_at: new Date().toISOString(),
 
             // NUEVOS CAMPOS SOLICITADOS
