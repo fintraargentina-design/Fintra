@@ -9,14 +9,14 @@ export async function getLatestSnapshot(symbol: string): Promise<FintraSnapshotD
   // Incluimos las nuevas columnas JSONB en la selección
   const { data, error } = await supabase
     .from('fintra_snapshots')
-    .select('id, ticker, fgos_score, valuation_status, valuation_score, verdict_text, calculated_at, fgos_breakdown')
+    .select('id, ticker, fgos_score, valuation_status, valuation_score, verdict_text, snapshot_date, calculated_at, fgos_breakdown')
     .eq('ticker', symbol)
-    .order('calculated_at', { ascending: false })
+    .order('snapshot_date', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (error) {
-    console.error(`Error fetching snapshot for ${symbol}:`, error);
+    console.error(`Error fetching snapshot for ${symbol}:`, error.message, error.details, error.hint);
     return null;
   }
 
@@ -27,7 +27,9 @@ export async function getLatestSnapshot(symbol: string): Promise<FintraSnapshotD
 
   return {
     ticker: data.ticker,
-    date: data.calculated_at,
+    date: data.snapshot_date || data.calculated_at,
+    snapshot_date: data.snapshot_date,
+    calculated_at: data.calculated_at,
     fgos_score: data.fgos_score,
     fgos_breakdown: data.fgos_breakdown,
     // ecosystem_score removed as it is now in fintra_ecosystem_reports
@@ -112,8 +114,21 @@ export async function getAvailableSectors(): Promise<string[]> {
     .select('sector');
 
   if (error) {
-    console.error('Error fetching sectors:', error);
-    return [];
+    console.error('Error fetching sectors (falling back to static list):', error);
+    // Fallback to standard GICS sectors if DB column is missing
+    return [
+      'Technology', 
+      'Healthcare', 
+      'Financial Services', 
+      'Consumer Cyclical', 
+      'Consumer Defensive', 
+      'Industrials', 
+      'Energy', 
+      'Utilities', 
+      'Basic Materials', 
+      'Real Estate', 
+      'Communication Services'
+    ].sort();
   }
 
   // Filtrar nulos y obtener únicos
@@ -187,19 +202,21 @@ export async function getEcosystemDetailed(symbol: string): Promise<{ suppliers:
 export async function getSectorScreener(sector: string): Promise<FintraSnapshotDB[]> {
   const { data, error } = await supabase
     .from('fintra_snapshots')
-    .select('ticker, fgos_score, valuation_status, verdict_text, calculated_at, fgos_breakdown')
+    .select('ticker, fgos_score, valuation_status, verdict_text, snapshot_date, calculated_at, fgos_breakdown')
     .eq('sector', sector)
     .order('fgos_score', { ascending: false })
     .limit(20);
 
   if (error) {
-    console.error(`Error fetching sector screener for ${sector}:`, error);
+    console.error(`Error fetching sector screener for ${sector}:`, error.message, error.details);
     return [];
   }
 
   return data.map((d: any) => ({
     ticker: d.ticker,
-    date: d.calculated_at,
+    date: d.snapshot_date || d.calculated_at,
+    snapshot_date: d.snapshot_date,
+    calculated_at: d.calculated_at,
     fgos_score: d.fgos_score,
     fgos_breakdown: d.fgos_breakdown,
     ecosystem_score: 50, // Default, enrichment happens later if needed

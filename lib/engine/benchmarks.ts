@@ -8,10 +8,10 @@ const CACHE: Record<string, Record<string, SectorBenchmark>> = {};
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 const CACHE_TIMESTAMP: Record<string, number> = {};
 
-export async function getBenchmarksForSector(sector: string, snapshotDate: string): Promise<Record<string, SectorBenchmark> | null> {
+export async function getBenchmarksForSector(sector: string, snapshotDate: string, allowFallback: boolean = true): Promise<Record<string, SectorBenchmark> | null> {
   if (!sector) return null;
   const cleanSector = sector.trim();
-  const cacheKey = `${cleanSector}_${snapshotDate}`;
+  const cacheKey = `${cleanSector}_${snapshotDate}_${allowFallback}`;
 
   // Check Cache
   const now = Date.now();
@@ -32,9 +32,9 @@ export async function getBenchmarksForSector(sector: string, snapshotDate: strin
     }
 
     if (!data || data.length === 0) {
-      // Fallback to General if specific sector not found (only if General exists for that date)
-      if (cleanSector !== 'General') {
-          const general = await getBenchmarksForSector('General', snapshotDate);
+      // Fallback to General if specific sector not found (only if allowed)
+      if (allowFallback && cleanSector !== 'General') {
+          const general = await getBenchmarksForSector('General', snapshotDate, true);
           if (general) {
               CACHE[cacheKey] = general;
               CACHE_TIMESTAMP[cacheKey] = now;

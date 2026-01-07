@@ -2,7 +2,6 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { applyQualityBrakes } from './applyQualityBrakes';
 import { getBenchmarksForSector } from './benchmarks';
 import type { FinancialSnapshot, FmpRatios, FmpMetrics, SectorBenchmark, FgosBreakdown, FgosCategory } from './types';
-import { fmp } from '@/lib/fmp/client';
 
 type BenchMap = Record<string, SectorBenchmark>;
 
@@ -227,42 +226,102 @@ export function computeFGOS(
 
 export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: string) {
   const date = snapshotDate || new Date().toISOString().slice(0, 10);
+  
+  // 1. Load Snapshot (Strictly persisted fields)
   const { data: snap } = await supabaseAdmin
     .from('fintra_snapshots')
-    .select('ticker,snapshot_date,sector,profile_structural')
+    .select('ticker,snapshot_date,sector,profile_structural,valuation,fundamentals_growth')
     .eq('ticker', ticker)
     .eq('snapshot_date', date)
     .maybeSingle();
-  if (!snap) return { status: 'pending' };
+
+  if (!snap) return { status: 'pending', reason: 'snapshot_not_found' };
+
+  // 2. Resolve Sector & Benchmarks (No General fallback)
   const sector = (snap as any).sector || (snap as any).profile_structural?.classification?.sector || null;
-  const benchmarks = sector ? await getBenchmarksForSector(sector, date) : null;
-  if (!benchmarks) {
-    await supabaseAdmin
-      .from('fintra_snapshots')
-      .update({ fgos_score: null, fgos_components: null })
-      .eq('ticker', ticker)
-      .eq('snapshot_date', date);
-    return { status: 'pending' };
+  
+  if (!sector) {
+      await updatePending(ticker, date, 'missing_sector');
+      return { status: 'pending', reason: 'missing_sector' };
   }
-  const [profileRes, ratiosRes, metricsRes] = await Promise.allSettled([
-    fmp.profile(ticker),
-    fmp.ratiosTTM(ticker),
-    fmp.keyMetricsTTM(ticker)
-  ]);
-  const ratios = (ratiosRes.status === 'fulfilled' ? (ratiosRes.value as any)?.[0] : {}) as FmpRatios;
-  const metrics = (metricsRes.status === 'fulfilled' ? (metricsRes.value as any)?.[0] : {}) as FmpMetrics;
+
+  const benchmarks = await getBenchmarksForSector(sector, date, false); // allowFallback = false
+
+  if (!benchmarks) {
+    await updatePending(ticker, date, 'insufficient_sector_benchmarks');
+    return { status: 'pending', reason: 'insufficient_sector_benchmarks' };
+  }
+
+  // 3. Fetch Financials (DB only) - Replacing FMP calls
+  // We strictly use stored financials, NO external API calls allowed.
+  const { data: financials } = await supabaseAdmin
+    .from('datos_financieros')
+    .select('roic, operating_margin, net_margin, fcf_margin, debt_to_equity, interest_coverage')
+    .eq('ticker', ticker)
+    .in('period_type', ['TTM', 'FY'])
+    .order('period_end_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!financials) {
+      await updatePending(ticker, date, 'missing_financials_data');
+      return { status: 'pending', reason: 'missing_financials_data' };
+  }
+
+  // 4. Map DB data to Engine Interfaces
+  const ratios: FmpRatios = {
+      operatingProfitMarginTTM: financials.operating_margin,
+      netProfitMarginTTM: financials.net_margin,
+      debtEquityRatioTTM: financials.debt_to_equity,
+      interestCoverageTTM: financials.interest_coverage
+  };
+
+  const metrics: FmpMetrics = {
+      roicTTM: financials.roic,
+      freeCashFlowMarginTTM: financials.fcf_margin,
+      altmanZScore: (snap as any).profile_structural?.financial_scores?.altman_z,
+      piotroskiScore: (snap as any).profile_structural?.financial_scores?.piotroski_score
+  };
+
+  const growth = (snap as any).fundamentals_growth || {};
+  
+  // 5. Compute
   const snapshotRow = {
     ticker: ticker,
     snapshot_date: date,
     sector: sector,
     profile_structural: (snap as any).profile_structural
   } as FinancialSnapshot;
-  const result = computeFGOS(ticker, snapshotRow, ratios, metrics, {}, benchmarks);
+
+  const result = computeFGOS(ticker, snapshotRow, ratios, metrics, growth, benchmarks);
+
+  // 6. Persist
   await supabaseAdmin
     .from('fintra_snapshots')
-    .update({ fgos_score: result.fgos_score, fgos_components: result.fgos_components, engine_version: 'v2.0' })
+    .update({ 
+        fgos_score: result.fgos_score, 
+        fgos_components: result.fgos_components,
+        fgos_category: result.fgos_category,
+        fgos_confidence: result.fgos_confidence,
+        fgos_status: result.fgos_status,
+        engine_version: 'v2.0-snapshot-only' 
+    })
     .eq('ticker', ticker)
     .eq('snapshot_date', date);
+
   return { status: result.fgos_status, score: result.fgos_score };
+}
+
+async function updatePending(ticker: string, date: string, reason: string) {
+    await supabaseAdmin
+      .from('fintra_snapshots')
+      .update({ 
+          fgos_score: null, 
+          fgos_components: { reason }, 
+          fgos_status: 'pending',
+          fgos_category: 'Pending'
+      })
+      .eq('ticker', ticker)
+      .eq('snapshot_date', date);
 }
 
