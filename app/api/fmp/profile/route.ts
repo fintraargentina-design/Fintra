@@ -2,6 +2,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { fmpGet } from "@/lib/fmp/server";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+import { normalizeProfileStructural } from "@/app/api/cron/fmp-bulk/normalizeProfileStructural";
+import { recomputeFGOSForTicker } from "../../../../lib/engine/fgos-recompute";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,18 +63,78 @@ export async function GET(req: Request) {
         }
     }
 
-    // Si no hay datos, no cachear por largo plazo para evitar guardar errores/vacíos
+    // Persistencia y recomputación FGOS (single symbol)
+    const today = new Date().toISOString().slice(0, 10);
+    let summary: any = {
+      ticker: symbol,
+      profile_status: 'pending',
+      sector: null,
+      fgos_status: 'pending',
+      fgos_score: null
+    };
+
+    // Si no hay datos, retorno estable sin error
     if (!data || data.length === 0) {
-      return NextResponse.json([], {
+      return NextResponse.json(summary, {
         status: 200,
         headers: {
           "Content-Type": "application/json",
-          "Cache-Control": "no-store, max-age=0", 
+          "Cache-Control": "no-store, max-age=0",
         },
       });
     }
 
-    return NextResponse.json(data, {
+    // Solo aplicamos persistencia y recompute si es un único símbolo (no lista)
+    if (!symbol.includes(',')) {
+      const profile = data[0] || null;
+      const sector = (profile?.sector ?? (profile as any)?.Sector ?? null) as string | null;
+
+      // Normalizar y marcar perfil como "computed"
+      const normalized = normalizeProfileStructural(
+        profile,
+        null,
+        {},
+        { source: 'on_demand', last_updated: new Date().toISOString() }
+      );
+      
+      const profileStructural = {
+        ...normalized,
+        status: 'computed'
+      };
+
+      // Persistir snapshot mínimo con sector y profile_structural
+      try {
+        await supabaseAdmin
+          .from('fintra_snapshots')
+          .upsert({
+            ticker: symbol,
+            snapshot_date: today,
+            engine_version: 'v2.0',
+            sector: sector,
+            profile_structural: profileStructural
+          }, { onConflict: 'ticker,snapshot_date,engine_version' });
+      } catch (persistErr) {
+        console.warn('[/api/fmp/profile] Persist profile_structural failed:', persistErr);
+      }
+
+      summary.ticker = symbol;
+      summary.profile_status = 'computed';
+      summary.sector = sector;
+
+      if (sector) {
+        try {
+          const res = await recomputeFGOSForTicker(symbol, today);
+          summary.fgos_status = res.status || 'pending';
+          summary.fgos_score = res.score ?? null;
+        } catch (reErr) {
+          console.warn('[/api/fmp/profile] FGOS recompute failed:', reErr);
+        }
+      } else {
+        summary.fgos_status = 'pending';
+      }
+    }
+
+    return NextResponse.json(summary, {
       status: 200,
       headers: {
         "Content-Type": "application/json",
@@ -81,7 +144,13 @@ export async function GET(req: Request) {
   } catch (err: any) {
     console.error("[/api/fmp/profile] error:", err?.message || err);
     // Shape estable para no romper el cliente
-    return NextResponse.json([], {
+    return NextResponse.json({
+      ticker: sp.get('symbol') ?? '',
+      profile_status: 'pending',
+      sector: null,
+      fgos_status: 'pending',
+      fgos_score: null
+    }, {
       status: 200,
       headers: {
         "Content-Type": "application/json",

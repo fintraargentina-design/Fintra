@@ -223,8 +223,6 @@ export interface SectorBenchmarkRow extends SectorBenchmark {
   industry?: string;
   metric: string;
   stats_date: string;
-  // Overriding confidence for compatibility if needed, or mapping it
-  confidence_level?: 'low' | 'medium' | 'high'; // Legacy / DB column mapping
 }
 
 export interface EcoNodeJSON {

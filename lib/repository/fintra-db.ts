@@ -185,15 +185,9 @@ export async function getEcosystemDetailed(symbol: string): Promise<{ suppliers:
  * Obtiene un screener de empresas del mismo sector ordenadas por FGOS.
  */
 export async function getSectorScreener(sector: string): Promise<FintraSnapshotDB[]> {
-  // TODO: La columna 'sector' no existe actualmente en fintra_snapshots.
-  // Retornamos array vacío para evitar errores hasta que se actualice la DB.
-  console.warn(`[getSectorScreener] Skipping sector fetch for ${sector} as DB column is missing.`);
-  return [];
-  
-  /* 
   const { data, error } = await supabase
     .from('fintra_snapshots')
-    .select('*')
+    .select('ticker, fgos_score, valuation_status, verdict_text, calculated_at, fgos_breakdown')
     .eq('sector', sector)
     .order('fgos_score', { ascending: false })
     .limit(20);
@@ -203,6 +197,14 @@ export async function getSectorScreener(sector: string): Promise<FintraSnapshotD
     return [];
   }
 
-  return data as FintraSnapshotDB[];
-  */
+  return data.map((d: any) => ({
+    ticker: d.ticker,
+    date: d.calculated_at,
+    fgos_score: d.fgos_score,
+    fgos_breakdown: d.fgos_breakdown,
+    ecosystem_score: 50, // Default, enrichment happens later if needed
+    valuation_score: 50,
+    valuation_status: d.valuation_status,
+    verdict_text: d.verdict_text
+  })) as FintraSnapshotDB[];
 }

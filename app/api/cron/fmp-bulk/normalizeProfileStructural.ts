@@ -5,9 +5,12 @@ import type { FmpProfile, FmpRatios } from '@/lib/engine/types';
 export function normalizeProfileStructural(
   profile: FmpProfile,
   ratios: FmpRatios | null,
-  scores: any
+  scores: any,
+  metadata?: { source: 'bulk' | 'on_demand'; last_updated: string }
 ) {
   return {
+    source: metadata?.source ?? 'bulk',
+    last_updated: metadata?.last_updated ?? new Date().toISOString(),
     identity: {
       name: profile.companyName ?? null,
       ticker: profile.symbol ?? null,

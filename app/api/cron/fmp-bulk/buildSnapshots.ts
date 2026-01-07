@@ -97,7 +97,8 @@ export async function buildSnapshot(
           ratios ?? {},
           metrics ?? {},
           fundamentalsGrowth,
-          quote ?? {}
+          quote ?? {},
+          today
         )
       : null;
 
@@ -136,7 +137,8 @@ export async function buildSnapshot(
       roic: metrics?.roicTTM,
       operatingMargin: ratios?.operatingProfitMarginTTM,
       revenueGrowth: fundamentalsGrowth.revenue_cagr
-    }
+    },
+    today
   );
 
   /* --------------------------------

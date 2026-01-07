@@ -133,7 +133,8 @@ export async function calculateFGOSFromData(
     earnings_cagr?: number | null;
     fcf_cagr?: number | null;
   },
-  _quote: any
+  _quote: any,
+  snapshotDate: string
 ): Promise<FgosResult | null> {
   try {
     const sector = profile?.sector;
@@ -148,8 +149,30 @@ export async function calculateFGOSFromData(
       };
     }
 
-    const benchmarks = await getBenchmarksForSector(sector);
+    const benchmarks = await getBenchmarksForSector(sector, snapshotDate);
     if (!benchmarks) {
+      console.warn(`[FGOS] Pending: No benchmarks for sector '${sector}' on ${snapshotDate}`);
+      return {
+        ticker,
+        fgos_score: null,
+        fgos_category: 'Pending',
+        fgos_breakdown: {} as FgosBreakdown,
+        confidence: 0,
+        calculated_at: new Date().toISOString()
+      };
+    }
+
+    // STRICT PRECONDITIONS: Check ALL required metrics
+    const REQUIRED_METRICS = [
+      'revenue_cagr', 'earnings_cagr', 'fcf_cagr',
+      'roic', 'operating_margin', 'net_margin',
+      'fcf_margin', 'debt_to_equity', 'interest_coverage'
+    ];
+
+    const missingMetrics = REQUIRED_METRICS.filter(m => !benchmarks[m]);
+
+    if (missingMetrics.length > 0) {
+      console.warn(`[FGOS] Pending: Missing benchmarks for ${ticker} (${sector}): ${missingMetrics.join(', ')}`);
       return {
         ticker,
         fgos_score: null,
@@ -312,6 +335,7 @@ export async function calculateFGOS(ticker: string): Promise<FgosResult | null> 
     ratios as FmpRatios,
     metrics as FmpMetrics,
     {},
-    {}
+    {},
+    new Date().toISOString().slice(0, 10)
   );
 }

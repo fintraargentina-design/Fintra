@@ -8,36 +8,36 @@ const CACHE: Record<string, Record<string, SectorBenchmark>> = {};
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 const CACHE_TIMESTAMP: Record<string, number> = {};
 
-export async function getBenchmarksForSector(sector: string): Promise<Record<string, SectorBenchmark> | null> {
+export async function getBenchmarksForSector(sector: string, snapshotDate: string): Promise<Record<string, SectorBenchmark> | null> {
   if (!sector) return null;
   const cleanSector = sector.trim();
+  const cacheKey = `${cleanSector}_${snapshotDate}`;
 
   // Check Cache
   const now = Date.now();
-  if (CACHE[cleanSector] && CACHE_TIMESTAMP[cleanSector] && (now - CACHE_TIMESTAMP[cleanSector] < CACHE_TTL_MS)) {
-    return CACHE[cleanSector];
+  if (CACHE[cacheKey] && CACHE_TIMESTAMP[cacheKey] && (now - CACHE_TIMESTAMP[cacheKey] < CACHE_TTL_MS)) {
+    return CACHE[cacheKey];
   }
 
   try {
     const { data, error } = await supabaseAdmin
       .from('sector_benchmarks')
       .select('*')
-      .eq('sector', cleanSector);
+      .eq('sector', cleanSector)
+      .eq('snapshot_date', snapshotDate);
 
     if (error) {
-        console.error(`Error fetching benchmarks for ${cleanSector}:`, error);
+        console.error(`Error fetching benchmarks for ${cleanSector} on ${snapshotDate}:`, error);
         return null;
     }
 
     if (!data || data.length === 0) {
-      // Fallback to General if specific sector not found
+      // Fallback to General if specific sector not found (only if General exists for that date)
       if (cleanSector !== 'General') {
-          // Prevent infinite loop if General is also missing
-          const general = await getBenchmarksForSector('General');
+          const general = await getBenchmarksForSector('General', snapshotDate);
           if (general) {
-              // Cache the fallback to avoid repeated failed lookups
-              CACHE[cleanSector] = general;
-              CACHE_TIMESTAMP[cleanSector] = now;
+              CACHE[cacheKey] = general;
+              CACHE_TIMESTAMP[cacheKey] = now;
               return general;
           }
       }
@@ -49,8 +49,6 @@ export async function getBenchmarksForSector(sector: string): Promise<Record<str
       // SAFETY: Skip benchmarks with insufficient sample size
       if ((row.sample_size || 0) < 3) continue;
 
-      // Map DB metric names if they differ from code keys?
-      // Assuming DB metric names match code keys (e.g., 'revenue_cagr', 'pe_ratio')
       benchmarks[row.metric] = {
         p10: row.p10,
         p25: row.p25,
@@ -70,8 +68,8 @@ export async function getBenchmarksForSector(sector: string): Promise<Record<str
     }
 
     // Update Cache
-    CACHE[cleanSector] = benchmarks;
-    CACHE_TIMESTAMP[cleanSector] = now;
+    CACHE[cacheKey] = benchmarks;
+    CACHE_TIMESTAMP[cacheKey] = now;
 
     return benchmarks;
 

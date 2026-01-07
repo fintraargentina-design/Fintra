@@ -98,7 +98,8 @@ export async function backfillSnapshotsForDate(date: string) {
           earnings_cagr: fin.earnings_cagr,
           fcf_cagr: fin.fcf_cagr // Assuming column exists
         },
-        { price: 0 } // No price in financials, usually from quote
+        { price: 0 }, // No price in financials, usually from quote
+        date
     );
 
     // -----------------------------
@@ -132,11 +133,12 @@ export async function backfillSnapshotsForDate(date: string) {
         ticker,
         sector,
         {
-            marketCap: null, // Not available in backfill source currently
+            marketCap: fin.market_cap || null,
             roic: metrics.roicTTM,
             operatingMargin: ratios.operatingProfitMarginTTM,
             revenueGrowth: fin.revenue_cagr
-        }
+        },
+        date
     );
 
     // -----------------------------

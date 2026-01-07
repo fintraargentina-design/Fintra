@@ -5,7 +5,8 @@ import { fmp } from "@/lib/fmp/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { getHeatmapColor } from "@/lib/utils";
-import { enrichStocksWithData, EnrichedStockData } from "@/lib/services/stock-enrichment";
+import { EnrichedStockData } from "@/lib/services/stock-enrichment";
+import { supabase } from "@/lib/supabase";
 
 interface PeersAnalysisPanelProps {
   symbol: string;
@@ -74,9 +75,47 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
              return;
         }
 
-        // 2. Enrich data
-        const enriched = await enrichStocksWithData(peersList);
-        
+        // 2. Enrich data desde Supabase únicamente (sin APIs por ticker)
+        const { data: snapshots } = await supabase
+          .from('fintra_snapshots')
+          .select('ticker, fgos_score, valuation_status, calculated_at')
+          .in('ticker', peersList)
+          .order('calculated_at', { ascending: false });
+
+        const { data: eco } = await supabase
+          .from('fintra_ecosystem_reports')
+          .select('ticker, ecosystem_score, date')
+          .in('ticker', peersList)
+          .order('date', { ascending: false });
+
+        const snapMap = new Map<string, any>();
+        (snapshots || []).forEach((row: any) => {
+          if (!snapMap.has(row.ticker)) snapMap.set(row.ticker, row);
+        });
+
+        const ecoMap = new Map<string, number>();
+        (eco || []).forEach((row: any) => {
+          if (!ecoMap.has(row.ticker)) ecoMap.set(row.ticker, row.ecosystem_score);
+        });
+
+        const enriched: EnrichedStockData[] = peersList.map((t) => {
+          const s = snapMap.get(t) || {};
+          const e = ecoMap.get(t);
+          return {
+            ticker: t,
+            name: t,
+            price: null as any,
+            marketCap: null as any,
+            ytd: null as any,
+            divYield: 0,
+            estimation: 0,
+            targetPrice: 0,
+            fgos: s?.fgos_score ?? 0,
+            valuation: s?.valuation_status ?? "N/A",
+            ecosystem: e ?? 50
+          };
+        });
+
         if(active) {
              setPeers(enriched);
              setIsLoading(false);
@@ -185,16 +224,20 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
                         {peer.estimation ? `${peer.estimation > 0 ? '+' : ''}${peer.estimation.toFixed(1)}%` : '-'}
                       </TableCell>
                       <TableCell className="text-right px-2 py-0.5 text-xs font-mono text-white w-[70px]">
-                        ${Number(peer.price).toFixed(2)}
+                        {peer.price != null ? `$${Number(peer.price).toFixed(2)}` : '-'}
                       </TableCell>
                       <TableCell 
                         className="text-right px-2 py-0.5 text-[10px] font-medium text-white w-[60px]"
-                        style={isSelected ? undefined : { backgroundColor: getHeatmapColor(Number(peer.ytd)) }}
+                        style={isSelected ? undefined : { backgroundColor: getHeatmapColor(peer.ytd != null ? Number(peer.ytd) : 0) }}
                       >
-                        {Number(peer.ytd) >= 0 ? "+" : ""}{Number(peer.ytd).toFixed(1)}%
+                        {peer.ytd != null ? `${Number(peer.ytd) >= 0 ? "+" : ""}${Number(peer.ytd).toFixed(1)}%` : '-'}
                       </TableCell>
                       <TableCell className={`text-right px-2 py-0.5 text-[10px] w-[70px] ${isSelected ? 'text-white' : 'text-gray-400'}`}>
-                        {Number(peer.marketCap) > 1000000000000 ? `${(Number(peer.marketCap)/1000000000000).toFixed(1)}T` : `${(Number(peer.marketCap)/1000000000).toFixed(1)}B`}
+                        {peer.marketCap != null 
+                          ? (Number(peer.marketCap) > 1e12 
+                              ? `${(Number(peer.marketCap)/1e12).toFixed(1)}T` 
+                              : `${(Number(peer.marketCap)/1e9).toFixed(1)}B`)
+                          : '-'}
                       </TableCell>
                     </TableRow>
                   );

@@ -110,6 +110,7 @@ export async function GET(req: Request) {
     const batchToProcess = allValidProfiles.slice(offset, offset + limit);
     console.log(`⚙️ Procesando lote: del ${offset} al ${offset + limit} (${batchToProcess.length} empresas)...`);
     
+    const today = new Date().toISOString().slice(0, 10);
     const snapshotsToUpsert = [];
 
     for (const profile of batchToProcess) {
@@ -125,7 +126,8 @@ export async function GET(req: Request) {
         ratios,
         metrics,
         {}, // Growth vacío en bulk
-        { price: profile.price || profile.Price } 
+        { price: profile.price || profile.Price },
+        today
       );
 
       if (fgos) {

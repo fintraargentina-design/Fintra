@@ -6,7 +6,8 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { getHeatmapColor } from "@/lib/utils";
-import { enrichStocksWithData, EnrichedStockData } from "@/lib/services/stock-enrichment";
+import { EnrichedStockData } from "@/lib/services/stock-enrichment";
+import { supabase } from "@/lib/supabase";
 import { getAvailableSectors, getTickersBySector } from "@/lib/repository/fintra-db";
 import { Loader2 } from "lucide-react";
 
@@ -63,10 +64,47 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
              if (mounted) setStocks([]);
              return;
         }
+        const { data: snapshots } = await supabase
+          .from('fintra_snapshots')
+          .select('ticker, fgos_score, valuation_status, verdict_text, calculated_at')
+          .in('ticker', tickers)
+          .order('calculated_at', { ascending: false });
 
-        const enriched = await enrichStocksWithData(tickers);
+        const { data: eco } = await supabase
+          .from('fintra_ecosystem_reports')
+          .select('ticker, ecosystem_score, date')
+          .in('ticker', tickers)
+          .order('date', { ascending: false });
+
+        const snapMap = new Map<string, any>();
+        (snapshots || []).forEach((row: any) => {
+          if (!snapMap.has(row.ticker)) snapMap.set(row.ticker, row);
+        });
+
+        const ecoMap = new Map<string, number>();
+        (eco || []).forEach((row: any) => {
+          if (!ecoMap.has(row.ticker)) ecoMap.set(row.ticker, row.ecosystem_score);
+        });
+
+        const enriched: EnrichedStockData[] = tickers.map((t) => {
+          const s = snapMap.get(t) || {};
+          const e = ecoMap.get(t);
+          return {
+            ticker: t,
+            name: t,
+            price: null as any,
+            marketCap: null as any,
+            ytd: null as any,
+            divYield: 0,
+            estimation: 0,
+            targetPrice: 0,
+            fgos: s?.fgos_score ?? 0,
+            valuation: s?.valuation_status ?? "N/A",
+            ecosystem: e ?? 50
+          };
+        });
+
         if (mounted) {
-          // Sort by FGOS by default
           setStocks(enriched.sort((a, b) => b.fgos - a.fgos));
         }
       } catch (err) {
@@ -193,16 +231,16 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                     {stock.estimation ? `${stock.estimation > 0 ? '+' : ''}${stock.estimation.toFixed(1)}%` : '-'}
                   </TableCell>
                   <TableCell className="text-right px-2 py-0.5 text-xs font-mono text-white">
-                    ${stock.price.toFixed(2)}
+                    {stock.price != null ? `$${Number(stock.price).toFixed(2)}` : '-'}
                   </TableCell>
                   <TableCell 
                     className="text-right px-2 py-0.5 text-[10px] font-medium text-white"
                     style={{ backgroundColor: getHeatmapColor(stock.ytd) }}
                   >
-                    {stock.ytd >= 0 ? "+" : ""}{stock.ytd.toFixed(1)}%
+                    {stock.ytd != null ? `${stock.ytd >= 0 ? "+" : ""}${Number(stock.ytd).toFixed(1)}%` : '-'}
                   </TableCell>
                   <TableCell className="text-right px-2 py-0.5 text-[10px] text-gray-400">
-                    {formatMarketCap(stock.marketCap)}
+                    {stock.marketCap != null ? formatMarketCap(Number(stock.marketCap)) : '-'}
                   </TableCell>
                 </TableRow>
               ))}

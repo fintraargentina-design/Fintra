@@ -74,7 +74,8 @@ describe('calculateFGOSFromData - Low Confidence Benchmarks', () => {
       mockRatios,
       mockMetrics,
       mockGrowth,
-      {}
+      {},
+      '2023-01-01'
     );
 
     expect(result).not.toBeNull();
@@ -92,7 +93,7 @@ describe('calculateFGOSFromData - Low Confidence Benchmarks', () => {
       // revenue_cagr: value 0.10 matches p90 of benchmark (0.05) -> Raw 90
       revenue_cagr: {
         p10: 0.01, p25: 0.02, p50: 0.03, p75: 0.04, p90: 0.05,
-        confidence_level: 'low',
+        confidence: 'low',
         sample_size: 5
       },
       // Set others to null to isolate test or just fill with dummy high confidence
@@ -115,7 +116,8 @@ describe('calculateFGOSFromData - Low Confidence Benchmarks', () => {
       mockRatios,
       mockMetrics,
       mockGrowth,
-      {}
+      {},
+      '2023-01-01'
     );
     
     // We need to inspect the growth score specifically
@@ -139,7 +141,7 @@ describe('calculateFGOSFromData - Low Confidence Benchmarks', () => {
     // @ts-ignore
     benchmarksModule.getBenchmarksForSector.mockReturnValue(lowConfBenchmarks);
     
-    const result2 = await calculateFGOSFromData('TEST', mockProfile, mockRatios, mockMetrics, mockGrowth, {});
+    const result2 = await calculateFGOSFromData('TEST', mockProfile, mockRatios, mockMetrics, mockGrowth, {}, '2023-01-01');
     
     // Expected for each: 90 * 0.25 + 50 * 0.75 = 60
     expect(result2?.fgos_breakdown.growth).toBeCloseTo(60);
@@ -168,7 +170,8 @@ describe('calculateFGOSFromData - Low Confidence Benchmarks', () => {
       mockRatios,
       mockMetrics,
       mockGrowth,
-      {}
+      {},
+      '2023-01-01'
     );
     
     // Expected: 90 (no change)

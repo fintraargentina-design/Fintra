@@ -21,7 +21,8 @@ interface MarketPositionInputs {
 export async function calculateMarketPosition(
   ticker: string,
   sector: string | null | undefined,
-  inputs: MarketPositionInputs
+  inputs: MarketPositionInputs,
+  snapshotDate: string
 ): Promise<MarketPosition> {
   // 1. Guards
   if (!sector) {
@@ -35,7 +36,7 @@ export async function calculateMarketPosition(
     };
   }
 
-  const benchmarks = await getBenchmarksForSector(sector);
+  const benchmarks = await getBenchmarksForSector(sector, snapshotDate);
   if (!benchmarks) {
     return {
       status: 'pending',

@@ -9,7 +9,7 @@ type SectorBenchmarkMetric = {
   p75: number;
   p90: number;
   sample_size?: number;
-  confidence_level?: 'low' | 'medium' | 'high';
+  confidence?: 'low' | 'medium' | 'high';
 };
 
 type SectorBenchmarkMap = Record<string, SectorBenchmarkMetric>;
@@ -48,10 +48,10 @@ export function resolveValuationFromSector(
     else score = inverse ? 20 : 25;
 
     // Ajuste por baja confianza estadística
-    if (stats.confidence_level === 'low') {
+    if (stats.confidence === 'low') {
       score *= 0.85;
       warnings.push('Low sector benchmark confidence');
-    } else if (stats.confidence_level === 'medium') {
+    } else if (stats.confidence === 'medium') {
       score *= 0.95;
     }
 
@@ -99,9 +99,9 @@ export function resolveValuationFromSector(
 
   // Confidence basada en calidad del benchmark
   const confidence =
-    sectorBenchmarks.pe_ratio?.confidence_level === 'high'
+    sectorBenchmarks.pe_ratio?.confidence === 'high'
       ? 90
-      : sectorBenchmarks.pe_ratio?.confidence_level === 'medium'
+      : sectorBenchmarks.pe_ratio?.confidence === 'medium'
       ? 70
       : 50;
 
