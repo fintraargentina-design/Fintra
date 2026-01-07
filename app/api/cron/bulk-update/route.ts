@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { NextResponse } from 'next/server';
 import { calculateFGOSFromData } from '@/lib/engine/fintra-brain';
+import { getActiveStockTickers } from '@/lib/repository/active-stocks';
 import Papa from 'papaparse';
 
 export const dynamic = 'force-dynamic';
@@ -94,7 +95,13 @@ export async function GET(req: Request) {
     const quotesMap = new Map(rawQuotes.map(q => [getSym(q), q]));
     const priceChangeMap = new Map(rawPriceChange.map(p => [getSym(p), p]));
     
+    // FILTER: Only Active Stocks (Equities)
+    const activeTickers = new Set(await getActiveStockTickers(supabase));
+
     const allValidProfiles = rawProfiles.filter(p => {
+        const sym = getSym(p);
+        if (!activeTickers.has(sym)) return false;
+
         const price = p.price || p.Price;
         const sector = p.sector || p.Sector;
         return price > 0 && sector && sector !== 'N/A';
@@ -112,7 +119,7 @@ export async function GET(req: Request) {
       const quote = quotesMap.get(sym) || {};
       const priceChange = priceChangeMap.get(sym) || {};
       
-      const fgos = calculateFGOSFromData(
+      const fgos = await calculateFGOSFromData(
         sym,
         profile,
         ratios,

@@ -8,6 +8,7 @@ import { fetchAllFmpData } from './fetchBulk';
 import { buildSnapshot } from './buildSnapshots';
 import { upsertSnapshots } from './upsertSnapshots';
 import { resolveValuationFromSector } from '@/lib/engine/resolveValuationFromSector';
+import { getActiveStockTickers } from '@/lib/repository/active-stocks';
 import type { ValuationResult } from '@/lib/engine/types';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,8 @@ const DEBUG_TICKER = 'AAPL';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const limit = parseInt(searchParams.get('limit') || '100');
+  const limitParam = searchParams.get('limit');
+  const tickerParam = searchParams.get('ticker'); // Override param
 
   const fmpKey = process.env.FMP_API_KEY!;
 
@@ -41,7 +43,8 @@ export async function GET(req: Request) {
       .eq('name', CRON_NAME)
       .single();
 
-    if (state?.last_run_date === today) {
+    // Bypass check if we are in test mode (ticker override)
+    if (state?.last_run_date === today && !tickerParam) {
       return NextResponse.json({ skipped: true, date: today });
     }
 
@@ -61,6 +64,9 @@ export async function GET(req: Request) {
 
     const sectorStatsMap: Record<string, any> = {};
     for (const row of sectorStatsRows ?? []) {
+      // SAFETY: Skip stats with insufficient sample size
+      if ((row.sample_size || 0) < 3) continue;
+
       sectorStatsMap[row.sector] ??= {};
       sectorStatsMap[row.sector][row.metric] = row;
     }
@@ -68,24 +74,45 @@ export async function GET(req: Request) {
     // ─────────────────────────────────────────
     // UNIVERSO ACTIVO
     // ─────────────────────────────────────────
-    const { data: activeStocks } = await supabase
-      .from('fintra_active_stocks')
-      .select('ticker');
+    // Using helper to ensure only active 'stock' types are processed
+    let allActiveTickers = await getActiveStockTickers(supabase);
 
-    if (!activeStocks?.length) {
+    if (tickerParam) {
+      console.log(`🧪 BULK TEST MODE — processing only ticker: ${tickerParam}`);
+      // Filter EXACT match
+      if (allActiveTickers.includes(tickerParam)) {
+        allActiveTickers = [tickerParam];
+      } else {
+        allActiveTickers = []; // Skip silently if not active/found
+      }
+    }
+
+    if (!allActiveTickers.length) {
       return NextResponse.json({ error: 'No active stocks' }, { status: 500 });
     }
 
-    const tickers = activeStocks.map((s: { ticker: string }) => s.ticker).slice(0, limit);
-    const snapshotsToUpsert: any[] = [];
+    const tickers = limitParam
+      ? allActiveTickers.slice(0, parseInt(limitParam))
+      : allActiveTickers;
+
+    if (!limitParam && !tickerParam) {
+      console.log("🚀 BULK FULL RUN — processing entire active stock universe");
+    }
 
     const discardStats: Record<string, number> = {};
+
+    // Batching state
+    const UPSERT_BATCH_SIZE = 100;
+    let pendingSnapshots: any[] = [];
+    let inserted = 0;
 
     // ─────────────────────────────────────────
     // LOOP PRINCIPAL
     // ─────────────────────────────────────────
     for (const sym of tickers) {
       try {
+        if (tickerParam) console.log(`🔍 Processing ${sym}...`);
+
         const profile = profiles.get(sym)?.[0] ?? null;
 
           if (!profile) {
@@ -93,7 +120,7 @@ export async function GET(req: Request) {
           }
 
 
-        const snapshot = buildSnapshot(
+        const snapshot = await buildSnapshot(
           sym,
           profile,
           ratios.get(sym)?.[0] ?? {},
@@ -153,7 +180,17 @@ export async function GET(req: Request) {
         }
 
         snapshot.snapshot_date = today;
-        snapshotsToUpsert.push(snapshot);
+        pendingSnapshots.push(snapshot);
+
+        if (pendingSnapshots.length >= UPSERT_BATCH_SIZE) {
+          try {
+            await upsertSnapshots(supabase, pendingSnapshots);
+            inserted += pendingSnapshots.length;
+          } catch (err) {
+            console.error('❌ UPSERT CHUNK FAILED', err);
+          }
+          pendingSnapshots = [];
+        }
 
         if (sym === DEBUG_TICKER) {
           console.log('🧪 DEBUG SNAPSHOT FINAL', snapshot);
@@ -168,27 +205,27 @@ export async function GET(req: Request) {
     }
 
     // ─────────────────────────────────────────
-    // UPSERT
+    // FLUSH REMAINING
     // ─────────────────────────────────────────
-    const CHUNK_SIZE = 100;
-    let inserted = 0;
-
-    for (let i = 0; i < snapshotsToUpsert.length; i += CHUNK_SIZE) {
-      const chunk = snapshotsToUpsert.slice(i, i + CHUNK_SIZE);
+    if (pendingSnapshots.length > 0) {
       try {
-        await upsertSnapshots(supabase, chunk);
-        inserted += chunk.length;
+        await upsertSnapshots(supabase, pendingSnapshots);
+        inserted += pendingSnapshots.length;
       } catch (err) {
-        console.error('❌ UPSERT CHUNK FAILED', err);
+        console.error('❌ UPSERT FINAL CHUNK FAILED', err);
       }
     }
 
     // ─────────────────────────────────────────
     // REBUILD STATS
     // ─────────────────────────────────────────
-    try {
-      await supabase.rpc('build_sector_stats', { snap_date: today });
-    } catch {}
+    if (!tickerParam) {
+      try {
+        await supabase.rpc('build_sector_stats', { snap_date: today });
+      } catch (err) {
+        console.warn('⚠️ Build sector stats failed:', err);
+      }
+    }
 
     console.log('📊 DISCARD SUMMARY', discardStats);
 
@@ -201,15 +238,23 @@ export async function GET(req: Request) {
       );
     }
 
-    const { data: coverage } = await supabase.rpc(
-      'fintra_snapshot_coverage',
-      { snap_date: today }
-    );
+    let coverage = 0;
+    if (!tickerParam) {
+      try {
+        const { data: cov } = await supabase.rpc(
+          'fintra_snapshot_coverage',
+          { snap_date: today }
+        );
+        coverage = Number(cov);
 
-    if (Number(coverage) < MIN_COVERAGE) {
-      await sendCriticalAlert(
-        `🚨 FINTRA ALERTA\nCoverage bajo.\nFecha: ${today}\nCoverage: ${(Number(coverage) * 100).toFixed(1)}%`
-      );
+        if (coverage < MIN_COVERAGE) {
+          await sendCriticalAlert(
+            `🚨 FINTRA ALERTA\nCoverage bajo.\nFecha: ${today}\nCoverage: ${(coverage * 100).toFixed(1)}%`
+          );
+        }
+      } catch (err) {
+        console.warn('⚠️ Coverage check failed:', err);
+      }
     }
 
     const tEnd = performance.now();

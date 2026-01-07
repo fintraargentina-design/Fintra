@@ -111,7 +111,7 @@ export async function GET() {
           }
 
           // Cálculo Puro (CPU bound, muy rápido)
-          const analysis = calculateFGOSFromData(symbol, profile, ratio, metric, growth, quote);
+          const analysis = await calculateFGOSFromData(symbol, profile, ratio, metric, growth, quote);
 
           if (!analysis) {
             results.failed.push(`${symbol} (Calc Error)`);

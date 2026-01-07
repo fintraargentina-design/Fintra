@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Papa from 'papaparse';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { getActiveStockTickers } from '@/lib/repository/active-stocks';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -55,20 +56,19 @@ export async function GET(request: Request) {
     }
 
     // --------------------------------------------------
-    // 5. Load active universe
-    // --------------------------------------------------
-    const { data: activeStocks, error: activeError } = await supabase
-      .from('fintra_active_stocks')
-      .select('ticker');
+    // ─────────────────────────────────────────
+    // 5. FETCH ACTIVE UNIVERSE
+    // ─────────────────────────────────────────
+    const activeStockTickers = await getActiveStockTickers(supabase);
 
-    if (activeError || !activeStocks) {
+    if (!activeStockTickers.length) {
       return NextResponse.json(
-        { error: 'Failed to load fintra_active_stocks' },
+        { error: 'Failed to load fintra_active_stocks (or empty)' },
         { status: 500 }
       );
     }
 
-    const activeSet = new Set(activeStocks.map((s: { ticker: string }) => s.ticker));
+    const activeSet = new Set(activeStockTickers);
 
     // --------------------------------------------------
     // 6. Build relations (limit applies to active tickers)
@@ -82,7 +82,7 @@ export async function GET(request: Request) {
 
     let processedTickers = 0;
 
-    for (const { ticker } of activeStocks) {
+    for (const ticker of activeStockTickers) {
       if (processedTickers >= limit) break;
 
       const peersRaw = peerMap.get(ticker);

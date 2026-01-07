@@ -1,129 +1,82 @@
-// lib/engine/benchmarks.ts
 
-export const SECTOR_BENCHMARKS: Record<string, any> = {
-  Technology: {
-    pe_ratio: 25,
-    ev_ebitda: 18,
-    p_fcf: 25,
-    net_margin: 0.15,
-    roe: 0.20,
-    debt_to_equity: 0.5,
-    revenue_growth: 0.12
-  },
-  "Communication Services": {
-    pe_ratio: 20,
-    ev_ebitda: 14,
-    p_fcf: 20,
-    net_margin: 0.12,
-    roe: 0.15,
-    debt_to_equity: 0.7,
-    revenue_growth: 0.09
-  },
-  Healthcare: {
-    pe_ratio: 22,
-    ev_ebitda: 16,
-    p_fcf: 22,
-    net_margin: 0.10,
-    roe: 0.15,
-    debt_to_equity: 0.6,
-    revenue_growth: 0.08
-  },
-  "Financial Services": {
-    pe_ratio: 13,
-    ev_ebitda: 10,
-    p_fcf: 12,
-    net_margin: 0.18,
-    roe: 0.11,
-    debt_to_equity: 2.0,
-    revenue_growth: 0.05
-  },
-  "Consumer Cyclical": {
-    pe_ratio: 22,
-    ev_ebitda: 15,
-    p_fcf: 20,
-    net_margin: 0.06,
-    roe: 0.15,
-    debt_to_equity: 0.8,
-    revenue_growth: 0.08
-  },
-  "Consumer Defensive": {
-    pe_ratio: 20,
-    ev_ebitda: 14,
-    p_fcf: 18,
-    net_margin: 0.05,
-    roe: 0.18,
-    debt_to_equity: 1.2,
-    revenue_growth: 0.04
-  },
-  Industrials: {
-    pe_ratio: 18,
-    ev_ebitda: 12,
-    p_fcf: 18,
-    net_margin: 0.07,
-    roe: 0.14,
-    debt_to_equity: 0.9,
-    revenue_growth: 0.05
-  },
-  Energy: {
-    pe_ratio: 10,
-    ev_ebitda: 6,
-    p_fcf: 8,
-    net_margin: 0.08,
-    roe: 0.10,
-    debt_to_equity: 0.8,
-    revenue_growth: 0.04
-  },
-  "Basic Materials": {
-    pe_ratio: 15,
-    ev_ebitda: 9,
-    p_fcf: 12,
-    net_margin: 0.06,
-    roe: 0.10,
-    debt_to_equity: 0.6,
-    revenue_growth: 0.04
-  },
-  "Real Estate": {
-    pe_ratio: 35, 
-    ev_ebitda: 20,
-    p_fcf: 20,
-    net_margin: 0.15,
-    roe: 0.05,
-    debt_to_equity: 2.5,
-    revenue_growth: 0.05
-  },
-  Utilities: {
-    pe_ratio: 18,
-    ev_ebitda: 11,
-    p_fcf: 15,
-    net_margin: 0.10,
-    roe: 0.09,
-    debt_to_equity: 1.5,
-    revenue_growth: 0.03
-  },
-  General: {
-    pe_ratio: 18,
-    ev_ebitda: 12,
-    p_fcf: 15,
-    net_margin: 0.10,
-    roe: 0.15,
-    debt_to_equity: 1.0,
-    revenue_growth: 0.07
-  }
-};
+import { supabaseAdmin } from "@/lib/supabase-admin";
+import { SectorBenchmark } from "./types";
 
-export const getBenchmarksForSector = (sector: string | undefined) => {
-  if (!sector) return SECTOR_BENCHMARKS.General;
-  
+// Simple in-memory cache to avoid hammering DB in a loop
+// This is useful when processing bulk snapshots for the same sector
+const CACHE: Record<string, Record<string, SectorBenchmark>> = {};
+const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
+const CACHE_TIMESTAMP: Record<string, number> = {};
+
+export async function getBenchmarksForSector(sector: string): Promise<Record<string, SectorBenchmark> | null> {
+  if (!sector) return null;
   const cleanSector = sector.trim();
 
-  // 1. Búsqueda Exacta
-  if (SECTOR_BENCHMARKS[cleanSector]) return SECTOR_BENCHMARKS[cleanSector];
+  // Check Cache
+  const now = Date.now();
+  if (CACHE[cleanSector] && CACHE_TIMESTAMP[cleanSector] && (now - CACHE_TIMESTAMP[cleanSector] < CACHE_TTL_MS)) {
+    return CACHE[cleanSector];
+  }
 
-  // 2. Búsqueda Aproximada (Case Insensitive y sin espacios)
-  const key = Object.keys(SECTOR_BENCHMARKS).find(k => 
-    cleanSector.toLowerCase().replace(/ /g,'').includes(k.toLowerCase().replace(/ /g,'')) || 
-    k.toLowerCase().replace(/ /g,'').includes(cleanSector.toLowerCase().replace(/ /g,''))
-  );
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('sector_benchmarks')
+      .select('*')
+      .eq('sector', cleanSector);
 
-  return key ? SECTOR_BENCHMARKS[key] : SECTOR_BENCHMARKS.General;
-};
+    if (error) {
+        console.error(`Error fetching benchmarks for ${cleanSector}:`, error);
+        return null;
+    }
+
+    if (!data || data.length === 0) {
+      // Fallback to General if specific sector not found
+      if (cleanSector !== 'General') {
+          // Prevent infinite loop if General is also missing
+          const general = await getBenchmarksForSector('General');
+          if (general) {
+              // Cache the fallback to avoid repeated failed lookups
+              CACHE[cleanSector] = general;
+              CACHE_TIMESTAMP[cleanSector] = now;
+              return general;
+          }
+      }
+      return null;
+    }
+
+    const benchmarks: Record<string, SectorBenchmark> = {};
+    for (const row of data) {
+      // SAFETY: Skip benchmarks with insufficient sample size
+      if ((row.sample_size || 0) < 3) continue;
+
+      // Map DB metric names if they differ from code keys?
+      // Assuming DB metric names match code keys (e.g., 'revenue_cagr', 'pe_ratio')
+      benchmarks[row.metric] = {
+        p10: row.p10,
+        p25: row.p25,
+        p50: row.p50,
+        p75: row.p75,
+        p90: row.p90,
+        sample_size: row.sample_size,
+        confidence: row.confidence as 'low' | 'medium' | 'high',
+        median: row.median,
+        trimmed_mean: row.trimmed_mean,
+        uncertainty_range: row.uncertainty_range
+      };
+    }
+
+    if (Object.keys(benchmarks).length === 0) {
+      return null;
+    }
+
+    // Update Cache
+    CACHE[cleanSector] = benchmarks;
+    CACHE_TIMESTAMP[cleanSector] = now;
+
+    return benchmarks;
+
+  } catch (err) {
+    console.error(`Unexpected error fetching benchmarks for ${cleanSector}:`, err);
+    return null;
+  }
+}

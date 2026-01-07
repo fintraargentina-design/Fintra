@@ -4,11 +4,24 @@ export type FgosCategory =
   | 'Low'
   | 'Pending';
 
+export interface LowConfidenceImpact {
+  raw_percentile: number;
+  effective_percentile: number;
+  sample_size: number;
+  weight: number;
+  benchmark_low_confidence: true;
+}
+
 export interface FgosBreakdown {
   growth: number | null;
   profitability: number | null;
   efficiency: number | null;
   solvency: number | null;
+  benchmark_low_confidence?: boolean;
+  growth_impact?: LowConfidenceImpact;
+  profitability_impact?: LowConfidenceImpact;
+  efficiency_impact?: LowConfidenceImpact;
+  solvency_impact?: LowConfidenceImpact;
 }
 
 export interface FgosResult {
@@ -80,6 +93,59 @@ export interface ProfileStructural {
   };
 }
 
+export interface MarketPosition {
+  /**
+   * Status of the market position calculation.
+   * - 'computed': Successfully calculated.
+   * - 'pending': Missing data (sector, benchmarks, sample size).
+   */
+  status: 'computed' | 'pending';
+
+  /**
+   * The sector used for benchmarking.
+   */
+  sector: string;
+
+  /**
+   * Relative position components based on sector benchmarks.
+   * Values are percentiles (0-100).
+   */
+  components: {
+    size?: {
+      market_cap_percentile: number;
+    };
+    profitability?: {
+      roic_percentile?: number;
+      margin_percentile?: number;
+    };
+    growth?: {
+      revenue_growth_percentile?: number;
+    };
+  };
+
+  /**
+   * Conceptual summary of the position.
+   * - 'leader': Strong across most components.
+   * - 'strong': Above average in key components.
+   * - 'average': Mixed or neutral.
+   * - 'weak': Consistently below average.
+   */
+  summary: 'leader' | 'strong' | 'average' | 'weak';
+
+  /**
+   * Confidence in the position assessment.
+   * - 'high': Robust benchmarks, high coverage.
+   * - 'medium': Adequate benchmarks.
+   * - 'low': Low-confidence benchmarks or poor coverage.
+   */
+  confidence: 'low' | 'medium' | 'high';
+
+  /**
+   * Explanations for status or confidence issues.
+   */
+  reasons?: string[];
+}
+
 export interface FinancialSnapshot {
   ticker: string;
   snapshot_date: string;
@@ -96,7 +162,7 @@ export interface FinancialSnapshot {
   fgos_score: number | null;
   fgos_components: FgosBreakdown | null;
   valuation: ValuationResult | null;
-  market_position: any | null;
+  market_position: MarketPosition | null;
   investment_verdict: any | null;
   data_confidence: {
     has_profile: boolean;
@@ -139,18 +205,26 @@ export interface FmpQuote {
   [key: string]: any;
 }
 
-export interface SectorBenchmarkRow {
-  sector?: string;
-  industry?: string;
-  metric: string;
-  stats_date: string;
+export interface SectorBenchmark {
+  sample_size: number;
+  confidence: 'low' | 'medium' | 'high';
   p10: number;
   p25: number;
   p50: number;
   p75: number;
   p90: number;
-  sample_size?: number;
-  confidence_level?: 'low' | 'medium' | 'high';
+  median?: number | null;
+  trimmed_mean?: number | null;
+  uncertainty_range?: { p5: number; p95: number } | null;
+}
+
+export interface SectorBenchmarkRow extends SectorBenchmark {
+  sector?: string;
+  industry?: string;
+  metric: string;
+  stats_date: string;
+  // Overriding confidence for compatibility if needed, or mapping it
+  confidence_level?: 'low' | 'medium' | 'high'; // Legacy / DB column mapping
 }
 
 export interface EcoNodeJSON {

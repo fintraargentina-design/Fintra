@@ -3,6 +3,7 @@
 import { normalizeValuation } from './normalizeValuation';
 import { normalizePerformance } from './normalizePerformance';
 import { calculateFGOSFromData } from '@/lib/engine/fintra-brain';
+import { calculateMarketPosition } from '@/lib/engine/market-position';
 import { normalizeProfileStructural } from './normalizeProfileStructural';
 import { resolveInvestmentVerdict } from '@/lib/engine/resolveInvestmentVerdict';
 import { rollingFYGrowth } from '@/lib/utils/rollingGrowth';
@@ -30,7 +31,7 @@ function discard(sym: string, reason: string, extra: any = {}) {
    SNAPSHOT BUILDER
 ================================ */
 
-export function buildSnapshot(
+export async function buildSnapshot(
   sym: string,
   profile: FmpProfile | null,
   ratios: FmpRatios | null,
@@ -40,7 +41,7 @@ export function buildSnapshot(
   scores: any,
   incomeGrowthRows: any[] = [],
   cashflowGrowthRows: any[] = []
-): FinancialSnapshot {
+): Promise<FinancialSnapshot> {
   console.log('🧪 SNAPSHOT START', sym);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -90,7 +91,7 @@ export function buildSnapshot(
   -------------------------------- */
   const fgos =
     sector
-      ? calculateFGOSFromData(
+      ? await calculateFGOSFromData(
           sym,
           profile ?? {},
           ratios ?? {},
@@ -125,6 +126,20 @@ export function buildSnapshot(
       : pending('Verdict not computable');
 
   /* --------------------------------
+     MARKET POSITION
+  -------------------------------- */
+  const marketPosition = await calculateMarketPosition(
+    sym,
+    sector,
+    {
+      marketCap: profile?.marketCap,
+      roic: metrics?.roicTTM,
+      operatingMargin: ratios?.operatingProfitMarginTTM,
+      revenueGrowth: fundamentalsGrowth.revenue_cagr
+    }
+  );
+
+  /* --------------------------------
      SNAPSHOT FINAL
   -------------------------------- */
   return {
@@ -142,7 +157,7 @@ export function buildSnapshot(
     fgos_components: fgos?.fgos_breakdown ?? null,
 
     valuation: valuation,
-    market_position: pending('Market position model not implemented yet'),
+    market_position: marketPosition,
     investment_verdict: investmentVerdict,
 
     data_confidence: {

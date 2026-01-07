@@ -1,5 +1,7 @@
 import { supabaseAdmin as supabase } from '@/lib/supabase-admin';
 import { calculateFGOSFromData } from '@/lib/engine/fintra-brain'; 
+import { calculateMarketPosition } from '@/lib/engine/market-position';
+import { getActiveStockTickers } from '@/lib/repository/active-stocks';
 import dayjs from 'dayjs';
 import type { FmpProfile, FmpRatios, FmpMetrics } from '@/lib/engine/types';
 import { normalizeProfileStructural } from '../fmp-bulk/normalizeProfileStructural';
@@ -34,6 +36,10 @@ export async function backfillSnapshotsForDate(date: string) {
   const asOf = dayjs(date);
 
   // 1. Obtener tickers con datos ese día
+  // Filter by active stocks only
+  const activeTickersList = await getActiveStockTickers(supabase);
+  const activeTickersSet = new Set(activeTickersList);
+
   const { data: tickers } = await supabase
     .from('datos_financieros')
     .select('ticker')
@@ -41,7 +47,15 @@ export async function backfillSnapshotsForDate(date: string) {
 
   if (!tickers || !tickers.length) return;
 
-  for (const { ticker } of tickers) {
+  // Dedupe and Filter
+  const uniqueTickers = new Set<string>();
+  tickers.forEach((t: { ticker: string }) => {
+    if (activeTickersSet.has(t.ticker)) {
+      uniqueTickers.add(t.ticker);
+    }
+  });
+
+  for (const ticker of uniqueTickers) {
     // -----------------------------
     // 2. Financials vigentes
     // -----------------------------
@@ -74,7 +88,7 @@ export async function backfillSnapshotsForDate(date: string) {
     // -----------------------------
     const { profile, ratios, metrics } = mapDbToFmp(fin);
     
-    const fgos = calculateFGOSFromData(
+    const fgos = await calculateFGOSFromData(
         fin.ticker,
         profile,
         ratios,
@@ -112,7 +126,21 @@ export async function backfillSnapshotsForDate(date: string) {
     const perf = perfRows?.[0] || null;
 
     // -----------------------------
-    // 8. Build Snapshot
+    // 8. Market Position
+    // -----------------------------
+    const marketPosition = await calculateMarketPosition(
+        ticker,
+        sector,
+        {
+            marketCap: null, // Not available in backfill source currently
+            roic: metrics.roicTTM,
+            operatingMargin: ratios.operatingProfitMarginTTM,
+            revenueGrowth: fin.revenue_cagr
+        }
+    );
+
+    // -----------------------------
+    // 9. Build Snapshot
     // -----------------------------
     // TODO: Use a typed builder or reuse buildSnapshot logic if possible
     // For now constructing object manually to match schema
@@ -136,7 +164,7 @@ export async function backfillSnapshotsForDate(date: string) {
             price_to_fcf: valuation.price_to_fcf,
             valuation_status: 'Pending' // Logic missing here
         } : null,
-        market_position: null,
+        market_position: marketPosition,
         investment_verdict: null,
         data_confidence: {
             has_profile: true,

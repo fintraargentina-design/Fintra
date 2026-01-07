@@ -18,9 +18,12 @@ export async function GET(req: Request) {
   const limit = Number(searchParams.get('limit') ?? 10); // chico para probar
 
   // 1️⃣ Tomar tickers SOLO del universo operativo
+  // Use fintra_active_stocks exclusively (per FINTRA business rule) to ensure equity-only calculations
   const { data: rows, error } = await supabase
     .from('fintra_active_stocks')
     .select('ticker')
+    .eq('is_active', true)
+    .eq('type', 'stock')
     .range(offset, offset + limit - 1);
 
   if (error) throw error;
