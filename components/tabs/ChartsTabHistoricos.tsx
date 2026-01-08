@@ -393,12 +393,12 @@ export default function ChartsTabHistoricos({
         connectNulls: false, // Mostrar huecos si faltan datos
         data: aligned.map(d => d['primary']), 
         itemStyle: { color: '#FFA028' },
-        lineStyle: { width: 1 },
+        lineStyle: { width: 2 },
         /* endLabel: { show: true, formatter: '{a}', offset: [30, 0], color: 'inherit' }, */
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: '#ffbf007c' },
-            { offset: 1, color: '#cf72008a' }
+            { offset: 0, color: '#ffbf005b' },
+            { offset: 1, color: '#cf720038' }
           ])
         }
       });
@@ -414,7 +414,7 @@ export default function ChartsTabHistoricos({
           connectNulls: false,
           data: aligned.map(d => d[key]),
           itemStyle: { color: isBenchmark ? '#f8fbffff' : PEER_COLORS[idx % PEER_COLORS.length] }, // Benchmark gris claro
-          lineStyle: isBenchmark ? { type: 'line', width: 1, opacity: 0.7 } : { width: 1 }
+          lineStyle: isBenchmark ? { type: 'line', width: 2, opacity: 0.7 } : { width: 2 }
           /* endLabel: { show: true, formatter: '{a}', offset: [30, 0], color: 'inherit' } */
         });
       });
@@ -439,7 +439,7 @@ export default function ChartsTabHistoricos({
         connectNulls: false,
         data: normalizedData.map(d => d['primary']),
         itemStyle: { color: '#FFA028' },
-        lineStyle: { width: 1 }
+        lineStyle: { width: 2 }
         /* endLabel: { show: true, formatter: '{a}', offset: [40, 0], color: 'inherit' } */
       });
 
@@ -453,7 +453,7 @@ export default function ChartsTabHistoricos({
           connectNulls: false,
           data: normalizedData.map(d => d[key]),
           itemStyle: { color: isBenchmark ? '#f8fbffff' : PEER_COLORS[idx % PEER_COLORS.length] },
-          lineStyle: isBenchmark ? { width: 1, type: 'line' } : { width: 1 }
+          lineStyle: isBenchmark ? { width: 2, type: 'line' } : { width: 2 }
           /* endLabel: { show: true, formatter: '{a}', offset: [40, 0], color: 'inherit' } */
         });
       });
@@ -484,7 +484,7 @@ export default function ChartsTabHistoricos({
         connectNulls: false,
         data: calculateDrawdown(getPrices('primary')),
         itemStyle: { color: '#FFA028' },
-        lineStyle: { width: 1 },
+        lineStyle: { width: 2 },
         areaStyle: { opacity: 0.2 }
        /*  endLabel: { show: true, formatter: '{a}', offset: [35, 0], color: 'inherit' } */
       });
@@ -499,7 +499,7 @@ export default function ChartsTabHistoricos({
           connectNulls: false,
           data: calculateDrawdown(getPrices(key)),
           itemStyle: { color: isBenchmark ? '#9ca3af' : PEER_COLORS[idx % PEER_COLORS.length] },
-          lineStyle: isBenchmark ? { type: 'line', width: 1 } : { width: 1, opacity: 0.7 },
+          lineStyle: isBenchmark ? { type: 'line', width: 2 } : { width: 2, opacity: 0.7 },
           areaStyle: isBenchmark ? { opacity: 0.1 } : undefined
           /* endLabel: { show: true, formatter: '{a}', offset: [35, 0], color: 'inherit' } */
         });

@@ -110,7 +110,7 @@ export default function DesempenoCard({ symbol }: { symbol: string }) {
   };
 
   return (
-    <div className="bg-tarjetas border-none px-6 pb-0">
+    <div className="w-full">
       {loading ? (
         <div className="h-32 grid place-items-center text-gray-500 text-sm">
           Cargando datos de desempeño...
@@ -120,11 +120,11 @@ export default function DesempenoCard({ symbol }: { symbol: string }) {
           No hay datos disponibles
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-0.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 border-b border-zinc-800">
           {/* Rellenar con elementos vacíos si hay menos de 6 para mantener alineación */}
           {[...performanceMetrics, ...Array(Math.max(0, 6 - performanceMetrics.length)).fill(null)].map((metric, index) => {
             if (!metric) {
-               return <div key={`empty-${index}`} className="bg-transparent" />;
+               return <div key={`empty-${index}`} className="bg-transparent border-r border-zinc-800 last:border-r-0 h-24" />;
             }
             
             const scoreLevel = getScoreLevel(metric.score);
@@ -132,16 +132,16 @@ export default function DesempenoCard({ symbol }: { symbol: string }) {
             return (
               <div 
                 key={index} 
-                className="relative flex flex-col items-center justify-center px-3 py-3 gap-1 cursor-pointer hover:brightness-110 transition-all border border-white/5"
+                className="relative flex flex-col items-center justify-center px-3 py-4 gap-2 cursor-pointer hover:brightness-110 transition-all border-r border-zinc-800 last:border-r-0 h-24"
                 style={{ backgroundColor: getHeatmapColor(metric.score) }}
               >
-                <div className="text-white/70 text-[10px] font-medium text-center leading-none line-clamp-1">
+                <div className="text-white/70 text-[10px] font-medium text-center leading-none line-clamp-1 uppercase tracking-wider">
                   {metric.label}
                 </div>
-                <div className="text-white text-sm tracking-tight leading-tight">
+                <div className="text-white text-lg font-bold tracking-tight leading-none">
                   {metric.display}
                 </div>
-                <div className="text-[9px] text-white/90 font-medium uppercase tracking-wider bg-black/20 px-1 py-0 rounded leading-none">
+                <div className="text-[9px] text-white/90 font-medium uppercase tracking-wider bg-black/20 px-1.5 py-0.5 rounded leading-none">
                   {scoreLevel}
                 </div>
               </div>

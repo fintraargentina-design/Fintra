@@ -2,13 +2,6 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, useMemo } from "react";
@@ -258,6 +251,13 @@ export default function OverviewCard({
   const [chartType, setChartType] = useState<"line" | "area">("area");
   const [chartRange, setChartRange] = useState<"1D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "5Y" | "ALL">("1Y");
 
+  // Sync data with selectedStock prop changes
+  useEffect(() => {
+    if (selectedStock && typeof selectedStock === 'object') {
+       setProfile(normalizeProfile(selectedStock));
+    }
+  }, [selectedStock]);
+
   // Fetch Snapshot from Supabase
   useEffect(() => {
     let active = true;
@@ -305,66 +305,82 @@ export default function OverviewCard({
         console.log("[OverviewCard] No currentSymbol, skipping fetch");
         return;
       }
-      console.log(`[OverviewCard] Starting fetch for symbol: ${currentSymbol}`);
-      setLoading(true);
+
+      // Check if we already have full data from props (selectedStock)
+      // If selectedStock is an object and has companyName/price, we assume it's the full profile.
+      // We still need to fetch scores.
+      const hasFullProfile = selectedStock && typeof selectedStock === 'object' && 'companyName' in selectedStock;
+
+      console.log(`[OverviewCard] Starting fetch for symbol: ${currentSymbol}. Has full profile? ${hasFullProfile}`);
+      
+      // If we don't have profile, show loading. If we do, we might just be updating scores in background.
+      if (!hasFullProfile) {
+          setLoading(true);
+      }
+      
       setError(null);
       try {
-        // Obtener profile, quote y scores en paralelo
-        const [profileArr, quoteArr, scores] = await Promise.all([
-          fmp.profile(currentSymbol),
-          fmp.quote(currentSymbol),
+        // Prepare promises
+        const promises: Promise<any>[] = [
           fmp.scores(currentSymbol)
-        ]);
-        
-        console.log("[OverviewCard] API Responses:", { 
-            profileLength: Array.isArray(profileArr) ? profileArr.length : 'not-array', 
-            quoteLength: Array.isArray(quoteArr) ? quoteArr.length : 'not-array',
-            scores: scores ? 'present' : 'missing'
-        });
+        ];
 
-        // Asegurarse de que rawProfile y rawQuote sean objetos válidos
-        // La API puede devolver [ {...} ] o simplemente {...} a veces si hay proxies intermedios, aunque fmp client suele normalizar.
-        // Pero aquí profileArr viene de fmp.profile que devuelve T (que es any[] según client.ts si no se especifica)
-        
-        let rawProfile = null;
-        if (Array.isArray(profileArr)) {
-             rawProfile = profileArr.length > 0 ? profileArr[0] : null;
-        } else if (profileArr && typeof profileArr === 'object') {
-             rawProfile = profileArr;
+        // Only fetch profile/quote if we don't have it from props
+        if (!hasFullProfile) {
+            promises.push(fmp.profile(currentSymbol));
+            promises.push(fmp.quote(currentSymbol));
         }
 
-        let rawQuote = null;
-        if (Array.isArray(quoteArr)) {
-             rawQuote = quoteArr.length > 0 ? quoteArr[0] : null;
-        } else if (quoteArr && typeof quoteArr === 'object') {
-             rawQuote = quoteArr;
-        }
-
-        console.log("[OverviewCard] Raw Data:", { rawProfile, rawQuote });
-
-        // Combinar datos de profile y quote
-        const combinedData = {
-          ...(rawProfile || {}),
-          // Sobrescribir con datos de quote si están disponibles
-          ...(rawQuote && {
-            price: rawQuote.price,
-            change: rawQuote.change,
-            changePercentage: rawQuote.changesPercentage,
-            volume: rawQuote.volume,
-          })
-        };
+        // Execute fetches
+        const results = await Promise.all(promises);
+        const scores = results[0];
         
-        console.log("[OverviewCard] Combined Data for Normalize:", combinedData);
-
         if (!active) return;
-        const normalized = normalizeProfile(combinedData);
-        console.log("[OverviewCard] Normalized Data:", normalized);
-        
-        setProfile(normalized);
+
         setScoresData(scores);
+
+        if (!hasFullProfile) {
+            const profileArr = results[1];
+            const quoteArr = results[2];
+            
+            console.log("[OverviewCard] API Responses:", { 
+                profileLength: Array.isArray(profileArr) ? profileArr.length : 'not-array', 
+                quoteLength: Array.isArray(quoteArr) ? quoteArr.length : 'not-array'
+            });
+
+            let rawProfile = null;
+            if (Array.isArray(profileArr)) {
+                rawProfile = profileArr.length > 0 ? profileArr[0] : null;
+            } else if (profileArr && typeof profileArr === 'object') {
+                rawProfile = profileArr;
+            }
+
+            let rawQuote = null;
+            if (Array.isArray(quoteArr)) {
+                rawQuote = quoteArr.length > 0 ? quoteArr[0] : null;
+            } else if (quoteArr && typeof quoteArr === 'object') {
+                rawQuote = quoteArr;
+            }
+
+            // Combinar datos de profile y quote
+            const combinedData = {
+                ...(rawProfile || {}),
+                ...(rawQuote && {
+                    price: rawQuote.price,
+                    change: rawQuote.change,
+                    changePercentage: rawQuote.changesPercentage,
+                    volume: rawQuote.volume,
+                })
+            };
+            
+            const normalized = normalizeProfile(combinedData);
+            setProfile(normalized);
+        }
+
       } catch (err: any) {
         console.error("Error fetching company data:", err);
-        if (active) setError("Error al cargar los datos de la empresa");
+        // Only set error if we don't have profile data to show
+        if (active && !hasFullProfile) setError("Error al cargar los datos de la empresa");
       } finally {
         if (active) setLoading(false);
       }
@@ -372,7 +388,7 @@ export default function OverviewCard({
     return () => {
       active = false;
     };
-  }, [currentSymbol]);
+  }, [currentSymbol, selectedStock]);
 
   // edición inline de campos N/A → buscador ticker
   const handleNAClick = (fieldName: string) => {
@@ -505,477 +521,293 @@ export default function OverviewCard({
 
   // tabs
   const renderOverviewContent = () => (
-    <div className="space-y-0 bg-black">
-      {/* Información de la Empresa */}
-      <div className="bg-tarjetas p-1 border-gray-700/30">
-        <h3 className="text-[#FFA028] text-lg font-semibold mb-1 flex items-center gap-1 justify-center">
-          {/* <Building2 className="w-5 h-5" /> */}
-          Información de la Empresa
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
-          <div className="space-y-3">
-            <div className="flex justify-center gap-2 text-xs">
-              <span className="text-gray-400">Nombre:</span>
-              {renderEditableField(data.companyName, "companyName")}
-            </div>
-            <div className="flex justify-center gap-2 text-xs">
-              <span className="text-gray-400">Sector:</span>
-              {renderEditableField(data.sector, "sector")}
-            </div>
-            <div className="flex justify-center gap-2 text-xs">
-              <span className="text-gray-400">Industria:</span>
-              {renderEditableField(data.industry, "industry")}
-            </div>
-            <div className="flex justify-center gap-2 text-xs">
-              <span className="text-gray-400">CEO:</span>
-              {renderEditableField(data.ceo, "ceo")}
-            </div>
-            {/* <div className="flex justify-center gap-2 text-xs">
-              <span className="text-gray-400">Fundada (IPO):</span>
-              {renderEditableField(data.ipoDate, "ipoDate")}
-            </div> */}
-          </div>
-          <div className="space-y-3">
-            <div className="flex justify-center gap-2 text-xs"> 
-              <span className="text-gray-400">Empleados:</span>
-              {renderEditableField(
-                Number.isFinite(Number(data.fullTimeEmployees))
-                  ? Number(data.fullTimeEmployees).toLocaleString()
-                  : undefined,
-                "employees",
-              )}
-            </div>
-            <div className="flex justify-center gap-2 text-xs">     
-              <span className="text-gray-400">Sitio web:</span>
-              {data.website ? (
-                <span className="text-[#FFA028]">
+    <div className="flex flex-col gap-2 p-2 bg-black/40">
+      
+      {/* Fila Superior: Perfil y Descripción */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
+        {/* Columna Izquierda: Información Corporativa (Combinada) */}
+        <div className="lg:col-span-4 bg-tarjetas p-3 rounded-md border border-gray-700/30 flex flex-col gap-3">
+          <h3 className="text-[#FFA028] text-sm font-semibold flex items-center gap-2 border-b border-gray-800 pb-1">
+            Perfil Corporativo
+          </h3>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+             <div className="flex flex-col">
+                <span className="text-gray-500 text-[10px]">Sector</span>
+                {renderEditableField(data.sector, "sector")}
+             </div>
+             <div className="flex flex-col">
+                <span className="text-gray-500 text-[10px]">Industria</span>
+                {renderEditableField(data.industry, "industry")}
+             </div>
+             <div className="flex flex-col">
+                <span className="text-gray-500 text-[10px]">CEO</span>
+                {renderEditableField(data.ceo, "ceo")}
+             </div>
+             <div className="flex flex-col">
+                <span className="text-gray-500 text-[10px]">Empleados</span>
+                {renderEditableField(
+                  Number.isFinite(Number(data.fullTimeEmployees))
+                    ? Number(data.fullTimeEmployees).toLocaleString()
+                    : undefined,
+                  "employees",
+                )}
+             </div>
+             <div className="flex flex-col">
+                <span className="text-gray-500 text-[10px]">País</span>
+                {renderEditableField(data.country, "country")}
+             </div>
+             <div className="flex flex-col">
+                <span className="text-gray-500 text-[10px]">Sitio Web</span>
+                {data.website ? (
                   <a
-                    href={
-                      data.website.startsWith("http")
-                        ? data.website
-                        : `https://${data.website}`
-                    }
+                    href={data.website.startsWith("http") ? data.website : `https://${data.website}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hover:text-[#FFA028] underline"
+                    className="text-[#FFA028] hover:underline truncate"
                   >
-                    {String(data.website).replace(/^https?:\/\//, "").trim()}
+                    {String(data.website).replace(/^https?:\/\//, "").replace(/\/$/, "")}
                   </a>
-                </span>
-              ) : (
-                renderEditableField(null, "website")
-              )}
-            </div>
-            <div className="flex justify-center gap-2 text-xs">
-              <span className="text-gray-400">Intercambio:</span>
-              {renderEditableField(data.exchange, "exchange")}
-            </div>
-            <div className="flex justify-center gap-2 text-xs">
-              <span className="text-gray-400">País:</span>
-              {renderEditableField(data.country, "country")}
-            </div>
+                ) : renderEditableField(null, "website")}
+             </div>
+             {/* Info Adicional Compacta */}
+             <div className="flex flex-col">
+                <span className="text-gray-500 text-[10px]">ISIN</span>
+                <span className="text-zinc-300 font-mono">{data.isin || "N/A"}</span>
+             </div>
+             <div className="flex flex-col">
+                <span className="text-gray-500 text-[10px]">CIK</span>
+                <span className="text-zinc-300 font-mono">{data.cik || "N/A"}</span>
+             </div>
           </div>
+        </div>
+
+        {/* Columna Derecha: Descripción */}
+        <div className="lg:col-span-8 bg-tarjetas p-3 rounded-md border border-gray-700/30 flex flex-col">
+           <div className="flex justify-between items-center mb-2 border-b border-gray-800 pb-1">
+              <h3 className="text-[#FFA028] text-sm font-semibold">Descripción</h3>
+              <div className="flex gap-4 text-xs">
+                 <div className="flex gap-1">
+                    <span className="text-gray-500">Fundada:</span>
+                    {renderEditableField(data.ipoDate, "ipoDate")}
+                 </div>
+                 <div className="flex gap-1">
+                    <span className="text-gray-500">Exchange:</span>
+                    {renderEditableField(data.exchange, "exchange")}
+                 </div>
+              </div>
+           </div>
+           <p className="text-gray-300 text-xs leading-relaxed text-justify overflow-y-auto max-h-[140px] pr-1 scrollbar-thin">
+              {data.description || "No hay descripción disponible."}
+           </p>
         </div>
       </div>
 
-      {/* Descripción */}
-      <div className="bg-tarjetas p-2 border-gray-700/30">
-        <h3 className="text-[#FFA028] text-lg font-semibold mb-1 flex items-center gap-1 justify-center">
-          {/* <FileText className="w-5 h-5" /> */}
-          Descripción
-        </h3>
-        <p className="text-gray-300 text-xs leading-relaxed text-left">
-          {data.description || "No hay descripción disponible."}
-        </p>
-        <div className="flex justify-center gap-2 text-xs">
-              <span className="text-gray-400">Fundada (IPO):</span>
-              {renderEditableField(data.ipoDate, "ipoDate")}
-        </div>
+      {/* Fila Media: Métricas Financieras (Grid de 3 columnas) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          {/* Valoración */}
+          <div className="bg-tarjetas p-2 rounded-md border border-gray-700/30">
+            <h4 className="text-gray-400 text-xs font-medium border-b border-gray-800 pb-1 mb-2 text-center">Valoración</h4>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+               <div className="flex flex-col items-center">
+                  <span className="text-gray-500 text-[10px]">Market Cap</span>
+                  <span className="text-[#FFA028] font-mono font-medium">{formatLargeNumber(data.marketCap)}</span>
+               </div>
+               <div className="flex flex-col items-center">
+                  <span className="text-gray-500 text-[10px]">Precio</span>
+                  <span className="text-[#FFA028] font-mono font-medium">
+                    {Number.isFinite(Number(data.price)) ? `$${Number(data.price).toFixed(2)}` : "N/A"}
+                  </span>
+               </div>
+               <div className="flex flex-col items-center col-span-2">
+                  <span className="text-gray-500 text-[10px]">Moneda</span>
+                  <span className="text-zinc-300">{data.currency || "N/A"}</span>
+               </div>
+            </div>
+          </div>
+
+          {/* Rendimiento */}
+          <div className="bg-tarjetas p-2 rounded-md border border-gray-700/30">
+            <h4 className="text-gray-400 text-xs font-medium border-b border-gray-800 pb-1 mb-2 text-center">Rendimiento</h4>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+               <div className="flex flex-col items-center">
+                  <span className="text-gray-500 text-[10px]">Var. $</span>
+                  <span className={`font-mono font-medium ${Number(data.change) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    {Number.isFinite(data.change) ? `$${Number(data.change).toFixed(2)}` : "N/A"}
+                  </span>
+               </div>
+               <div className="flex flex-col items-center">
+                  <span className="text-gray-500 text-[10px]">Var. %</span>
+                  <span className={`font-mono font-medium ${Number(data.changePercentage) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    {formatPercentage(data.changePercentage)}
+                  </span>
+               </div>
+               <div className="flex flex-col items-center col-span-2">
+                  <span className="text-gray-500 text-[10px]">Beta</span>
+                  <span className="text-[#FFA028] font-mono">{Number.isFinite(Number(data.beta)) ? Number(data.beta).toFixed(3) : "N/A"}</span>
+               </div>
+            </div>
+          </div>
+
+          {/* Volumen y Dividendos */}
+          <div className="bg-tarjetas p-2 rounded-md border border-gray-700/30">
+            <h4 className="text-gray-400 text-xs font-medium border-b border-gray-800 pb-1 mb-2 text-center">Volumen y Dividendos</h4>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+               <div className="flex flex-col items-center">
+                  <span className="text-gray-500 text-[10px]">Volumen</span>
+                  <span className="text-[#FFA028] font-mono">{Number.isFinite(Number(data.volume)) ? Number(data.volume).toLocaleString() : "N/A"}</span>
+               </div>
+               <div className="flex flex-col items-center">
+                  <span className="text-gray-500 text-[10px]">Dividendo</span>
+                  <span className="text-[#FFA028] font-mono">{Number.isFinite(Number(data.lastDividend)) ? `$${Number(data.lastDividend).toFixed(2)}` : "N/A"}</span>
+               </div>
+               <div className="flex flex-col items-center col-span-2">
+                  <span className="text-gray-500 text-[10px]">Rango 52s</span>
+                  <span className="text-zinc-300 font-mono text-[10px]">{data.range || "N/A"}</span>
+               </div>
+            </div>
+          </div>
       </div>
 
-      {/* Métricas */}
-      <div className="bg-tarjetas p-2 border-gray-700/30">
-        <h3 className="text-[#FFA028] text-lg font-semibold mb-1 flex items-center gap-1 justify-center">
-          {/* <DollarSign className="w-5 h-5" /> */}
-          Métricas Financieras Clave
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-          <div className="space-y-3">
-            <h4 className="text-gray-300 font-medium border-b border-gray-600 pb-2">
-              Valoración
-            </h4>
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-start gap-4">
-                <span className="text-gray-400 min-w-[100px]">Cap. de Mercado:</span>
-                <span className="text-[#FFA028] font-mono">
-                  {formatLargeNumber(data.marketCap)}
-                </span>
-              </div>
-              <div className="flex justify-start gap-4">
-                <span className="text-gray-400 min-w-[100px]">Precio Actual:</span>
-                <span className="text-[#FFA028] font-mono">
-                  {Number.isFinite(Number(data.price))
-                    ? `$${Number(data.price).toFixed(2)}`
-                    : "N/A"}
-                </span>
-              </div>
-              <div className="flex justify-start gap-4">
-                <span className="text-gray-400 min-w-[100px]">Moneda:</span>
-                <span className="text-[#FFA028] font-mono">
-                  {data.currency || "N/A"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <h4 className="text-gray-300 font-medium border-b border-gray-600 pb-2">
-              Rendimiento
-            </h4>
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-start gap-4">
-                <span className="text-gray-400 min-w-[100px]">Variación en $:</span>
-                <span
-                  className={`font-mono ${
-                    Number(data.change) >= 0 ? "text-green-400" : "text-red-400"
-                  }`}
-                >
-                  {Number.isFinite(data.change)
-                    ? `$${Number(data.change).toFixed(2)}`
-                    : "N/A"}
-                </span>
-              </div>
-              <div className="flex justify-start gap-4">
-                <span className="text-gray-400 min-w-[100px]">Variación en %:</span>
-                <span
-                  className={`font-mono ${
-                    Number(data.changePercentage) >= 0 ? "text-green-400" : "text-red-400"
-                  }`}
-                >
-                  {formatPercentage(data.changePercentage)}
-                </span>
-              </div>
-              <div className="flex justify-start gap-4">
-                <span className="text-gray-400 min-w-[100px]">Beta:</span>
-                <span className="text-[#FFA028] font-mono">
-                  {Number.isFinite(Number(data.beta))
-                    ? Number(data.beta).toFixed(3)
-                    : "N/A"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <h4 className="text-gray-300 font-medium border-b border-gray-600 pb-2">
-              Volumen y Dividendos
-            </h4>
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-start gap-4">
-                <span className="text-gray-400 min-w-[100px]">Último Dividendo:</span>
-                <span className="text-[#FFA028] font-mono">
-                  {Number.isFinite(Number(data.lastDividend))
-                    ? `$${Number(data.lastDividend).toFixed(2)}`
-                    : "N/A"}
-                </span>
-              </div>
-              <div className="flex justify-start gap-4">
-                <span className="text-gray-400 min-w-[100px]">Volumen:</span>
-                <span className="text-[#FFA028] font-mono">
-                  {Number.isFinite(Number(data.volume))
-                    ? Number(data.volume).toLocaleString()
-                    : "N/A"}
-                </span>
-              </div>
-              <div className="flex justify-start gap-4">
-                <span className="text-gray-400 min-w-[100px]">Vol. Promedio:</span>
-                <span className="text-[#FFA028] font-mono">
-                  {Number.isFinite(Number(data.averageVolume))
-                    ? Number(data.averageVolume).toLocaleString()
-                    : "N/A"}
-                </span>
-              </div>
-              <div className="flex justify-start gap-4">
-                <span className="text-gray-400 min-w-[100px]">Rango 52 sem:</span>
-                <span className="text-[#FFA028] font-mono text-xs">
-                  {data.range || "N/A"}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-
-      {/* Scores Financieros */}
+      {/* Fila Inferior: Scores y Fundamentales */}
       {scoresData && (
-        <div className="bg-tarjetas rounded-lg p-4 border-gray-700/30">
-          <h3 className="text-[#FFA028] text-lg font-semibold mb-4 flex items-center gap-2 justify-center">
-            {/* <BarChart3 className="w-5 h-5" /> */}
-            Scores Financieros y Activos
+        <div className="bg-tarjetas p-3 rounded-md border border-gray-700/30">
+          <h3 className="text-[#FFA028] text-sm font-semibold mb-2 flex items-center gap-2 border-b border-gray-800 pb-1">
+            Scores Financieros y Fundamentales
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-            {/* Altman Z-Score */}
-            <div className="bg-gray-800/50 p-2">
-              <div className="text-gray-400">Altman Z-Score</div>
-              <div className="text-green-400 font-mono text-sm">
-                {scoresData.altmanZ !== undefined && scoresData.altmanZ !== null
-                  ? Number(scoresData.altmanZ).toFixed(2)
-                  : "N/A"}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 text-xs">
+            {/* Items compactos */}
+            {[
+              { label: "Altman Z", value: scoresData.altmanZ, isScore: true, type: "altman" },
+              { label: "Piotroski", value: scoresData.piotroski, isScore: true, type: "piotroski" },
+              { label: "Activos", value: scoresData.raw?.totalAssets, isCurrency: true },
+              { label: "Pasivos", value: scoresData.raw?.totalLiabilities, isCurrency: true },
+              { label: "Ingresos", value: scoresData.raw?.revenue, isCurrency: true },
+              { label: "EBIT", value: scoresData.raw?.ebit, isCurrency: true },
+              { label: "Mkt Cap", value: scoresData.raw?.marketCap, isCurrency: true },
+              { label: "Working Cap", value: scoresData.raw?.workingCapital, isCurrency: true },
+            ].map((item, idx) => (
+              <div key={idx} className="bg-gray-800/40 p-1.5 rounded text-center flex flex-col justify-center min-h-[50px]">
+                <span className="text-gray-500 text-[10px] leading-tight mb-0.5">{item.label}</span>
+                <span className={`font-mono font-medium text-xs ${
+                    item.type === 'altman' ? 'text-green-400' : 
+                    item.type === 'piotroski' ? 'text-blue-400' : 
+                    'text-zinc-300'
+                }`}>
+                  {item.isScore 
+                    ? (item.value !== undefined && item.value !== null 
+                        ? (item.type === 'piotroski' ? `${item.value}/9` : Number(item.value).toFixed(2)) 
+                        : "N/A")
+                    : (item.value ? formatLargeNumber(item.value) : "N/A")
+                  }
+                </span>
               </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {(() => {
-                  const val = Number(scoresData.altmanZ);
-                  if (!scoresData.altmanZ && scoresData.altmanZ !== 0) return "Sin datos";
-                  return val > 3 ? "Zona Segura" : val > 1.8 ? "Zona Gris" : "Zona de Riesgo";
-                })()}
-              </div>
-            </div>
-
-            {/* Piotroski Score */}
-            <div className="bg-gray-800/50 p-2">
-              <div className="text-gray-400">Piotroski Score</div>
-              <div className="text-blue-400 font-mono text-sm"> 
-                {scoresData.piotroski !== undefined && scoresData.piotroski !== null
-                  ? `${scoresData.piotroski}/9`
-                  : "N/A"}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {(() => {
-                  const val = Number(scoresData.piotroski);
-                  if (!scoresData.piotroski && scoresData.piotroski !== 0) return "Sin datos";
-                  return val >= 7 ? "Excelente" : val >= 5 ? "Bueno" : "Débil";
-                })()}
-              </div>
-            </div>
-
-            {/* Total Assets */}
-            <div className="bg-gray-800/50 p-2">
-              <div className="text-gray-400">Total Assets</div>
-              <div className="text-purple-400 font-mono text-sm">
-                {formatLargeNumber(scoresData.raw?.totalAssets)}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">Activos totales</div>
-            </div>
-
-            {/* Total Liabilities */}
-            <div className="bg-gray-800/50 p-2">
-              <div className="text-gray-400">Total Liabilities</div>
-              <div className="text-yellow-400 font-mono text-sm">
-                {formatLargeNumber(scoresData.raw?.totalLiabilities)}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">Pasivos totales</div>
-            </div>
-
-            {/* Revenue */}
-            <div className="bg-gray-800/50 p-2">
-              <div className="text-gray-400">Revenue</div>
-              <div className="text-cyan-400 font-mono text-sm">
-                {formatLargeNumber(scoresData.raw?.revenue)}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">Ingresos totales</div>
-            </div>
-
-            {/* EBIT */}
-            <div className="bg-gray-800/50 p-2">
-              <div className="text-gray-400">EBIT</div>
-              <div className="text-lime-400 font-mono text-sm">
-                {formatLargeNumber(scoresData.raw?.ebit)}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">Ganancias operativas</div>
-            </div>
-
-            {/* Market Cap (desde scores) */}
-            <div className="bg-gray-800/50 p-2">
-              <div className="text-gray-400">Market Cap</div>
-              <div className="text-pink-400 font-mono text-sm">
-                {formatLargeNumber(scoresData.raw?.marketCap)}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">Capitalización</div>
-            </div>
-
-            {/* Working Capital */}
-            <div className="bg-gray-800/50 p-2">
-              <div className="text-gray-400">Working Capital</div>
-              <div className="text-indigo-400 font-mono text-sm">
-                {formatLargeNumber(scoresData.raw?.workingCapital)}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">Capital de trabajo</div>
-            </div>
+            ))}
           </div>
         </div>
       )}
-
-      {/* Info adicional */}
-      <div className="bg-black p-2 border-gray-700/30">
-        <h3 className="text-[#FFA028] text-lg font-semibold mb-4 flex justify-center items-center">
-          Información Adicional
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-gray-400">CIK:</span>
-              <span className="text-[#FFA028] font-mono">
-                {data.cik || "N/A"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">ISIN:</span>
-              <span className="text-[#FFA028] font-mono">
-                {data.isin || "N/A"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">CUSIP:</span>
-              <span className="text-[#FFA028] font-mono">
-                {data.cusip || "N/A"}
-              </span>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-gray-400">Teléfono:</span>
-              <span className="text-[#FFA028]">{data.phone || "N/A"}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Es ETF:</span>
-              <span className="text-[#FFA028]">
-                {data.isEtf ? "Sí" : "No"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Activamente negociado:</span>
-              <span className="text-[#FFA028]">
-                {data.isActivelyTrading ? "Sí" : "No"}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 
 
   return (
-    <Dialog>
-      <Card className="w-full bg-tarjetas border-none rounded-none overflow-hidden shadow-sm px-0 py-0">
-        <CardContent className="p-0">
-          {/* Header Row - Visible on Desktop */}
-          {/* <div className="hidden md:grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-2 items-center bg-[#1D1D1D] px-4 py-1 border-b border-white/10 sticky top-0 z-10">
-            <div className="text-[10px] text-gray-200">Ticker</div>
-            <div className="text-[10px] text-gray-200 text-center">Último Precio</div>
-            <div className="text-[10px] text-gray-200 text-center">Ranking Sectorial</div>
-            <div className="text-[10px] text-gray-200 text-center">Valuación</div>
-            <div className="text-[10px] text-gray-200 text-center">Conclusión</div>
-            <div className="text-[10px] text-gray-200 text-center">Ecosistema</div>
-          </div> */}
-
-          <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-2 items-center h-full p-1 md:p-1 md:px-1 md:py-1">
-              {/* 1. STOCK: Logo, Ticker, Nombre, CEO */}
-              <div className="flex items-center gap-3">
-                  <DialogTrigger asChild>
-                    <div className="relative w-12 h-12 flex items-center justify-center bg-white/5 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity">
+    <Card className="w-full bg-tarjetas border-none rounded-none overflow-hidden shadow-sm px-0 py-0">
+      <CardContent className="p-0 flex flex-col">
+        <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-2 items-center h-full p-1 md:p-1 md:px-1 md:py-1">
+            {/* 1. STOCK: Logo, Ticker, Nombre, CEO */}
+            <div className="flex items-center gap-3">
+                  <div className="relative w-12 h-12 flex items-center justify-center bg-white/5 overflow-hidden rounded-md">
+                    {data.image ? (
                       <img 
                         src={data.image} 
-                        alt={data.symbol} 
-                        className="w-full h-full object-contain"
+                        alt={data.symbol || "Logo"} 
+                        className="w-full h-full object-contain p-1"
                         onError={(e: any) => {
                            e.currentTarget.style.display = 'none';
-                           // Mostrar el span hermano
-                           const span = e.currentTarget.parentNode.querySelector('span');
+                           const span = e.currentTarget.parentElement?.querySelector('.fallback-text') as HTMLElement;
                            if (span) span.style.display = 'block';
                         }}
                       />
-                      <span className="hidden text-white font-bold text-sm" style={{ display: 'none' }}>
-                        {data.symbol?.slice(0, 2)}
-                      </span>
-                    </div>
-                  </DialogTrigger>
-                  <div className="flex flex-col min-w-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={onOpenSearchModal}>
-                      <div className="flex items-center gap-2">
-                          <span className="font-bold text-white text-lg leading-none">{data.symbol}</span>
-                      </div>
-                      <span className="text-gray-400 text-xs leading-tight font-medium" title={data.companyName}>
-                          {data.companyName}
-                      </span>
-                     {/*  <span className="text-[10px] text-gray-500 flex items-center gap-1 mt-0.5">
-                        CEO: {data.ceo || "CEO N/A"}
-                      </span> */}
-                  </div>
-              </div>
-
-              {/* 2. PRECIO */}
-              <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
-                  <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-0.5">PRECIO</span>
-                  <div className="text-lg font-bold text-white">
-                    {Number.isFinite(Number(data.price)) ? `$${Number(data.price).toFixed(2)}` : "N/A"}
-                  </div>
-                  <div className={`text-xs font-medium ${Number(data.change) >= 0 ? "text-green-400" : "text-red-400"}`}>
-                    {Number(data.change) >= 0 ? "+" : ""}{Number(data.changePercentage).toFixed(2)}%
-                  </div>
-              </div>
-
-              {/* 3. FGOS */}
-              <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
-                  <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-0.5">FGOS SCORE</span>
-                  {snapshotLoading ? (
-                    <Skeleton className="h-6 w-10 bg-white/10 rounded-sm" />
-                  ) : (
-                    <div className={`text-xl font-black ${getScoreColor(snapshot?.fgos_score ?? 0)}`}>{snapshot?.fgos_score ?? "-"}</div>
-                  )}
-              </div>
-
-              {/* 4. VALUACIÓN */}
-              <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
-                  <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-1.5">VALUACIÓN</span>
-                  {snapshotLoading ? (
-                    <Skeleton className="h-5 w-20 bg-white/10 rounded-full" />
-                  ) : (
-                    getValBadge(snapshot?.valuation_status)
-                  )}
-              </div>
-
-              {/* 5. VEREDICTO */}
-              <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4 text-center">
-                  <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-1">VERDICT FINTRA</span>
-                  {snapshotLoading ? (
-                    <Skeleton className="h-4 w-32 bg-white/10 rounded-sm" />
-                  ) : (
-                    <span className="text-white font-medium text-xs leading-tight max-w-[180px] line-clamp-2" title={snapshot?.verdict_text || "N/A"}>
-                        {snapshot?.verdict_text || "N/A"}
+                    ) : null}
+                    <span className="fallback-text text-white font-bold text-sm" style={{ display: data.image ? 'none' : 'block' }}>
+                      {(data.symbol || currentSymbol)?.slice(0, 2) || "??"}
                     </span>
-                  )}
-              </div>
+                  </div>
+                <div className="flex flex-col min-w-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={onOpenSearchModal}>
+                    <div className="flex items-center gap-2">
+                        <span className="font-bold text-white text-lg leading-none">{data.symbol || currentSymbol || "N/A"}</span>
+                    </div>
+                    <span className="text-gray-400 text-xs leading-tight font-medium" title={data.companyName}>
+                        {data.companyName || (loading || isParentLoading ? "Cargando..." : "N/A")}
+                    </span>
+                    {data.ceo && <span className="text-zinc-500 text-[10px] leading-tight truncate max-w-[150px] block">{data.ceo}</span>}
+                </div>
+            </div>
 
-              {/* 6. EHS */}
-              <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
-                  <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest flex items-center gap-1 mb-0.5">
-                      E.H.S. <Activity className="w-3 h-3 text-blue-400"/>
+            {/* 2. PRECIO */}
+            <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
+                <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-0.5">PRECIO</span>
+                <div className="text-lg font-bold text-white">
+                  {Number.isFinite(Number(data.price)) ? `$${Number(data.price).toFixed(2)}` : "N/A"}
+                </div>
+                <div className={`text-xs font-medium ${Number(data.change) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                  {Number(data.change) >= 0 ? "+" : ""}{Number(data.changePercentage).toFixed(2)}%
+                </div>
+            </div>
+
+            {/* 3. FGOS */}
+            <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
+                <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-0.5">FGOS SCORE</span>
+                {snapshotLoading ? (
+                  <Skeleton className="h-6 w-10 bg-white/10 rounded-sm" />
+                ) : (
+                  <div className={`text-xl font-black ${getScoreColor(snapshot?.fgos_score ?? 0)}`}>{snapshot?.fgos_score ?? "-"}</div>
+                )}
+            </div>
+
+            {/* 4. VALUACIÓN */}
+            <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
+                <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-1.5">VALUACIÓN</span>
+                {snapshotLoading ? (
+                  <Skeleton className="h-5 w-20 bg-white/10 rounded-full" />
+                ) : (
+                  getValBadge(snapshot?.valuation_status)
+                )}
+            </div>
+
+            {/* 5. VEREDICTO */}
+            <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4 text-center">
+                <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-1">VERDICT FINTRA</span>
+                {snapshotLoading ? (
+                  <Skeleton className="h-4 w-32 bg-white/10 rounded-sm" />
+                ) : (
+                  <span className="text-white font-medium text-xs leading-tight max-w-[180px] line-clamp-2" title={snapshot?.verdict_text || "N/A"}>
+                      {snapshot?.verdict_text || "N/A"}
                   </span>
-                  {snapshotLoading ? (
-                    <Skeleton className="h-6 w-10 bg-white/10 rounded-sm" />
-                  ) : (
-                     <>
-                        <div className="text-xl font-mono text-blue-400 font-bold">{snapshot?.ecosystem_score ?? "-"}</div>
-                        <span className="text-[9px] text-gray-500 font-medium mt-[-2px]">Salud del ecosistema</span>
-                     </>
-                  )}
-              </div>
-           </div>
-        </CardContent>
-      </Card>
+                )}
+            </div>
 
-      {/* Modal - Responsive */}
-      <DialogContent className="bg-tarjetas border-gray-700 w-[95vw] max-w-4xl max-h-[85vh] overflow-y-auto">
-        {/* Hidden accessible title to satisfy Radix requirement */}
-        <DialogHeader className="sr-only">
-          <DialogTitle>Datos de la empresa</DialogTitle>
-        </DialogHeader>
-        <div className="space-responsive">
-          {renderOverviewContent()}
-        </div>
-      </DialogContent>
-    </Dialog>
+            {/* 6. EHS */}
+            <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
+                <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest flex items-center gap-1 mb-0.5">
+                    E.H.S. <Activity className="w-3 h-3 text-blue-400"/>
+                </span>
+                {snapshotLoading ? (
+                  <Skeleton className="h-6 w-10 bg-white/10 rounded-sm" />
+                ) : (
+                   <>
+                      <div className="text-xl font-mono text-blue-400 font-bold">{snapshot?.ecosystem_score ?? "-"}</div>
+                      <span className="text-[9px] text-gray-500 font-medium mt-[-2px]">Salud del ecosistema</span>
+                   </>
+                )}
+            </div>
+         </div>
+
+         {/* Detailed Information (Always visible) */}
+         <div className="w-full border-t border-gray-800">
+            {renderOverviewContent()}
+         </div>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -1,418 +1,359 @@
-// components/cards/ValoracionCard.tsx
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Info } from "lucide-react";
 import { fmp } from "@/lib/fmp/client";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-type Row = {
+type MetricData = {
+  Q1: number | null;
+  Q2: number | null;
+  Q3: number | null;
+  Q4: number | null;
+  TTM: number | null;
+  FY: number | null;
+};
+
+type MetricRow = {
   label: string;
-  raw: number | null;
-  unit?: "%" | "x";
-  score: number | null;
-  thresholds: { poor: number; avg: number };
-  display: string;
-  target?: number | null;
+  unit: "%" | "x" | "$";
+  data: MetricData;
+  betterLow?: boolean; // Para métricas donde menor es mejor (P/E, PEG, etc)
+  thresholds?: { good: number; bad: number }; // good = límite del "bueno", bad = límite del "malo"
 };
 
-const clamp = (x: number, min = 0, max = 100) => Math.max(min, Math.min(max, x));
-const ratioBetterLow = (x?: number | null, maxGood = 10, maxBad = 50) => {
-  if (x == null) return null;
-  const v = Math.min(Math.max(x, 0), maxBad);
-  const score = ((maxBad - v) / (maxBad - maxGood)) * 100;
-  return clamp(score);
-};
-const fmt = (v: number | null | undefined, unit?: "%" | "x") =>
-  v == null ? "N/A" : unit === "%" ? `${v.toFixed(2)}%` : `${v.toFixed(2)}x`;
-
-// Normalizaciones seguras (evita NaN/Infinity)
+// Normalizaciones
 const numOrNull = (x: any): number | null => {
   const n = Number(x);
   return Number.isFinite(n) ? n : null;
 };
 
-// Función para obtener el texto del nivel de score
-const getScoreLevel = (score: number | null): string => {
-  if (score == null) return "Sin datos";
-  if (score >= 70) return "Fuerte";
-  if (score >= 40) return "A vigilar";
-  return "Débil";
-};
+const clamp = (x: number, min = 0, max = 100) => Math.max(min, Math.min(max, x));
 
-// Función para obtener el color del score
-const getScoreColor = (score: number | null): string => {
-  if (score == null) return "#94a3b8";
-  if (score >= 70) return "#22c55e"; // Verde
-  if (score >= 40) return "#eab308"; // Amarillo
-  return "#ef4444"; // Rojo
+// Score logic (adaptada de ValoracionCard original)
+const getScore = (val: number | null, betterLow: boolean = false, thresholds?: { good: number; bad: number }) => {
+  if (val === null) return null;
+  
+  if (betterLow) {
+    // Para ratios donde MENOR es MEJOR (ej: P/E)
+    // good = 10 (excelente), bad = 50 (pésimo)
+    // Si val < good (10) -> score 100
+    // Si val > bad (50) -> score 0
+    const { good = 10, bad = 50 } = thresholds || {};
+    const v = Math.max(0, val);
+    if (v <= good) return 100;
+    if (v >= bad) return 0;
+    // Interp lineal inversa
+    return ((bad - v) / (bad - good)) * 100;
+  } else {
+    // Para ratios donde MAYOR es MEJOR (ej: Yield, Growth)
+    // good = 20 (excelente), bad = 0 (pésimo)
+    const { good = 20, bad = 0 } = thresholds || {};
+    // Asumiendo good > bad
+    if (val >= good) return 100;
+    if (val <= bad) return 0;
+    return ((val - bad) / (good - bad)) * 100;
+  }
 };
 
 const getHeatmapColor = (score: number | null) => {
   if (score == null) return "#1e293b"; // Gris neutro (Sin datos)
 
   // ESCALA VERDE (Positivo / Saludable / Subvaluado)
-  // De menor a mayor intensidad
-  if (score >= 90) return "#008000"; // Subida muy fuerte / Top
-  if (score >= 80) return "#006600"; // Subida fuerte
-  if (score >= 70) return "#004D00"; // Subida moderada
-  if (score >= 60) return "#003300"; // Subida leve
-  if (score >= 50) return "#001A00"; // Positivo marginal
+  if (score >= 90) return "#008000"; 
+  if (score >= 80) return "#006600"; 
+  if (score >= 70) return "#004D00"; 
+  if (score >= 60) return "#003300"; 
+  if (score >= 50) return "#001A00"; 
 
   // ESCALA ROJA (Negativo / Riesgo / Sobrevaluado)
-  // De menor a mayor intensidad de "gravedad" (mientras más bajo, más rojo intenso)
-  if (score <= 10) return "#800000"; // Bajada muy fuerte / Crítico
-  if (score <= 20) return "#660000"; // Bajada fuerte
-  if (score <= 30) return "#4D0000"; // Bajada moderada
-  if (score <= 40) return "#330000"; // Bajada leve
-  return "#1A0000";                  // Negativo marginal (41-49)
+  if (score <= 10) return "#800000"; 
+  if (score <= 20) return "#660000"; 
+  if (score <= 30) return "#4D0000"; 
+  if (score <= 40) return "#330000"; 
+  return "#1A0000";                  
 };
 
-// Agregar interfaces para el modal de explicaciones
-interface ExplanationModalState {
-  isOpen: boolean;
-  selectedMetric: string | null;
-}
+const fmt = (v: number | null, unit: string) => 
+  v == null ? "-" : unit === "%" ? `${v.toFixed(2)}%` : `${v.toFixed(2)}x`;
 
-const initialExplanationModalState: ExplanationModalState = {
-  isOpen: false,
-  selectedMetric: null
-};
-
-
-// Actualizar METRIC_EXPLANATIONS con ejemplos detallados
+// EXPLICACIONES (Mantenidas del original)
 const METRIC_EXPLANATIONS: Record<string, { description: string; examples: string[] }> = {
   "P/E (PER)": {
-    description: "Price-to-Earnings Ratio - Compara el precio de la acción con las ganancias por acción. Un P/E bajo puede indicar que la acción está infravalorada, pero también puede reflejar problemas en el negocio.",
-    examples: [
-      "P/E < 12: Potencialmente infravalorado (ej: Bancos tradicionales)",
-      "P/E 12-20: Valoración razonable (ej: S&P 500 promedio ~18)",
-      "P/E > 25: Posiblemente sobrevalorado o alto crecimiento esperado (ej: Tech stocks)"
-    ]
+    description: "Price-to-Earnings Ratio - Compara el precio de la acción con las ganancias por acción. Un P/E bajo puede indicar que la acción está infravalorada.",
+    examples: ["< 12: Potencialmente infravalorado", "12-20: Valoración razonable", "> 25: Posiblemente sobrevalorado"]
   },
   "P/E forward": {
-    description: "P/E basado en ganancias futuras estimadas por analistas. Es más relevante que el P/E histórico ya que los mercados descuentan expectativas futuras.",
-    examples: [
-      "Forward P/E < P/E histórico: Crecimiento esperado de ganancias",
-      "Forward P/E > P/E histórico: Declive esperado de ganancias",
-      "Forward P/E < 15: Atractivo para value investors"
-    ]
+    description: "P/E basado en ganancias futuras estimadas. Relevante pues descuenta expectativas.",
+    examples: ["< Histórico: Crecimiento esperado", "> Histórico: Declive esperado"]
   },
   "PEG": {
-    description: "Price/Earnings to Growth - Relaciona el P/E con la tasa de crecimiento esperada. Un PEG menor a 1 sugiere que la acción puede estar infravalorada considerando su crecimiento.",
-    examples: [
-      "PEG < 1: Potencialmente infravalorado (ej: AAPL en 2016)",
-      "PEG = 1: Valoración justa según crecimiento",
-      "PEG > 2: Posiblemente sobrevalorado (ej: muchas tech en 2021)"
-    ]
+    description: "Price/Earnings to Growth - Relaciona el P/E con la tasa de crecimiento esperada.",
+    examples: ["< 1: Potencialmente infravalorado", "1: Valoración justa", "> 2: Posiblemente sobrevalorado"]
   },
   "P/Book (P/B)": {
-    description: "Price-to-Book Ratio - Compara el precio con el valor contable por acción. Un P/B bajo puede indicar una oportunidad de valor, especialmente en sectores intensivos en activos.",
-    examples: [
-      "P/B < 1: Trading por debajo del valor contable (ej: Bancos en crisis)",
-      "P/B 1-3: Valoración típica para empresas maduras",
-      "P/B > 5: Común en empresas tech con pocos activos tangibles"
-    ]
+    description: "Price-to-Book Ratio - Compara precio con valor contable.",
+    examples: ["< 1: Bajo valor contable", "1-3: Típico", "> 5: Alto (común en tech)"]
   },
   "P/S (Ventas)": {
-    description: "Price-to-Sales Ratio - Relaciona la capitalización con los ingresos anuales. Útil para evaluar empresas con bajos beneficios, pérdidas temporales o modelos de negocio escalables.",
-    examples: [
-      "P/S < 2: Valoración conservadora (ej: Retail tradicional)",
-      "P/S 2-10: Rango típico para muchas industrias",
-      "P/S > 15: Común en SaaS y empresas de alto crecimiento"
-    ]
+    description: "Price-to-Sales Ratio - Capitalización vs Ingresos anuales.",
+    examples: ["< 2: Conservador", "2-10: Típico", "> 15: Alto crecimiento"]
   },
   "P/FCF": {
-    description: "Price-to-Free Cash Flow - Compara el precio con el flujo de caja libre. Es una métrica crucial ya que el FCF representa el dinero real que la empresa puede distribuir o reinvertir.",
-    examples: [
-      "P/FCF < 15: Generación sólida de efectivo (ej: Microsoft ~20)",
-      "P/FCF 15-25: Valoración razonable",
-      "P/FCF > 30: Puede indicar baja generación de efectivo vs precio"
-    ]
+    description: "Price-to-Free Cash Flow - Precio vs Flujo de caja libre.",
+    examples: ["< 15: Sólido", "15-25: Razonable", "> 30: Caro"]
   },
   "EV/EBITDA": {
-    description: "Enterprise Value to EBITDA - Múltiplo que considera la deuda total de la empresa. Es útil para comparar empresas con diferentes estructuras de capital y niveles de apalancamiento.",
-    examples: [
-      "EV/EBITDA < 8: Potencialmente atractivo (ej: Utilities maduras)",
-      "EV/EBITDA 8-15: Valoración típica del mercado",
-      "EV/EBITDA > 20: Alto, común en empresas de crecimiento"
-    ]
+    description: "Enterprise Value to EBITDA - Valor empresa (con deuda) vs Ebitda.",
+    examples: ["< 8: Atractivo", "8-15: Típico", "> 20: Alto"]
   },
   "EV/Ventas": {
-    description: "Enterprise Value to Sales - Similar al P/S pero considerando la deuda total. Proporciona una visión más completa del valor de la empresa respecto a sus ingresos.",
-    examples: [
-      "EV/Sales < 2: Conservador (ej: Grocery stores)",
-      "EV/Sales 2-8: Rango amplio según industria",
-      "EV/Sales > 10: Alto, típico en tech y biotech"
-    ]
+    description: "Enterprise Value to Sales - Valor empresa vs Ventas.",
+    examples: ["< 2: Conservador", "> 10: Alto"]
   },
   "Dividend Yield": {
-    description: "Rendimiento por dividendo - Porcentaje de dividendos anuales respecto al precio actual. Importante para inversores que buscan ingresos regulares y empresas maduras.",
-    examples: [
-      "Yield > 4%: Alto rendimiento (ej: REITs, Utilities)",
-      "Yield 2-4%: Rendimiento moderado (ej: Dividend Aristocrats)",
-      "Yield < 2%: Bajo, común en empresas de crecimiento"
-    ]
+    description: "Rendimiento por dividendo anual.",
+    examples: ["> 4%: Alto", "2-4%: Moderado", "< 2%: Bajo"]
   },
   "Crecimiento implícito": {
-    description: "Tasa de crecimiento anual que estaría implícita en el precio actual según modelos de valoración. Ayuda a entender qué expectativas de crecimiento están descontadas en el precio.",
-    examples: [
-      "< 5%: Expectativas conservadoras",
-      "5-15%: Crecimiento moderado esperado",
-      "> 20%: Altas expectativas de crecimiento (riesgo si no se cumple)"
-    ]
+    description: "Tasa de crecimiento anual implícita en el precio actual (Forward PE / PEG).",
+    examples: ["< 5%: Conservador", "5-15%: Moderado", "> 20%: Alto"]
   },
   "Descuento vs. PT": {
-    description: "Descuento del precio actual respecto al precio objetivo promedio de los analistas. Un descuento alto puede indicar una oportunidad, pero también puede reflejar riesgos no considerados.",
-    examples: [
-      "Descuento > 20%: Potencial upside significativo",
-      "Descuento 0-20%: Precio cerca del consenso",
-      "Prima (descuento negativo): Precio por encima del consenso"
-    ]
+    description: "Descuento del precio actual vs Precio Objetivo de analistas.",
+    examples: ["> 20%: Upside potencial", "Negativo: Sobre precio objetivo"]
   }
 };
 
-type PeriodSel = "ttm" | "FY" | "Q1" | "Q2" | "Q3" | "Q4" | "annual" | "quarter";
-
-export default function ValoracionCard({ symbol, period = "ttm", ratiosData }: { symbol: string; period?: PeriodSel; ratiosData?: any }) {
-  const [rows, setRows] = useState<Row[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [explanationModal, setExplanationModal] = useState<ExplanationModalState>(initialExplanationModalState);
-
-  // Función para abrir modal de explicaciones
-  const openExplanationModal = (metricName: string) => {
-    setExplanationModal({
-      isOpen: true,
-      selectedMetric: metricName
-    });
-  };
-
-  // Función para cerrar modal de explicaciones
-  const closeExplanationModal = () => {
-    setExplanationModal(initialExplanationModalState);
-  };
-
+export default function ValoracionCard({ symbol }: { symbol: string }) {
+  const [metrics, setMetrics] = useState<MetricRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [explanationModal, setExplanationModal] = useState<{ isOpen: boolean; selectedMetric: string | null }>({
+    isOpen: false,
+    selectedMetric: null
+  });
 
   useEffect(() => {
-    console.log(`[ValoracionCard] Effect triggered for ${symbol} period=${period}`);
-    // Lógica híbrida: si tenemos datos por props, usarlos directamente
-    if (ratiosData) {
-      try {
-        const r = ratiosData;
-        const build = (
-          label: string,
-          val: number | null,
-          unit?: "%" | "x",
-          score?: number | null,
-          thresholds?: { poor: number; avg: number }
-        ): Row => ({
-          label,
-          raw: val,
-          unit,
-          score: score ?? null,
-          thresholds: thresholds ?? { poor: 40, avg: 70 },
-          display: fmt(val, unit),
-        });
+    let mounted = true;
 
-        const pe = numOrNull(r.priceEarningsRatio ?? r.priceEarningsRatioTTM);
-        const peg = numOrNull(r.pegRatio ?? r.pegRatioTTM);
-        const pb = numOrNull(r.priceToBookRatio ?? r.priceToBookRatioTTM);
-        const ps = numOrNull(r.priceToSalesRatio ?? r.priceToSalesRatioTTM);
-        const pfcf = numOrNull(r.priceToFreeCashFlowRatio ?? r.priceToFreeCashFlowRatioTTM);
-        const evEbitda = numOrNull(r.enterpriseValueMultiple ?? r.enterpriseValueMultipleTTM);
-        const divYield = numOrNull(r.dividendYield ?? r.dividendYieldTTM); 
-
-        const items: Row[] = [
-          build("P/E (PER)", pe, "x", ratioBetterLow(pe, 12, 40)),
-          build("P/E forward", null, "x", null),
-          build("PEG", peg, "x", ratioBetterLow(peg, 1, 3)),
-          build("P/Book (P/B)", pb, "x", ratioBetterLow(pb, 2, 6)),
-          build("P/S (Ventas)", ps, "x", ratioBetterLow(ps, 2, 12)),
-          build("P/FCF", pfcf, "x", ratioBetterLow(pfcf, 15, 40)),
-          build("EV/EBITDA", evEbitda, "x", ratioBetterLow(evEbitda, 8, 25)),
-          build("EV/Ventas", null, "x", null),
-          build(
-            "Dividend Yield",
-            divYield ? divYield * 100 : null,
-            "%",
-            divYield == null ? null : clamp((divYield * 100 / 8) * 100),
-            { poor: 10, avg: 30 }
-          ),
-           build("Crecimiento implícito", null, "%", null, { poor: 40, avg: 70 }),
-           build("Descuento vs. PT", null, "%", null, { poor: 40, avg: 70 }),
-        ];
-
-        setRows(items);
-        setError(null);
-        setLoading(false);
-      } catch (err) {
-        console.error("Error processing props data:", err);
-        setError("Error procesando datos");
-      }
-      return;
-    }
-
-    let alive = true;
-    (async () => {
+    const fetchData = async () => {
       setLoading(true);
-      setError(null);
       try {
-        console.log('🔍 Cargando valoración para:', symbol);
-        
-        // Cambiar de fmp.ratios a fmp.valuation
-        const valuation = await fmp.valuation(symbol, { period, cache: "no-store" });
-        console.log('📊 Datos de valoración recibidos:', valuation);
-        
-        // Verificar si hay error en la respuesta
-        if (valuation.error) {
-          throw new Error(valuation.error);
-        }
-        
-        // Los datos ya vienen procesados y normalizados
-        const {
-          pe,
-          forwardPe,
-          peg,
-          pb,
-          ps,
-          pfcf,
-          evEbitda,
-          evSales,
-          dividendYield,
-          impliedGrowth,
-          discountVsPt
-        } = valuation;
-    
-        // Precio actual del perfil
-        const profileArr = await fmp.profile(symbol);
-        const currentPrice = Array.isArray(profileArr) && profileArr.length ? numOrNull(profileArr[0]?.price) : null;
-        console.log('💰 Precio actual:', currentPrice);
-    
-        const build = (
-          label: string,
-          val: number | null,
-          unit?: "%" | "x",
-          score?: number | null,
-          thresholds?: { poor: number; avg: number }
-        ): Row => ({
-          label,
-          raw: val,
-          unit,
-          score: score ?? null,
-          thresholds: thresholds ?? { poor: 40, avg: 70 },
-          display: fmt(val, unit),
-        });
-    
-        const items: Row[] = [
-          build("P/E (PER)", pe, "x", ratioBetterLow(pe, 12, 40)),
-          build("P/E forward", forwardPe, "x", ratioBetterLow(forwardPe, 12, 40)),
-          build("PEG", peg, "x", ratioBetterLow(peg, 1, 3)),
-          build("P/Book (P/B)", pb, "x", ratioBetterLow(pb, 2, 6)),
-          build("P/S (Ventas)", ps, "x", ratioBetterLow(ps, 2, 12)),
-          build("P/FCF", pfcf, "x", ratioBetterLow(pfcf, 15, 40)),
-          build("EV/EBITDA", evEbitda, "x", ratioBetterLow(evEbitda, 8, 25)),
-          build("EV/Ventas", evSales, "x", ratioBetterLow(evSales, 2, 12)),
-          build(
-            "Dividend Yield",
-            dividendYield, // Ya viene en % desde el endpoint
-            "%",
-            dividendYield == null ? null : clamp((dividendYield / 8) * 100),
-            { poor: 10, avg: 30 }
-          ),
-          // Derivados (ya calculados en el endpoint)
-          build("Crecimiento implícito", impliedGrowth, "%", null, { poor: 40, avg: 70 }),
-          build("Descuento vs. PT", discountVsPt, "%", null, { poor: 40, avg: 70 }),
+        // Parallel fetch
+        // 1. Valuation TTM (Calculated by API)
+        // 2. Ratios Annual & Quarter (Historical)
+        // 3. Key Metrics Annual & Quarter (Historical)
+        const [
+          valTTM,
+          ratiosFY,
+          ratiosQuarter,
+          metricsFY,
+          metricsQuarter
+        ] = await Promise.all([
+          fmp.valuation(symbol, { period: "ttm", cache: "no-store" }).catch(() => ({} as any)),
+          fmp.ratios(symbol, { period: "annual", limit: 1 }).catch(() => []),
+          fmp.ratios(symbol, { period: "quarter", limit: 4 }).catch(() => []),
+          fmp.keyMetrics(symbol, { period: "annual", limit: 1 }).catch(() => []),
+          fmp.keyMetrics(symbol, { period: "quarter", limit: 4 }).catch(() => []),
+        ]);
+
+        // Helper to extract
+        const extract = (
+            valTTMValue: any,
+            fyList: any[],
+            qList: any[],
+            field: string,
+            isPercentage: boolean = false
+        ): MetricData => {
+            const res: MetricData = { Q1: null, Q2: null, Q3: null, Q4: null, TTM: null, FY: null };
+            
+            // TTM from Valuation API (best source for calculated TTMs)
+            res.TTM = numOrNull(valTTMValue);
+
+            // FY from Ratios/Metrics
+            if (fyList && fyList[0]) {
+                const item = fyList[0] as any;
+                const v = numOrNull(item[field]);
+                res.FY = v !== null && isPercentage ? v * 100 : v; 
+            }
+
+            // Quarters
+            (qList || []).forEach((q: any) => {
+                const period = q.period as string;
+                let val = numOrNull(q[field]);
+                if (val !== null && isPercentage) val *= 100;
+
+                if (period === "Q1") res.Q1 = val;
+                if (period === "Q2") res.Q2 = val;
+                if (period === "Q3") res.Q3 = val;
+                if (period === "Q4") res.Q4 = val;
+            });
+
+            return res;
+        };
+
+        const rows: MetricRow[] = [
+          { 
+            label: "P/E (PER)", unit: "x", betterLow: true, thresholds: { good: 12, bad: 40 },
+            data: extract(valTTM.pe, ratiosFY, ratiosQuarter, "priceEarningsRatio") 
+          },
+          { 
+            label: "P/E forward", unit: "x", betterLow: true, thresholds: { good: 12, bad: 40 },
+            data: { 
+                Q1: null, Q2: null, Q3: null, Q4: null, FY: null, 
+                TTM: numOrNull(valTTM.forwardPe) 
+            } 
+          },
+          { 
+            label: "PEG", unit: "x", betterLow: true, thresholds: { good: 1, bad: 3 },
+            data: extract(valTTM.peg, ratiosFY, ratiosQuarter, "priceEarningsToGrowthRatio") 
+          },
+          { 
+            label: "P/Book (P/B)", unit: "x", betterLow: true, thresholds: { good: 2, bad: 6 },
+            data: extract(valTTM.pb, ratiosFY, ratiosQuarter, "priceToBookRatio") 
+          },
+          { 
+            label: "P/S (Ventas)", unit: "x", betterLow: true, thresholds: { good: 2, bad: 12 },
+            data: extract(valTTM.ps, ratiosFY, ratiosQuarter, "priceToSalesRatio") 
+          },
+          { 
+            label: "P/FCF", unit: "x", betterLow: true, thresholds: { good: 15, bad: 40 },
+            data: extract(valTTM.pfcf, ratiosFY, ratiosQuarter, "priceToFreeCashFlowsRatio") 
+          },
+          { 
+            label: "EV/EBITDA", unit: "x", betterLow: true, thresholds: { good: 8, bad: 25 },
+            data: extract(valTTM.evEbitda, metricsFY, metricsQuarter, "enterpriseValueOverEBITDA") 
+          },
+          { 
+            label: "EV/Ventas", unit: "x", betterLow: true, thresholds: { good: 2, bad: 12 },
+            data: extract(valTTM.evSales, metricsFY, metricsQuarter, "evToSales") 
+          },
+          { 
+            label: "Dividend Yield", unit: "%", betterLow: false, thresholds: { good: 4, bad: 1 },
+            data: extract(valTTM.dividendYield, ratiosFY, ratiosQuarter, "dividendYield", true) 
+          },
+          { 
+            label: "Crecimiento implícito", unit: "%", betterLow: false, thresholds: { good: 15, bad: 5 },
+            data: { 
+                Q1: null, Q2: null, Q3: null, Q4: null, FY: null, 
+                TTM: numOrNull(valTTM.impliedGrowth) 
+            } 
+          },
+          { 
+            label: "Descuento vs. PT", unit: "%", betterLow: false, thresholds: { good: 20, bad: 0 },
+            data: { 
+                Q1: null, Q2: null, Q3: null, Q4: null, FY: null, 
+                TTM: numOrNull(valTTM.discountVsPt) 
+            } 
+          },
         ];
-        
-        console.log('📈 Items procesados:', items);
-        console.log('🎯 Items con scores válidos:', items.filter(item => item.score !== null));
-    
-        if (alive) setRows(items);
-      } catch (e: any) {
-        console.error('❌ Error cargando valoración:', e);
-        if (alive) setError(e?.message ?? "Error cargando valoración");
-      } finally {
-        if (alive) setLoading(false);
+
+        if (mounted) {
+            setMetrics(rows);
+            setLoading(false);
+        }
+      } catch (err) {
+        console.error(err);
+        if (mounted) setLoading(false);
       }
-    })();
-    return () => {
-      alive = false;
     };
-  }, [symbol, period]);
 
+    fetchData();
+    return () => { mounted = false; };
+  }, [symbol]);
 
+  const renderCell = (row: MetricRow, val: number | null) => {
+    const score = getScore(val, row.betterLow, row.thresholds);
+    const color = getHeatmapColor(score);
+    
+    return (
+      <TableCell 
+        className="text-center px-2 py-0.5 text-[10px] font-medium text-white h-8 border-x border-zinc-800/50 cursor-pointer hover:brightness-110 transition-all"
+        style={{ backgroundColor: color }}
+        onClick={() => setExplanationModal({ isOpen: true, selectedMetric: row.label })}
+      >
+        {fmt(val, row.unit)}
+      </TableCell>
+    );
+  };
 
   return (
     <>
-      <div className="bg-tarjetas border-none">
-        <div className="px-6">
-          {loading ? (
-            <div className="h-32 grid place-items-center text-gray-500 text-sm">
-              Cargando datos de Valoración…
-            </div>
-          ) : error ? (
-            <div className="h-72 flex items-center justify-center text-red-400">{error}</div>
-          ) : (
-            <>
-              {/* Métricas de valoración en formato Heatmap Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-0.5">
-                {rows.map((row, index) => {
-                  const scoreLevel = getScoreLevel(row.score);
+      <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden mt-0">
+        <div className="px-1 py-1 bg-white/[0.02] shrink-0">
+          <h4 className="text-xs font-medium text-gray-400 text-center">
+            Valoración de <span className="text-[#FFA028]">{symbol}</span>
+          </h4>
+        </div>
 
-                  return (
-                    <div 
-                        key={index} 
-                        className="relative flex flex-col items-center justify-center px-3 py-3 gap-1 cursor-pointer hover:brightness-110 transition-all"
-                        style={{ backgroundColor: getHeatmapColor(row.score) }}
-                        onClick={() => openExplanationModal(row.label)}
-                      >
-                        {/* Top: Label */}
-                        <div className="text-white/70 text-[10px] font-medium text-center leading-none line-clamp-1">
-                          {row.label}
-                        </div>
-
-                        {/* Middle: Value */}
-                        <div className="text-white text-sm tracking-tight leading-tight">
-                          {row.display || "N/A"}
-                        </div>
-
-                        {/* Bottom: Level */}
-                        <div className="text-[9px] text-white/90 font-medium uppercase tracking-wider bg-black/20 px-1 py-0 rounded leading-none">
-                          {scoreLevel}
-                        </div>                    
-                      </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
+        <div className="flex-1 overflow-y-auto p-0 scrollbar-thin">
+          <Table className="w-full text-sm border-collapse">
+            <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
+              <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[120px] text-left">Métrica</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center">Q1</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center">Q2</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center">Q3</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center">Q4</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center font-bold text-blue-400">TTM</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center font-bold text-green-400">FY</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-xs text-gray-500">
+                      <Loader2 className="w-4 h-4 animate-spin inline mr-2"/> Cargando valoración...
+                    </TableCell>
+                  </TableRow>
+              ) : (
+                metrics.map((row) => (
+                  <TableRow key={row.label} className="border-zinc-800 hover:bg-white/5 border-b">
+                    <TableCell 
+                        className="font-bold text-gray-200 px-2 py-0.5 text-xs w-[120px] border-r border-zinc-800 cursor-pointer hover:text-[#FFA028]"
+                        onClick={() => setExplanationModal({ isOpen: true, selectedMetric: row.label })}
+                    >
+                      {row.label}
+                    </TableCell>
+                    {renderCell(row, row.data.Q1)}
+                    {renderCell(row, row.data.Q2)}
+                    {renderCell(row, row.data.Q3)}
+                    {renderCell(row, row.data.Q4)}
+                    {renderCell(row, row.data.TTM)}
+                    {renderCell(row, row.data.FY)}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       </div>
 
-      {/* Modal de Explicaciones de Métricas */}
+      {/* Modal de Explicaciones */}
       {explanationModal.isOpen && explanationModal.selectedMetric && METRIC_EXPLANATIONS[explanationModal.selectedMetric] && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-100 border border-gray-300 rounded-lg max-w-lg w-full max-h-[80vh] overflow-y-auto">
+          <div className="bg-slate-100 border border-gray-300 rounded-lg max-w-lg w-full max-h-[80vh] overflow-y-auto text-black">
             <div className="p-6">
-              {/* Header del modal */}
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-800">
                   {explanationModal.selectedMetric}
                 </h2>
                 <button
-                  onClick={closeExplanationModal}
+                  onClick={() => setExplanationModal({ isOpen: false, selectedMetric: null })}
                   className="text-gray-500 hover:text-gray-700 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Contenido del modal */}
               <div className="space-y-4">
-                {/* Descripción */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-600 mb-2">Descripción</h3>
                   <p className="text-gray-800 leading-relaxed">
@@ -420,7 +361,6 @@ export default function ValoracionCard({ symbol, period = "ttm", ratiosData }: {
                   </p>
                 </div>
 
-                {/* Ejemplos */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-600 mb-2">Ejemplos y Rangos</h3>
                   <ul className="space-y-2">
@@ -433,10 +373,9 @@ export default function ValoracionCard({ symbol, period = "ttm", ratiosData }: {
                   </ul>
                 </div>
 
-                {/* Botón cerrar */}
                 <div className="flex justify-end pt-4">
                   <button
-                    onClick={closeExplanationModal}
+                    onClick={() => setExplanationModal({ isOpen: false, selectedMetric: null })}
                     className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                   >
                     Cerrar

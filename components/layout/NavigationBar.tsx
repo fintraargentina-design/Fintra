@@ -15,8 +15,8 @@ export default function NavigationBar({
   orientation = 'horizontal'
 }: NavigationBarProps) {
   const tabs = [
+    { key: 'empresa', label: 'Descripción general' },
     { key: 'mercados', label: 'Mercados' },
-    { key: 'horarios', label: 'Horarios' },
     { key: 'datos', label: 'Datos' },
     { key: 'ecosistema', label: 'Ecosistema' },
     { key: 'estimacion', label: 'Estimación y Análisis IA' },

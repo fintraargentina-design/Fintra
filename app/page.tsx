@@ -19,17 +19,17 @@ import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { Settings } from 'lucide-react';
 
-import FGOSRadarChart from '@/components/charts/FGOSRadarChart';
 import SectorAnalysisPanel from '@/components/dashboard/SectorAnalysisPanel';
 import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
 import StockSearchModal from '@/components/modals/StockSearchModal';
 import EstimacionTab from '@/components/tabs/EstimacionTab';
 import MercadosTab from '@/components/tabs/MercadosTab';
+import EmpresaTab from '@/components/tabs/EmpresaTab';
 import MarketHoursCard from '@/components/cards/MarketHoursCard';
 import IndicesTab from '@/components/tabs/IndicesTab';
 import { getLatestSnapshot, getEcosystemDetailed } from '@/lib/repository/fintra-db';
 
-export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'mercados' | 'indices' | 'horarios';
+export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'mercados' | 'indices' | 'horarios' | 'empresa';
 
 export default function StockTerminal() {
   const [selectedStock, setSelectedStock] = useState<string | { symbol: string }>('AAPL');
@@ -211,6 +211,19 @@ export default function StockTerminal() {
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'empresa':
+        return (
+          <EmpresaTab 
+            stockBasicData={stockBasicData} 
+            stockAnalysis={stockAnalysis}
+            symbol={selectedSymbol}
+            onPeerSelect={setSelectedCompetitor}
+            selectedPeer={selectedCompetitor}
+            onStockSearch={buscarDatosAccion}
+            onOpenSearchModal={() => setIsSearchOpen(true)}
+            isLoading={isLoading}
+          />
+        );
       case 'ecosistema':
         return (
           <EcosystemCard 
@@ -246,8 +259,6 @@ export default function StockTerminal() {
         );
       case 'mercados':
         return <MercadosTab />;
-      case 'horarios':
-        return <MarketHoursCard />;
       default:
         return null;
     }
@@ -280,61 +291,31 @@ export default function StockTerminal() {
           <div className="space-y-1 md:space-y-1 h-full">
 
             {/* Layout principal responsivo */}
-            <div className="grid grid-cols-1 xl:grid-cols-[55fr_45fr] gap-0 md:gap-1 items-start h-full">
+            <div className="grid grid-cols-1 xl:grid-cols-[50fr_50fr] gap-0 md:gap-1 items-start h-full">
               {/* Panel izquierdo */}
               <div className="w-full xl:w-auto flex flex-col gap-1 min-h-0 h-full overflow-hidden">
-                {/* 1. Sector Analysis - 40% Fixed */}
-                <div className="h-[40%] shrink-0 min-h-0 relative">
+                {/* 1. Sector Analysis - 50% Fixed */}
+                <div className="h-[50%] shrink-0 min-h-0 relative">
                   <SectorAnalysisPanel onStockSelect={handleTopStockClick} />
                 </div>
 
-                {/* 2. Overview - Auto Height (Fixed) */}
-                <div className="shrink-0 w-full border border-zinc-800">
-                  <OverviewCard
-                      selectedStock={selectedStock}
-                      onStockSearch={buscarDatosAccion}
-                      onOpenSearchModal={() => setIsSearchOpen(true)}
-                      isParentLoading={isLoading}
-                      analysisData={stockAnalysis}
-                    />
-                </div>
-
-                {/* 3. Peers - Flexible (Takes remaining space) */}
-                <div className="flex-1 min-h-0 relative border border-zinc-800">
-                  <PeersAnalysisPanel 
-                    symbol={selectedSymbol} 
-                    onPeerSelect={setSelectedCompetitor}
-                    selectedPeer={selectedCompetitor}
-                  />
-                </div>
-
-                {/* 4. Charts - 30% Fixed */}
-                <div className="h-[30%] shrink-0 min-h-0 pb-1">
-                  <div className="flex flex-col lg:flex-row w-full h-full gap-1">
-                      {/* Chart 3/5 */}
-                      <div className="w-full lg:w-3/5 h-full">
-                          <ChartsTabHistoricos
-                            symbol={selectedSymbol}
-                            companyName={stockBasicData?.companyName}
-                            comparedSymbols={selectedCompetitor ? [selectedCompetitor] : []}
-                          />
-                      </div>
-                      {/* Radar 2/5 */}
-                      <div className="w-full lg:w-2/5 h-full border border-zinc-800">
-                           <FGOSRadarChart 
-                              symbol={selectedSymbol} 
-                              data={stockAnalysis?.fgos_breakdown} 
-                              comparedSymbol={selectedCompetitor}
-                           />
-                      </div>
-                  </div>                
+                {/* 4. Noticias - 50% Fixed */}
+                <div className="flex-1 min-h-0 pb-1">
+                  <div className="flex w-full h-full gap-1">
+                    <div className="w-1/2 h-full overflow-hidden border border-zinc-800">
+                      <NoticiasTab symbol={selectedSymbol} title="Noticias del Mercado" />
+                    </div>
+                    <div className="w-1/2 h-full overflow-hidden border border-zinc-800">
+                      <NoticiasTab symbol={selectedSymbol} />
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Panel derecho */}
               <div className="w-full xl:w-auto h-full flex flex-col overflow-hidden pb-1 gap-1">
                 {/* Mitad Superior: Navigation Bar y Contenido de Tabs */}
-                <div className="h-[60%] flex flex-col min-h-0">
+                <div className="flex-1 flex flex-col min-h-0">
                   <div className="w-full flex items-center justify-between ">
                     <div className="flex-1">
                       <NavigationBar
@@ -348,16 +329,6 @@ export default function StockTerminal() {
                   
                   <div className={`w-full flex-1 scrollbar-thin border border-t-0 border-zinc-800 ${(activeTab === 'datos' || activeTab === 'mercados') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
                     {renderTabContent()}
-                  </div>
-                </div>
-
-                {/* Mitad Inferior: Noticias */}
-                <div className="flex-1 flex flex-col min-h-0 border border-zinc-800">
-                  {/* <div className="p-2 border-b border-white/5 bg-white/[0.02]">
-                    <h3 className="text-[#FFA028] font-medium text-center text-sm">Noticias</h3>
-                  </div> */}
-                  <div className="flex-1 overflow-hidden">
-                    <NoticiasTab symbol={selectedSymbol} />
                   </div>
                 </div>
               </div>

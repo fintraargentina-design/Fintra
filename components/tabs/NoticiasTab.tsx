@@ -63,13 +63,15 @@ interface NoticiasTabProps {
   stockBasicData?: any;
   stockAnalysis?: any;
   selectedStock?: any;
+  title?: string;
 }
 
 export default function NoticiasTab({ 
   symbol = "AAPL", 
   stockBasicData, 
   stockAnalysis, 
-  selectedStock 
+  selectedStock,
+  title
 }: NoticiasTabProps) {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -330,7 +332,11 @@ export default function NoticiasTab({
         {/* Header */}
         <div className="relative flex items-center justify-center px-1 py-1 border-b border-zinc-800 bg-white/[0.02] shrink-0">
           <h4 className="text-xs font-medium text-gray-400 text-center">
-            Noticias de <span className="text-[#FFA028]">{symbol}</span>
+            {title ? (
+              <span className="text-[#FFA028]">{title}</span>
+            ) : (
+              <>Noticias de <span className="text-[#FFA028]">{symbol}</span></>
+            )}
           </h4>
           
           <div className="absolute right-1 flex items-center gap-2">
