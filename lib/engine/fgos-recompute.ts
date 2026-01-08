@@ -254,12 +254,15 @@ export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: stri
 
   // 3. Fetch Financials (DB only) - Replacing FMP calls
   // We strictly use stored financials, NO external API calls allowed.
+  // FIX: Implemented AS-OF logic (period_end_date <= snapshot_date)
   const { data: financials } = await supabaseAdmin
     .from('datos_financieros')
-    .select('roic, operating_margin, net_margin, fcf_margin, debt_to_equity, interest_coverage')
+    .select('roic, operating_margin, net_margin, fcf_margin, debt_to_equity, interest_coverage, period_type, period_label, period_end_date')
     .eq('ticker', ticker)
     .in('period_type', ['TTM', 'FY'])
-    .order('period_end_date', { ascending: false })
+    .lte('period_end_date', date)
+    .order('period_end_date', { ascending: false }) // Primary: Latest date
+    .order('period_type', { ascending: false }) // Tie-breaker: Prefer TTM
     .limit(1)
     .maybeSingle();
 
@@ -267,6 +270,14 @@ export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: stri
       await updatePending(ticker, date, 'missing_financials_data');
       return { status: 'pending', reason: 'missing_financials_data' };
   }
+
+  console.log(`[FGOS] Resolved Financials for ${ticker} on ${date}:`, {
+      ticker,
+      period_type: financials.period_type,
+      period_label: financials.period_label,
+      period_end_date: financials.period_end_date,
+      snapshot_date: date
+  });
 
   // 4. Map DB data to Engine Interfaces
   const ratios: FmpRatios = {
