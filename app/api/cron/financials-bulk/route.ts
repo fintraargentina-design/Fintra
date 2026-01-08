@@ -83,6 +83,7 @@ export async function GET(req: Request) {
           period_type: 'FY',
           period_label: fyIncome.date.slice(0, 4), // Year as label
           period_end_date: fyIncome.date,
+          source: 'fmp_bulk',
           ...metrics
         });
         stats.fy_built++;
@@ -117,6 +118,7 @@ export async function GET(req: Request) {
           period_type: 'TTM',
           period_label: ttmLabel, 
           period_end_date: latestQ.date,
+          source: 'fmp_bulk',
           ...metrics
         });
         stats.ttm_built++;
