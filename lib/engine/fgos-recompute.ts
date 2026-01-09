@@ -1,3 +1,5 @@
+// Fintra/lib/engine/fgos-recompute.ts
+
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { applyQualityBrakes } from './applyQualityBrakes';
 import { getBenchmarksForSector } from './benchmarks';

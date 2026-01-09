@@ -125,7 +125,8 @@ export async function GET(req: Request) {
           profile,
           ratios.get(sym)?.[0] ?? {},
           metrics.get(sym)?.[0] ?? {},
-          bulk.quotes.get(sym)?.[0] ?? {},
+          // Quotes endpoint deprecated (404). Profile contains price/vol/change.
+          profile ?? {},
           {},
           scores.get(sym)?.[0] ?? {},
           bulk.income_growth.get(sym) ?? [],

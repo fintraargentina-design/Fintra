@@ -2,33 +2,12 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { NextResponse } from 'next/server';
 import { buildSectorBenchmark } from '@/lib/engine/buildSectorBenchmark';
 import { getActiveStockTickers } from '@/lib/repository/active-stocks';
+import { BENCHMARK_METRICS } from '@/lib/engine/benchmarks';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 const CRON_NAME = 'sector_stats_builder';
-
-// Metrics derived from Snapshot (Daily Valuation + Computed Growth)
-const SNAPSHOT_METRICS = [
-  'pe_ratio',
-  'ev_ebitda',
-  'price_to_fcf',
-  'revenue_cagr',
-  'earnings_cagr',
-  'fcf_cagr'
-] as const;
-
-// Metrics derived from Financials (Quarterly/Annual)
-const FINANCIAL_METRICS = [
-  'roic',
-  'operating_margin',
-  'net_margin',
-  'fcf_margin',
-  'debt_to_equity',
-  'interest_coverage'
-] as const;
-
-type MetricName = (typeof SNAPSHOT_METRICS)[number] | (typeof FINANCIAL_METRICS)[number];
 
 export async function GET() {
   const today = new Date().toISOString().slice(0, 10);
@@ -36,7 +15,7 @@ export async function GET() {
 
   try {
     // ─────────────────────────────────────────
-    // 1. CHECK CURSOR (Idempotency)
+    // 1. CHECK CURSOR (Idempotency + Data Integrity)
     // ─────────────────────────────────────────
     const { data: state } = await supabaseAdmin
       .from('cron_state')
@@ -44,9 +23,22 @@ export async function GET() {
       .eq('name', CRON_NAME)
       .single();
 
-    if (state?.last_run_date === today) {
-      console.log('✅ Already run today. Skipping.');
+    // Verify if we actually have data for today
+    const { count } = await supabaseAdmin
+      .from('sector_benchmarks')
+      .select('*', { count: 'exact', head: true })
+      .eq('snapshot_date', today);
+
+    const alreadyRun = state?.last_run_date === today;
+    const hasData = (count ?? 0) > 0;
+
+    if (alreadyRun && hasData) {
+      console.log('✅ Already run today & Data exists. Skipping.');
       return NextResponse.json({ skipped: true, date: today });
+    }
+
+    if (alreadyRun && !hasData) {
+      console.warn(`⚠️ Cron marked as done but NO DATA found (count=${count}). Forcing re-run.`);
     }
 
     // ─────────────────────────────────────────
@@ -106,16 +98,15 @@ export async function GET() {
       }
     };
 
-    // Process Snapshots
     const activeTickers: string[] = [];
 
     for (const snap of validSnapshots) {
       const ticker = snap.ticker;
-      // Fallback sector logic if root sector is missing (shouldn't happen in valid snapshots but safe to check)
+      // Fallback sector logic
       const sector = snap.sector || snap.profile_structural?.classification?.sector;
       const industry = snap.profile_structural?.classification?.industry;
 
-      if (!sector) continue; // Skip if no sector (cannot benchmark)
+      if (!sector) continue; 
 
       tickerSectorMap.set(ticker, sector);
       if (industry) tickerIndustryMap.set(ticker, industry);
@@ -137,51 +128,64 @@ export async function GET() {
     // ─────────────────────────────────────────
     // 3. FETCH FINANCIALS (Profitability/Solvency)
     // ─────────────────────────────────────────
-    // Fetch latest TTM/FY data for active tickers
-    // We chunk the request if too many tickers (Supabase limit safe-guard)
-    // But usually 2000-3000 tickers is fine in one IN query. 
-    // If it exceeds, we might need chunking. For now assuming < 5000.
-    
-    // We only need the latest record. We'll fetch all matching TTM/FY and dedupe in memory.
-    // Optimization: filtering by period_end_date > 18 months ago to avoid stale data? 
-    // Let's rely on sorting.
-    
-    const { data: financials, error: finError } = await supabaseAdmin
-      .from('datos_financieros')
-      .select(`
-        ticker,
-        period_end_date,
-        roic,
-        operating_margin,
-        net_margin,
-        fcf_margin,
-        debt_to_equity,
-        interest_coverage
-      `)
-      .in('ticker', activeTickers)
-      .in('period_type', ['TTM', 'FY'])
-      .order('period_end_date', { ascending: false });
-
-    if (finError) throw finError;
-
-    // Dedupe: Keep only the first (latest) record per ticker
-    const processedTickers = new Set<string>();
-
-    for (const fin of financials || []) {
-      if (processedTickers.has(fin.ticker)) continue;
-      processedTickers.add(fin.ticker);
-
-      const sector = tickerSectorMap.get(fin.ticker) || null;
-      const industry = tickerIndustryMap.get(fin.ticker) || null;
-
-      // Push Financial Metrics
-      pushToBucket(sector, industry, 'roic', fin.roic);
-      pushToBucket(sector, industry, 'operating_margin', fin.operating_margin);
-      pushToBucket(sector, industry, 'net_margin', fin.net_margin);
-      pushToBucket(sector, industry, 'fcf_margin', fin.fcf_margin);
-      pushToBucket(sector, industry, 'debt_to_equity', fin.debt_to_equity);
-      pushToBucket(sector, industry, 'interest_coverage', fin.interest_coverage);
+    // Chunking to handle large number of tickers
+    const CHUNK_SIZE = 500;
+    const tickerChunks = [];
+    for (let i = 0; i < activeTickers.length; i += CHUNK_SIZE) {
+        tickerChunks.push(activeTickers.slice(i, i + CHUNK_SIZE));
     }
+
+    console.log(`📊 Fetching financials for ${activeTickers.length} tickers in ${tickerChunks.length} chunks...`);
+
+    let financialsCount = 0;
+
+    for (const chunk of tickerChunks) {
+        // AS-OF Resolution: period_end_date <= today
+        const { data: financials, error: finError } = await supabaseAdmin
+          .from('datos_financieros')
+          .select(`
+            ticker,
+            period_end_date,
+            roic,
+            operating_margin,
+            net_margin,
+            fcf_margin,
+            debt_to_equity,
+            interest_coverage
+          `)
+          .in('ticker', chunk)
+          .in('period_type', ['TTM', 'FY'])
+          .lte('period_end_date', today) 
+          .order('period_end_date', { ascending: false });
+
+        if (finError) {
+             console.error('Error fetching financials chunk:', finError);
+             continue;
+        }
+
+        if (!financials) continue;
+
+        // Dedupe within chunk (keep latest per ticker)
+        const processedInChunk = new Set<string>();
+        
+        for (const fin of financials) {
+            if (processedInChunk.has(fin.ticker)) continue;
+            processedInChunk.add(fin.ticker);
+            financialsCount++;
+
+            const sector = tickerSectorMap.get(fin.ticker) || null;
+            const industry = tickerIndustryMap.get(fin.ticker) || null;
+
+            pushToBucket(sector, industry, 'roic', fin.roic);
+            pushToBucket(sector, industry, 'operating_margin', fin.operating_margin);
+            pushToBucket(sector, industry, 'net_margin', fin.net_margin);
+            pushToBucket(sector, industry, 'fcf_margin', fin.fcf_margin);
+            pushToBucket(sector, industry, 'debt_to_equity', fin.debt_to_equity);
+            pushToBucket(sector, industry, 'interest_coverage', fin.interest_coverage);
+        }
+    }
+    
+    console.log(`✅ Financials resolved: ${financialsCount} records used.`);
 
     // ─────────────────────────────────────────
     // 4. BUILD BENCHMARKS
@@ -191,33 +195,40 @@ export async function GET() {
     const skippedSectors = new Set<string>();
     const lowConfidenceSectors = new Set<string>();
 
-    // Helper to process a bucket set (Sectors or Industries)
     const processBuckets = (buckets: Record<string, Record<string, number[]>>, isIndustry: boolean) => {
       for (const [groupName, metrics] of Object.entries(buckets)) {
+        
+        // Validation: Log missing mandatory metrics for Sectors
+        if (!isIndustry) {
+             const missingMandatory = [];
+             for (const m of BENCHMARK_METRICS) {
+                 if (!metrics[m] || metrics[m].length === 0) {
+                     missingMandatory.push(m);
+                 }
+             }
+             if (missingMandatory.length > 0) {
+                 console.log(`⚠️ Missing data for Sector: ${groupName} -> ${missingMandatory.join(', ')}`);
+             }
+        }
+
         for (const [metricName, values] of Object.entries(metrics)) {
-          
           const benchmark = buildSectorBenchmark(values);
           
-          // RULE 1: sample_size < 3 -> Do NOT build (returns null)
           if (!benchmark) {
             skippedSectors.add(`${groupName} (${metricName})`);
             continue;
           }
 
-          // Logging logic
           if (benchmark.confidence === 'low') {
             lowConfidenceSectors.add(`${groupName}`);
           }
 
-          // Prepare Row
-          // We write to 'sector_benchmarks' table
-          // Note: We use the 'sector' column for both Sector and Industry identifiers
           benchmarksToUpsert.push({
             sector: groupName, 
             snapshot_date: today,
             metric: metricName,
             sample_size: benchmark.sample_size,
-            confidence: benchmark.confidence, // Matches table column
+            confidence: benchmark.confidence, 
             p10: benchmark.p10,
             p25: benchmark.p25,
             p50: benchmark.p50,
@@ -231,10 +242,7 @@ export async function GET() {
       }
     };
 
-    // Process Sectors
     processBuckets(sectorBuckets, false);
-
-    // Process Industries
     processBuckets(industryBuckets, true);
 
     // ─────────────────────────────────────────

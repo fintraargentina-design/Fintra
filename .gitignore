@@ -34,3 +34,9 @@ coverage/
 # archivos de compilación de TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Cache de FMP snapshots
+/data/fmp-snapshot-cache/
+
+# Bulk CSV data
+/data/fmp-bulk/

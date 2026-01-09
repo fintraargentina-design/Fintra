@@ -9,7 +9,7 @@ export async function getLatestSnapshot(symbol: string): Promise<FintraSnapshotD
   // Incluimos las nuevas columnas JSONB en la selección
   const { data, error } = await supabase
     .from('fintra_snapshots')
-    .select('id, ticker, fgos_score, valuation_status, valuation_score, verdict_text, snapshot_date, calculated_at, fgos_breakdown')
+    .select('ticker, fgos_score, valuation, investment_verdict, snapshot_date, created_at, fgos_components')
     .eq('ticker', symbol)
     .order('snapshot_date', { ascending: false })
     .limit(1)
@@ -27,16 +27,16 @@ export async function getLatestSnapshot(symbol: string): Promise<FintraSnapshotD
 
   return {
     ticker: data.ticker,
-    date: data.snapshot_date || data.calculated_at,
+    date: data.snapshot_date || data.created_at,
     snapshot_date: data.snapshot_date,
-    calculated_at: data.calculated_at,
+    calculated_at: data.created_at,
     fgos_score: data.fgos_score,
-    fgos_breakdown: data.fgos_breakdown,
+    fgos_breakdown: data.fgos_components,
     // ecosystem_score removed as it is now in fintra_ecosystem_reports
     ecosystem_score: ecoReport?.ecosystem_score ?? 50, // Default to 50 if not found
-    valuation_score: data.valuation_score ?? 50,
-    valuation_status: data.valuation_status,
-    verdict_text: data.verdict_text ?? "N/A"
+    valuation_score: 50, // Default as it's not in the new schema explicitly
+    valuation_status: data.valuation?.valuation_status ?? "Pending",
+    verdict_text: data.investment_verdict?.reason ?? (data.investment_verdict?.summary || "N/A")
   } as FintraSnapshotDB;
 }
 
@@ -202,7 +202,7 @@ export async function getEcosystemDetailed(symbol: string): Promise<{ suppliers:
 export async function getSectorScreener(sector: string): Promise<FintraSnapshotDB[]> {
   const { data, error } = await supabase
     .from('fintra_snapshots')
-    .select('ticker, fgos_score, valuation_status, verdict_text, snapshot_date, calculated_at, fgos_breakdown')
+    .select('ticker, fgos_score, valuation, investment_verdict, snapshot_date, created_at, fgos_components')
     .eq('sector', sector)
     .order('fgos_score', { ascending: false })
     .limit(20);
@@ -214,14 +214,14 @@ export async function getSectorScreener(sector: string): Promise<FintraSnapshotD
 
   return data.map((d: any) => ({
     ticker: d.ticker,
-    date: d.snapshot_date || d.calculated_at,
+    date: d.snapshot_date || d.created_at,
     snapshot_date: d.snapshot_date,
-    calculated_at: d.calculated_at,
+    calculated_at: d.created_at,
     fgos_score: d.fgos_score,
-    fgos_breakdown: d.fgos_breakdown,
+    fgos_breakdown: d.fgos_components,
     ecosystem_score: 50, // Default, enrichment happens later if needed
     valuation_score: 50,
-    valuation_status: d.valuation_status,
-    verdict_text: d.verdict_text
+    valuation_status: d.valuation?.valuation_status ?? "Pending",
+    verdict_text: d.investment_verdict?.reason ?? (d.investment_verdict?.summary ?? "N/A")
   })) as FintraSnapshotDB[];
 }

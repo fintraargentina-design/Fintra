@@ -159,8 +159,17 @@ export interface FinancialSnapshot {
     return_1y?: number | null;
     [key: string]: any;
   } | null;
+  fundamentals_growth?: {
+    revenue_cagr: number | null;
+    earnings_cagr: number | null;
+    fcf_cagr: number | null;
+  } | null;
   fgos_score: number | null;
   fgos_components: FgosBreakdown | null;
+  fgos_status?: string | null;
+  fgos_category?: string | null;
+  fgos_confidence?: number | null;
+  peers?: any | null;
   valuation: ValuationResult | null;
   market_position: MarketPosition | null;
   investment_verdict: any | null;

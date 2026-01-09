@@ -78,9 +78,9 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
         // 2. Enrich data desde Supabase únicamente (sin APIs por ticker)
         const { data: snapshots } = await supabase
           .from('fintra_snapshots')
-          .select('ticker, fgos_score, valuation_status, calculated_at')
+          .select('ticker, fgos_score, valuation, created_at')
           .in('ticker', peersList)
-          .order('calculated_at', { ascending: false });
+          .order('created_at', { ascending: false });
 
         const { data: eco } = await supabase
           .from('fintra_ecosystem_reports')
@@ -111,10 +111,13 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
             estimation: 0,
             targetPrice: 0,
             fgos: s?.fgos_score ?? 0,
-            valuation: s?.valuation_status ?? "N/A",
+            valuation: s?.valuation?.valuation_status ?? "N/A",
             ecosystem: e ?? 50
           };
         });
+
+        // Ordenar por FGOS de mayor a menor
+        enriched.sort((a, b) => b.fgos - a.fgos);
 
         if(active) {
              setPeers(enriched);

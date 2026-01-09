@@ -1,13 +1,11 @@
-// Fintra/app/api/cron/fmp-bulk/fetchBulk.ts
-
+import fs from 'fs';
+import path from 'path';
 import Papa from 'papaparse';
-
-
 
 /**
  * FMP BULK FINANCIALS
  * ⚠️ OBLIGATORIO: year + period
- * ⚠️ NO usar part=0
+ * ⚠️ NO usar part=0 para financials, pero sí para profiles (part=0 es el default)
  */
 const YEAR = new Date().getFullYear().toString();
 const PERIOD = 'FY'; // Q1 | Q2 | Q3 | Q4 | FY
@@ -28,9 +26,22 @@ const FMP_CSV_URLS = {
   ratios: 'https://financialmodelingprep.com/stable/ratios-ttm-bulk',
   metrics: 'https://financialmodelingprep.com/stable/key-metrics-ttm-bulk',
   scores: 'https://financialmodelingprep.com/stable/scores-bulk',
-  quotes: 'https://financialmodelingprep.com/stable/quote-bulk',
+  // quotes: 'https://financialmodelingprep.com/stable/quote-bulk', // REMOVED: 404 and redundant (profile has price)
 };
 
+// 💾 CACHE CONFIGURATION
+// Use absolute path for robustness
+const CACHE_DIR = path.join(process.cwd(), 'data', 'fmp-snapshot-cache');
+
+// Ensure cache dir exists
+if (!fs.existsSync(CACHE_DIR)) {
+  try {
+    fs.mkdirSync(CACHE_DIR, { recursive: true });
+    console.log(`✅ Created Cache Dir: ${CACHE_DIR}`);
+  } catch (e) {
+    console.error(`❌ Failed to create cache dir: ${CACHE_DIR}`, e);
+  }
+}
 
 export interface BulkFetchResult<T = any> {
   ok: boolean;
@@ -38,6 +49,7 @@ export interface BulkFetchResult<T = any> {
   meta: {
     endpoint: string;
     rows: number;
+    cachedFile?: string;
   };
   error?: {
     status?: number;
@@ -45,27 +57,60 @@ export interface BulkFetchResult<T = any> {
   };
 }
 
-async function fetchAndParseCSV(
+/**
+ * Step 1: Download to Cache Layer
+ * Writes directly to disk: /data/fmp-snapshot-cache/{endpoint}_latest.csv
+ * Throws immediately on network error or empty body.
+ */
+async function downloadToCache(
   endpointKey: keyof typeof FMP_CSV_URLS,
   apiKey: string
-): Promise<BulkFetchResult> {
+): Promise<string> {
   const baseUrl = FMP_CSV_URLS[endpointKey];
   const url = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}apikey=${apiKey}`;
+  const filePath = path.join(CACHE_DIR, `${endpointKey}_latest.csv`);
 
+  // console.log(`⬇️ Downloading ${endpointKey} to cache...`);
+
+  const res = await fetch(url);
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} fetching ${endpointKey}`);
+  }
+
+  const buffer = await res.arrayBuffer();
+  
+  if (buffer.byteLength === 0) {
+    throw new Error(`CRITICAL: Empty response body for ${endpointKey}`);
+  }
+
+  await fs.promises.writeFile(filePath, Buffer.from(buffer));
+  
+  return filePath;
+}
+
+/**
+ * Step 2 & 3: Validate and Parse from Cache
+ * Reads from disk, checks guards, parses CSV.
+ */
+async function parseFromCache(
+  endpointKey: keyof typeof FMP_CSV_URLS,
+  filePath: string
+): Promise<BulkFetchResult> {
   try {
-    const res = await fetch(url);
-
-    if (!res.ok) {
-      return {
-        ok: false,
-        data: [],
-        meta: { endpoint: endpointKey, rows: 0 },
-        error: { status: res.status, message: `HTTP ${res.status}` }
-      };
+    // 🛡️ GUARD: File Existence & Size
+    const stats = await fs.promises.stat(filePath);
+    if (stats.size === 0) {
+      throw new Error(`Cache file is 0 bytes: ${filePath}`);
     }
 
-    const csvText = await res.text();
+    const csvText = await fs.promises.readFile(filePath, 'utf-8');
 
+    if (!csvText.trim()) {
+       throw new Error(`Cache file content is empty: ${filePath}`);
+    }
+
+    // 🛡️ PARSE
     const parsed = Papa.parse(csvText, {
       header: true,
       skipEmptyLines: true,
@@ -75,18 +120,40 @@ async function fetchAndParseCSV(
 
     const rows = (parsed.data as any[]) ?? [];
 
+    // 🛡️ GUARD: Row Count (Profiles)
+    if (endpointKey === 'profiles') {
+      if (rows.length < 5000) {
+        throw new Error(`CRITICAL: Profiles bulk suspicious (rows=${rows.length} < 5000). Aborting.`);
+      }
+      
+      // 🛡️ GUARD: Required Headers (Profiles)
+      if (rows.length > 0) {
+        const sample = rows[0];
+        // Check for essential columns to prevent 'null' sector corruption
+        if (!('sector' in sample) && !('Sector' in sample)) {
+           throw new Error(`CRITICAL: Profiles CSV missing 'sector' column. Headers: ${Object.keys(sample).join(', ')}`);
+        }
+        if (!('symbol' in sample) && !('Symbol' in sample) && !('ticker' in sample)) {
+           throw new Error(`CRITICAL: Profiles CSV missing 'symbol' column.`);
+        }
+      }
+    }
+
+    // 🛡️ GUARD: General Empty Check
+    if (rows.length === 0) {
+       // Allow empty for non-critical? No, bulk should have data.
+       throw new Error(`Validation Failed: ${endpointKey} parsed 0 rows.`);
+    }
+
     return {
       ok: true,
       data: rows,
-      meta: { endpoint: endpointKey, rows: rows.length }
+      meta: { endpoint: endpointKey, rows: rows.length, cachedFile: filePath }
     };
+
   } catch (err: any) {
-    return {
-      ok: false,
-      data: [],
-      meta: { endpoint: endpointKey, rows: 0 },
-      error: { message: err?.message ?? 'Fetch error' }
-    };
+    // Wrap error to identify culprit
+    throw new Error(`Cache Validation Failed for ${endpointKey}: ${err.message}`);
   }
 }
 
@@ -102,37 +169,49 @@ function indexBySymbol(rows: any[]) {
 }
 
 export async function fetchAllFmpData(fmpKey: string) {
-  console.log('🚀 Fetching FMP BULK CSVs');
+  console.log('🚀 [FMP-CACHE] Starting Robust Fetch Sequence');
 
-  const [
-  profiles,
-  income,
-  incomeGrowth,
-  balance,
-  balanceGrowth,
-  cashflow,
-  cashflowGrowth,
-  ratios,
-  metrics,
-  scores,
-  quotes,
-] = await Promise.all([
-  fetchAndParseCSV('profiles', fmpKey),
-  fetchAndParseCSV('income', fmpKey),
-  fetchAndParseCSV('income_growth', fmpKey),
-  fetchAndParseCSV('balance', fmpKey),
-  fetchAndParseCSV('balance_growth', fmpKey),
-  fetchAndParseCSV('cashflow', fmpKey),
-  fetchAndParseCSV('cashflow_growth', fmpKey),
-  fetchAndParseCSV('ratios', fmpKey),
-  fetchAndParseCSV('metrics', fmpKey),
-  fetchAndParseCSV('scores', fmpKey),
-  fetchAndParseCSV('quotes', fmpKey),
-]);
+  const endpoints = Object.keys(FMP_CSV_URLS) as (keyof typeof FMP_CSV_URLS)[];
+  const filePaths: Record<string, string> = {};
 
-  if (!profiles.ok) {
-    throw new Error('CRITICAL: profiles bulk unavailable');
+  // ─────────────────────────────────────────
+  // STEP 1: DOWNLOAD TO CACHE (Parallel)
+  // ─────────────────────────────────────────
+  try {
+    await Promise.all(endpoints.map(async (key) => {
+      filePaths[key] = await downloadToCache(key, fmpKey);
+    }));
+    console.log('✅ [FMP-CACHE] All files downloaded to cache.');
+  } catch (err: any) {
+    throw new Error(`⬇️ Download Phase Failed: ${err.message}`);
   }
+
+  // ─────────────────────────────────────────
+  // STEP 2 & 3: VALIDATE & PARSE (Sequential or Parallel)
+  // ─────────────────────────────────────────
+  // We do parallel for speed, validation is inside parseFromCache
+  const results: Record<string, BulkFetchResult> = {};
+
+  try {
+    await Promise.all(endpoints.map(async (key) => {
+      results[key] = await parseFromCache(key, filePaths[key]);
+    }));
+    console.log('✅ [FMP-CACHE] All files validated and parsed.');
+  } catch (err: any) {
+    throw new Error(`🛡️ Validation Phase Failed: ${err.message}`);
+  }
+
+  const profiles = results['profiles'];
+  const income = results['income'];
+  const incomeGrowth = results['income_growth'];
+  const balance = results['balance'];
+  const balanceGrowth = results['balance_growth'];
+  const cashflow = results['cashflow'];
+  const cashflowGrowth = results['cashflow_growth'];
+  const ratios = results['ratios'];
+  const metrics = results['metrics'];
+  const scores = results['scores'];
+  // const quotes = results['quotes']; // Removed
 
   return {
     meta: {
@@ -142,17 +221,10 @@ export async function fetchAllFmpData(fmpKey: string) {
       ratios_ok: ratios.ok,
       metrics_ok: metrics.ok,
       scores_ok: scores.ok,
-      quotes_ok: quotes.ok,
+      // quotes_ok: quotes.ok,
+      cached_dir: CACHE_DIR
     },
 
-    /* profiles: indexBySymbol(profiles.data),
-    income: indexBySymbol(income.data),
-    balance: indexBySymbol(balance.data),
-    cashflow: indexBySymbol(cashflow.data),
-    ratios: indexBySymbol(ratios.data),
-    metrics: indexBySymbol(metrics.data),
-    scores: indexBySymbol(scores.data),
-    quotes: indexBySymbol(quotes.data), */
     profiles: indexBySymbol(profiles.data),
     income: indexBySymbol(income.data),
     income_growth: indexBySymbol(incomeGrowth.data),
@@ -163,6 +235,6 @@ export async function fetchAllFmpData(fmpKey: string) {
     ratios: indexBySymbol(ratios.data),
     metrics: indexBySymbol(metrics.data),
     scores: indexBySymbol(scores.data),
-    quotes: indexBySymbol(quotes.data),
+    // quotes: indexBySymbol(quotes.data),
   };
 }

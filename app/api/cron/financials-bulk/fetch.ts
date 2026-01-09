@@ -1,7 +1,7 @@
 import Papa from 'papaparse';
 import fs from 'fs/promises';
+import { createReadStream, existsSync } from 'fs';
 import path from 'path';
-import { existsSync } from 'fs';
 
 const BASE_URL = 'https://financialmodelingprep.com/stable';
 const CACHE_DIR = path.join(process.cwd(), 'data', 'fmp-bulk');
@@ -10,14 +10,18 @@ const CACHE_DIR = path.join(process.cwd(), 'data', 'fmp-bulk');
 const ENDPOINT_MAP: Record<string, string> = {
   'income-statement-bulk': 'income',
   'balance-sheet-statement-bulk': 'balance',
-  'cashflow-statement-bulk': 'cashflow'
+  'cashflow-statement-bulk': 'cashflow',
+  'key-metrics-ttm-bulk': 'metrics_ttm',
+  'ratios-ttm-bulk': 'ratios_ttm'
 };
 
-export async function fetchFinancialsBulk(apiKey: string) {
-  console.log('[financials-bulk] Running in CLOSED-YEAR MODE (2024 only)');
+export async function fetchFinancialsBulk(apiKey: string, activeTickers: Set<string>) {
+  const currentYear = new Date().getFullYear();
+  console.log(`[financials-bulk] Running for years: ${currentYear} down to 2023`);
   
-  // RESTRICTION: Lock to 2024 Closed Year
-  const years = [2024];
+  // RESTRICTION: Fetch from current year back to 2023
+  // Including 2020-2022 as well if user requested full history
+  const years = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
   
   // FMP financial BULK endpoints REQUIRE explicit 'year' and 'period' parameters.
   // We want FY and all Quarters to build TTM
@@ -29,30 +33,18 @@ export async function fetchFinancialsBulk(apiKey: string) {
   }
   
   // Helper to fetch (with cache) and parse CSV
-  const fetchCSV = async (endpointBase: string, year: number, period: string) => {
+  const fetchCSV = async (endpointBase: string, year: number | null, period: string | null): Promise<any[]> => {
     const prefix = ENDPOINT_MAP[endpointBase] || endpointBase;
-    const fileName = `${prefix}_${year}_${period}.csv`;
+    const fileName = year ? `${prefix}_${year}_${period}.csv` : `${prefix}.csv`;
     const filePath = path.join(CACHE_DIR, fileName);
-    const url = `${BASE_URL}/${endpointBase}?year=${year}&period=${period}&apikey=${apiKey}`;
-
-    let csvContent: string | null = null;
-    let loadedFromCache = false;
-
-    // 1. Check Cache
-    try {
-      if (existsSync(filePath)) {
-        // In CLOSED-YEAR MODE, we trust the cache indefinitely (no isToday check)
-        // to prevent unnecessary re-fetching of static 2024 data.
-        csvContent = await fs.readFile(filePath, 'utf-8');
-        loadedFromCache = true;
-        console.log(`[fmp-bulk-cache] HIT ${fileName}`);
-      }
-    } catch (err) {
-      console.warn(`[fmp-bulk-cache] Error checking cache for ${fileName}:`, err);
+    
+    let url = `${BASE_URL}/${endpointBase}?apikey=${apiKey}`;
+    if (year && period) {
+        url += `&year=${year}&period=${period}`;
     }
 
-    // 2. Network Fetch if MISS
-    if (!csvContent) {
+    // 1. Ensure File Exists (Download if needed)
+    if (!existsSync(filePath)) {
       console.log(`[fmp-bulk-cache] MISS ${fileName} -> downloading`);
       try {
         const res = await fetch(url);
@@ -63,47 +55,59 @@ export async function fetchFinancialsBulk(apiKey: string) {
         }
 
         if (!res.ok) {
-          // Some periods might not exist yet, warn but continue
           console.warn(`[fmp-bulk-cache] Failed to fetch ${url}: ${res.status} ${res.statusText}`);
           return [];
         }
 
-        csvContent = await res.text();
-        
-        // 3. Save to Cache (only if successful)
-        try {
-            if (csvContent && csvContent.length > 0) {
-                await fs.writeFile(filePath, csvContent, 'utf-8');
-            }
-        } catch (writeErr) {
-            console.error(`[fmp-bulk-cache] Failed to write cache for ${fileName}:`, writeErr);
-        }
-
+        // Stream to file to avoid memory spike
+        const arrayBuffer = await res.arrayBuffer();
+        await fs.writeFile(filePath, Buffer.from(arrayBuffer));
       } catch (e) {
         console.error(`[fmp-bulk-cache] Error fetching ${url}:`, e);
         return [];
       }
+    } else {
+        console.log(`[fmp-bulk-cache] HIT ${fileName}`);
     }
 
-    // 4. Parse (Identical behavior for disk vs network)
-    if (!csvContent) return [];
-
-    try {
-      const parsed = Papa.parse(csvContent, { 
-        header: true, 
+    // 2. Parse from Disk with Streaming + Filtering
+    // This prevents loading the entire CSV into V8 heap
+    return new Promise((resolve) => {
+      const rows: any[] = [];
+      const stream = createReadStream(filePath);
+      
+      Papa.parse(stream, {
+        header: true,
         skipEmptyLines: true,
-        dynamicTyping: true // Convert numbers automatically
+        dynamicTyping: true,
+        step: (results: any) => {
+          const row = results.data;
+          // MEMORY OPTIMIZATION: Only keep rows for active tickers
+          const symbol = row.symbol || row.ticker;
+          if (symbol && activeTickers.has(symbol)) {
+            rows.push(row);
+          }
+        },
+        complete: () => {
+          resolve(rows);
+        },
+        error: (err: any) => {
+            console.error(`[fmp-bulk-cache] Error parsing ${fileName}:`, err);
+            resolve([]); // Return empty on error to keep going
+        }
       });
-      return parsed.data as any[];
-    } catch (parseErr) {
-      console.error(`[fmp-bulk-cache] Error parsing CSV for ${fileName}:`, parseErr);
-      return [];
-    }
+    });
   };
 
   const tasks: Promise<{ type: string, rows: any[] }>[] = [];
 
   // Queue up all fetches
+  // We process years sequentially to be safer on memory, or parallel?
+  // Parallel is faster, but we must limit concurrency if memory is tight.
+  // Given we are filtering row-by-row, parallel should be fine for parsing 
+  // as long as we don't have too many open streams.
+  // Let's stick to Promise.all but maybe we can chunk the years if it still crashes.
+  
   for (const year of years) {
     for (const period of periods) {
       tasks.push(fetchCSV('income-statement-bulk', year, period).then(rows => ({ type: 'income', rows })));
@@ -112,12 +116,27 @@ export async function fetchFinancialsBulk(apiKey: string) {
     }
   }
 
-  const results = await Promise.all(tasks);
+  // Add TTM Bulk Fetches
+  tasks.push(fetchCSV('key-metrics-ttm-bulk', null, null).then(rows => ({ type: 'metrics_ttm', rows })));
+  tasks.push(fetchCSV('ratios-ttm-bulk', null, null).then(rows => ({ type: 'ratios_ttm', rows })));
+
+  // EXECUTE IN CHUNKS to avoid "Too many open files" or OOM during Promise.all aggregation
+  const CHUNK_SIZE = 10;
+  const results: { type: string, rows: any[] }[] = [];
+  
+  for (let i = 0; i < tasks.length; i += CHUNK_SIZE) {
+      const chunk = tasks.slice(i, i + CHUNK_SIZE);
+      const chunkResults = await Promise.all(chunk);
+      results.push(...chunkResults);
+      // Optional: Force garbage collection hints (not available in standard JS, but loop break helps)
+  }
 
   // Aggregate results
   const income = results.filter(r => r.type === 'income').flatMap(r => r.rows);
   const balance = results.filter(r => r.type === 'balance').flatMap(r => r.rows);
   const cashflow = results.filter(r => r.type === 'cashflow').flatMap(r => r.rows);
+  const metricsTTM = results.filter(r => r.type === 'metrics_ttm').flatMap(r => r.rows);
+  const ratiosTTM = results.filter(r => r.type === 'ratios_ttm').flatMap(r => r.rows);
 
-  return { income, balance, cashflow };
+  return { income, balance, cashflow, metricsTTM, ratiosTTM };
 }

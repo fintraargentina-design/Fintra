@@ -2,6 +2,34 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { SectorBenchmark } from "./types";
 
+// Mandatory metrics that MUST be present for FGOS
+export const BENCHMARK_METRICS = [
+  // Growth (Source: Snapshot/Fundamentals)
+  'revenue_cagr', 
+  'earnings_cagr', 
+  'fcf_cagr',
+  
+  // Profitability (Source: Financials)
+  'roic', 
+  'operating_margin', 
+  'net_margin',
+  
+  // Efficiency (Source: Financials)
+  'fcf_margin', 
+  // 'roic' is also used here but already listed
+  
+  // Solvency (Source: Financials)
+  'debt_to_equity', 
+  'interest_coverage',
+  
+  // Valuation (Source: Snapshot/Valuation)
+  'pe_ratio', 
+  'ev_ebitda', 
+  'price_to_fcf'
+] as const;
+
+export type BenchmarkMetric = (typeof BENCHMARK_METRICS)[number];
+
 // Simple in-memory cache to avoid hammering DB in a loop
 // This is useful when processing bulk snapshots for the same sector
 const CACHE: Record<string, Record<string, SectorBenchmark>> = {};

@@ -3,15 +3,10 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { fetchFinancialsBulk } from './fetch';
 import { getActiveStockTickers } from '@/lib/repository/active-stocks';
 import { upsertDatosFinancieros } from '../fmp-bulk/upsertDatosFinancieros';
+import { deriveFinancialMetrics } from './deriveFinancialMetrics';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes
-
-// Helper to safe divide
-const div = (n: number | undefined | null, d: number | undefined | null) => {
-  if (!n || !d || d === 0) return null;
-  return n / d;
-};
 
 // Helper to group by ticker
 const groupByTicker = (rows: any[]) => {
@@ -24,6 +19,27 @@ const groupByTicker = (rows: any[]) => {
   }
   return map;
 };
+
+// Helper to sum quarterly statements for TTM
+function sumStatements(rows: any[]) {
+  const sum: any = {};
+  if (!rows.length) return sum;
+  
+  // Initialize with keys from first row (latest)
+  Object.keys(rows[0]).forEach(k => {
+    if (typeof rows[0][k] === 'number') sum[k] = 0;
+    else sum[k] = rows[0][k]; // Keep text/date from first (latest)
+  });
+
+  for (const row of rows) {
+    Object.keys(row).forEach(k => {
+      if (typeof row[k] === 'number') {
+        sum[k] = (sum[k] || 0) + row[k];
+      }
+    });
+  }
+  return sum;
+}
 
 export async function GET(req: Request) {
   try {
@@ -42,17 +58,20 @@ export async function GET(req: Request) {
       }
     }
 
-    console.log(`[financials-bulk] Processing ${activeTickers.length} tickers. Fetching bulk data...`);
+    console.log(`[financials-bulk] Processing ${activeTickers.length} tickers. Fetching bulk data (2022-2024 + TTM)...`);
 
     // 2. Fetch financial bulk data
-    const { income, balance, cashflow } = await fetchFinancialsBulk(fmpKey);
+    // Updated to include metricsTTM and ratiosTTM, and 3 years of history
+    const { income, balance, cashflow, metricsTTM, ratiosTTM } = await fetchFinancialsBulk(fmpKey, new Set(activeTickers));
     
-    console.log(`[financials-bulk] Fetched: ${income.length} Income, ${balance.length} Balance, ${cashflow.length} CF rows.`);
+    console.log(`[financials-bulk] Fetched: ${income.length} Income, ${balance.length} Balance, ${cashflow.length} CF, ${metricsTTM.length} MetricsTTM, ${ratiosTTM.length} RatiosTTM rows.`);
 
     // Index by ticker
     const incomeMap = groupByTicker(income);
     const balanceMap = groupByTicker(balance);
     const cashflowMap = groupByTicker(cashflow);
+    const metricsTTMMap = groupByTicker(metricsTTM);
+    const ratiosTTMMap = groupByTicker(ratiosTTM);
 
     const rowsToUpsert: any[] = [];
     const stats = { processed: 0, skipped: 0, fy_built: 0, ttm_built: 0 };
@@ -62,6 +81,8 @@ export async function GET(req: Request) {
       const tickerIncome = incomeMap.get(ticker) || [];
       const tickerBalance = balanceMap.get(ticker) || [];
       const tickerCashflow = cashflowMap.get(ticker) || [];
+      const tickerMetricsTTM = metricsTTMMap.get(ticker)?.[0] || null; // Usually 1 row per ticker
+      const tickerRatiosTTM = ratiosTTMMap.get(ticker)?.[0] || null;
 
       if (!tickerIncome.length && !tickerBalance.length) {
         stats.skipped++;
@@ -70,27 +91,52 @@ export async function GET(req: Request) {
 
       stats.processed++;
 
-      // --- BUILD FY (Latest Annual) ---
-      // Filter for 'FY' period rows
-      const fyIncome = tickerIncome.filter(r => r.period === 'FY').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-      const fyBalance = tickerBalance.filter(r => r.period === 'FY').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-      const fyCashflow = tickerCashflow.filter(r => r.period === 'FY').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+      // Filter Historical FY rows (for CAGR)
+      const historicalIncome = tickerIncome.filter(r => r.period === 'FY').sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const historicalCashflow = tickerCashflow.filter(r => r.period === 'FY').sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const historicalBalance = tickerBalance.filter(r => r.period === 'FY').sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      if (fyIncome && fyBalance && fyCashflow) {
-        const metrics = computeMetrics(fyIncome, fyBalance, fyCashflow);
-        rowsToUpsert.push({
-          ticker,
-          period_type: 'FY',
-          period_label: fyIncome.date.slice(0, 4), // Year as label
-          period_end_date: fyIncome.date,
-          source: 'fmp_bulk',
-          ...metrics
-        });
-        stats.fy_built++;
+      // --- BUILD FY (Annuals) ---
+      // We process ALL available FY rows (2022, 2023, 2024)
+      const fyIncomes = tickerIncome.filter(r => r.period === 'FY').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      for (const inc of fyIncomes) {
+          const bal = tickerBalance.find(r => r.period === 'FY' && r.date === inc.date);
+          const cf = tickerCashflow.find(r => r.period === 'FY' && r.date === inc.date);
+
+          if (bal && cf) {
+            const derived = deriveFinancialMetrics({
+                income: inc,
+                balance: bal,
+                cashflow: cf,
+                // Do NOT use TTM metrics for historical FY rows
+                metricsTTM: null,
+                ratiosTTM: null,
+                historicalIncome: historicalIncome, // Pass full history for CAGR
+                historicalCashflow: historicalCashflow,
+                historicalBalance: historicalBalance,
+                periodType: 'FY',
+                periodEndDate: inc.date
+            });
+
+            rowsToUpsert.push({
+              ticker,
+              period_type: 'FY',
+              period_label: inc.date.slice(0, 4), // Year as label
+              period_end_date: inc.date,
+              source: 'fmp_bulk',
+              ...derived
+            });
+            stats.fy_built++;
+          }
       }
 
       // --- BUILD TTM (Trailing 12 Months) ---
       // Need last 4 quarters
+      // Note: TTM is built from Quarterly data, but usually uses LATEST FY CAGR? 
+      // Or we pass historical FY data to calculate CAGR ending at TTM date?
+      // deriveFinancialMetrics uses periodEndDate to filter history.
+      
       const qIncome = tickerIncome.filter(r => r.period !== 'FY').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       const qBalance = tickerBalance.filter(r => r.period !== 'FY').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       const qCashflow = tickerCashflow.filter(r => r.period !== 'FY').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -104,14 +150,24 @@ export async function GET(req: Request) {
         const ttmIncome = sumStatements(last4Income);
         const ttmCashflow = sumStatements(last4Cashflow);
         
-        // TTM Metrics
-        const metrics = computeMetrics(ttmIncome, latestBalance, ttmCashflow);
-        
-        // Construct label from latest quarter (e.g., "2024Q3") to allow history
+        // Construct label from latest quarter (e.g., "2024Q3")
         const latestQ = last4Income[0];
         const labelYear = latestQ.calendarYear || latestQ.date.substring(0, 4);
         const labelPeriod = latestQ.period || 'Trailing';
         const ttmLabel = `${labelYear}${labelPeriod}`;
+
+        const derived = deriveFinancialMetrics({
+            income: ttmIncome,
+            balance: latestBalance,
+            cashflow: ttmCashflow,
+            metricsTTM: tickerMetricsTTM, // Use TTM metrics here
+            ratiosTTM: tickerRatiosTTM,
+            historicalIncome: historicalIncome,
+            historicalCashflow: historicalCashflow,
+            historicalBalance: historicalBalance,
+            periodType: 'TTM',
+            periodEndDate: latestQ.date
+        });
 
         rowsToUpsert.push({
           ticker,
@@ -119,7 +175,7 @@ export async function GET(req: Request) {
           period_label: ttmLabel, 
           period_end_date: latestQ.date,
           source: 'fmp_bulk',
-          ...metrics
+          ...derived
         });
         stats.ttm_built++;
       }
@@ -127,16 +183,68 @@ export async function GET(req: Request) {
 
     // 4. Persist
     console.log(`[financials-bulk] Upserting ${rowsToUpsert.length} rows...`);
+
+    // Deduplicate rows based on unique constraints (ticker, period_type, period_label)
+    const uniqueRowsMap = new Map();
+    rowsToUpsert.forEach(row => {
+        const key = `${row.ticker}-${row.period_type}-${row.period_label}`;
+        uniqueRowsMap.set(key, row);
+    });
+    const uniqueRows = Array.from(uniqueRowsMap.values());
+    console.log(`[financials-bulk] After deduplication: ${uniqueRows.length} rows (removed ${rowsToUpsert.length - uniqueRows.length} duplicates)`);
     
-    // Batch upsert (Supabase limit is usually fine with ~1000s, but better chunk if huge)
+    // Step 1: Initialize Progress Tracking
+    const totalTickers = activeTickers.length;
+    const completedTickers = new Set<string>();
+
     const CHUNK_SIZE = 1000;
-    for (let i = 0; i < rowsToUpsert.length; i += CHUNK_SIZE) {
-      const chunk = rowsToUpsert.slice(i, i + CHUNK_SIZE);
-      await upsertDatosFinancieros(supabaseAdmin, chunk);
+    for (let i = 0; i < uniqueRows.length; i += CHUNK_SIZE) {
+      const chunk = uniqueRows.slice(i, i + CHUNK_SIZE);
+      // Remove fcf_cagr as it's not in the database table
+      const dbChunk = chunk.map(({ fcf_cagr, ...row }) => row);
+      await upsertDatosFinancieros(supabaseAdmin, dbChunk);
+
+      // Step 2: Track Progress After Each Batch Upsert
+      for (const row of chunk) {
+        completedTickers.add(row.ticker);
+      }
+
+      const completed = completedTickers.size;
+      const percent = ((completed / totalTickers) * 100).toFixed(1);
+
+      console.log(
+        `[financials-bulk] Progress: ${completed} / ${totalTickers} tickers completed (${percent}%)`
+      );
+    }
+
+    // 5. Sync Growth to Snapshots (Critical for FGOS)
+    // FGOS reads growth from fintra_snapshots.fundamentals_growth
+    // We update the current snapshot with the calculated TTM CAGR.
+    const ttmRows = uniqueRows.filter(r => r.period_type === 'TTM');
+    if (ttmRows.length > 0) {
+        console.log(`[financials-bulk] Syncing growth metrics to today's snapshots for ${ttmRows.length} tickers...`);
+        const today = new Date().toISOString().slice(0, 10);
+        
+        // We do this one by one or in small batches. 
+        // Since it's an update, simple loop is safest for now (or Promise.all with concurrency limit).
+        // Using strict sequential to avoid overwhelming DB if many.
+        for (const row of ttmRows) {
+            const growth = {
+                revenue_cagr: row.revenue_cagr,
+                earnings_cagr: row.earnings_cagr,
+                fcf_cagr: row.fcf_cagr
+            };
+            
+            // Fire and forget update (soft sync)
+            await supabaseAdmin.from('fintra_snapshots')
+                .update({ fundamentals_growth: growth })
+                .eq('ticker', row.ticker)
+                .eq('snapshot_date', today);
+        }
     }
 
     return NextResponse.json({
-      message: 'Financials backfill complete',
+      message: 'Financials backfill complete (v1 Metrics Layer)',
       stats,
       sample: rowsToUpsert.slice(0, 2)
     });
@@ -145,98 +253,4 @@ export async function GET(req: Request) {
     console.error('[financials-bulk] Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
-
-function sumStatements(rows: any[]) {
-  const sum: any = {};
-  if (!rows.length) return sum;
-  
-  // Initialize with keys from first row
-  Object.keys(rows[0]).forEach(k => {
-    if (typeof rows[0][k] === 'number') sum[k] = 0;
-    else sum[k] = rows[0][k]; // Keep text/date from first (latest)
-  });
-
-  for (const row of rows) {
-    Object.keys(row).forEach(k => {
-      if (typeof row[k] === 'number') {
-        sum[k] = (sum[k] || 0) + row[k];
-      }
-    });
-  }
-  return sum;
-}
-
-function computeMetrics(inc: any, bal: any, cf: any) {
-  const revenue = inc.revenue;
-  const netIncome = inc.netIncome;
-  const opIncome = inc.operatingIncome;
-  const costOfRev = inc.costOfRevenue;
-  
-  const totalEquity = bal.totalStockholdersEquity;
-  const totalDebt = bal.totalDebt;
-  const totalAssets = bal.totalAssets; // Optional if needed for ROA
-  
-  const opCashFlow = cf.operatingCashFlow;
-  const capex = cf.capitalExpenditure;
-
-  // Derived
-  const grossMargin = div(revenue - costOfRev, revenue);
-  const operatingMargin = div(opIncome, revenue);
-  const netMargin = div(netIncome, revenue);
-  
-  const roe = div(netIncome, totalEquity);
-  // ROIC = NOPAT / Invested Capital. Proxy: Net Income / (Equity + Debt)
-  const roic = div(netIncome, (totalEquity || 0) + (totalDebt || 0));
-  
-  const fcf = (opCashFlow || 0) - (Math.abs(capex || 0)); // Capex is often negative in FMP?
-  // Check FMP convention: usually Capex is negative. fcf = ocf + capex.
-  // Wait, standard formula: FCF = OCF - Capex. 
-  // FMP often returns Capex as negative number.
-  // Let's check typical FMP response. If negative, we add it.
-  // Safest: FCF = OCF - Abs(Capex).
-  const fcfVal = (opCashFlow || 0) - Math.abs(capex || 0);
-  
-  const fcfMargin = div(fcfVal, revenue);
-  
-  const debtToEquity = div(totalDebt, totalEquity);
-  const interestCoverage = div(opIncome, inc.interestExpense);
-  
-  const bookValuePerShare = div(totalEquity, inc.weightedAverageShsOut || inc.weightedAverageShsOutDil);
-
-  return {
-    revenue,
-    net_income: netIncome,
-    gross_margin: grossMargin ? grossMargin * 100 : null, // FMP ratios are often %, but we calculated fractions.
-    // User schema expects numbers. FGOS engine expects numbers like 20.5 (%).
-    // Re-checking FGOS logic:
-    // ratios.operatingProfitMarginTTM comes from FMP. FMP returns 0.25 for 25%?
-    // Let's check normalizeValuation or similar.
-    // In types.ts: "FMP returns fractions: 0.20 = 20%".
-    // BUT FGOS benchmarks usually use percentiles like 10, 20, 30.
-    // Let's check `calculateMetricScore`: 
-    // `if (value <= stats.p10)`...
-    // If stats are stored as 20.0, and value is 0.2, comparison fails.
-    // I need to know the unit of `sector_benchmarks`.
-    // I recall sector benchmarks having values like `0.15` for margins in some logs, or `15`?
-    // `lib/engine/fgos-recompute.ts` imports `FmpRatios`.
-    // Let's check `lib/fmp/types.ts`: "Márgenes (en FMP vienen como fracciones: 0.20 = 20%)".
-    // If I calculate them manually, I get fractions (0.20).
-    // If FGOS expects fractions, I'm good.
-    // If FGOS expects percentages (20.0), I need to multiply.
-    // Let's check `sector_benchmarks` table data... I can't.
-    // Let's assume fractions because FMP returns fractions and we used `ratios.operatingProfitMarginTTM` directly before.
-    
-    operating_margin: operatingMargin,
-    net_margin: netMargin,
-    roe: roe,
-    roic: roic,
-    free_cash_flow: fcfVal,
-    fcf_margin: fcfMargin,
-    total_debt: totalDebt,
-    debt_to_equity: debtToEquity, // Ratio, e.g. 1.5
-    interest_coverage: interestCoverage,
-    total_equity: totalEquity,
-    book_value_per_share: bookValuePerShare
-  };
 }

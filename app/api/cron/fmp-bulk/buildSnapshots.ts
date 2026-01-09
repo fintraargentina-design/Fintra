@@ -44,6 +44,19 @@ export async function buildSnapshot(
 ): Promise<FinancialSnapshot> {
   console.log('🧪 SNAPSHOT START', sym);
 
+  // 🔍 DEBUG: Log missing components explicitly
+  const missingItems: string[] = [];
+  if (!profile) missingItems.push('Profile');
+  if (!ratios || Object.keys(ratios).length === 0) missingItems.push('Ratios');
+  if (!metrics || Object.keys(metrics).length === 0) missingItems.push('Metrics');
+  if (!scores || Object.keys(scores).length === 0) missingItems.push('Scores');
+  if (incomeGrowthRows.length === 0) missingItems.push('IncomeGrowth');
+  if (cashflowGrowthRows.length === 0) missingItems.push('CashflowGrowth');
+
+  if (missingItems.length > 0) {
+    console.warn(`⚠️ MISSING DATA [${sym}]: ${missingItems.join(', ')}`);
+  }
+
   const today = new Date().toISOString().slice(0, 10);
 
   /* --------------------------------
@@ -154,9 +167,14 @@ export async function buildSnapshot(
 
     profile_structural: profileStructural,
     market_snapshot: performance ?? null,
+    fundamentals_growth: fundamentalsGrowth,
 
     fgos_score: fgos?.fgos_score ?? null,
     fgos_components: fgos?.fgos_breakdown ?? null,
+    fgos_status: fgosStatus,
+    fgos_category: fgos?.fgos_category ?? null,
+    fgos_confidence: fgos?.confidence ?? null,
+    peers: null, // Pending implementation
 
     valuation: valuation,
     market_position: marketPosition,

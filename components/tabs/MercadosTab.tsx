@@ -12,48 +12,56 @@ import type { ExchangeMarketHours } from "@/lib/fmp/types";
 const MARKET_GROUPS = [
   {
     title: "INDICES US",
-    tickers: ["^GSPC", "^IXIC", "^DJI", "^RUT"],
+    tickers: ["^GSPC", "^IXIC", "^DJI", "^RUT", "^VIX"],
     names: { 
       "^GSPC": "S&P 500", 
       "^IXIC": "Nasdaq", 
       "^DJI": "Dow Jones", 
-      "^RUT": "Russell 2000" 
+      "^RUT": "Russell 2000",
+      "^VIX": "VIX Volatility"
     }
   },
   {
     title: "GLOBAL",
-    tickers: ["^FTSE", "^N225", "^MXX", "^MERV"],
+    tickers: ["^FTSE", "^N225", "^MXX", "^MERV", "^STOXX50E", "ASHR", "EWZ"],
     names: { 
       "^FTSE": "FTSE 100 (UK)", 
       "^N225": "Nikkei 225 (JP)", 
       "^MXX": "IPC (MX)", 
-      "^MERV": "Merval (AR)" 
+      "^MERV": "Merval (AR)",
+      "^STOXX50E": "Euro Stoxx 50",
+      "ASHR": "CSI 300 (China)",
+      "EWZ": "Brazil (EWZ)"
     }
   },
   {
     title: "COMMODITIES",
-    tickers: ["GCUSD", "CLUSD", "SIUSD", "NGUSD"],
+    tickers: ["GCUSD", "CLUSD", "SIUSD", "NGUSD", "HGUSD", "ZSUSX"],
     names: { 
       "GCUSD": "Oro", 
       "CLUSD": "Petróleo WTI", 
       "SIUSD": "Plata", 
-      "NGUSD": "Gas Natural" 
+      "NGUSD": "Gas Natural",
+      "HGUSD": "Cobre",
+      "ZSUSX": "Soja"
     }
   },
   {
     title: "FOREX & CRYPTO",
-    tickers: ["EURUSD", "USDJPY", "BTCUSD", "ETHUSD"],
+    tickers: ["EURUSD", "USDJPY", "BTCUSD", "ETHUSD", "DX-Y.NYB"],
     names: { 
       "EURUSD": "EUR/USD", 
       "USDJPY": "USD/JPY", 
       "BTCUSD": "Bitcoin", 
-      "ETHUSD": "Ethereum" 
+      "ETHUSD": "Ethereum",
+      "DX-Y.NYB": "DXY Index"
     }
   },
   {
     title: "BONOS US",
-    tickers: ["^TNX", "^TYX"],
+    tickers: ["US2YT", "^TNX", "^TYX"],
     names: { 
+      "US2YT": "Treasury 02Y",
       "^TNX": "Treasury 10Y", 
       "^TYX": "Treasury 30Y" 
     }

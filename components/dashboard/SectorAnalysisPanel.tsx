@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { getHeatmapColor } from "@/lib/utils";
 import { EnrichedStockData } from "@/lib/services/stock-enrichment";
 import { supabase } from "@/lib/supabase";
-import { getAvailableSectors, getTickersBySector } from "@/lib/repository/fintra-db";
+import { getAvailableSectors } from "@/lib/repository/fintra-db";
 import { Loader2 } from "lucide-react";
 
 export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?: (symbol: string) => void }) {
@@ -57,36 +57,51 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
       setLoading(true);
       
       try {
-        // Fetch tickers from DB for this sector
-        const tickers = await getTickersBySector(selectedSector);
-        
-        if (tickers.length === 0) {
+        // Fetch snapshots directly for this sector (limit to recent/top to avoid URL length issues with IN clause)
+        // We order by created_at desc to get latest first, then we deduplicate by ticker client-side.
+        // Limit 10000 covers most active tickers without overloading.
+        const { data: snapshots, error } = await supabase
+          .from('fintra_snapshots')
+          .select('ticker, fgos_score, valuation, investment_verdict, created_at')
+          .eq('sector', selectedSector)
+          .order('created_at', { ascending: false })
+          .limit(10000);
+
+        if (error) {
+            console.error("Error fetching snapshots:", error);
+            throw error;
+        }
+
+        if (!snapshots || snapshots.length === 0) {
              if (mounted) setStocks([]);
              return;
         }
-        const { data: snapshots } = await supabase
-          .from('fintra_snapshots')
-          .select('ticker, fgos_score, valuation_status, verdict_text, calculated_at')
-          .in('ticker', tickers)
-          .order('calculated_at', { ascending: false });
 
+        // Deduplicate: Keep only the first (latest) entry for each ticker
+        const snapMap = new Map<string, any>();
+        const uniqueTickers: string[] = [];
+        
+        snapshots.forEach((row: any) => {
+          if (!snapMap.has(row.ticker)) {
+            snapMap.set(row.ticker, row);
+            uniqueTickers.push(row.ticker);
+          }
+        });
+        
+        // Fetch ecosystem scores for these unique tickers
+        // Chunking usually not needed for <2000 items in body, but keep in mind if it grows.
         const { data: eco } = await supabase
           .from('fintra_ecosystem_reports')
           .select('ticker, ecosystem_score, date')
-          .in('ticker', tickers)
+          .in('ticker', uniqueTickers)
           .order('date', { ascending: false });
-
-        const snapMap = new Map<string, any>();
-        (snapshots || []).forEach((row: any) => {
-          if (!snapMap.has(row.ticker)) snapMap.set(row.ticker, row);
-        });
 
         const ecoMap = new Map<string, number>();
         (eco || []).forEach((row: any) => {
           if (!ecoMap.has(row.ticker)) ecoMap.set(row.ticker, row.ecosystem_score);
         });
 
-        const enriched: EnrichedStockData[] = tickers.map((t) => {
+        const enriched: EnrichedStockData[] = uniqueTickers.map((t) => {
           const s = snapMap.get(t) || {};
           const e = ecoMap.get(t);
           return {
@@ -99,12 +114,13 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
             estimation: 0,
             targetPrice: 0,
             fgos: s?.fgos_score ?? 0,
-            valuation: s?.valuation_status ?? "N/A",
+            valuation: s?.valuation?.valuation_status ?? "N/A",
             ecosystem: e ?? 50
           };
         });
 
         if (mounted) {
+          // Sort by FGOS descending
           setStocks(enriched.sort((a, b) => b.fgos - a.fgos));
         }
       } catch (err) {
