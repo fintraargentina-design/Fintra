@@ -1,6 +1,9 @@
 // app/api/fmp/eod/route.ts
 import { NextResponse } from "next/server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const BASE = process.env.FMP_BASE_URL ?? "https://financialmodelingprep.com";
 const KEY = process.env.FMP_API_KEY!;
 
@@ -51,6 +54,7 @@ async function fetchText(url: string) {
 export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
   const symbol = sp.get("symbol")?.toUpperCase();
+  console.log(`[API] /api/fmp/eod hit for symbol: ${symbol}`);
   const limit = sp.get("limit") ? Math.max(1, Math.min(10000, Number(sp.get("limit")))) : undefined;
 
   if (!symbol) return NextResponse.json({ error: "symbol is required" }, { status: 400 });

@@ -1,154 +1,154 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { fmp } from '@/lib/fmp/client';
-import type { PerformanceResponse } from '@/lib/fmp/types';
+import { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { getHeatmapColor, HeatmapDirection } from "@/lib/ui/heatmap";
 
-// ─────────────────────────────────────────────
-// Config
-// ─────────────────────────────────────────────
-const PERIODS = ['1M', '3M', 'YTD', '1Y', '3Y', '5Y'] as const;
-type Period = typeof PERIODS[number];
+// --- TYPES (Same as FundamentalCard/ValoracionCard) ---
+type TimelineResponse = {
+  ticker: string;
+  currency: string;
+  years: {
+    year: number;
+    tone: "light" | "dark";
+    columns: string[];
+  }[];
+  metrics: {
+    key: string;
+    label: string;
+    unit: string;
+    category: string;
+    priority: "A" | "B" | "C";
+    heatmap: {
+      direction: "higher_is_better" | "lower_is_better";
+      scale: "relative_row";
+    };
+    values: {
+      [periodLabel: string]: {
+        value: number | null;
+        display: string | null;
+        normalized: number | null;
+        period_type: "Q" | "TTM" | "FY" | null;
+        period_end_date?: string;
+      };
+    };
+  }[];
+};
 
-/**
- * Función para obtener el color basado en el score de desempeño
- */
-function getScoreColor(score: number): string {
-  if (score >= 70) return '#22c55e'; // Verde
-  if (score >= 40) return '#f59e0b'; // Amarillo
-  return '#ef4444'; // Rojo
-}
+export default function DesempenoCard({ symbol, scrollRef }: { symbol: string; scrollRef?: React.RefObject<HTMLDivElement> }) {
+  const [data, setData] = useState<TimelineResponse | null>(null);
+  const [loading, setLoading] = useState(true);
 
-/**
- * Función para obtener el nivel basado en el score de desempeño
- */
-function getScoreLevel(score: number): string {
-  if (score >= 70) return 'Positivo';
-  if (score >= 40) return 'Neutral';
-  return 'Negativo';
-}
-
-/**
- * Función para calcular el score de desempeño basado en el retorno
- */
-function gradeFromReturn(period: Period, retPct: number | null): number {
-  if (retPct == null || !Number.isFinite(retPct)) return 50;
-  
-  const SCALE: Record<Period, { min: number; max: number }> = {
-    '1M': { min: -20, max: 20 },
-    '3M': { min: -30, max: 30 },
-    'YTD': { min: -50, max: 50 },
-    '1Y': { min: -50, max: 50 },
-    '3Y': { min: -60, max: 60 },
-    '5Y': { min: -100, max: 150 },
-  };
-  
-  const { min, max } = SCALE[period];
-  const score01 = (retPct - min) / (max - min);
-  return Math.max(0, Math.min(100, Math.round(100 * Math.max(0, Math.min(1, score01)))));
-}
-
-// ─────────────────────────────────────────────
-// Componente
-// ─────────────────────────────────────────────
-export default function DesempenoCard({ symbol }: { symbol: string }) {
-  const [data, setData] = React.useState<PerformanceResponse | null>(null);
-  const [loading, setLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    let alive = true;
-    setLoading(true);
+  useEffect(() => {
+    let mounted = true;
     
-    fmp.performance(symbol, 'force-cache')
-      .then((d) => { 
-        console.log(`[DesempenoCard] Data received for ${symbol}:`, d);
-        if (alive) setData(d); 
-      })
-      .catch((err) => { 
-        console.error(`[DesempenoCard] Error fetching for ${symbol}:`, err);
-        if (alive) setData(null); 
-      })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/analysis/fundamentals-timeline?ticker=${symbol}`);
+        if (!res.ok) {
+            console.error("Failed to fetch fundamentals timeline");
+            return;
+        }
+        const json = await res.json();
+        
+        if (mounted) {
+            setData(json);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    fetchData();
+
+    return () => { mounted = false; };
   }, [symbol]);
 
-  /**
-   * Función para construir las métricas de desempeño para mostrar en tarjetas
-   */
-  const buildPerformanceMetrics = () => {
-    if (!data?.returns) return [];
-    
-    return PERIODS.map(period => {
-      const ret = data.returns[period];
-      const score = gradeFromReturn(period, ret);
-      
-      return {
-        label: `Desempeño ${period}`,
-        value: ret,
-        display: ret != null ? `${ret.toFixed(2)}%` : 'N/A',
-        score,
-        period
-      };
-    });
-  };
-
-  const performanceMetrics = buildPerformanceMetrics();
-  console.log(`[DesempenoCard] Metrics built for ${symbol}:`, performanceMetrics);
-
-  const getHeatmapColor = (score: number) => {
-    if (score >= 90) return "#008000"; 
-    if (score >= 80) return "#006600"; 
-    if (score >= 70) return "#004D00"; 
-    if (score >= 60) return "#003300"; 
-    if (score >= 50) return "#001A00"; 
-    if (score <= 10) return "#800000"; 
-    if (score <= 20) return "#660000"; 
-    if (score <= 30) return "#4D0000"; 
-    if (score <= 40) return "#330000"; 
-    return "#1A0000";
-  };
+  // Filter for performance metrics
+  const performanceMetrics = data?.metrics?.filter(m => m.category === "performance") || [];
+  
+  // Identify the performance columns (year 9999 or implicit from values)
+  // The backend sends a specific year group for performance (usually 9999)
+  const perfYearGroup = data?.years?.find(y => y.year === 9999);
+  const columns = perfYearGroup?.columns || [];
 
   return (
-    <div className="w-full">
-      {loading ? (
-        <div className="h-32 grid place-items-center text-gray-500 text-sm">
-          Cargando datos de desempeño...
-        </div>
-      ) : !data ? (
-        <div className="h-32 grid place-items-center text-gray-500 text-sm">
-          No hay datos disponibles
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 border-b border-zinc-800">
-          {/* Rellenar con elementos vacíos si hay menos de 6 para mantener alineación */}
-          {[...performanceMetrics, ...Array(Math.max(0, 6 - performanceMetrics.length)).fill(null)].map((metric, index) => {
-            if (!metric) {
-               return <div key={`empty-${index}`} className="bg-transparent border-r border-zinc-800 last:border-r-0 h-24" />;
-            }
-            
-            const scoreLevel = getScoreLevel(metric.score);
-            
-            return (
-              <div 
-                key={index} 
-                className="relative flex flex-col items-center justify-center px-3 py-4 gap-2 cursor-pointer hover:brightness-110 transition-all border-r border-zinc-800 last:border-r-0 h-24"
-                style={{ backgroundColor: getHeatmapColor(metric.score) }}
-              >
-                <div className="text-white/70 text-[10px] font-medium text-center leading-none line-clamp-1 uppercase tracking-wider">
-                  {metric.label}
-                </div>
-                <div className="text-white text-lg font-bold tracking-tight leading-none">
-                  {metric.display}
-                </div>
-                <div className="text-[9px] text-white/90 font-medium uppercase tracking-wider bg-black/20 px-1.5 py-0.5 rounded leading-none">
-                  {scoreLevel}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+    <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden mt-0">
+      <div className="px-1 py-1 bg-white/[0.02] shrink-0">
+        <h4 className="text-xs font-medium text-gray-400 text-center">
+          Desempeño de <span className="text-[#FFA028]">{symbol}</span>
+        </h4>
+      </div>
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-0 scrollbar-thin">
+        <Table className="w-full text-sm border-collapse">
+          <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
+            <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
+              <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[120px] text-left">Desempeño</TableHead>
+              {columns.map(col => (
+                <TableHead 
+                  key={col} 
+                  className="px-2 text-gray-300 text-[10px] h-6 text-center whitespace-nowrap"
+                >
+                  {col}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+               <TableRow>
+                 <TableCell colSpan={100} className="text-center py-8 text-xs text-gray-500">
+                   <Loader2 className="w-4 h-4 animate-spin inline mr-2"/> Cargando desempeño...
+                 </TableCell>
+               </TableRow>
+            ) : performanceMetrics.length === 0 ? (
+                <TableRow>
+                    <TableCell colSpan={100} className="text-center py-8 text-xs text-gray-500">
+                        -
+                    </TableCell>
+                </TableRow>
+            ) : (
+              performanceMetrics.map((metric) => (
+                <TableRow 
+                  key={metric.key} 
+                  className="border-zinc-800 hover:bg-white/5 border-b"
+                >
+                  <TableCell className="font-bold text-gray-200 px-2 py-0.5 text-xs w-[120px] border-r border-zinc-800">
+                    {metric.label}
+                  </TableCell>
+                  {columns.map(col => {
+                      const cellData = metric.values[col];
+                      const direction: HeatmapDirection = metric.heatmap.direction === "lower_is_better" 
+                            ? "negative" 
+                            : "positive";
+                      return (
+                          <TableCell 
+                              key={col}
+                              className="text-center px-2 py-0.5 text-[10px] font-medium text-white h-8 border-x border-zinc-800/50"
+                              style={{ backgroundColor: getHeatmapColor(cellData?.normalized ?? null, direction) }}
+                          >
+                              {cellData?.display ?? "-"}
+                          </TableCell>
+                      );
+                  })}
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

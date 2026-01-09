@@ -162,12 +162,12 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
         </h4>
       </div>
 
-      <div className="shrink-0 bg-[#1D1D1D] border-b border-zinc-800">
-        <table className="w-full text-sm table-fixed">
-          <TableHeader className="bg-[#1D1D1D]">
+      <div className="flex-1 overflow-y-auto scrollbar-thin relative p-0 border border-t-0 border-zinc-800">
+        <table className="w-full text-sm">
+          <TableHeader className="sticky top-0 z-10 bg-[#1D1D1D]">
             <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
               <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[60px]">Ticker</TableHead>
-              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[70px]">Ranking Sectorial</TableHead>
+              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[70px]">Rank. Sectorial</TableHead>
               <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[80px]">Valuación</TableHead>
               <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[50px]">Ecosistema</TableHead>
               <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[60px]">Div. Yield</TableHead>
@@ -177,16 +177,13 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
               <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[70px]">Mkt Cap</TableHead>
             </TableRow>
           </TableHeader>
-        </table>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-0">
-        <table className="w-full text-sm table-fixed">
           <TableBody>
             {isLoading ? (
                 <TableRow className="border-zinc-800">
-                    <TableCell colSpan={9} className="text-center text-gray-500 py-8 text-xs">
-                        Cargando competidores...
+                    <TableCell colSpan={9} className="h-24 text-center">
+                        <div className="flex justify-center items-center gap-2 text-gray-400 text-xs">
+                           Cargando competidores...
+                        </div>
                     </TableCell>
                 </TableRow>
             ) : peers.length === 0 ? (

@@ -311,7 +311,7 @@ export default function ChartsTabHistoricos({
     const commonOptions = {
       backgroundColor: "transparent",
       animation: false,
-      grid: { left: '1%', right: '5%', top: '5%', bottom: '12%', containLabel: true },
+      grid: { left: '1%', right: '5%', top: '5%', bottom: '20%', containLabel: true },
       dataZoom: [{ type: 'inside', realtime: true, start: 0, end: 100 }],
       toolbox: {
         feature: {
@@ -328,7 +328,7 @@ export default function ChartsTabHistoricos({
         top: 0
       },
       legend: { 
-        bottom: 0, 
+        bottom: '10%', 
         left: 'center', 
         orient: 'horizontal', 
         icon: 'rect',
@@ -545,7 +545,7 @@ export default function ChartsTabHistoricos({
               key={r}
               onClick={() => setRange(r)}
               className={`
-                rounded-none border-b-2 px-3 py-1 text-xs transition-colors font-medium
+                rounded-none border-b-2 px-3 py-0 text-xs transition-colors font-medium
                 ${
                   range === r
                     ? 'bg-[#0056FF] text-white border-[#0056FF]'
@@ -569,7 +569,7 @@ export default function ChartsTabHistoricos({
               key={v.key}
               onClick={() => setView(v.key)}
               className={`
-                rounded-none border-b-2 px-3 py-1 text-xs transition-colors font-medium
+                rounded-none border-b-2 px-3 py-0 text-xs transition-colors font-medium
                 ${
                   view === v.key
                     ? 'bg-[#0056FF] text-white border-[#0056FF]'

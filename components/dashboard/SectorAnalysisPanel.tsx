@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { getHeatmapColor } from "@/lib/utils";
+import { getHeatmapColor, formatMarketCap } from "@/lib/utils";
 import { EnrichedStockData } from "@/lib/services/stock-enrichment";
 import { supabase } from "@/lib/supabase";
 import { getAvailableSectors } from "@/lib/repository/fintra-db";
@@ -18,18 +17,27 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
   const [loading, setLoading] = useState(false);
   const [loadingSectors, setLoadingSectors] = useState(true);
   
-  // 1. Load sectors from DB
+  // Pagination State
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const PAGE_SIZE = 100;
+
+  // Scroll Ref
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // 1. Load sectors
   useEffect(() => {
     let mounted = true;
     
-    const fetchSectors = async () => {
+    const fetchMetadata = async () => {
       setLoadingSectors(true);
       try {
         const availableSectors = await getAvailableSectors();
+        
         if (mounted) {
           if (availableSectors.length > 0) {
             setSectors(availableSectors);
-            // Default to "Technology" if exists, otherwise first one
             const defaultSector = availableSectors.find(s => s === "Technology") || availableSectors[0];
             setSelectedSector(defaultSector);
           } else {
@@ -37,103 +45,129 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
           }
         }
       } catch (err) {
-        console.error("Error loading sectors:", err);
+        console.error("Error loading metadata:", err);
       } finally {
         if (mounted) setLoadingSectors(false);
       }
     };
     
-    fetchSectors();
+    fetchMetadata();
     
     return () => { mounted = false; };
   }, []);
 
-  // 2. Load stocks when sector changes
-  useEffect(() => {
-    let mounted = true;
+  // 2. Load stocks when sector changes or pagination
+  const fetchData = async (pageNum: number, isNewSector: boolean) => {
     if (!selectedSector) return;
     
-    const fetchData = async () => {
-      setLoading(true);
-      
-      try {
-        // Fetch snapshots directly for this sector (limit to recent/top to avoid URL length issues with IN clause)
-        // We order by created_at desc to get latest first, then we deduplicate by ticker client-side.
-        // Limit 10000 covers most active tickers without overloading.
-        const { data: snapshots, error } = await supabase
-          .from('fintra_snapshots')
-          .select('ticker, fgos_score, valuation, investment_verdict, created_at')
-          .eq('sector', selectedSector)
-          .order('created_at', { ascending: false })
-          .limit(10000);
+    if (isNewSector) {
+        setLoading(true);
+        setStocks([]);
+    } else {
+        setIsFetchingMore(true);
+    }
+    
+    try {
+      const from = pageNum * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
 
-        if (error) {
-            console.error("Error fetching snapshots:", error);
-            throw error;
-        }
+      const { data: snapshots, error } = await supabase
+        .from('fintra_snapshots')
+        .select('ticker, fgos_score, valuation, investment_verdict, created_at')
+        .eq('sector', selectedSector)
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
-        if (!snapshots || snapshots.length === 0) {
-             if (mounted) setStocks([]);
-             return;
-        }
+      if (error) throw error;
 
-        // Deduplicate: Keep only the first (latest) entry for each ticker
-        const snapMap = new Map<string, any>();
-        const uniqueTickers: string[] = [];
-        
-        snapshots.forEach((row: any) => {
-          if (!snapMap.has(row.ticker)) {
-            snapMap.set(row.ticker, row);
-            uniqueTickers.push(row.ticker);
-          }
-        });
-        
-        // Fetch ecosystem scores for these unique tickers
-        // Chunking usually not needed for <2000 items in body, but keep in mind if it grows.
-        const { data: eco } = await supabase
-          .from('fintra_ecosystem_reports')
-          .select('ticker, ecosystem_score, date')
-          .in('ticker', uniqueTickers)
-          .order('date', { ascending: false });
-
-        const ecoMap = new Map<string, number>();
-        (eco || []).forEach((row: any) => {
-          if (!ecoMap.has(row.ticker)) ecoMap.set(row.ticker, row.ecosystem_score);
-        });
-
-        const enriched: EnrichedStockData[] = uniqueTickers.map((t) => {
-          const s = snapMap.get(t) || {};
-          const e = ecoMap.get(t);
-          return {
-            ticker: t,
-            name: t,
-            price: null as any,
-            marketCap: null as any,
-            ytd: null as any,
-            divYield: 0,
-            estimation: 0,
-            targetPrice: 0,
-            fgos: s?.fgos_score ?? 0,
-            valuation: s?.valuation?.valuation_status ?? "N/A",
-            ecosystem: e ?? 50
-          };
-        });
-
-        if (mounted) {
-          // Sort by FGOS descending
-          setStocks(enriched.sort((a, b) => b.fgos - a.fgos));
-        }
-      } catch (err) {
-        console.error("Error loading sector data:", err);
-      } finally {
-        if (mounted) setLoading(false);
+      if (!snapshots || snapshots.length === 0) {
+           setHasMore(false);
+           return;
       }
-    };
+      
+      if (snapshots.length < PAGE_SIZE) {
+          setHasMore(false);
+      }
 
-    fetchData();
+      const snapMap = new Map<string, any>();
+      const uniqueTickers: string[] = [];
+      
+      snapshots.forEach((row: any) => {
+        if (!snapMap.has(row.ticker)) {
+          snapMap.set(row.ticker, row);
+          uniqueTickers.push(row.ticker);
+        }
+      });
+      
+      const { data: eco } = await supabase
+        .from('fintra_ecosystem_reports')
+        .select('ticker, ecosystem_score, date')
+        .in('ticker', uniqueTickers)
+        .order('date', { ascending: false });
 
-    return () => { mounted = false; };
+      const ecoMap = new Map<string, number>();
+      (eco || []).forEach((row: any) => {
+        if (!ecoMap.has(row.ticker)) ecoMap.set(row.ticker, row.ecosystem_score);
+      });
+
+      const enriched: EnrichedStockData[] = uniqueTickers.map((t) => {
+        const s = snapMap.get(t) || {};
+        const e = ecoMap.get(t);
+        return {
+          ticker: t,
+          name: t,
+          price: null,
+          marketCap: null,
+          ytd: null,
+          divYield: 0,
+          estimation: 0,
+          targetPrice: 0,
+          fgos: s?.fgos_score ?? 0,
+          valuation: s?.valuation?.valuation_status ?? "N/A",
+          ecosystem: e ?? 50
+        };
+      });
+
+      setStocks(prev => {
+        if (isNewSector) {
+          return enriched.sort((a, b) => b.fgos - a.fgos);
+        }
+        
+        // Evitar duplicados revisando si el ticker ya existe
+        const existingTickers = new Set(prev.map(p => p.ticker));
+        const newUnique = enriched.filter(e => !existingTickers.has(e.ticker));
+        
+        return [...prev, ...newUnique].sort((a, b) => b.fgos - a.fgos);
+      });
+    } catch (err) {
+      console.error("Error loading sector data:", err);
+    } finally {
+      setLoading(false);
+      setIsFetchingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    setPage(0);
+    setHasMore(true);
+    fetchData(0, true);
   }, [selectedSector]);
+
+  const handleScroll = () => {
+      if (scrollContainerRef.current) {
+          const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+          if (scrollTop + clientHeight >= scrollHeight - 50 && hasMore && !isFetchingMore && !loading) {
+              const nextPage = page + 1;
+              setPage(nextPage);
+              fetchData(nextPage, false);
+          }
+      }
+  };
+
+
+  const handleSectorChange = (val: string) => {
+    setSelectedSector(val);
+  };
 
   const getFgosColor = (s: number) => 
     s >= 70 ? "bg-green-500/10 text-green-400 border-green-500/20" : 
@@ -143,14 +177,8 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
   const getValBadge = (v: string) => {
     if (v === "Undervalued" || v === "Infravalorada") return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Infravalorada</Badge>;
     if (v === "Fair" || v === "Justa") return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Justa</Badge>;
+    if (v === "N/A") return <span className="text-gray-500 text-[10px]">-</span>;
     return <Badge className="text-red-400 bg-red-400/10 border-red-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Sobrevalorada</Badge>;
-  };
-
-  const formatMarketCap = (val: number) => {
-    if (val >= 1e12) return `${(val / 1e12).toFixed(1)}T`;
-    if (val >= 1e9) return `${(val / 1e9).toFixed(1)}B`;
-    if (val >= 1e6) return `${(val / 1e6).toFixed(1)}M`;
-    return val.toFixed(0);
   };
 
   if (loadingSectors) {
@@ -161,17 +189,11 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
       );
   }
 
-  if (sectors.length === 0) {
-      return (
-        <div className="w-full h-full flex items-center justify-center bg-tarjetas text-gray-400 text-xs">
-            No hay datos sectoriales disponibles.
-        </div>
-      );
-  }
-
   return (
     <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden shadow-sm">
-      <Tabs value={selectedSector} onValueChange={setSelectedSector} className="w-full h-full flex flex-col">
+
+
+      <Tabs value={selectedSector} onValueChange={handleSectorChange} className="w-full flex-1 flex flex-col min-h-0">
         <div className="w-full border-b border-zinc-800 bg-transparent z-10 shrink-0">
           <div className="w-full overflow-x-auto scrollbar-thin whitespace-nowrap">
             <TabsList className="bg-transparent h-auto p-0 flex min-w-full w-max gap-0.5 border-b-2 border-black ">
@@ -190,16 +212,20 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
 
         <div className="py-1 bg-white/[0.02] shrink-0 border border-t-0 border-b-0 border-zinc-800">
           <h4 className="text-xs font-medium text-gray-400 text-center">
-            Acciones del sector <span className="text-[#FFA028]">{selectedSector}</span>
+            <span>Acciones del sector <span className="text-[#FFA028]">{selectedSector}</span> ({stocks.length})</span>
           </h4>
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-thin relative p-0 border border-t-0 border-zinc-800">
+        <div 
+          className="flex-1 overflow-y-auto scrollbar-thin relative p-0 border border-t-0 border-zinc-800"
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+        >
           <table className="w-full text-sm">
             <TableHeader className="sticky top-0 z-10 bg-[#1D1D1D]">
               <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[60px]">Ticker</TableHead>
-                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[70px]">Ranking Sectorial</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[80px]">Rank. Sectorial</TableHead>
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[80px]">Valuación</TableHead>
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[50px]">Ecosistema</TableHead>
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[60px]">Div. Yield</TableHead>
@@ -227,7 +253,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                   <TableCell className="font-bold text-white px-2 py-0.5 text-xs">{stock.ticker}</TableCell>
                   <TableCell 
                     className="text-center px-2 py-0.5 text-[10px] font-bold text-white"
-                    style={{ backgroundColor: getHeatmapColor(stock.fgos - 50) }}
+                    style={{ backgroundColor: stock.fgos ? getHeatmapColor(stock.fgos - 50) : 'transparent' }}
                   >
                     {stock.fgos || '-'}
                   </TableCell>
@@ -242,7 +268,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                   </TableCell>
                   <TableCell 
                     className="text-center px-2 py-0.5 text-[10px] font-medium text-white"
-                    style={{ backgroundColor: getHeatmapColor(stock.estimation) }}
+                    style={{ backgroundColor: stock.estimation ? getHeatmapColor(stock.estimation) : 'transparent' }}
                   >
                     {stock.estimation ? `${stock.estimation > 0 ? '+' : ''}${stock.estimation.toFixed(1)}%` : '-'}
                   </TableCell>
@@ -250,8 +276,8 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                     {stock.price != null ? `$${Number(stock.price).toFixed(2)}` : '-'}
                   </TableCell>
                   <TableCell 
-                    className="text-right px-2 py-0.5 text-[10px] font-medium text-white"
-                    style={{ backgroundColor: getHeatmapColor(stock.ytd) }}
+                    className="text-center px-2 py-0.5 text-[10px] font-medium text-white"
+                    style={{ backgroundColor: stock.ytd ? getHeatmapColor(stock.ytd) : 'transparent' }}
                   >
                     {stock.ytd != null ? `${stock.ytd >= 0 ? "+" : ""}${Number(stock.ytd).toFixed(1)}%` : '-'}
                   </TableCell>
@@ -260,6 +286,22 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                   </TableCell>
                 </TableRow>
               ))}
+              {isFetchingMore && (
+                 <TableRow className="border-zinc-800">
+                  <TableCell colSpan={9} className="h-12 text-center text-gray-400 text-xs">
+                     <div className="flex justify-center items-center gap-2">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Cargando más...
+                     </div>
+                  </TableCell>
+                </TableRow>
+              )}
+              {!loading && !isFetchingMore && stocks.length === 0 && (
+                 <TableRow className="border-zinc-800">
+                  <TableCell colSpan={9} className="h-24 text-center text-gray-500 text-xs">
+                    No se encontraron resultados.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </table>
         </div>

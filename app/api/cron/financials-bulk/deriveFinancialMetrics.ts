@@ -45,7 +45,7 @@ export function deriveFinancialMetrics(params: {
   historicalIncome?: any[]; // Array of FY income statements
   historicalCashflow?: any[]; // Array of FY cashflow statements
   historicalBalance?: any[]; // Array of FY balance sheets
-  periodType: 'FY' | 'TTM';
+  periodType: 'FY' | 'TTM' | 'Q';
   periodEndDate: string;
 }) {
   const { 

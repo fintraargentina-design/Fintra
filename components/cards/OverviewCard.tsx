@@ -1,24 +1,10 @@
-// components/cards/OverviewCard.tsx
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, useMemo } from "react";
 import {
   Activity,
-  TrendingUp,
-  DollarSign,
-  TrendingUpDown,
-  Building2,
-  Percent,
-  SquareArrowOutUpRight,
-  User,
-  FileText,
-  BarChart3,
-  Search,
-  TextCursorInput,
-  RefreshCw,
 } from "lucide-react";
 
 import { fmp } from "@/lib/fmp/client";
@@ -114,23 +100,6 @@ function normalizeProfile(p: Profile | null): Profile {
   };
 }
 
-function formatLargeNumber(num?: number) {
-  if (!Number.isFinite(Number(num))) return "N/A";
-  const n = Number(num);
-  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
-  if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
-  if (n >= 1e3) return `$${(n / 1e3).toFixed(2)}K`;
-  return `$${n.toLocaleString()}`;
-}
-
-function formatPercentage(value?: number) {
-  if (!Number.isFinite(Number(value))) return "N/A";
-  const v = Number(value);
-  const sign = v >= 0 ? "+" : "";
-  return `${sign}${v.toFixed(2)}%`;
-}
-
 export default function OverviewCard({
   selectedStock,
   onStockSearch,
@@ -151,42 +120,12 @@ export default function OverviewCard({
   const [snapshot, setSnapshot] = useState<FintraSnapshotDB | null>(null);
   const [snapshotLoading, setSnapshotLoading] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<"overview" | "analysis">(
-    "overview",
-  );
-  const [editingField, setEditingField] = useState<string | null>(null);
-  const [searchValue, setSearchValue] = useState("");
-  const [tickerInput, setTickerInput] = useState("");
-  const [isTickerFocused, setIsTickerFocused] = useState(false);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-
   // símbolo actual robusto
   const currentSymbol = useMemo(() => {
     if (typeof selectedStock === "string")
       return selectedStock?.toUpperCase?.() || "";
     return (selectedStock?.symbol || "").toUpperCase();
   }, [selectedStock]);
-
-  // input ticker
-  const handleTickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setTickerInput(e.target.value.toUpperCase());
-  };
-  const handleTickerKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && tickerInput.trim() && onStockSearch) {
-      onStockSearch(tickerInput.trim());
-      setTickerInput("");
-      setIsTickerFocused(false);
-    }
-  };
-  const handleTickerFocus = () => {
-    setIsTickerFocused(true);
-    setTickerInput("");
-  };
-  const handleTickerBlur = () => {
-    setIsTickerFocused(false);
-    if (!tickerInput.trim()) setTickerInput("");
-  };
 
   const data = useMemo(() => {
     // Si tenemos profile y tiene símbolo válido, lo usamos
@@ -248,9 +187,6 @@ export default function OverviewCard({
     };
   }, [profile, currentSymbol]);
 
-  const [chartType, setChartType] = useState<"line" | "area">("area");
-  const [chartRange, setChartRange] = useState<"1D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "5Y" | "ALL">("1Y");
-
   // Sync data with selectedStock prop changes
   useEffect(() => {
     if (selectedStock && typeof selectedStock === 'object') {
@@ -307,13 +243,10 @@ export default function OverviewCard({
       }
 
       // Check if we already have full data from props (selectedStock)
-      // If selectedStock is an object and has companyName/price, we assume it's the full profile.
-      // We still need to fetch scores.
       const hasFullProfile = selectedStock && typeof selectedStock === 'object' && 'companyName' in selectedStock;
 
       console.log(`[OverviewCard] Starting fetch for symbol: ${currentSymbol}. Has full profile? ${hasFullProfile}`);
       
-      // If we don't have profile, show loading. If we do, we might just be updating scores in background.
       if (!hasFullProfile) {
           setLoading(true);
       }
@@ -343,11 +276,6 @@ export default function OverviewCard({
             const profileArr = results[1];
             const quoteArr = results[2];
             
-            console.log("[OverviewCard] API Responses:", { 
-                profileLength: Array.isArray(profileArr) ? profileArr.length : 'not-array', 
-                quoteLength: Array.isArray(quoteArr) ? quoteArr.length : 'not-array'
-            });
-
             let rawProfile = null;
             if (Array.isArray(profileArr)) {
                 rawProfile = profileArr.length > 0 ? profileArr[0] : null;
@@ -379,7 +307,6 @@ export default function OverviewCard({
 
       } catch (err: any) {
         console.error("Error fetching company data:", err);
-        // Only set error if we don't have profile data to show
         if (active && !hasFullProfile) setError("Error al cargar los datos de la empresa");
       } finally {
         if (active) setLoading(false);
@@ -390,65 +317,11 @@ export default function OverviewCard({
     };
   }, [currentSymbol, selectedStock]);
 
-  // edición inline de campos N/A → buscador ticker
-  const handleNAClick = (fieldName: string) => {
-    setEditingField(fieldName);
-    setSearchValue("");
-  };
-  
-  /**
-   * Maneja la búsqueda de acciones con mejor manejo de errores
-   */
-  const handleSearch = async () => {
-    if (searchValue.trim() && onStockSearch) {
-      setSearchLoading(true);
-      setSearchError(null);
-      try {
-        await onStockSearch(searchValue.trim().toUpperCase());
-        setEditingField(null);
-        setSearchValue("");
-      } catch (error) {
-        console.error('Error en búsqueda de ticker:', error);
-        
-        // Proporcionar mensajes de error más específicos
-        let errorMessage = "Error al buscar el ticker";
-        
-        if (error instanceof Error) {
-          if (error.message.includes('API key')) {
-            errorMessage = "Error de configuración de API";
-          } else if (error.message.includes('network') || error.message.includes('fetch')) {
-            errorMessage = "Error de conexión";
-          } else if (error.message.includes('not found') || error.message.includes('no encontrado')) {
-            errorMessage = "Ticker no encontrado";
-          } else if (error.message.includes('rate limit') || error.message.includes('límite')) {
-            errorMessage = "Límite de consultas excedido";
-          } else {
-            errorMessage = error.message;
-          }
-        }
-        
-        setSearchError(errorMessage);
-      } finally {
-        setSearchLoading(false);
-      }
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") handleSearch();
-    if (e.key === "Escape") {
-      setEditingField(null);
-      setSearchValue("");
-      setSearchError(null);
-    }
-  };
-
-  // AHORA sí podemos hacer returns condicionales basados en estado
   if ((loading || isParentLoading) && !data.symbol) {
     return (
-      <Card className="bg-tarjetas border-none flex items-center justify-center w-full h-[52px]">
+      <Card className="bg-tarjetas border-none flex items-center justify-center w-full h-full">
         <CardContent className="p-0 flex items-center justify-center w-full h-full">
-          <div className="h-32 grid place-items-center text-gray-500 text-sm">
+          <div className="text-gray-500 text-sm">
             Cargando ticker...
           </div>
         </CardContent>
@@ -458,264 +331,21 @@ export default function OverviewCard({
 
   if (error) {
     return (
-      <Card className="bg-tarjetas flex items-center flex-col w-full justify-between p-0 max-h-[36px]">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-center h-32">
-            <div className="text-red-400">{error}</div>
-          </div>
+      <Card className="bg-tarjetas flex items-center flex-col w-full justify-between p-0 h-full">
+        <CardContent className="p-0 flex items-center justify-center w-full h-full">
+          <div className="text-red-400">{error}</div>
         </CardContent>
       </Card>
     );
   }
 
-  // campo editable con buscador
-  const renderEditableField = (value: any, fieldName: string) => {
-    if (editingField === fieldName) {
-      if (searchLoading) {
-        return (
-          <div className="px-3 py-2 bg-Tarjeta text-[#FFA028] text-sm flex items-center space-x-2">
-            <RefreshCw className="w-3 h-3 animate-spin" />
-            <span>Cargando Ticker...</span>
-          </div>
-        );
-      }
-      return (
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <Input
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder="Buscar ticker..."
-              className="h-32 grid place-items-center text-gray-500 text-sm"
-              autoFocus
-            />
-            <Search
-              className="w-4 h-4 text-gray-400 cursor-pointer hover:text-[#FFA028]"
-              onClick={handleSearch}
-            />
-          </div>
-          {searchError && (
-            <span className="text-red-400 text-xs">{searchError}</span>
-          )}
-        </div>
-      );
-    }
-
-    if (value === undefined || value === null || value === "N/A" || value === "") {
-      return (
-        <span
-          className="text-gray-500 cursor-pointer hover:text-[#FFA028] transition-colors"
-          onClick={() => {
-            handleNAClick(fieldName);
-            setSearchError(null);
-          }}
-        >
-          N/A
-        </span>
-      );
-    }
-
-    return <span className="text-white">{value}</span>;
-  };
-
-  // tabs
-  const renderOverviewContent = () => (
-    <div className="flex flex-col gap-2 p-2 bg-black/40">
-      
-      {/* Fila Superior: Perfil y Descripción */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
-        {/* Columna Izquierda: Información Corporativa (Combinada) */}
-        <div className="lg:col-span-4 bg-tarjetas p-3 rounded-md border border-gray-700/30 flex flex-col gap-3">
-          <h3 className="text-[#FFA028] text-sm font-semibold flex items-center gap-2 border-b border-gray-800 pb-1">
-            Perfil Corporativo
-          </h3>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-             <div className="flex flex-col">
-                <span className="text-gray-500 text-[10px]">Sector</span>
-                {renderEditableField(data.sector, "sector")}
-             </div>
-             <div className="flex flex-col">
-                <span className="text-gray-500 text-[10px]">Industria</span>
-                {renderEditableField(data.industry, "industry")}
-             </div>
-             <div className="flex flex-col">
-                <span className="text-gray-500 text-[10px]">CEO</span>
-                {renderEditableField(data.ceo, "ceo")}
-             </div>
-             <div className="flex flex-col">
-                <span className="text-gray-500 text-[10px]">Empleados</span>
-                {renderEditableField(
-                  Number.isFinite(Number(data.fullTimeEmployees))
-                    ? Number(data.fullTimeEmployees).toLocaleString()
-                    : undefined,
-                  "employees",
-                )}
-             </div>
-             <div className="flex flex-col">
-                <span className="text-gray-500 text-[10px]">País</span>
-                {renderEditableField(data.country, "country")}
-             </div>
-             <div className="flex flex-col">
-                <span className="text-gray-500 text-[10px]">Sitio Web</span>
-                {data.website ? (
-                  <a
-                    href={data.website.startsWith("http") ? data.website : `https://${data.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#FFA028] hover:underline truncate"
-                  >
-                    {String(data.website).replace(/^https?:\/\//, "").replace(/\/$/, "")}
-                  </a>
-                ) : renderEditableField(null, "website")}
-             </div>
-             {/* Info Adicional Compacta */}
-             <div className="flex flex-col">
-                <span className="text-gray-500 text-[10px]">ISIN</span>
-                <span className="text-zinc-300 font-mono">{data.isin || "N/A"}</span>
-             </div>
-             <div className="flex flex-col">
-                <span className="text-gray-500 text-[10px]">CIK</span>
-                <span className="text-zinc-300 font-mono">{data.cik || "N/A"}</span>
-             </div>
-          </div>
-        </div>
-
-        {/* Columna Derecha: Descripción */}
-        <div className="lg:col-span-8 bg-tarjetas p-3 rounded-md border border-gray-700/30 flex flex-col">
-           <div className="flex justify-between items-center mb-2 border-b border-gray-800 pb-1">
-              <h3 className="text-[#FFA028] text-sm font-semibold">Descripción</h3>
-              <div className="flex gap-4 text-xs">
-                 <div className="flex gap-1">
-                    <span className="text-gray-500">Fundada:</span>
-                    {renderEditableField(data.ipoDate, "ipoDate")}
-                 </div>
-                 <div className="flex gap-1">
-                    <span className="text-gray-500">Exchange:</span>
-                    {renderEditableField(data.exchange, "exchange")}
-                 </div>
-              </div>
-           </div>
-           <p className="text-gray-300 text-xs leading-relaxed text-justify overflow-y-auto max-h-[140px] pr-1 scrollbar-thin">
-              {data.description || "No hay descripción disponible."}
-           </p>
-        </div>
-      </div>
-
-      {/* Fila Media: Métricas Financieras (Grid de 3 columnas) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-          {/* Valoración */}
-          <div className="bg-tarjetas p-2 rounded-md border border-gray-700/30">
-            <h4 className="text-gray-400 text-xs font-medium border-b border-gray-800 pb-1 mb-2 text-center">Valoración</h4>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-               <div className="flex flex-col items-center">
-                  <span className="text-gray-500 text-[10px]">Market Cap</span>
-                  <span className="text-[#FFA028] font-mono font-medium">{formatLargeNumber(data.marketCap)}</span>
-               </div>
-               <div className="flex flex-col items-center">
-                  <span className="text-gray-500 text-[10px]">Precio</span>
-                  <span className="text-[#FFA028] font-mono font-medium">
-                    {Number.isFinite(Number(data.price)) ? `$${Number(data.price).toFixed(2)}` : "N/A"}
-                  </span>
-               </div>
-               <div className="flex flex-col items-center col-span-2">
-                  <span className="text-gray-500 text-[10px]">Moneda</span>
-                  <span className="text-zinc-300">{data.currency || "N/A"}</span>
-               </div>
-            </div>
-          </div>
-
-          {/* Rendimiento */}
-          <div className="bg-tarjetas p-2 rounded-md border border-gray-700/30">
-            <h4 className="text-gray-400 text-xs font-medium border-b border-gray-800 pb-1 mb-2 text-center">Rendimiento</h4>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-               <div className="flex flex-col items-center">
-                  <span className="text-gray-500 text-[10px]">Var. $</span>
-                  <span className={`font-mono font-medium ${Number(data.change) >= 0 ? "text-green-400" : "text-red-400"}`}>
-                    {Number.isFinite(data.change) ? `$${Number(data.change).toFixed(2)}` : "N/A"}
-                  </span>
-               </div>
-               <div className="flex flex-col items-center">
-                  <span className="text-gray-500 text-[10px]">Var. %</span>
-                  <span className={`font-mono font-medium ${Number(data.changePercentage) >= 0 ? "text-green-400" : "text-red-400"}`}>
-                    {formatPercentage(data.changePercentage)}
-                  </span>
-               </div>
-               <div className="flex flex-col items-center col-span-2">
-                  <span className="text-gray-500 text-[10px]">Beta</span>
-                  <span className="text-[#FFA028] font-mono">{Number.isFinite(Number(data.beta)) ? Number(data.beta).toFixed(3) : "N/A"}</span>
-               </div>
-            </div>
-          </div>
-
-          {/* Volumen y Dividendos */}
-          <div className="bg-tarjetas p-2 rounded-md border border-gray-700/30">
-            <h4 className="text-gray-400 text-xs font-medium border-b border-gray-800 pb-1 mb-2 text-center">Volumen y Dividendos</h4>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-               <div className="flex flex-col items-center">
-                  <span className="text-gray-500 text-[10px]">Volumen</span>
-                  <span className="text-[#FFA028] font-mono">{Number.isFinite(Number(data.volume)) ? Number(data.volume).toLocaleString() : "N/A"}</span>
-               </div>
-               <div className="flex flex-col items-center">
-                  <span className="text-gray-500 text-[10px]">Dividendo</span>
-                  <span className="text-[#FFA028] font-mono">{Number.isFinite(Number(data.lastDividend)) ? `$${Number(data.lastDividend).toFixed(2)}` : "N/A"}</span>
-               </div>
-               <div className="flex flex-col items-center col-span-2">
-                  <span className="text-gray-500 text-[10px]">Rango 52s</span>
-                  <span className="text-zinc-300 font-mono text-[10px]">{data.range || "N/A"}</span>
-               </div>
-            </div>
-          </div>
-      </div>
-
-      {/* Fila Inferior: Scores y Fundamentales */}
-      {scoresData && (
-        <div className="bg-tarjetas p-3 rounded-md border border-gray-700/30">
-          <h3 className="text-[#FFA028] text-sm font-semibold mb-2 flex items-center gap-2 border-b border-gray-800 pb-1">
-            Scores Financieros y Fundamentales
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 text-xs">
-            {/* Items compactos */}
-            {[
-              { label: "Altman Z", value: scoresData.altmanZ, isScore: true, type: "altman" },
-              { label: "Piotroski", value: scoresData.piotroski, isScore: true, type: "piotroski" },
-              { label: "Activos", value: scoresData.raw?.totalAssets, isCurrency: true },
-              { label: "Pasivos", value: scoresData.raw?.totalLiabilities, isCurrency: true },
-              { label: "Ingresos", value: scoresData.raw?.revenue, isCurrency: true },
-              { label: "EBIT", value: scoresData.raw?.ebit, isCurrency: true },
-              { label: "Mkt Cap", value: scoresData.raw?.marketCap, isCurrency: true },
-              { label: "Working Cap", value: scoresData.raw?.workingCapital, isCurrency: true },
-            ].map((item, idx) => (
-              <div key={idx} className="bg-gray-800/40 p-1.5 rounded text-center flex flex-col justify-center min-h-[50px]">
-                <span className="text-gray-500 text-[10px] leading-tight mb-0.5">{item.label}</span>
-                <span className={`font-mono font-medium text-xs ${
-                    item.type === 'altman' ? 'text-green-400' : 
-                    item.type === 'piotroski' ? 'text-blue-400' : 
-                    'text-zinc-300'
-                }`}>
-                  {item.isScore 
-                    ? (item.value !== undefined && item.value !== null 
-                        ? (item.type === 'piotroski' ? `${item.value}/9` : Number(item.value).toFixed(2)) 
-                        : "N/A")
-                    : (item.value ? formatLargeNumber(item.value) : "N/A")
-                  }
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-
   return (
-    <Card className="w-full bg-tarjetas border-none rounded-none overflow-hidden shadow-sm px-0 py-0">
-      <CardContent className="p-0 flex flex-col">
-        <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-2 items-center h-full p-1 md:p-1 md:px-1 md:py-1">
-            {/* 1. STOCK: Logo, Ticker, Nombre, CEO */}
-            <div className="flex items-center gap-3">
-                  <div className="relative w-12 h-12 flex items-center justify-center bg-white/5 overflow-hidden rounded-md">
+    <Card className="bg-tarjetas border-none shadow-lg w-full h-full flex flex-col group relative overflow-hidden rounded-none">
+      <CardContent className="p-0 flex flex-col h-full">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr] gap-0 items-center border-b border-zinc-800 bg-black/10 h-full">
+            {/* 1. STOCK: Logo, Ticker, Nombre */}
+            <div className="flex items-center gap-3 px-1 border-r border-zinc-800 h-full">
+                  <div className="relative h-10 max-h-10 aspect-square flex items-center justify-center overflow-hidden border-none rounded-none shrink-0">
                     {data.image ? (
                       <img 
                         src={data.image} 
@@ -728,45 +358,44 @@ export default function OverviewCard({
                         }}
                       />
                     ) : null}
-                    <span className="fallback-text text-white font-bold text-sm" style={{ display: data.image ? 'none' : 'block' }}>
+                    <span className="fallback-text text-white font-bold text-xs" style={{ display: data.image ? 'none' : 'block' }}>
                       {(data.symbol || currentSymbol)?.slice(0, 2) || "??"}
                     </span>
                   </div>
-                <div className="flex flex-col min-w-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={onOpenSearchModal}>
-                    <div className="flex items-center gap-2">
-                        <span className="font-bold text-white text-lg leading-none">{data.symbol || currentSymbol || "N/A"}</span>
-                    </div>
-                    <span className="text-gray-400 text-xs leading-tight font-medium" title={data.companyName}>
+                <div className="flex flex-col min-w-0 justify-center">
+                    {/* <div className="flex items-center gap-2">
+                        <span className="font-bold text-white text-base leading-none">{data.symbol || currentSymbol || "N/A"}</span>
+                    </div> */}
+                    <span className="text-gray-400 text-[10px] leading-tight font-medium truncate max-w-[150px]" title={data.companyName}>
                         {data.companyName || (loading || isParentLoading ? "Cargando..." : "N/A")}
                     </span>
-                    {data.ceo && <span className="text-zinc-500 text-[10px] leading-tight truncate max-w-[150px] block">{data.ceo}</span>}
                 </div>
             </div>
 
             {/* 2. PRECIO */}
-            <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
-                <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-0.5">PRECIO</span>
-                <div className="text-lg font-bold text-white">
+            <div className="flex  items-center gap-1 justify-center px-1 border-r border-zinc-800 h-full">
+                {/* <span className="text-[9px] uppercase text-zinc-600 font-bold ">PRECIO</span> */}
+                <div className="text-base text-white leading-none">
                   {Number.isFinite(Number(data.price)) ? `$${Number(data.price).toFixed(2)}` : "N/A"}
                 </div>
-                <div className={`text-xs font-medium ${Number(data.change) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                <div className={`text-[10px] font-medium ${Number(data.change) >= 0 ? "text-green-400" : "text-red-400"}`}>
                   {Number(data.change) >= 0 ? "+" : ""}{Number(data.changePercentage).toFixed(2)}%
                 </div>
             </div>
 
             {/* 3. FGOS */}
-            <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
-                <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-0.5">FGOS SCORE</span>
+            <div className="flex items-center justify-center px-1 gap-1 border-r border-zinc-800 h-full">
+                <span className="text-[9px] uppercase text-zinc-600 font-bold">FSS</span>
                 {snapshotLoading ? (
                   <Skeleton className="h-6 w-10 bg-white/10 rounded-sm" />
                 ) : (
-                  <div className={`text-xl font-black ${getScoreColor(snapshot?.fgos_score ?? 0)}`}>{snapshot?.fgos_score ?? "-"}</div>
+                  <div className={`text-lg font-black leading-none ${getScoreColor(snapshot?.fgos_score ?? 0)}`}>{snapshot?.fgos_score ?? "-"}</div>
                 )}
             </div>
 
             {/* 4. VALUACIÓN */}
-            <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
-                <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-1.5">VALUACIÓN</span>
+            <div className="flex flex-col items-center justify-center px-2 border-r border-zinc-800 h-full">
+                <span className="text-[9px] uppercase text-zinc-600 font-bold tracking-widest mb-1.5">VALUACIÓN</span>
                 {snapshotLoading ? (
                   <Skeleton className="h-5 w-20 bg-white/10 rounded-full" />
                 ) : (
@@ -775,39 +404,36 @@ export default function OverviewCard({
             </div>
 
             {/* 5. VEREDICTO */}
-            <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4 text-center">
-                <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest mb-1">VERDICT FINTRA</span>
+            <div className="flex flex-col items-center justify-center px-2 border-r border-zinc-800 h-full text-center">
+                <span className="text-[9px] uppercase text-zinc-600 font-bold tracking-widest mb-1">VERDICT FINTRA</span>
                 {snapshotLoading ? (
-                  <Skeleton className="h-4 w-32 bg-white/10 rounded-sm" />
+                  <Skeleton className="h-4 w-24 bg-white/10 rounded-sm" />
                 ) : (
-                  <span className="text-white font-medium text-xs leading-tight max-w-[180px] line-clamp-2" title={snapshot?.verdict_text || "N/A"}>
+                  <span className="text-white font-medium text-[10px] leading-tight max-w-[150px] line-clamp-2" title={snapshot?.verdict_text || "N/A"}>
                       {snapshot?.verdict_text || "N/A"}
                   </span>
                 )}
             </div>
 
             {/* 6. EHS */}
-            <div className="flex flex-col items-center justify-center md:border-l md:border-gray-800/50 md:pl-4">
-                <span className="md:hidden text-[10px] uppercase text-gray-500 font-bold tracking-widest flex items-center gap-1 mb-0.5">
+            <div className="flex flex-col items-center justify-center px-2 h-full">
+                <span className="text-[9px] uppercase text-zinc-600 font-bold tracking-widest flex items-center gap-1 mb-0.5">
                     E.H.S. <Activity className="w-3 h-3 text-blue-400"/>
                 </span>
                 {snapshotLoading ? (
                   <Skeleton className="h-6 w-10 bg-white/10 rounded-sm" />
                 ) : (
-                   <>
-                      <div className="text-xl font-mono text-blue-400 font-bold">{snapshot?.ecosystem_score ?? "-"}</div>
-                      <span className="text-[9px] text-gray-500 font-medium mt-[-2px]">Salud del ecosistema</span>
-                   </>
+                   <div className="flex flex-col items-center">
+                      <div className="text-lg font-mono text-blue-400 font-bold leading-none">{snapshot?.ecosystem_score ?? "-"}</div>
+                      <span className="text-[8px] text-gray-500 font-medium mt-0.5 leading-none">Eco Health</span>
+                   </div>
                 )}
             </div>
-         </div>
+        </div>
 
-         {/* Detailed Information (Always visible) */}
-         <div className="w-full border-t border-gray-800">
-            {renderOverviewContent()}
-         </div>
+        {/* The Detailed Grid */}
+
       </CardContent>
     </Card>
   );
 }
-

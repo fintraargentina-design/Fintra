@@ -6,30 +6,29 @@ import { StockData, StockAnalysis, StockPerformance, searchStockData } from '@/l
 import NavigationBar from '@/components/layout/NavigationBar';
 import DatosTab from '@/components/tabs/DatosTab';
 import ChartsTabHistoricos from '@/components/tabs/ChartsTabHistoricos';
+import FGOSRadarChart from "@/components/charts/FGOSRadarChart";
 import NoticiasTab from '@/components/tabs/NoticiasTab';
-import MetodologiaTab from '../components/tabs/MetodologiaTab';
+import TwitsTab from '@/components/tabs/TwitsTab';
 import { supabase, registerStockSearch } from '@/lib/supabase';
 import { fmp } from '@/lib/fmp/client';
 import EcosystemCard from '@/components/cards/EcosystemCard';
-import CompetidoresCard from '@/components/cards/CompetidoresCard';
+import CompetidoresTab from '@/components/tabs/CompetidoresTab';
 import OverviewCard from '@/components/cards/OverviewCard';
-import EstimacionCard from '@/components/cards/EstimacionCard';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import { Button } from '@/components/ui/button';
-import { Settings } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 import SectorAnalysisPanel from '@/components/dashboard/SectorAnalysisPanel';
 import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
+import TickerSearchPanel from '@/components/dashboard/TickerSearchPanel';
 import StockSearchModal from '@/components/modals/StockSearchModal';
 import EstimacionTab from '@/components/tabs/EstimacionTab';
 import MercadosTab from '@/components/tabs/MercadosTab';
-import EmpresaTab from '@/components/tabs/EmpresaTab';
-import MarketHoursCard from '@/components/cards/MarketHoursCard';
-import IndicesTab from '@/components/tabs/IndicesTab';
+import ResumenTab from '@/components/tabs/ResumenTab';
 import { getLatestSnapshot, getEcosystemDetailed } from '@/lib/repository/fintra-db';
+import { User } from '@supabase/supabase-js';
 
-export type TabKey = 'resumen' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'mercados' | 'indices' | 'horarios' | 'empresa';
+export type TabKey = 'resumen' | 'competidores' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'indices' | 'horarios' | 'empresa';
 
 export default function StockTerminal() {
   const [selectedStock, setSelectedStock] = useState<string | { symbol: string }>('AAPL');
@@ -39,8 +38,8 @@ export default function StockTerminal() {
   const [stockEcosystem, setStockEcosystem] = useState<StockEcosystem | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<TabKey>('mercados');
-  const [user, setUser] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>('empresa');
+  const [user, setUser] = useState<User | null>(null);
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
@@ -96,18 +95,11 @@ export default function StockTerminal() {
     setStockAnalysis(null);
     setStockPerformance(null);
     setStockEcosystem(null);
-    // Opcional: limpiar también competidor seleccionado si se desea
-    // setSelectedCompetitor(null); 
 
     try {
       await registerStockSearch(sym);
 
       // Fetch Financial Data for Cards
-      // Lanzar fetch de datos fundamentales en paralelo (sin bloquear UI principal inmediatamente si se quisiera, 
-      // pero aquí lo haremos parte del flujo o separado según preferencia. 
-      // El usuario pidió Promise.all para no bloquear carga PRINCIPAL, lo que sugiere lanzarlo y esperar o lanzarlo separado.
-      // Vamos a lanzarlo junto con searchStockData o en paralelo.
-      
       const [result, fundamentals] = await Promise.all([
         searchStockData(sym),
         // Fetch explícito de Ratios y Metrics TTM
@@ -132,7 +124,6 @@ export default function StockTerminal() {
         setStockBasicData(result.basicData || null);
         setStockAnalysis(result.analysisData || null);
         setStockPerformance(result.performanceData || null);
-        // setStockEcosystem(result.ecosystemData);
 
         // --- INTEGRACIÓN FINTRA DB ---
         try {
@@ -174,8 +165,6 @@ export default function StockTerminal() {
                  clients: transformEco(ecoData.clients)
              });
           } else {
-             // Si no hay datos en DB, usar lo que venga de la API o mantener null para que EcosystemCard use sus mocks por defecto si se desea,
-             // o setear null explícitamente.
              setStockEcosystem(result.ecosystemData ?? null);
           }
         } catch (dbErr) {
@@ -213,7 +202,7 @@ export default function StockTerminal() {
     switch (activeTab) {
       case 'empresa':
         return (
-          <EmpresaTab 
+          <ResumenTab 
             stockBasicData={stockBasicData} 
             stockAnalysis={stockAnalysis}
             symbol={selectedSymbol}
@@ -222,6 +211,14 @@ export default function StockTerminal() {
             onStockSearch={buscarDatosAccion}
             onOpenSearchModal={() => setIsSearchOpen(true)}
             isLoading={isLoading}
+          />
+        );
+      case 'competidores':
+        return (
+          <CompetidoresTab
+            symbol={selectedSymbol}
+            onPeerSelect={setSelectedCompetitor}
+            selectedPeer={selectedCompetitor}
           />
         );
       case 'ecosistema':
@@ -257,17 +254,15 @@ export default function StockTerminal() {
             selectedStock={selectedStock}
           />
         );
-      case 'mercados':
-        return <MercadosTab />;
       default:
         return null;
     }
   };
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="h-screen w-full flex flex-col bg-black overflow-hidden">
       {/* Header responsivo */}
-      <div className="sticky top-0 z-50 bg-fondoDeTarjetas/95 backdrop-blur supports-[backdrop-filter]:bg-fondoDeTarjetas/60 pt-1">
+      <div className="shrink-0 z-50 bg-fondoDeTarjetas/95 backdrop-blur supports-[backdrop-filter]:bg-fondoDeTarjetas/60 pt-1">
         <Header 
           user={user}
           onAuth={handleAuth}
@@ -280,9 +275,9 @@ export default function StockTerminal() {
       </div>
 
       {/* Contenedor principal responsivo - Ancho completo */}
-      <div className="w-full px-2 h-[calc(100vh-72px)] overflow-hidden">
+      <div className="flex-1 w-full px-1 min-h-0 overflow-hidden relative">
         {error && (
-          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded text-red-400">
+          <div className="mb-0 p-0 bg-red-500/20 border border-red-500/30 rounded-none text-red-400 text-sm">
             {error}
           </div>
         )}
@@ -294,43 +289,130 @@ export default function StockTerminal() {
             <div className="grid grid-cols-1 xl:grid-cols-[50fr_50fr] gap-0 md:gap-1 items-start h-full">
               {/* Panel izquierdo */}
               <div className="w-full xl:w-auto flex flex-col gap-1 min-h-0 h-full overflow-hidden">
-                {/* 1. Sector Analysis - 50% Fixed */}
-                <div className="h-[50%] shrink-0 min-h-0 relative">
-                  <SectorAnalysisPanel onStockSelect={handleTopStockClick} />
+                <div className="w-full h-[60%] flex flex-col min-h-0">
+                  <Tabs defaultValue="mercados" className="w-full h-full flex flex-col">
+                    <div className="w-full border-b border-zinc-800 bg-transparent z-10 shrink-0">
+                      <div className="w-full overflow-x-auto scrollbar-thin whitespace-nowrap">
+                        <TabsList className="bg-transparent h-auto p-0 flex min-w-full w-max gap-0.5 border-b-2 border-black justify-start">
+                          <TabsTrigger 
+                            value="mercados"
+                            className="bg-zinc-900 rounded-none border-b-0 data-[state=active]:bg-[#0056FF] data-[state=active]:text-white text-xs px-4 py-1 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors w-auto"
+                          >
+                            Mercados
+                          </TabsTrigger>
+                          <TabsTrigger 
+                            value="sector_score"
+                            className="bg-zinc-900 rounded-none border-b-0 data-[state=active]:bg-[#0056FF] data-[state=active]:text-white text-xs px-4 py-1 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors w-auto"
+                          >
+                            Clasificación Fintra - FSS
+                          </TabsTrigger>
+                          <TabsTrigger 
+                            value="ticker_search"
+                            className="bg-zinc-900 rounded-none border-b-0 data-[state=active]:bg-[#0056FF] data-[state=active]:text-white text-xs px-4 py-1 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors w-auto"
+                          >
+                            Screener
+                          </TabsTrigger>
+                        </TabsList>
+                      </div>
+                    </div>
+                    
+                    <TabsContent value="sector_score" className="flex-1 min-h-0 mt-0">
+                      <SectorAnalysisPanel onStockSelect={handleTopStockClick} />
+                    </TabsContent>
+                    
+                    <TabsContent value="ticker_search" className="flex-1 min-h-0 mt-0">
+                      <TickerSearchPanel onStockSelect={handleTopStockClick} />
+                    </TabsContent>
+                    
+                    <TabsContent value="mercados" className="flex-1 min-h-0 pb-1 mt-0">
+                      <MercadosTab />
+                    </TabsContent>
+                  </Tabs>
                 </div>
 
-                {/* 4. Noticias - 50% Fixed */}
-                <div className="flex-1 min-h-0 pb-1">
-                  <div className="flex w-full h-full gap-1">
-                    <div className="w-1/2 h-full overflow-hidden border border-zinc-800">
-                      <NoticiasTab symbol={selectedSymbol} title="Noticias del Mercado" />
-                    </div>
-                    <div className="w-1/2 h-full overflow-hidden border border-zinc-800">
+                <div className="w-full h-[40%] grid grid-cols-2 gap-1 min-h-0">
+                   <div className="h-full w-full overflow-hidden rounded border border-zinc-800 bg-tarjetas relative">
                       <NoticiasTab symbol={selectedSymbol} />
-                    </div>
-                  </div>
+                   </div>
+                   <div className="h-full w-full overflow-hidden rounded border border-zinc-800 bg-tarjetas relative">
+                      <TwitsTab />
+                   </div>
                 </div>
               </div>
 
               {/* Panel derecho */}
               <div className="w-full xl:w-auto h-full flex flex-col overflow-hidden pb-1 gap-1">
-                {/* Mitad Superior: Navigation Bar y Contenido de Tabs */}
-                <div className="flex-1 flex flex-col min-h-0">
-                  <div className="w-full flex items-center justify-between ">
-                    <div className="flex-1">
-                      <NavigationBar
-                        orientation="horizontal"
-                        activeTab={activeTab}
-                        setActiveTab={setActiveTab}
-                        symbol={selectedSymbol}
-                      />
+                <Tabs defaultValue="main_view" className="w-full h-full flex flex-col">
+                  <div className="w-full border-b border-zinc-800 bg-transparent z-10 shrink-0">
+                    <div className="w-full overflow-x-auto scrollbar-thin whitespace-nowrap">
+                      <TabsList className="bg-transparent h-auto p-0 flex min-w-full w-max gap-0.5 border-b-2 border-black justify-end">
+                        <TabsTrigger 
+                          value="main_view"
+                          className="bg-zinc-900 rounded-none border-b-0 data-[state=active]:bg-[#0056FF] data-[state=active]:text-white text-xs px-4 py-1 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors w-auto"
+                        >
+                          {selectedSymbol}
+                        </TabsTrigger>
+                      </TabsList>
                     </div>
                   </div>
-                  
-                  <div className={`w-full flex-1 scrollbar-thin border border-t-0 border-zinc-800 ${(activeTab === 'datos' || activeTab === 'mercados') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-                    {renderTabContent()}
-                  </div>
-                </div>
+
+                  <TabsContent value="main_view" className="flex-1 min-h-0 mt-0 flex flex-col">
+                    {/* Overview Section - Always visible */}
+                    <div className="shrink-0 w-full border-zinc-800 h-[6%] overflow-hidden py-0 bg-tarjetas">
+                      <OverviewCard
+                        selectedStock={stockBasicData || selectedSymbol}
+                        onStockSearch={buscarDatosAccion}
+                        onOpenSearchModal={() => setIsSearchOpen(true)}
+                        isParentLoading={isLoading}
+                        analysisData={stockAnalysis}
+                      />
+                    </div>
+
+                    <div className="shrink-0 w-full border-zinc-800 h-[20%] overflow-hidden bg-tarjetas">
+                        <PeersAnalysisPanel 
+                            symbol={selectedSymbol}
+                            onPeerSelect={setSelectedCompetitor}
+                            selectedPeer={selectedCompetitor}
+                        />
+                    </div>
+
+                    {/* Mitad Superior: Navigation Bar y Contenido de Tabs */}
+                    <div className="flex-1 flex flex-col min-h-0 mt-1">
+                      <div className="w-full flex items-center justify-between ">
+                        <div className="flex-1">
+                          <NavigationBar
+                            orientation="horizontal"
+                            activeTab={activeTab}
+                            setActiveTab={setActiveTab}
+                            symbol={selectedSymbol}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className={`w-full flex-1 scrollbar-thin border-zinc-800 ${(activeTab === 'datos' || activeTab === 'competidores') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+                        {renderTabContent()}
+                      </div>
+
+                      {/* Charts Section - Fixed Height 30% */}
+                      <div className="flex flex-col lg:flex-row w-full h-[38%] gap-1 shrink-0 border-t border-zinc-800 pt-1">
+                          <div className="w-full lg:w-3/5 h-full border border-zinc-800 bg-tarjetas overflow-hidden">
+                              <ChartsTabHistoricos
+                                  symbol={selectedSymbol}
+                                  companyName={stockBasicData?.companyName}
+                                  comparedSymbols={selectedCompetitor ? [selectedCompetitor] : []}
+                              />
+                          </div>
+                          <div className="w-full lg:w-2/5 h-full border border-zinc-800 bg-tarjetas overflow-hidden">
+                              <FGOSRadarChart 
+                                  symbol={selectedSymbol} 
+                                  data={stockAnalysis?.fgos_breakdown} 
+                                  comparedSymbol={selectedCompetitor}
+                              />
+                          </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </div>
             </div>
           </div>

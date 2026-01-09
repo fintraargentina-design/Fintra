@@ -5,7 +5,7 @@
   "scripts": {
     "build": "set NODE_OPTIONS=--max-old-space-size=12288 && next build",
     "dev": "set NODE_OPTIONS=--max-old-space-size=12288 && next dev",
-    "lint": "next lint",
+    "lint": "npx eslint .",
     "start": "next start"
   },
   "dependencies": {
@@ -89,6 +89,7 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19",
     "dotenv": "^17.2.3",
+    "eslint": "9.39.2",
     "postcss": "^8.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",

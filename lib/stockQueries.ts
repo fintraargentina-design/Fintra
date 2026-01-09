@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { fmp } from './fmp/client';
-import type { StockData as FMPStockData } from './fmp/types';
+import type { FMPCompanyProfile as FMPStockData } from './fmp/types';
 
 export { supabase, registerStockSearch } from './supabase';
 

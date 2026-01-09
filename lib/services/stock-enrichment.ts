@@ -7,12 +7,12 @@ export interface EnrichedStockData {
   ticker: string;
   name?: string;
   // FMP Data
-  price: number;
-  marketCap: number;
-  ytd: number;
-  divYield: number;
-  estimation: number; // Upside %
-  targetPrice: number;
+  price: number | null;
+  marketCap: number | null;
+  ytd: number | null;
+  divYield: number | null;
+  estimation: number | null; // Upside %
+  targetPrice: number | null;
   // Intelligence Data
   fgos: number;
   valuation: string;

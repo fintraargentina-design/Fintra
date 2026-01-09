@@ -12,6 +12,8 @@ import type {
   FinancialScoreResponse,
   KeyMetricsResponse,
   CashFlowResponse,
+  ScreenerResponse,
+  SearchResponse,
 } from "./types";
 
 type CacheOpt = RequestCache | undefined;
@@ -107,29 +109,23 @@ export async function apiDividends(
 
 export async function apiEod(
   symbol: string,
-  opts?: { limit?: number; cache?: CacheOpt }
+  cache: CacheOpt = "force-cache"
 ): Promise<EodResponse> {
-  return get<EodResponse>("/eod", { symbol, ...(opts?.limit ? { limit: opts.limit } : {}) }, opts?.cache ?? "no-store");
+  return get<EodResponse>("/eod", { symbol }, cache);
 }
 
 export async function apiValuation(
   symbol: string,
-  opts?: { period?: "annual" | "quarter" | "ttm" | "FY" | "Q1" | "Q2" | "Q3" | "Q4"; cache?: CacheOpt }
+  cache: CacheOpt = "force-cache"
 ): Promise<ValuationResponse> {
-  return get<ValuationResponse>(
-    "/valuation",
-    { symbol, period: opts?.period ?? "annual" },
-    opts?.cache ?? "force-cache"
-  );
+  return get<ValuationResponse>("/valuation", { symbol }, cache);
 }
 
-/* ─────────────────── Scores / Key Metrics / Cashflow ─────────────────── */
-
-export async function apiScores(
+export async function apiFinancialScore(
   symbol: string,
   cache: CacheOpt = "force-cache"
 ): Promise<FinancialScoreResponse> {
-  return get<FinancialScoreResponse>("/scores", { symbol }, cache);
+  return get<FinancialScoreResponse>("/financial-score", { symbol }, cache);
 }
 
 export async function apiKeyMetrics(
@@ -139,13 +135,35 @@ export async function apiKeyMetrics(
   return get<KeyMetricsResponse>("/key-metrics", { symbol }, cache);
 }
 
-export async function apiCashflow(
+export async function apiCashFlow(
   symbol: string,
-  opts?: { period?: "annual" | "quarter"; limit?: number; cache?: CacheOpt }
+  cache: CacheOpt = "force-cache"
 ): Promise<CashFlowResponse> {
-  return get<CashFlowResponse>(
-    "/cashflow",
-    { symbol, period: opts?.period ?? "annual", limit: opts?.limit ?? 8 },
-    opts?.cache ?? "force-cache"
-  );
+  return get<CashFlowResponse>("/cash-flow", { symbol }, cache);
+}
+
+/* ─────────────────── Screener ─────────────────── */
+
+export async function apiScreener(
+  params: Record<string, any>,
+  cache: CacheOpt = "force-cache"
+): Promise<ScreenerResponse> {
+  return get<ScreenerResponse>("/screener", params, cache);
+}
+
+export async function apiIndustries(
+  cache: CacheOpt = "force-cache"
+): Promise<string[]> {
+  return get<string[]>("/industries", undefined, cache);
+}
+
+/* ─────────────────── Search ─────────────────── */
+
+export async function apiSearch(
+  query: string,
+  limit = 10,
+  exchange?: string,
+  cache: CacheOpt = "no-store"
+): Promise<SearchResponse> {
+  return get<SearchResponse>("/search", { query, limit, exchange }, cache);
 }

@@ -1,9 +1,11 @@
 'use client';
 
+import { useRef, useMemo } from "react";
 import FundamentalCard from "@/components/cards/FundamentalCard";
 import ValoracionCard from "@/components/cards/ValoracionCard";
 import DesempenoCard from "@/components/cards/DesempenoCard";
 import DividendosCard from "@/components/cards/DividendosCard";
+import { useSyncedHorizontalScroll } from "@/lib/ui/useSyncedHorizontalScroll";
 
 type PeriodSel = "ttm" | "FY" | "Q1" | "Q2" | "Q3" | "Q4" | "annual" | "quarter";
 
@@ -23,6 +25,20 @@ export default function DatosTab({
   stockBasicData,
   symbol,
 }: DatosTabProps) {
+  // Refs for synchronized horizontal scrolling
+  const fundamentalRef = useRef<HTMLDivElement>(null);
+  const valoracionRef = useRef<HTMLDivElement>(null);
+  const desempenoRef = useRef<HTMLDivElement>(null);
+
+  // Group refs in a stable array
+  const scrollRefs = useMemo(() => [
+    fundamentalRef,
+    valoracionRef,
+    desempenoRef
+  ], []);
+
+  // Activate the hook
+  useSyncedHorizontalScroll(scrollRefs);
 
   return (
     <div className="w-full h-full flex flex-col gap-1 p-1 overflow-hidden">
@@ -30,15 +46,20 @@ export default function DatosTab({
         <div className="bg-tarjetas border border-zinc-800">
           <FundamentalCard 
             symbol={symbol} 
+            scrollRef={fundamentalRef}
           />
         </div>
         <div className="bg-tarjetas border border-zinc-800">
           <ValoracionCard 
             symbol={symbol} 
+            scrollRef={valoracionRef}
           />
         </div>
         <div className="bg-tarjetas border border-zinc-800">
-           <DesempenoCard symbol={symbol} />
+           <DesempenoCard 
+             symbol={symbol} 
+             scrollRef={desempenoRef}
+           />
         </div>
         <div className="bg-tarjetas border border-zinc-800">
            <DividendosCard symbol={symbol} />
