@@ -20,18 +20,22 @@ export async function getBenchmarksForSector(sector: string, snapshotDate: strin
   }
 
   try {
-    const { data, error } = await supabaseAdmin
+    // 1. Resolve effective AS-OF date
+    const { data: dateData, error: dateError } = await supabaseAdmin
       .from('sector_benchmarks')
-      .select('*')
+      .select('snapshot_date')
       .eq('sector', cleanSector)
-      .eq('snapshot_date', snapshotDate);
+      .lte('snapshot_date', snapshotDate)
+      .order('snapshot_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    if (error) {
-        console.error(`Error fetching benchmarks for ${cleanSector} on ${snapshotDate}:`, error);
+    if (dateError) {
+        console.error(`Error resolving benchmark date for ${cleanSector} <= ${snapshotDate}:`, dateError);
         return null;
     }
 
-    if (!data || data.length === 0) {
+    if (!dateData) {
       // Fallback to General if specific sector not found (only if allowed)
       if (allowFallback && cleanSector !== 'General') {
           const general = await getBenchmarksForSector('General', snapshotDate, true);
@@ -42,6 +46,29 @@ export async function getBenchmarksForSector(sector: string, snapshotDate: strin
           }
       }
       return null;
+    }
+
+    const resolvedDate = dateData.snapshot_date;
+
+    // 2. Fetch benchmarks for the resolved date
+    const { data, error } = await supabaseAdmin
+      .from('sector_benchmarks')
+      .select('*')
+      .eq('sector', cleanSector)
+      .eq('snapshot_date', resolvedDate);
+
+    if (error) {
+        console.error(`Error fetching benchmarks for ${cleanSector} on ${resolvedDate}:`, error);
+        return null;
+    }
+
+    if (!data || data.length === 0) {
+      return null; // Should not happen if date resolution succeeded, but safe to handle
+    }
+
+    // Optional: Log resolution if it differs (debug purposes, low noise)
+    if (resolvedDate !== snapshotDate) {
+        // console.log(`[Benchmarks] Resolved ${cleanSector}: requested ${snapshotDate} -> found ${resolvedDate}`);
     }
 
     const benchmarks: Record<string, SectorBenchmark> = {};

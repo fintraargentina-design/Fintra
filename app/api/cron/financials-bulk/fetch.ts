@@ -14,10 +14,13 @@ const ENDPOINT_MAP: Record<string, string> = {
 };
 
 export async function fetchFinancialsBulk(apiKey: string) {
-  const currentYear = new Date().getFullYear();
-  // Fetch current and previous year to ensure we have full TTM and latest FY
-  const years = [currentYear, currentYear - 1];
+  console.log('[financials-bulk] Running in CLOSED-YEAR MODE (2024 only)');
+  
+  // RESTRICTION: Lock to 2024 Closed Year
+  const years = [2024];
+  
   // FMP financial BULK endpoints REQUIRE explicit 'year' and 'period' parameters.
+  // We want FY and all Quarters to build TTM
   const periods = ['FY', 'Q1', 'Q2', 'Q3', 'Q4'];
 
   // Ensure cache directory exists
@@ -38,17 +41,11 @@ export async function fetchFinancialsBulk(apiKey: string) {
     // 1. Check Cache
     try {
       if (existsSync(filePath)) {
-        const stats = await fs.stat(filePath);
-        const now = new Date();
-        const isToday = stats.mtime.getDate() === now.getDate() &&
-                        stats.mtime.getMonth() === now.getMonth() &&
-                        stats.mtime.getFullYear() === now.getFullYear();
-        
-        if (isToday) {
-          csvContent = await fs.readFile(filePath, 'utf-8');
-          loadedFromCache = true;
-          console.log(`[fmp-bulk-cache] HIT ${fileName}`);
-        }
+        // In CLOSED-YEAR MODE, we trust the cache indefinitely (no isToday check)
+        // to prevent unnecessary re-fetching of static 2024 data.
+        csvContent = await fs.readFile(filePath, 'utf-8');
+        loadedFromCache = true;
+        console.log(`[fmp-bulk-cache] HIT ${fileName}`);
       }
     } catch (err) {
       console.warn(`[fmp-bulk-cache] Error checking cache for ${fileName}:`, err);
