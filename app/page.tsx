@@ -377,7 +377,7 @@ export default function StockTerminal() {
                     </div>
 
                     {/* Mitad Superior: Navigation Bar y Contenido de Tabs */}
-                    <div className="flex-1 flex flex-col min-h-0 mt-1">
+                    <div className="flex-1 flex flex-col min-h-0 mt-3">
                       <div className="w-full flex items-center justify-between ">
                         <div className="flex-1">
                           <NavigationBar
@@ -389,7 +389,7 @@ export default function StockTerminal() {
                         </div>
                       </div>
                       
-                      <div className={`w-full flex-1 scrollbar-thin border-zinc-800 ${(activeTab === 'datos' || activeTab === 'competidores') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+                      <div className={`w-full flex-1 scrollbar-thin border-r border-l border-zinc-800 ${(activeTab === 'datos' || activeTab === 'competidores') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
                         {renderTabContent()}
                       </div>
 
