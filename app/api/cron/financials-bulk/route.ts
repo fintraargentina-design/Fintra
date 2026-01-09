@@ -235,22 +235,61 @@ async function parseCachedCSVs(activeTickers: Set<string>) {
     return { income, balance, cashflow, metricsTTM, ratiosTTM };
 }
 
-async function persistFinancials(
+async function persistFinancialsStreaming(
     activeTickers: string[], 
-    data: { income: any[], balance: any[], cashflow: any[], metricsTTM: any[], ratiosTTM: any[] }
+    data: { income: any[], balance: any[], cashflow: any[], metricsTTM: any[], ratiosTTM: any[] },
+    maxBatchSize: number
 ) {
     const { income, balance, cashflow, metricsTTM, ratiosTTM } = data;
-    console.log(`[financials-bulk] Processing: ${income.length} Income, ${balance.length} Balance, ${cashflow.length} CF, ${metricsTTM.length} MetricsTTM, ${ratiosTTM.length} RatiosTTM rows.`);
-
-    // Index by ticker
+    
+    // Index by ticker (local to this chunk)
     const incomeMap = groupByTicker(income);
     const balanceMap = groupByTicker(balance);
     const cashflowMap = groupByTicker(cashflow);
     const metricsTTMMap = groupByTicker(metricsTTM);
     const ratiosTTMMap = groupByTicker(ratiosTTM);
 
-    const rowsToUpsert: any[] = [];
+    let rowsBuffer: any[] = [];
     const stats = { processed: 0, skipped: 0, fy_built: 0, q_built: 0, ttm_built: 0 };
+
+    // Flush Helper
+    const flushBatch = async () => {
+        if (rowsBuffer.length === 0) return;
+        
+        // Deduplicate rows based on unique constraints (ticker, period_type, period_label)
+        const uniqueRowsMap = new Map();
+        rowsBuffer.forEach(row => {
+            const key = `${row.ticker}-${row.period_type}-${row.period_label}`;
+            uniqueRowsMap.set(key, row);
+        });
+        const uniqueRows = Array.from(uniqueRowsMap.values());
+        
+        // Remove fcf_cagr as it's not in the database table
+        const dbChunk = uniqueRows.map(({ fcf_cagr, ...row }) => row);
+        
+        await upsertDatosFinancieros(supabaseAdmin, dbChunk);
+        
+        // Sync Growth (TTM only)
+        const ttmRows = uniqueRows.filter(r => r.period_type === 'TTM');
+        if (ttmRows.length > 0) {
+            const today = new Date().toISOString().slice(0, 10);
+            // We can do this in parallel or seq.
+            await Promise.all(ttmRows.map(async (row) => {
+                 const growth = {
+                    revenue_cagr: row.revenue_cagr,
+                    earnings_cagr: row.earnings_cagr,
+                    fcf_cagr: row.fcf_cagr
+                };
+                await supabaseAdmin.from('fintra_snapshots')
+                    .update({ fundamentals_growth: growth })
+                    .eq('ticker', row.ticker)
+                    .eq('snapshot_date', today);
+            }));
+        }
+
+        // Clear buffer
+        rowsBuffer = [];
+    };
 
     // 3. Process each ticker
     for (const ticker of activeTickers) {
@@ -295,7 +334,7 @@ async function persistFinancials(
                 periodEndDate: inc.date
             });
 
-            rowsToUpsert.push({
+            rowsBuffer.push({
               ticker,
               period_type: 'FY',
               period_label: inc.date.slice(0, 4), // Year as label
@@ -330,7 +369,7 @@ async function persistFinancials(
                 periodEndDate: inc.date
             });
 
-            rowsToUpsert.push({
+            rowsBuffer.push({
               ticker,
               period_type: 'Q',
               period_label: `${inc.calendarYear || inc.date.substring(0, 4)}${inc.period}`,
@@ -377,7 +416,7 @@ async function persistFinancials(
                     periodEndDate: q1.date
                 });
 
-                rowsToUpsert.push({
+                rowsBuffer.push({
                   ticker,
                   period_type: 'TTM',
                   period_label: ttmLabel, 
@@ -389,66 +428,17 @@ async function persistFinancials(
             }
         }
       }
-    }
-
-    // 4. Persist
-    console.log(`[financials-bulk] Upserting ${rowsToUpsert.length} rows...`);
-
-    // Deduplicate rows based on unique constraints (ticker, period_type, period_label)
-    const uniqueRowsMap = new Map();
-    rowsToUpsert.forEach(row => {
-        const key = `${row.ticker}-${row.period_type}-${row.period_label}`;
-        uniqueRowsMap.set(key, row);
-    });
-    const uniqueRows = Array.from(uniqueRowsMap.values());
-    console.log(`[financials-bulk] After deduplication: ${uniqueRows.length} rows (removed ${rowsToUpsert.length - uniqueRows.length} duplicates)`);
-    
-    // Step 1: Initialize Progress Tracking
-    const totalTickers = activeTickers.length;
-    const completedTickers = new Set<string>();
-
-    const CHUNK_SIZE = 1000;
-    for (let i = 0; i < uniqueRows.length; i += CHUNK_SIZE) {
-      const chunk = uniqueRows.slice(i, i + CHUNK_SIZE);
-      // Remove fcf_cagr as it's not in the database table
-      const dbChunk = chunk.map(({ fcf_cagr, ...row }) => row);
-      await upsertDatosFinancieros(supabaseAdmin, dbChunk);
-
-      // Step 2: Track Progress After Each Batch Upsert
-      for (const row of chunk) {
-        completedTickers.add(row.ticker);
+      
+      // Check buffer size
+      if (rowsBuffer.length >= maxBatchSize) {
+          await flushBatch();
       }
-
-      const completed = completedTickers.size;
-      const percent = ((completed / totalTickers) * 100).toFixed(1);
-
-      console.log(
-        `[financials-bulk] Progress: ${completed} / ${totalTickers} tickers completed (${percent}%)`
-      );
     }
 
-    // 5. Sync Growth to Snapshots (Critical for FGOS)
-    const ttmRows = uniqueRows.filter(r => r.period_type === 'TTM');
-    if (ttmRows.length > 0) {
-        console.log(`[financials-bulk] Syncing growth metrics to today's snapshots for ${ttmRows.length} tickers...`);
-        const today = new Date().toISOString().slice(0, 10);
-        
-        for (const row of ttmRows) {
-            const growth = {
-                revenue_cagr: row.revenue_cagr,
-                earnings_cagr: row.earnings_cagr,
-                fcf_cagr: row.fcf_cagr
-            };
-            
-            // Fire and forget update (soft sync)
-            await supabaseAdmin.from('fintra_snapshots')
-                .update({ fundamentals_growth: growth })
-                .eq('ticker', row.ticker)
-                .eq('snapshot_date', today);
-        }
-    }
+    // Final Flush
+    await flushBatch();
 
-    return { stats, rowsToUpsert: uniqueRows };
+    return stats;
 }
 
 // --- Main Handler ---
@@ -483,17 +473,52 @@ export async function GET(req: Request) {
 
     // Phase 2: Persist
     if (mode === 'persist' || mode === 'full') {
-        const activeTickersSet = new Set(activeTickers);
-        const data = await parseCachedCSVs(activeTickersSet);
-        const result = await persistFinancials(activeTickers, data);
-        stats = result.stats;
-        sample = result.rowsToUpsert.slice(0, 2);
+        // --- NEW BATCHING LOGIC ---
+        // We split active tickers into smaller chunks to avoid loading all CSV data into memory.
+        // We also strictly control the upsert buffer size.
+        
+        const TICKER_CHUNK_SIZE = 250; // Read CSVs for 250 tickers at a time (Memory/IO tradeoff)
+        const UPSERT_BATCH_SIZE = 500; // Strict limit on rows in memory for upsert
+
+        console.log(`[financials-bulk] Starting Persist Phase with strict batching.`);
+        console.log(`[financials-bulk] Ticker Chunk: ${TICKER_CHUNK_SIZE}, Upsert Batch: ${UPSERT_BATCH_SIZE}`);
+
+        let totalProcessed = 0;
+        
+        for (let i = 0; i < activeTickers.length; i += TICKER_CHUNK_SIZE) {
+            const tickerBatch = activeTickers.slice(i, i + TICKER_CHUNK_SIZE);
+            const tickerBatchSet = new Set(tickerBatch);
+            
+            console.log(`[financials-bulk] Processing ticker batch ${i / TICKER_CHUNK_SIZE + 1} (${tickerBatch.length} tickers)...`);
+
+            // 1. Load data ONLY for this batch of tickers
+            // This reads the CSVs but filters strictly by the current batchSet, keeping memory low.
+            const data = await parseCachedCSVs(tickerBatchSet);
+
+            // 2. Process and Persist with strict streaming/batching
+            const batchStats = await persistFinancialsStreaming(tickerBatch, data, UPSERT_BATCH_SIZE);
+            
+            // Merge stats
+            // (Simplified stats merging for the response)
+            if (!stats) stats = batchStats;
+            else {
+                // @ts-ignore
+                stats.processed = (stats.processed || 0) + batchStats.processed;
+                // @ts-ignore
+                stats.fy_built = (stats.fy_built || 0) + batchStats.fy_built;
+                // ... add other metrics if needed
+            }
+
+            // Explicitly free memory (though V8 should handle it)
+            // @ts-ignore
+            data.income = null; data.balance = null; data.cashflow = null; 
+        }
     }
 
     return NextResponse.json({
       message: `Financials bulk execution complete (mode=${mode})`,
       stats,
-      sample
+      sample: [] // Sample removed to save memory/complexity in new flow
     });
 
   } catch (error: any) {
