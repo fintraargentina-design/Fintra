@@ -4,9 +4,13 @@
 const BASE =
   (process.env.FMP_BASE_URL?.replace(/\/$/, "") as string) ||
   "https://financialmodelingprep.com";
-const API_KEY = process.env.FMP_API_KEY; // sólo server
-if (!API_KEY) {
-  console.warn("[FMP] FMP_API_KEY no configurada en el servidor (.env).");
+
+// Fallback key for demo/development
+const FALLBACK_KEY = "scYafUs9cEq4PzLVbZ8SPlmMh8r9Jm8V";
+
+const API_KEY = process.env.FMP_API_KEY || FALLBACK_KEY; // server + fallback
+if (!process.env.FMP_API_KEY) {
+  console.warn("[FMP] FMP_API_KEY no configurada en .env, usando fallback.");
 }
 
 export type Query = Record<string, string | number | boolean | undefined>;

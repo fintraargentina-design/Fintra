@@ -271,7 +271,7 @@ export default function MercadosTab() {
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-0.5">
           {MARKET_GROUPS.map((group) => (
             <div key={group.title} className="flex flex-col gap-0.5">
-              <div className="bg-[#333] text-zinc-100 px-3 py-1 text-xs tracking-wider text-center">
+              <div className="bg-[#333] text-zinc-100 px-3 py-0 text-xs tracking-wider text-center">
                 {group.title}
               </div>
               <div className="flex flex-col gap-0.5"> 
@@ -287,7 +287,7 @@ export default function MercadosTab() {
                       className="border-none transition-all hover:brightness-110 cursor-default overflow-hidden relative shadow-sm"
                       style={{ backgroundColor: getHeatmapColor(change) }}
                     >
-                      <div className="p-1 flex flex-col justify-between h-[100px]">
+                      <div className="p-1 flex flex-col justify-between h-[85px]">
                         <div className="flex justify-between items-start w-full">
                           <span className="text-white text-[11px] leading-tight line-clamp-2 max-w-[70%]">
                             {name}
@@ -300,7 +300,7 @@ export default function MercadosTab() {
                         </div>
 
                         <div className="flex-1 flex items-center justify-end pr-2">
-                           <span className="text-2xl text-white tracking-tighter">
+                           <span className="text-xl text-white tracking-tighter">
                              {data ? formatChange(change) : "---"}
                            </span>
                         </div>
@@ -355,9 +355,9 @@ export default function MercadosTab() {
                     ${market.isMarketOpen ? 'bg-[#001A00]' : 'bg-[#1A0000]'}
                   `}
                 >
-                  <div className="p-3 flex flex-col justify-between h-[140px]">
+                  <div className="p-1 flex flex-col justify-between h-[85px]">
                     {/* Header: Name + Badge */}
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start justify-between gap-0">
                       <div className="flex flex-col">
                         <span className="text-white text-[11px] font-semibold flex items-center gap-1.5">
                           <Globe className="w-3 h-3 text-zinc-400" />
@@ -382,17 +382,17 @@ export default function MercadosTab() {
                     </div>
 
                     {/* Big Clock Center */}
-                    <div className="flex items-center justify-center my-2">
-                      <span className="text-3xl font-mono font-bold text-white tracking-wider">
+                    <div className="flex items-center justify-center my-0">
+                      <span className="text-2xl font-mono text-white tracking-wider">
                         {formatTimeInZone(market.timezone).slice(0, 5)}
-                        <span className="text-sm text-zinc-500 ml-1 align-top mt-1 inline-block">
+                        <span className="text-sm text-zinc-500 ml-3 align-top mt-1 inline-block">
                            {formatTimeInZone(market.timezone).slice(6)}
                         </span>
                       </span>
                     </div>
 
                     {/* Hours */}
-                    <div className="mt-1 pt-1 border-t border-white/5 flex flex-col gap-0.5 justify-end">
+                    <div className="mt-0 pt-1 border-t border-white/5 flex flex-col gap-0.5 justify-end">
                       <div className="flex items-center justify-between text-[10px] leading-tight">
                         <span className="text-zinc-500">{market.openingAdditional ? 'Sesión 1' : 'Horario'}</span>
                         <span className="text-zinc-300 font-mono">

@@ -177,3 +177,13 @@ export type StockReport = {
 export type StockEcosystem = {
     [key: string]: any;
 };
+
+export type ExchangeMarketHours = {
+  name: string;
+  openingHour: string;
+  closingHour: string;
+  timezone: string;
+  isMarketOpen: boolean;
+  openingAdditional?: string;
+  closingAdditional?: string;
+};

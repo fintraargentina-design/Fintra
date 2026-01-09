@@ -14,6 +14,7 @@ interface DatosTabProps {
   stockPerformance?: any;
   stockBasicData?: any;
   symbol: string;
+  peerTicker?: string | null;
   period?: PeriodSel;         // Kept for compatibility but unused
   ratios?: any;               // Kept for compatibility but unused
   metrics?: any;              // Kept for compatibility but unused
@@ -24,6 +25,7 @@ export default function DatosTab({
   stockPerformance,
   stockBasicData,
   symbol,
+  peerTicker,
 }: DatosTabProps) {
   // Refs for synchronized horizontal scrolling
   const fundamentalRef = useRef<HTMLDivElement>(null);
@@ -41,23 +43,26 @@ export default function DatosTab({
   useSyncedHorizontalScroll(scrollRefs);
 
   return (
-    <div className="w-full h-full flex flex-col gap-1 p-1 overflow-hidden">
+    <div className="w-full h-full flex flex-row gap-1 p-1 overflow-hidden">
       <div className="flex-1 flex flex-col gap-1 overflow-y-auto scrollbar-thin">
         <div className="bg-tarjetas border border-zinc-800">
           <FundamentalCard 
             symbol={symbol} 
+            peerTicker={peerTicker}
             scrollRef={fundamentalRef}
           />
         </div>
         <div className="bg-tarjetas border border-zinc-800">
           <ValoracionCard 
             symbol={symbol} 
+            peerTicker={peerTicker}
             scrollRef={valoracionRef}
           />
         </div>
         <div className="bg-tarjetas border border-zinc-800">
            <DesempenoCard 
              symbol={symbol} 
+             peerTicker={peerTicker}
              scrollRef={desempenoRef}
            />
         </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Loader2 } from "lucide-react";
+import { X, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -11,6 +11,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getHeatmapColor, HeatmapDirection } from "@/lib/ui/heatmap";
+
+// --- CONSTANTS ---
+const CORE_METRICS = [
+  "P/E", 
+  "EV/EBITDA", 
+  "P/FCF", 
+  "Dividend Yield",
+  "Div Yield" // Alias common in this codebase
+];
 
 // --- TYPES (Adopted from FundamentalCard) ---
 type TimelineResponse = {
@@ -79,13 +88,39 @@ const METRIC_EXPLANATIONS: Record<string, { description: string; examples: strin
   }
 };
 
-export default function ValoracionCard({ symbol, scrollRef }: { symbol: string; scrollRef?: React.RefObject<HTMLDivElement> }) {
+export default function ValoracionCard({ symbol, scrollRef, peerTicker }: { symbol: string; scrollRef?: React.RefObject<HTMLDivElement | null>; peerTicker?: string | null }) {
   const [data, setData] = useState<TimelineResponse | null>(null);
+  const [peerData, setPeerData] = useState<TimelineResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [explanationModal, setExplanationModal] = useState<{ isOpen: boolean; selectedMetric: string | null }>({
     isOpen: false,
     selectedMetric: null
   });
+  const [expanded, setExpanded] = useState(false);
+
+  // Fetch peer data when selected
+  useEffect(() => {
+    if (!peerTicker) {
+        setPeerData(null);
+        return;
+    }
+    
+    let mounted = true;
+    const fetchPeer = async () => {
+        try {
+            const res = await fetch(`/api/analysis/fundamentals-timeline?ticker=${peerTicker}`);
+            if (res.ok) {
+                const json = await res.json();
+                if (mounted) setPeerData(json);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+    
+    fetchPeer();
+    return () => { mounted = false; };
+  }, [peerTicker]);
 
   useEffect(() => {
     let mounted = true;
@@ -116,6 +151,11 @@ export default function ValoracionCard({ symbol, scrollRef }: { symbol: string; 
   }, [symbol]);
 
   const valuationMetrics = data?.metrics?.filter(m => m.category === "valuation") || [];
+  
+  const visibleMetrics = valuationMetrics.filter(metric => {
+    if (expanded) return true;
+    return CORE_METRICS.includes(metric.label);
+  });
 
   return (
     <>
@@ -130,19 +170,24 @@ export default function ValoracionCard({ symbol, scrollRef }: { symbol: string; 
           <Table className="w-full text-sm border-collapse">
             <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
               <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
-                <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[120px] text-left">Métrica</TableHead>
-                {data?.years?.map(year => (
-                  year.columns.map(col => (
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[150px] text-left">Métrica</TableHead>
+                {data?.years?.map((year, yearIdx) => (
+                  year.columns.flatMap(col => [
                     <TableHead 
                       key={col} 
                       className={`px-2 text-[10px] h-6 text-center whitespace-nowrap ${
                         col === 'TTM' ? 'font-bold text-blue-400' : 
                         col === 'FY' ? 'font-bold text-green-400' : 'text-gray-300'
-                      }`}
+                      } ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                     >
                       {col}
-                    </TableHead>
-                  ))
+                    </TableHead>,
+                    peerTicker && (
+                        <TableHead key={`${col}-peer`} className={`px-2 text-[#0056FF] font-bold text-[10px] h-6 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}>
+                            {peerTicker}
+                        </TableHead>
+                    )
+                  ])
                 ))}
               </TableRow>
             </TableHeader>
@@ -154,7 +199,7 @@ export default function ValoracionCard({ symbol, scrollRef }: { symbol: string; 
                    </TableCell>
                  </TableRow>
               ) : (
-                valuationMetrics.map((metric) => (
+                visibleMetrics.map((metric) => (
                   <TableRow 
                     key={metric.key} 
                     className="border-zinc-800 hover:bg-white/5 border-b cursor-pointer group"
@@ -163,21 +208,35 @@ export default function ValoracionCard({ symbol, scrollRef }: { symbol: string; 
                     <TableCell className="font-bold text-gray-200 px-2 py-0.5 text-xs w-[120px] border-r border-zinc-800 group-hover:text-blue-400 transition-colors">
                       {metric.label}
                     </TableCell>
-                    {data?.years?.map(year => (
-                      year.columns.map(col => {
+                    {data?.years?.map((year, yearIdx) => (
+                      year.columns.flatMap(col => {
                           const cellData = metric.values[col];
                           const direction: HeatmapDirection = metric.heatmap.direction === "lower_is_better" 
                             ? "negative" 
                             : "positive";
-                          return (
+                          
+                          // Peer Data
+                          const peerMetric = peerData?.metrics?.find(m => m.key === metric.key);
+                          const peerCellData = peerMetric?.values?.[col];
+
+                          return [
                               <TableCell 
                                   key={col}
-                                  className="text-center px-2 py-0.5 text-[10px] font-medium text-white h-8 border-x border-zinc-800/50"
+                                  className={`text-center px-2 py-0.5 text-[10px] font-medium text-white h-8 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                                   style={{ backgroundColor: getHeatmapColor(cellData?.normalized ?? null, direction) }}
                               >
                                   {cellData?.display ?? "-"}
-                              </TableCell>
-                          );
+                              </TableCell>,
+                              peerTicker && (
+                                  <TableCell 
+                                      key={`${col}-peer`}
+                                      className={`text-center px-2 py-0.5 text-[10px] font-bold text-[#0056FF] h-8 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                                      style={{ backgroundColor: getHeatmapColor(peerCellData?.normalized ?? null, direction) }}
+                                  >
+                                      {peerCellData?.display ?? "-"}
+                                  </TableCell>
+                              )
+                          ];
                       })
                     ))}
                   </TableRow>
@@ -185,6 +244,24 @@ export default function ValoracionCard({ symbol, scrollRef }: { symbol: string; 
               )}
             </TableBody>
           </Table>
+        </div>
+        
+        {/* Toggle Button */}
+        <div className="bg-[#1D1D1D] border-t border-zinc-800 p-1 flex justify-center shrink-0">
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-white transition-colors uppercase tracking-wider font-medium"
+          >
+            {expanded ? (
+              <>
+                Ver menos métricas <ChevronUp className="w-3 h-3" />
+              </>
+            ) : (
+              <>
+                Ver más métricas <ChevronDown className="w-3 h-3" />
+              </>
+            )}
+          </button>
         </div>
       </div>
 

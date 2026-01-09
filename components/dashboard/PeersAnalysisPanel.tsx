@@ -1,4 +1,5 @@
 "use client";
+// Fintra/components/dashboard/PeersAnalysisPanel.tsx
 
 import { useState, useEffect } from "react";
 import { fmp } from "@/lib/fmp/client";

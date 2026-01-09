@@ -238,6 +238,7 @@ export default function StockTerminal() {
             symbol={selectedSymbol}
             ratios={stockRatios}
             metrics={stockMetrics}
+            peerTicker={selectedCompetitor}
           />
         );
       case 'chart':
@@ -394,8 +395,8 @@ export default function StockTerminal() {
                       </div>
 
                       {/* Charts Section - Fixed Height 30% */}
-                      <div className="flex flex-col lg:flex-row w-full h-[38%] gap-1 shrink-0 border-t border-zinc-800 pt-1">
-                          <div className="w-full lg:w-3/5 h-full border border-zinc-800 bg-tarjetas overflow-hidden">
+                      <div className="flex flex-col lg:flex-row w-full h-[35%] gap-1 shrink-0 border-t border-zinc-800 pt-1">
+                          <div className="w-full lg:w-3/5 h-full border-t-0 border-zinc-800 bg-tarjetas overflow-hidden">
                               <ChartsTabHistoricos
                                   symbol={selectedSymbol}
                                   companyName={stockBasicData?.companyName}

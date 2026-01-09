@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -11,6 +11,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getHeatmapColor, HeatmapDirection } from "@/lib/ui/heatmap";
+
+// --- CONSTANTS ---
+const CORE_METRICS = [
+  "Total Return"
+];
 
 // --- TYPES (Same as FundamentalCard/ValoracionCard) ---
 type TimelineResponse = {
@@ -43,9 +48,35 @@ type TimelineResponse = {
   }[];
 };
 
-export default function DesempenoCard({ symbol, scrollRef }: { symbol: string; scrollRef?: React.RefObject<HTMLDivElement> }) {
+export default function DesempenoCard({ symbol, scrollRef, peerTicker }: { symbol: string; scrollRef?: React.RefObject<HTMLDivElement | null>; peerTicker?: string | null }) {
   const [data, setData] = useState<TimelineResponse | null>(null);
+  const [peerData, setPeerData] = useState<TimelineResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  // Fetch peer data when selected
+  useEffect(() => {
+    if (!peerTicker) {
+        setPeerData(null);
+        return;
+    }
+    
+    let mounted = true;
+    const fetchPeer = async () => {
+        try {
+            const res = await fetch(`/api/analysis/fundamentals-timeline?ticker=${peerTicker}`);
+            if (res.ok) {
+                const json = await res.json();
+                if (mounted) setPeerData(json);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+    
+    fetchPeer();
+    return () => { mounted = false; };
+  }, [peerTicker]);
 
   useEffect(() => {
     let mounted = true;
@@ -77,6 +108,11 @@ export default function DesempenoCard({ symbol, scrollRef }: { symbol: string; s
 
   // Filter for performance metrics
   const performanceMetrics = data?.metrics?.filter(m => m.category === "performance") || [];
+
+  const visibleMetrics = performanceMetrics.filter(metric => {
+    if (expanded) return true;
+    return CORE_METRICS.includes(metric.label);
+  });
   
   // Identify the performance columns (year 9999 or implicit from values)
   // The backend sends a specific year group for performance (usually 9999)
@@ -95,15 +131,20 @@ export default function DesempenoCard({ symbol, scrollRef }: { symbol: string; s
         <Table className="w-full text-sm border-collapse">
           <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
             <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
-              <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[120px] text-left">Desempeño</TableHead>
-              {columns.map(col => (
+              <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[150px] text-left">Desempeño</TableHead>
+              {columns.flatMap((col, perfYearIndex) => [
                 <TableHead 
                   key={col} 
-                  className="px-2 text-gray-300 text-[10px] h-6 text-center whitespace-nowrap"
+                  className={`px-2 text-gray-300 text-[10px] h-6 text-center whitespace-nowrap ${perfYearIndex % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                 >
                   {col}
-                </TableHead>
-              ))}
+                </TableHead>,
+                peerTicker && (
+                    <TableHead key={`${col}-peer`} className={`px-2 text-[#0056FF] font-bold text-[10px] h-6 text-center whitespace-nowrap ${perfYearIndex % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}>
+                        {peerTicker}
+                    </TableHead>
+                )
+              ])}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -128,20 +169,34 @@ export default function DesempenoCard({ symbol, scrollRef }: { symbol: string; s
                   <TableCell className="font-bold text-gray-200 px-2 py-0.5 text-xs w-[120px] border-r border-zinc-800">
                     {metric.label}
                   </TableCell>
-                  {columns.map(col => {
+                  {columns.flatMap((col, perfYearIndex) => {
                       const cellData = metric.values[col];
                       const direction: HeatmapDirection = metric.heatmap.direction === "lower_is_better" 
                             ? "negative" 
                             : "positive";
-                      return (
+                      
+                      // Peer Data
+                      const peerMetric = peerData?.metrics?.find(m => m.key === metric.key);
+                      const peerCellData = peerMetric?.values?.[col];
+
+                      return [
                           <TableCell 
                               key={col}
-                              className="text-center px-2 py-0.5 text-[10px] font-medium text-white h-8 border-x border-zinc-800/50"
+                              className={`text-center px-2 py-0.5 text-[10px] font-medium text-white h-8 border-x border-zinc-800/50 ${perfYearIndex % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                               style={{ backgroundColor: getHeatmapColor(cellData?.normalized ?? null, direction) }}
                           >
                               {cellData?.display ?? "-"}
-                          </TableCell>
-                      );
+                          </TableCell>,
+                          peerTicker && (
+                              <TableCell 
+                                  key={`${col}-peer`}
+                                  className={`text-center px-2 py-0.5 text-[10px] font-bold text-[#0056FF] h-8 border-x border-zinc-800/50 ${perfYearIndex % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                                  style={{ backgroundColor: getHeatmapColor(peerCellData?.normalized ?? null, direction) }}
+                              >
+                                  {peerCellData?.display ?? "-"}
+                              </TableCell>
+                          )
+                      ];
                   })}
                 </TableRow>
               ))

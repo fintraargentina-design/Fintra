@@ -5,7 +5,7 @@ import { useEffect, RefObject } from 'react';
  * 
  * @param refs Array of refs to the scrollable containers
  */
-export function useSyncedHorizontalScroll(refs: RefObject<HTMLElement>[]) {
+export function useSyncedHorizontalScroll(refs: RefObject<HTMLElement | null>[]) {
   useEffect(() => {
     // Guard flag to prevent infinite loops (scroll event triggering other scroll events)
     let isSyncing = false;

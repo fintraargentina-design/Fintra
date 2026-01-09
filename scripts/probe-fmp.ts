@@ -1,7 +1,8 @@
 
 import { fmpGet } from '@/lib/fmp/server';
 import dotenv from 'dotenv';
-dotenv.config();
+dotenv.config({ path: '.env.local' });
+dotenv.config(); // fallback to .env if needed
 
 async function main() {
   const tickers = ['AAPL', 'MSFT', 'TSLA', 'BRK.B', 'SPY', 'V', 'KO'];
