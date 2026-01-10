@@ -33,6 +33,14 @@ echarts.use([
 
 const ReactECharts = dynamic(() => import("echarts-for-react/lib/core"), { ssr: false });
 
+// --- Simple In-Memory Cache ---
+const CACHE_DURATION = 1000 * 60 * 60; // 1 hour
+type CacheEntry = {
+  data: OHLC[];
+  timestamp: number;
+};
+const chartDataCache: Record<string, CacheEntry> = {};
+
 type RangeKey = "1A" | "3A" | "5A" | "MAX";
 
 // Helper to filter data by range
@@ -105,6 +113,9 @@ export default function ChartsTabHistoricos({
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Stabilize comparedSymbols for dependency checks
+  const comparedSymbolsKey = comparedSymbols.join(',');
+
   // 1. Determine Benchmark & Fetch All Data
   React.useEffect(() => {
     let alive = true;
@@ -144,6 +155,13 @@ export default function ChartsTabHistoricos({
 
         // C. Fetch in parallel
         const promises = Array.from(symbolsToFetch).map(async (ticker) => {
+           // 1. Check Cache
+           const now = Date.now();
+           if (chartDataCache[ticker] && (now - chartDataCache[ticker].timestamp < CACHE_DURATION)) {
+             console.log(`[ChartsTab] Cache HIT for ${ticker}`);
+             return { ticker, data: chartDataCache[ticker].data };
+           }
+
            try {
              // Fetch limit depends on range, but fetching enough for 5Y+ is safe
              const res = await fmp.eod(ticker, { limit: 8000 });
@@ -181,6 +199,12 @@ export default function ChartsTabHistoricos({
                     data.reverse();
                 }
              }
+
+             // Save to Cache
+             chartDataCache[ticker] = {
+               data,
+               timestamp: Date.now()
+             };
 
              return { ticker, data }; 
            } catch (err) {
@@ -226,7 +250,7 @@ export default function ChartsTabHistoricos({
     fetchData();
 
     return () => { alive = false; };
-  }, [symbol, showBenchmark, comparedSymbols, toast]);
+  }, [symbol, showBenchmark, comparedSymbolsKey, toast]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 2. Prepare Data for Chart (Align & Filter)
   const chartData = React.useMemo(() => {
@@ -269,7 +293,7 @@ export default function ChartsTabHistoricos({
       main: mainR,
       others: otherSeriesList
     };
-  }, [dataMap, symbol, benchmarkTicker, comparedSymbols, range]);
+  }, [dataMap, symbol, benchmarkTicker, comparedSymbolsKey, range]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 3. Generate ECharts Options
   const getOption = React.useMemo(() => {
@@ -511,7 +535,7 @@ export default function ChartsTabHistoricos({
       yAxis,
       series
     };
-  }, [chartData, view, symbol, benchmarkTicker, comparedSymbols]);
+  }, [chartData, view, symbol, benchmarkTicker, comparedSymbolsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const renderChart = () => {
     if (loading) return <div className="h-full w-full animate-pulse bg-zinc-900/50 rounded-md" />;
@@ -526,7 +550,7 @@ export default function ChartsTabHistoricos({
 
     return (
       <ReactECharts
-        key={`${symbol}-${view}-${range}-${comparedSymbols.join('-')}`} 
+        key={`${symbol}-${view}-${range}-${comparedSymbolsKey}`} 
         echarts={echarts as any}
         option={getOption}
         notMerge

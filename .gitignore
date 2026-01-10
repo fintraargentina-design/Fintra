@@ -35,8 +35,5 @@ coverage/
 *.tsbuildinfo
 next-env.d.ts
 
-# Cache de FMP snapshots
-/data/fmp-snapshot-cache/
-
-# Bulk CSV data
-/data/fmp-bulk/
+# Data folder (local cache, bulk files, etc.)
+/data/

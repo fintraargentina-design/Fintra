@@ -43,6 +43,9 @@ export default function StockTerminal() {
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
+  // Memoize comparedSymbols to prevent unnecessary re-renders in ChartsTabHistoricos
+  const comparedSymbolsList = useMemo(() => selectedCompetitor ? [selectedCompetitor] : [], [selectedCompetitor]);
+
   // Estados para FundamentalCard (Prop Drilling)
   const [stockRatios, setStockRatios] = useState<any>(null);
   const [stockMetrics, setStockMetrics] = useState<any>(null);
@@ -73,6 +76,7 @@ export default function StockTerminal() {
 
   // Cargar datos automáticamente para el símbolo inicial
   useEffect(() => {
+    console.log(`[Page] useEffect triggered. selectedSymbol: "${selectedSymbol}"`);
     if (selectedSymbol && selectedSymbol !== 'N/A' && selectedSymbol !== '') {
       buscarDatosAccion(selectedSymbol);
     }
@@ -246,7 +250,7 @@ export default function StockTerminal() {
           <ChartsTabHistoricos
             symbol={selectedSymbol}
             companyName={stockBasicData?.companyName}
-            comparedSymbols={selectedCompetitor ? [selectedCompetitor] : []}
+            comparedSymbols={comparedSymbolsList}
           />
         );
       case 'estimacion':
@@ -409,7 +413,7 @@ export default function StockTerminal() {
                               <ChartsTabHistoricos
                                   symbol={selectedSymbol}
                                   companyName={stockBasicData?.companyName}
-                                  comparedSymbols={selectedCompetitor ? [selectedCompetitor] : []}
+                                  comparedSymbols={comparedSymbolsList}
                               />
                           </div>
                           <div className="w-full lg:w-2/5 h-full border border-zinc-800 bg-tarjetas overflow-hidden">
