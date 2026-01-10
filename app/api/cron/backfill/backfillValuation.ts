@@ -1,23 +1,56 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { getBulkPriceData } from '../shared/bulkCache';
 import dayjs from 'dayjs';
 
 export async function backfillValuationForDate(date: string) {
-  const asOf = dayjs(date);
-  const pricesByTicker = await getBulkPriceData();
+  // -----------------------
+  // 0. Fetch Snapshots (Canonical Source)
+  // -----------------------
+  // Lookback 7 days to find the latest valid snapshot
+  const lookbackDate = dayjs(date).subtract(7, 'day').format('YYYY-MM-DD');
+  
+  const { data: snapshots, error } = await supabaseAdmin
+      .from('fintra_snapshots')
+      .select('ticker, profile_structural, snapshot_date, sector')
+      .lte('snapshot_date', date)
+      .gte('snapshot_date', lookbackDate)
+      .not('profile_structural->metrics->price', 'is', null)
+      .order('snapshot_date', { ascending: false });
+
+  if (error) {
+      console.error(`[backfillValuation] Error fetching snapshots:`, error);
+      return;
+  }
+
+  if (!snapshots || snapshots.length === 0) {
+      console.log(`[backfillValuation] No snapshots found for window ${lookbackDate} to ${date}`);
+      return;
+  }
+
+  // Dedup: keep latest snapshot per ticker
+  const snapshotMap = new Map<string, any>();
+  for (const s of snapshots) {
+      if (!snapshotMap.has(s.ticker)) {
+          snapshotMap.set(s.ticker, s);
+      }
+  }
+
+  console.log(`[backfillValuation] Processing ${snapshotMap.size} tickers for target date ${date}`);
 
   const rows: any[] = [];
 
-  for (const ticker of Object.keys(pricesByTicker)) {
+  for (const ticker of snapshotMap.keys()) {
+    const snap = snapshotMap.get(ticker);
+    
     // -----------------------
-    // 1. Precio del día
+    // 1. Precio from Snapshot
     // -----------------------
-    const priceRow = pricesByTicker[ticker]
-      .find((p: any) => p.date === date);
+    const rawPrice = snap.profile_structural?.metrics?.price;
+    const price = typeof rawPrice === 'string' ? parseFloat(rawPrice) : rawPrice;
 
-    if (!priceRow) continue;
+    if (price === null || price === undefined || !Number.isFinite(price)) continue;
 
-    const price = priceRow.close;
+    // Use snapshot date as the effective valuation date
+    const valuationDate = snap.snapshot_date;
 
     // -----------------------
     // 2. Fundamentals vigentes
@@ -26,7 +59,7 @@ export async function backfillValuationForDate(date: string) {
       .from('datos_financieros')
       .select('*')
       .eq('ticker', ticker)
-      .lte('period_end_date', date)
+      .lte('period_end_date', valuationDate)
       .in('period_type', ['TTM', 'FY'])
       .order('period_end_date', { ascending: false })
       .limit(1)
@@ -37,9 +70,8 @@ export async function backfillValuationForDate(date: string) {
     // -----------------------
     // 3. Sector
     // -----------------------
-    const sector =
-      fin.sector ??
-      (await resolveSectorFromSnapshot(ticker, date));
+    // Use snapshot sector if available, otherwise financial sector, otherwise resolve
+    const sector = snap.sector ?? fin.sector ?? (await resolveSectorFromSnapshot(ticker, valuationDate));
 
     if (!sector) continue;
 
@@ -61,7 +93,7 @@ export async function backfillValuationForDate(date: string) {
       .from('sector_stats')
       .select('*')
       .eq('sector', sector)
-      .eq('stats_date', date);
+      .eq('stats_date', valuationDate);
 
     if (!stats || !stats.length) continue;
 
@@ -87,7 +119,7 @@ export async function backfillValuationForDate(date: string) {
 
     rows.push({
       ticker,
-      valuation_date: date,
+      valuation_date: valuationDate,
 
       denominator_type: fin.period_type,
       denominator_period: fin.period_label,
@@ -101,7 +133,28 @@ export async function backfillValuationForDate(date: string) {
       valuation_score: composite ? 100 - composite : null
     });
   }
+
+  // -----------------------
+  // 6. Upsert
+  // -----------------------
+  if (rows.length > 0) {
+      console.log(`[backfillValuation] Upserting ${rows.length} rows...`);
+      const { error: upsertError } = await supabaseAdmin
+          .from('datos_valuacion')
+          .upsert(rows, {
+              onConflict: 'ticker,valuation_date,denominator_type,denominator_period'
+          });
+      
+      if (upsertError) {
+          console.error('[backfillValuation] Upsert error:', upsertError);
+      } else {
+          console.log(`[backfillValuation] Upsert successful.`);
+      }
+  } else {
+      console.log(`[backfillValuation] No rows to upsert.`);
+  }
 }
+
 
 // Helpers
 

@@ -97,6 +97,68 @@ function areConsecutive(qNew: any, qOld: any): boolean {
     return diffDays >= 75 && diffDays <= 105;
 }
 
+// Helper to check if a period is mutable (should be re-processed)
+function isMutablePeriod(year: number | null, period: string | null): boolean {
+    // 1. Always process TTM (year/period are null for TTM bulk files)
+    if (year === null || period === null) return true;
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0 = Jan, 2 = March
+
+    // 2. Always process current calendar year (Qs and FY)
+    if (year === currentYear) return true;
+
+    // 3. Process previous year
+    if (year === currentYear - 1) {
+        // Before March 31: Previous year is considered open/mutable (Q4 results coming in, FY finalizing)
+        if (currentMonth <= 2) return true;
+        
+        // After March 31: Previous year is closed/immutable
+        return false;
+    }
+
+    // 4. Skip older years
+    return false;
+}
+
+// Helper to find missing tickers in DB for a specific period
+async function getMissingTickersForPeriod(
+    tickers: Set<string>, 
+    year: number, 
+    period: string, 
+    type: 'Q' | 'FY'
+): Promise<Set<string>> {
+    if (tickers.size === 0) return new Set();
+    
+    const tickerList = Array.from(tickers);
+    const periodLabel = type === 'FY' ? `${year}` : `${year}${period}`;
+
+    // Query DB for tickers that HAVE this data
+    const { data, error } = await supabaseAdmin
+        .from('datos_financieros')
+        .select('ticker')
+        .eq('period_type', type)
+        .eq('period_label', periodLabel)
+        .in('ticker', tickerList);
+
+    if (error) {
+        console.error(`[financials-bulk] Error checking missing tickers for ${periodLabel}:`, error);
+        return tickers; // Assume all missing on error to be safe (or empty? Safe to process)
+    }
+
+    const existingTickers = new Set(data?.map(r => r.ticker) || []);
+    
+    // Return only those NOT in existingTickers
+    const missing = new Set<string>();
+    for (const t of tickerList) {
+        if (!existingTickers.has(t)) {
+            missing.add(t);
+        }
+    }
+    return missing;
+}
+
 // --- Refactored Phase Functions ---
 
 async function downloadAndCacheCSVs(apiKey: string) {
@@ -117,8 +179,9 @@ async function downloadAndCacheCSVs(apiKey: string) {
             url += `&year=${year}&period=${period}`;
         }
 
-        if (!existsSync(filePath)) {
-            console.log(`[fmp-bulk-cache] MISS ${fileName} -> downloading`);
+        if (!existsSync(filePath) || isMutablePeriod(year, period)) {
+            const action = existsSync(filePath) ? 'REFRESH' : 'MISS';
+            console.log(`[fmp-bulk-cache] ${action} ${fileName} -> downloading`);
             try {
                 const res = await fetch(url);
                 
@@ -138,7 +201,7 @@ async function downloadAndCacheCSVs(apiKey: string) {
                 console.error(`[fmp-bulk-cache] Error fetching ${url}:`, e);
             }
         } else {
-            console.log(`[fmp-bulk-cache] HIT ${fileName}`);
+            console.log(`[fmp-bulk-cache] HIT ${fileName} (Immutable & Cached)`);
         }
     };
 
@@ -171,6 +234,32 @@ async function parseCachedCSVs(activeTickers: Set<string>) {
     const parseFile = async (endpointBase: string, year: number | null, period: string | null): Promise<any[]> => {
         const prefix = ENDPOINT_MAP[endpointBase] || endpointBase;
         const fileName = year ? `${prefix}_${year}_${period}.csv` : `${prefix}.csv`;
+
+        let targetTickers = activeTickers;
+        const isMutable = isMutablePeriod(year, period);
+
+        // GAP DETECTION LOGIC
+        if (!isMutable && year !== null && period !== null) {
+             const type = period === 'FY' ? 'FY' : 'Q';
+             // Check which of the current batch of tickers are missing this period
+             const missing = await getMissingTickersForPeriod(activeTickers, year, period, type);
+             
+             if (missing.size === 0) {
+                 // All tickers in this batch already have this immutable period
+                 // console.log(`[fmp-bulk-cache] SKIP ${fileName} (Immutable & Complete)`);
+                 return [];
+             }
+             
+             // Only process the rows for the missing tickers
+             console.log(`[fmp-bulk-cache] GAP-FILL ${fileName} -> Processing ${missing.size} missing tickers`);
+             targetTickers = missing;
+        } else if (!isMutable) {
+             // Should not be reached given isMutablePeriod logic for TTM (which is always true)
+             // But purely defensive:
+             return [];
+        }
+        // If mutable, targetTickers remains activeTickers (process all)
+
         const filePath = path.join(CACHE_DIR, fileName);
 
         if (!existsSync(filePath)) {
@@ -189,7 +278,8 @@ async function parseCachedCSVs(activeTickers: Set<string>) {
                 step: (results: any) => {
                     const row = results.data;
                     const symbol = row.symbol || row.ticker;
-                    if (symbol && activeTickers.has(symbol)) {
+                    // Filter: Must be in our target list (either full batch or missing subset)
+                    if (symbol && targetTickers.has(symbol)) {
                         rows.push(row);
                     }
                 },

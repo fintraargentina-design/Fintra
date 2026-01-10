@@ -214,9 +214,29 @@ export default function TickerSearchPanel({ onStockSelect }: { onStockSelect?: (
                 <div className="relative w-full md:w-64">
                     <Search className="w-3 h-3 absolute left-2 top-2 text-gray-500" />
                     <Input 
+                        name="ticker-search"
+                        autoComplete="off"
+                        maxLength={10}
                         placeholder="BUSCAR TICKER..." 
                         value={tickerSearch}
-                        onChange={(e) => setTickerSearch(e.target.value)}
+                        onChange={(e) => {
+                            // Sanitize: uppercase and allow only valid ticker characters (A-Z, 0-9, ., -)
+                            const val = e.target.value.toUpperCase().replace(/[^A-Z0-9.-]/g, "");
+                            setTickerSearch(val);
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" && tickerSearch) {
+                                e.preventDefault();
+                                const exactMatch = enrichedSearchResults.find(r => r.ticker === tickerSearch);
+                                if (exactMatch) {
+                                    onStockSelect?.(exactMatch.ticker);
+                                } else if (enrichedSearchResults.length > 0) {
+                                    onStockSelect?.(enrichedSearchResults[0].ticker);
+                                } else {
+                                    onStockSelect?.(tickerSearch);
+                                }
+                            }
+                        }}
                         className="h-7 text-[10px] uppercase tracking-wider bg-zinc-900 border-zinc-800 pl-7 w-full rounded-sm placeholder:text-gray-600 text-gray-300 focus-visible:ring-0 focus-visible:border-zinc-700"
                     />
                 </div>

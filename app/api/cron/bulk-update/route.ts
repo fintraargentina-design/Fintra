@@ -51,7 +51,8 @@ async function fetchAndParseCSV(url: string, apiKey: string) {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const limit = parseInt(searchParams.get('limit') || '1000');
+  const limitParam = searchParams.get('limit');
+  const limit = limitParam ? parseInt(limitParam) : null;
   const offset = parseInt(searchParams.get('offset') || '0');
   const fmpKey = process.env.FMP_API_KEY!;
   if (!fmpKey) return NextResponse.json({ error: 'Missing Keys' }, { status: 500 });
@@ -107,8 +108,11 @@ export async function GET(req: Request) {
         return price > 0 && sector && sector !== 'N/A';
     });
 
-    const batchToProcess = allValidProfiles.slice(offset, offset + limit);
-    console.log(`⚙️ Procesando lote: del ${offset} al ${offset + limit} (${batchToProcess.length} empresas)...`);
+    const batchToProcess = limit 
+      ? allValidProfiles.slice(offset, offset + limit)
+      : allValidProfiles.slice(offset);
+    
+    console.log(`⚙️ Procesando lote: del ${offset} al ${limit ? offset + limit : 'END'} (${batchToProcess.length} empresas)...`);
     
     const today = new Date().toISOString().slice(0, 10);
     const snapshotsToUpsert = [];

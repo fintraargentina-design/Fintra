@@ -1,8 +1,7 @@
-import { supabase } from './supabase';
-import { fmp } from './fmp/client';
+import { supabase, registerStockSearch } from './supabase';
 import type { FMPCompanyProfile as FMPStockData } from './fmp/types';
 
-export { supabase, registerStockSearch } from './supabase';
+export { supabase, registerStockSearch };
 
 // Interfaces para los tipos de datos
 export interface StockData extends FMPStockData {
@@ -41,6 +40,11 @@ export interface StockData extends FMPStockData {
   performance_1y?: number;
   performance_3y?: number;
   performance_5y?: number;
+  
+  // Legacy fields
+  company_name?: string;
+  current_price?: number;
+  market_cap?: number;
 
   [key: string]: any;
 }
@@ -69,99 +73,27 @@ export interface StockPerformance {
 // Función principal para buscar todos los datos de una acción
 export async function searchStockData(symbol: string) {
   try {
-    console.log(`Buscando ${symbol} en APIs externas...`);
+    console.log(`Buscando ${symbol} en APIs internas (DB-First)...`);
     
-    // Inicializar variables
-    let processedData: StockData | null = null;
-    let analysisData = null;
-    let performanceData = null;
-    let ecosystemData = null;
+    // Registrar búsqueda
+    registerStockSearch(symbol);
 
-    // 1. Fetch Basic Data from FMP
-    try {
-      const profileData = await fmp.profile(symbol);
-      
-      if (profileData && profileData.length > 0) {
-        const profile = profileData[0];
-        // Formatear datos para que coincidan con la estructura esperada
-        processedData = {
-          ...profile,
-          symbol: symbol.toUpperCase(),
-          companyName: profile.companyName,
-          price: profile.price,
-          mktCap: profile.mktCap,
-          // Mapping fields that might differ or be required by interface
-          changes: profile.changes,
-          currency: profile.currency,
-          exchange: profile.exchange,
-          industry: profile.industry,
-          sector: profile.sector,
-          description: profile.description,
-          ceo: profile.ceo,
-          website: profile.website,
-          image: profile.image,
-          
-          // Legacy/Extra fields compatibility
-          company_name: profile.companyName,
-          current_price: profile.price,
-          market_cap: profile.mktCap,
-          
-          // Initialize optional fields
-          dividendos: null,
-          valoracion: null
-        };
-      }
-    } catch (apiError) {
-      console.error('Error en APIs externas (FMP):', apiError);
+    // Call unified API
+    const response = await fetch(`/api/stock-data?symbol=${encodeURIComponent(symbol)}`);
+    
+    if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
     }
 
-    // 2. Buscar análisis (Supabase)
-    const { data: analysisResult, error: analysisError } = await supabase
-      .from('stock_analysis')
-      .select('*')
-      .eq('symbol', symbol.toUpperCase())
-      .single();
-
-    if (analysisError && analysisError.code && analysisError.code !== 'PGRST116' && analysisError.code !== '42P01') {
-      console.error('Error en análisis:', {
-        message: analysisError.message || 'Sin mensaje',
-        code: analysisError.code || 'Sin código'
-      });
-    }
-    analysisData = analysisResult;
-
-    // 3. Buscar rendimiento (Supabase)
-    const { data: performanceResult, error: performanceError } = await supabase
-      .from('stock_performance')
-      .select('*')
-      .eq('symbol', symbol.toUpperCase())
-      .single();
-
-    if (performanceError) {
-      if (performanceError.code && performanceError.code !== 'PGRST116' && performanceError.code !== '42P01') {
-        console.error('Error en rendimiento:', performanceError);
-      }
-    }
-    performanceData = performanceResult;
-
-    // 5. Buscar datos del ecosistema (holders e insiders) desde FMP
-    try {
-      const [holders, insiders] = await Promise.all([
-        fmp.institutionalHolders(symbol.toUpperCase()),
-        fmp.insiderTrading(symbol.toUpperCase(), { limit: 20 })
-      ]);
-      ecosystemData = { holders, insiders };
-    } catch (e) {
-      console.warn('Error fetching ecosystem data:', e);
-    }
+    const data = await response.json();
 
     return {
-      basicData: processedData,
-      analysisData: analysisData as StockAnalysis,
-      performanceData: performanceData as StockPerformance,
-      ecosystemData,
-      success: !!processedData,
-      error: processedData ? null : 'No se encontraron datos básicos'
+      basicData: data.basicData as StockData | null,
+      analysisData: data.analysisData as StockAnalysis | null,
+      performanceData: data.performanceData as StockPerformance | null,
+      ecosystemData: data.ecosystemData,
+      success: !!data.basicData,
+      error: data.basicData ? null : 'No se encontraron datos básicos'
     };
 
   } catch (error) {
@@ -170,6 +102,7 @@ export async function searchStockData(symbol: string) {
       basicData: null,
       analysisData: null,
       performanceData: null,
+      ecosystemData: null,
       success: false,
       error: error instanceof Error ? error.message : 'Error desconocido'
     };
@@ -179,38 +112,10 @@ export async function searchStockData(symbol: string) {
 // Función para buscar solo datos básicos
 export async function getBasicStockData(symbol: string): Promise<StockData | null> {
   try {
-    const profileData = await fmp.profile(symbol);
-
-    if (!profileData || profileData.length === 0) {
-      console.warn('No se encontraron datos para el símbolo:', symbol);
-      return null;
-    }
-
-    const profile = profileData[0];
-    return {
-      ...profile,
-      symbol: symbol.toUpperCase(),
-      companyName: profile.companyName,
-      price: profile.price,
-      mktCap: profile.mktCap,
-      changes: profile.changes,
-      currency: profile.currency,
-      exchange: profile.exchange,
-      industry: profile.industry,
-      sector: profile.sector,
-      description: profile.description,
-      ceo: profile.ceo,
-      website: profile.website,
-      image: profile.image,
-      
-      // Legacy compatibility
-      company_name: profile.companyName,
-      current_price: profile.price,
-      market_cap: profile.mktCap,
-      
-      dividendos: null,
-      valoracion: null
-    } as StockData;
+    const response = await fetch(`/api/stock-data?symbol=${encodeURIComponent(symbol)}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.basicData || null;
   } catch (error) {
     console.error('Error en getBasicStockData:', error);
     return null;
@@ -220,24 +125,11 @@ export async function getBasicStockData(symbol: string): Promise<StockData | nul
 // Función para buscar solo análisis
 export async function getStockAnalysisData(symbol: string): Promise<StockAnalysis | null> {
   try {
-    const { data, error } = await supabase
-      .from('stock_analysis')
-      .select('*')
-      .eq('symbol', symbol.toUpperCase())
-      .single();
-
-    if (error) {
-      console.error('Error al obtener análisis:', error);
-      return null;
-    }
-
-    // Después de la consulta de análisis, agregar:
-    console.log('Resultado de análisis:', {
-      symbol: symbol.toUpperCase(),
-      hasData: !!data,
-      dataKeys: data ? Object.keys(data) : 'No data'
-    });
-    return data;
+    // We reuse the unified API as it is efficient enough
+    const response = await fetch(`/api/stock-data?symbol=${encodeURIComponent(symbol)}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.analysisData || null;
   } catch (error) {
     console.error('Error en getStockAnalysisData:', error);
     return null;
@@ -247,22 +139,12 @@ export async function getStockAnalysisData(symbol: string): Promise<StockAnalysi
 // Función para buscar solo rendimiento
 export async function getStockPerformanceData(symbol: string): Promise<StockPerformance | null> {
   try {
-    const { data, error } = await supabase
-      .from('stock_performance')
-      .select('*')
-      .eq('symbol', symbol.toUpperCase())
-      .single();
-
-    if (error) {
-      console.error('Error al obtener rendimiento:', error);
-      return null;
-    }
-
-    return data;
+    const response = await fetch(`/api/stock-data?symbol=${encodeURIComponent(symbol)}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.performanceData || null;
   } catch (error) {
     console.error('Error en getStockPerformanceData:', error);
     return null;
   }
 }
-
-

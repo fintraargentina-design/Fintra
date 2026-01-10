@@ -160,10 +160,31 @@ async function parseFromCache(
 function indexBySymbol(rows: any[]) {
   const map = new Map<string, any[]>();
   for (const r of rows) {
-    const symbol = (r?.symbol || r?.ticker || '').trim().toUpperCase();
-    if (!symbol) continue;
-    if (!map.has(symbol)) map.set(symbol, []);
-    map.get(symbol)!.push(r);
+    const rawSymbol = (r?.symbol || r?.ticker || '').trim().toUpperCase();
+    if (!rawSymbol) continue;
+
+    // 1. Index by raw symbol (e.g. "BRK-B")
+    if (!map.has(rawSymbol)) map.set(rawSymbol, []);
+    map.get(rawSymbol)!.push(r);
+
+    // 2. Index by dot-normalized symbol (e.g. "BRK-B" -> "BRK.B")
+    // This handles cases where DB has "BRK.B" but FMP sends "BRK-B"
+    if (rawSymbol.includes('-')) {
+      const dotSymbol = rawSymbol.replace(/-/g, '.');
+      // Only add if not already present (avoid overwriting if FMP somehow sends both)
+      if (!map.has(dotSymbol)) {
+        map.set(dotSymbol, map.get(rawSymbol)!);
+      }
+    }
+    
+    // 3. Index by hyphen-normalized symbol (e.g. "BRK.B" -> "BRK-B")
+    // Just in case FMP sends "BRK.B" but DB has "BRK-B"
+    if (rawSymbol.includes('.')) {
+      const hyphenSymbol = rawSymbol.replace(/\./g, '-');
+      if (!map.has(hyphenSymbol)) {
+        map.set(hyphenSymbol, map.get(rawSymbol)!);
+      }
+    }
   }
   return map;
 }

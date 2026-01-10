@@ -20,8 +20,8 @@ export function normalizePerformance(
     ratios?.dividendYieldTTM ?? ratios?.dividendYield ?? (profile as any)?.lastDividend ?? null;
 
   return {
-    price: typeof price === 'number' ? Number(price) : null,
-    ytd_percent: typeof ytd === 'number' ? Number(ytd) : null,
-    div_yield: typeof divYield === 'number' ? Number(divYield) : null,
+    price: price !== null && price !== undefined ? Number(price) : null,
+    ytd_percent: ytd !== null && ytd !== undefined ? Number(ytd) : null,
+    div_yield: divYield !== null && divYield !== undefined ? Number(divYield) : null,
   };
 }

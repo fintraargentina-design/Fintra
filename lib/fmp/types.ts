@@ -187,3 +187,12 @@ export type ExchangeMarketHours = {
   openingAdditional?: string;
   closingAdditional?: string;
 };
+
+export type PriceTargetConsensus = {
+  symbol: string;
+  targetHigh: number;
+  targetLow: number;
+  targetConsensus: number;
+  targetMedian: number;
+};
+

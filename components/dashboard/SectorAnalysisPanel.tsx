@@ -1,14 +1,28 @@
 "use client";
-
+// Fintra/components/dashboard/SectorAnalysisPanel.tsx
 import { useState, useEffect, useRef } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { getHeatmapColor, formatMarketCap } from "@/lib/utils";
-import { EnrichedStockData } from "@/lib/services/stock-enrichment";
 import { supabase } from "@/lib/supabase";
 import { getAvailableSectors } from "@/lib/repository/fintra-db";
 import { Loader2 } from "lucide-react";
+
+// Local interface definition to avoid importing from services that might depend on API clients
+interface EnrichedStockData {
+  ticker: string;
+  name: string;
+  price: number | null;
+  marketCap: number | null;
+  ytd: number | null;
+  divYield: number | null;
+  estimation: number | null;
+  targetPrice: number | null;
+  fgos: number;
+  valuation: string;
+  ecosystem: number;
+}
 
 export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?: (symbol: string) => void }) {
   const [sectors, setSectors] = useState<string[]>([]);
@@ -21,7 +35,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
-  const PAGE_SIZE = 100;
+  const PAGE_SIZE = 1000;
 
   // Scroll Ref
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -71,6 +85,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
       const from = pageNum * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
+      // Query ONLY fintra_snapshots
       const { data: snapshots, error } = await supabase
         .from('fintra_snapshots')
         .select('ticker, fgos_score, valuation, investment_verdict, created_at')
@@ -89,6 +104,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
           setHasMore(false);
       }
 
+      // Deduplicate tickers defensively (latest snapshot per ticker within this batch)
       const snapMap = new Map<string, any>();
       const uniqueTickers: string[] = [];
       
@@ -99,6 +115,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
         }
       });
       
+      // Fetch ecosystem scores for these tickers
       const { data: eco } = await supabase
         .from('fintra_ecosystem_reports')
         .select('ticker, ecosystem_score, date')
@@ -110,20 +127,21 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
         if (!ecoMap.has(row.ticker)) ecoMap.set(row.ticker, row.ecosystem_score);
       });
 
+      // Map to EnrichedStockData with NULL/defaults for missing fields
       const enriched: EnrichedStockData[] = uniqueTickers.map((t) => {
         const s = snapMap.get(t) || {};
         const e = ecoMap.get(t);
         return {
           ticker: t,
-          name: t,
+          name: t, // Use ticker as name since we don't fetch profile
           price: null,
           marketCap: null,
           ytd: null,
-          divYield: 0,
-          estimation: 0,
-          targetPrice: 0,
+          divYield: null,
+          estimation: null,
+          targetPrice: null,
           fgos: s?.fgos_score ?? 0,
-          valuation: s?.valuation?.valuation_status ?? "N/A",
+          valuation: s?.valuation_status ?? s?.valuation?.valuation_status ?? "N/A",
           ecosystem: e ?? 50
         };
       });
@@ -133,7 +151,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
           return enriched.sort((a, b) => b.fgos - a.fgos);
         }
         
-        // Evitar duplicados revisando si el ticker ya existe
+        // Evitar duplicados revisando si el ticker ya existe en el estado global
         const existingTickers = new Set(prev.map(p => p.ticker));
         const newUnique = enriched.filter(e => !existingTickers.has(e.ticker));
         
@@ -175,9 +193,11 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
     "bg-red-500/10 text-red-400 border-red-500/20";
 
   const getValBadge = (v: string) => {
-    if (v === "Undervalued" || v === "Infravalorada") return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Infravalorada</Badge>;
-    if (v === "Fair" || v === "Justa") return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Justa</Badge>;
-    if (v === "N/A") return <span className="text-gray-500 text-[10px]">-</span>;
+    if (!v) return <span className="text-gray-500 text-[10px]">-</span>;
+    const lowerV = v.toLowerCase();
+    if (lowerV.includes("under") || lowerV.includes("infra")) return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Infravalorada</Badge>;
+    if (lowerV.includes("fair") || lowerV.includes("justa")) return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Justa</Badge>;
+    if (lowerV === "n/a") return <span className="text-gray-500 text-[10px]">-</span>;
     return <Badge className="text-red-400 bg-red-400/10 border-red-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Sobrevalorada</Badge>;
   };
 
@@ -240,7 +260,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                 <TableRow className="border-zinc-800">
                   <TableCell colSpan={9} className="h-24 text-center">
                     <div className="flex justify-center items-center gap-2 text-gray-400 text-xs">
-                       <Loader2 className="w-4 h-4 animate-spin" /> Cargando datos en vivo...
+                       <Loader2 className="w-4 h-4 animate-spin" /> Cargando datos...
                     </div>
                   </TableCell>
                 </TableRow>
@@ -264,13 +284,13 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                     {stock.ecosystem || '-'}
                   </TableCell>
                   <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
-                    {stock.divYield ? `${stock.divYield.toFixed(2)}%` : '-'}
+                    {stock.divYield != null ? `${stock.divYield.toFixed(2)}%` : '-'}
                   </TableCell>
                   <TableCell 
                     className="text-center px-2 py-0.5 text-[10px] font-medium text-white"
                     style={{ backgroundColor: stock.estimation ? getHeatmapColor(stock.estimation) : 'transparent' }}
                   >
-                    {stock.estimation ? `${stock.estimation > 0 ? '+' : ''}${stock.estimation.toFixed(1)}%` : '-'}
+                    {stock.estimation != null ? `${stock.estimation > 0 ? '+' : ''}${stock.estimation.toFixed(1)}%` : '-'}
                   </TableCell>
                   <TableCell className="text-right px-2 py-0.5 text-xs font-mono text-white">
                     {stock.price != null ? `$${Number(stock.price).toFixed(2)}` : '-'}
@@ -287,7 +307,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                 </TableRow>
               ))}
               {isFetchingMore && (
-                 <TableRow className="border-zinc-800">
+                <TableRow className="border-zinc-800">
                   <TableCell colSpan={9} className="h-12 text-center text-gray-400 text-xs">
                      <div className="flex justify-center items-center gap-2">
                         <Loader2 className="w-3 h-3 animate-spin" /> Cargando más...

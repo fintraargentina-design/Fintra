@@ -66,13 +66,6 @@ export default function Header({ user, onAuth, onSelectSymbol, showTimes = true,
           </div>
         </div>
 
-        {/* Derecha: Título */}
-        <div className="flex items-center justify-end gap-2 flex-[1_1_220px] min-w-0">          
-          <h1 className="text-xs font-medium text-white truncate">
-            Fintra - Dashboard 
-          </h1>
-        </div>
-
         {/* Derecha: tiempos y estado del mercado */}
         {/* <div className="flex items-center gap-4 flex-[1_1_240px] justify-end min-w-0">
           {showTimesEnabled && (

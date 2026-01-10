@@ -15,16 +15,28 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
 
   const offset = Number(searchParams.get('offset') ?? 0);
-  const limit = Number(searchParams.get('limit') ?? 10); // chico para probar
+  // Removed default limit for cron execution
+  const limitParam = searchParams.get('limit');
+  const limit = limitParam ? Number(limitParam) : null;
 
   // 1️⃣ Tomar tickers SOLO del universo operativo
   // Use fintra_active_stocks exclusively (per FINTRA business rule) to ensure equity-only calculations
-  const { data: rows, error } = await supabase
+  let query = supabase
     .from('fintra_active_stocks')
     .select('ticker')
     .eq('is_active', true)
-    .eq('type', 'stock')
-    .range(offset, offset + limit - 1);
+    .eq('type', 'stock');
+
+  if (limit) {
+       query = query.range(offset, offset + limit - 1);
+   } else {
+       // Fetch large batch if no limit specified (Supabase default is 1000)
+       // Assuming < 10000 active stocks
+       query = query.range(offset, offset + 9999);
+   }
+
+  // To be safe and cleaner in the replacement:
+  const { data: rows, error } = await query;
 
   if (error) throw error;
 

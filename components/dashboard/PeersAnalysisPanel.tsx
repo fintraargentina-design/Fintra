@@ -2,7 +2,6 @@
 // Fintra/components/dashboard/PeersAnalysisPanel.tsx
 
 import { useState, useEffect } from "react";
-import { fmp } from "@/lib/fmp/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { getHeatmapColor } from "@/lib/utils";
@@ -20,36 +19,41 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!symbol) {
-      setPeers([]);
-      return;
-    }
-
     let active = true;
-    setIsLoading(true);
-    setPeers([]);
 
     const fetchPeersData = async () => {
-      try {
-        // 1. Get peers list
-        const peersRes = await fmp.peers(symbol, { cache: 'no-store' }).catch(() => []);
-        let peersList: string[] = [];
-
-        // Handle different response formats from FMP
-        if (Array.isArray(peersRes)) {
-          if (peersRes.length > 0 && typeof peersRes[0] === 'string') {
-            peersList = peersRes as string[];
-          } 
-          else if (peersRes.length > 0 && Array.isArray((peersRes[0] as any)?.peers)) {
-            peersList = (peersRes[0] as any).peers;
-          }
-          else if (peersRes.length > 0 && typeof peersRes[0] === 'object' && 'symbol' in peersRes[0]) {
-            peersList = peersRes.map((p: any) => p.symbol);
-          }
-        } 
-        else if (Array.isArray((peersRes as any)?.peers)) {
-          peersList = (peersRes as any).peers;
+      if (!symbol) {
+        if (active) {
+            setPeers([]);
+            setIsLoading(false);
         }
+        return;
+      }
+
+      if (active) {
+          setIsLoading(true);
+          setPeers([]);
+      }
+
+      try {
+        // 1. Get peers list from Supabase
+        // We only use data that exists in our database (Supabase-first)
+        const { data: peerRows, error: peerError } = await supabase
+          .from('stock_peers')
+          .select('peer_ticker')
+          .eq('ticker', symbol)
+          .limit(20); // Fetch enough candidates
+
+        if (peerError) {
+             console.error("Error fetching peers from Supabase:", peerError);
+             if(active) {
+                 setPeers([]);
+                 setIsLoading(false);
+             }
+             return;
+        }
+
+        let peersList: string[] = peerRows ? peerRows.map((r: any) => r.peer_ticker) : [];
         
         if (!peersList.length) {
              if(active) {
@@ -59,14 +63,15 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
              return;
         }
         
-        peersList = peersList.slice(0, 8);
-        
-        // Filter out invalid tickers
+        // Filter out invalid tickers (basic sanity check)
         peersList = peersList.filter(p => {
           if (!p || typeof p !== 'string') return false;
           const clean = p.trim();
           return clean.length > 0 && /^[A-Z0-9.\-\^]+$/i.test(clean);
         });
+
+        // Limit to 8 after filtering
+        peersList = peersList.slice(0, 8);
 
         if (peersList.length === 0) {
              if(active) {

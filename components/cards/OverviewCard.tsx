@@ -1,100 +1,115 @@
 "use client";
-
+// Fintra/components/cards/OverviewCard.tsx
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, useMemo } from "react";
-import {
-  Activity,
-} from "lucide-react";
+import { Activity } from "lucide-react";
 
-import { fmp } from "@/lib/fmp/client";
 import { getLatestSnapshot } from "@/lib/repository/fintra-db";
-import { FintraSnapshotDB } from "@/lib/engine/types";
-import { useResponsive } from "@/hooks/use-responsive";
+import { FintraSnapshotDB, ProfileStructural } from "@/lib/engine/types";
+import { FMPCompanyProfile } from "@/lib/fmp/types";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface OverviewCardProps {
-  selectedStock: any; // string ("AAPL") o { symbol: "AAPL", ... }
+  selectedStock: FMPCompanyProfile | string | null;
   onStockSearch?: (symbol: string) => Promise<any> | any;
   onOpenSearchModal?: () => void;
-  isParentLoading?: boolean; // Nueva prop para el estado de carga del padre
+  isParentLoading?: boolean;
   analysisData?: any;
 }
 
-type Profile = Record<string, any>;
+/** Helper: Normaliza valores numéricos */
+const num = (x: any) => {
+  if (x === null || x === undefined || x === "") return undefined;
+  const n = Number(x);
+  return Number.isFinite(n) ? n : undefined;
+};
+
+/** Helper: Normaliza booleanos */
+const bool = (x: any) => (typeof x === "boolean" ? x : false);
+
+type UIProfile = Partial<FMPCompanyProfile> & {
+  change?: number;
+  marketCap?: number;
+  averageVolume?: number;
+  volume?: number;
+};
 
 /** Normaliza/defiende los campos del profile de FMP */
-function normalizeProfile(p: Profile | null): Profile {
+function normalizeProfile(p: Partial<FMPCompanyProfile> | null): UIProfile {
   if (!p) return {};
-  const numOrUndef = (x: any) => {
-    const n = Number(x);
-    return Number.isFinite(n) ? n : undefined;
-  };
-  const boolOrFalse = (x: any) => (typeof x === "boolean" ? x : false);
 
-  const rawMkt = p.mktCap ?? p.marketCap;
-  const rawAvgVol = p.volAvg ?? p.averageVolume;
+  const rawMkt = p.mktCap;
+  const rawAvgVol = p.volAvg;
+
+  // Normalización de cambio porcentual
+  let changePercentage: number | undefined = p.changePercentage;
+  
+  // Handle case where it might be a string (defensive coding against bad API data)
+  if (typeof p.changePercentage === "string") {
+    changePercentage = Number((p.changePercentage as string).replace("%", ""));
+  } else if ('changesPercentage' in p) {
+    // Legacy/Alternative field support
+    const alt = (p as any).changesPercentage;
+    if (typeof alt === "number") changePercentage = alt;
+    if (typeof alt === "string") changePercentage = Number(alt.replace("%", ""));
+  }
+
+  // Normalización de cambio absoluto
+  let change: number | undefined;
+  if ('changes' in p && typeof (p as any).changes === "number") {
+    change = (p as any).changes;
+  } else if ('change' in p && typeof (p as any).change === "number") {
+    change = (p as any).change;
+  } else {
+    change = num((p as any).changes) || num((p as any).change);
+  }
+
+  const mktCap = typeof rawMkt === "number" ? rawMkt : num(rawMkt);
+  const volAvg = typeof rawAvgVol === "number" ? rawAvgVol : num(rawAvgVol);
 
   return {
     // Básicos
     symbol: typeof p.symbol === "string" ? p.symbol.toUpperCase() : undefined,
-    companyName: p.companyName || p.name,
+    companyName: p.companyName,
     sector: p.sector,
     industry: p.industry,
     country: p.country,
     description: p.description,
     ceo: p.ceo,
-    fullTimeEmployees:
-      typeof p.fullTimeEmployees === "number"
-        ? p.fullTimeEmployees
-        : numOrUndef(p.fullTimeEmployees),
+    fullTimeEmployees: typeof p.fullTimeEmployees === "number" ? String(p.fullTimeEmployees) : String(num(p.fullTimeEmployees) || ""),
     ipoDate: p.ipoDate,
-    exchange: p.exchangeShortName ?? p.exchange ?? p.exchangeFullName,
-    exchangeFullName: p.exchangeFullName ?? p.exchangeShortName ?? p.exchange,
+    exchange: p.exchangeShortName ?? p.exchange,
+    exchangeShortName: p.exchangeShortName ?? p.exchange,
     address: p.address,
     city: p.city,
     state: p.state,
     zip: p.zip,
     phone: typeof p.phone === "string" ? p.phone : undefined,
-    isEtf: boolOrFalse(p.isEtf),
-    isActivelyTrading: boolOrFalse(p.isActivelyTrading),
+    isEtf: bool(p.isEtf),
+    isActivelyTrading: bool(p.isActivelyTrading),
     cik: p.cik,
     isin: p.isin,
     cusip: p.cusip,
     currency: p.currency,
 
     // Números / mercado
-    price: typeof p.price === "number" ? p.price : numOrUndef(p.price),
-    marketCap:
-      typeof rawMkt === "number" ? rawMkt : numOrUndef(rawMkt),
-    beta: typeof p.beta === "number" ? p.beta : numOrUndef(p.beta),
-    lastDividend:
-      typeof p.lastDiv === "number"
-        ? p.lastDiv
-        : typeof p.lastDividend === "number"
-        ? p.lastDividend
-        : numOrUndef(p.lastDiv ?? p.lastDividend),
+    price: typeof p.price === "number" ? p.price : num(p.price),
+    mktCap,
+    // Alias legacy para UI
+    marketCap: mktCap,
+    beta: typeof p.beta === "number" ? p.beta : num(p.beta),
+    lastDiv: typeof p.lastDiv === "number" ? p.lastDiv : num(p.lastDiv),
     range: typeof p.range === "string" ? p.range : undefined,
 
-    // Cambios (FMP puede traer "1.23%" como string)
-    change:
-      typeof p.changes === "number" ? p.changes : numOrUndef(p.changes) ||
-      typeof p.change === "number" ? p.change : numOrUndef(p.change),
-    changePercentage:
-      typeof p.changePercentage === "number"
-        ? p.changePercentage   // Convertir decimal a porcentaje
-        : typeof p.changePercentage === "string"
-        ? Number(p.changePercentage.replace("%", ""))
-        : typeof p.changesPercentage === "number"
-        ? p.changesPercentage 
-        : typeof p.changesPercentage === "string"
-        ? Number(p.changesPercentage.replace("%", ""))
-        : undefined,
-
-    volume:
-      typeof p.volume === "number" ? p.volume : numOrUndef(p.volume),
-    averageVolume:
-      typeof rawAvgVol === "number" ? rawAvgVol : numOrUndef(rawAvgVol),
+    // Mapped fields
+    change,
+    changePercentage,
+    
+    volume: typeof (p as any).volume === "number" ? (p as any).volume : num((p as any).volume),
+    volAvg,
+    // Alias legacy
+    averageVolume: volAvg,
     website: typeof p.website === "string" ? p.website.trim() : undefined,
     image: p.image,
   };
@@ -107,55 +122,27 @@ export default function OverviewCard({
   isParentLoading = false,
   analysisData
 }: OverviewCardProps) {
-  // Primero declarar TODOS los hooks
-  const { isMobile, isTablet } = useResponsive();
-  
-  // ── estado
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [scoresData, setScoresData] = useState<any>(null);
+  // ── Estados ──
+  const [profile, setProfile] = useState<UIProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Estado para Snapshot de Supabase
   const [snapshot, setSnapshot] = useState<FintraSnapshotDB | null>(null);
   const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [snapshotChecked, setSnapshotChecked] = useState(false);
 
-  // símbolo actual robusto
+  // Símbolo actual robusto
   const currentSymbol = useMemo(() => {
     if (typeof selectedStock === "string")
       return selectedStock?.toUpperCase?.() || "";
     return (selectedStock?.symbol || "").toUpperCase();
   }, [selectedStock]);
 
+  // Data memoizada para render
   const data = useMemo(() => {
-    // Si tenemos profile y tiene símbolo válido, lo usamos
-    if (profile && profile.symbol) {
-      // Si falta la imagen, ponemos fallback
-      if (!profile.image) {
-        return {
-          ...profile,
-          image: `https://financialmodelingprep.com/image-stock/${currentSymbol}.png`
-        };
-      }
-      return profile;
-    }
-    
-    // Si profile existe pero está vacío o sin símbolo (caso de error silencioso),
-    // mezclamos lo que haya con los defaults.
-    if (profile) {
-        return {
-            ...profile,
-            symbol: profile.symbol || currentSymbol,
-            image: profile.image || `https://financialmodelingprep.com/image-stock/${currentSymbol}.png`,
-            companyName: profile.companyName || "",
-            price: profile.price || 0,
-            change: profile.change || 0,
-            changePercentage: profile.changePercentage || 0,
-        };
-    }
-    
-    // Fallback básico si no hay profile
-    return {
+    // Valores por defecto
+    const defaults = {
         symbol: currentSymbol,
         image: `https://financialmodelingprep.com/image-stock/${currentSymbol}.png`,
         companyName: "",
@@ -163,21 +150,21 @@ export default function OverviewCard({
         industry: "",
         ceo: "",
         description: "",
-        price: 0,
-        change: 0,
-        changePercentage: 0,
-        marketCap: 0,
-        beta: 0,
-        lastDividend: 0,
-        volume: 0,
-        averageVolume: 0,
+        price: undefined,
+        change: undefined,
+        changePercentage: undefined,
+        marketCap: undefined,
+        beta: undefined,
+        lastDividend: undefined,
+        volume: undefined,
+        averageVolume: undefined,
         range: "",
         currency: "USD",
         website: "",
         exchange: "",
         country: "",
         ipoDate: "",
-        fullTimeEmployees: 0,
+        fullTimeEmployees: undefined,
         isEtf: false,
         isActivelyTrading: true,
         cik: "",
@@ -185,35 +172,146 @@ export default function OverviewCard({
         cusip: "",
         phone: ""
     };
+
+    if (profile) {
+        return {
+            ...defaults,
+            ...profile,
+            symbol: profile.symbol || currentSymbol,
+            image: profile.image || defaults.image,
+            companyName: profile.companyName || "",
+        };
+    }
+    
+    return defaults;
   }, [profile, currentSymbol]);
 
-  // Sync data with selectedStock prop changes
+  // Sincronizar datos iniciales desde props
   useEffect(() => {
     if (selectedStock && typeof selectedStock === 'object') {
        setProfile(normalizeProfile(selectedStock));
     }
   }, [selectedStock]);
 
-  // Fetch Snapshot from Supabase
+  // 1. Fetch Snapshot (Primary Source)
   useEffect(() => {
     let active = true;
     const fetchSnapshot = async () => {
       if (!currentSymbol) return;
+      
       setSnapshotLoading(true);
+      setSnapshotChecked(false);
+      // setSnapshot(null); // Principio: Nunca borrar datos previos mientras carga
+      
       try {
         const data = await getLatestSnapshot(currentSymbol);
-        if (active) setSnapshot(data);
+        if (active && data) {
+           setSnapshot(data);
+        }
       } catch (err) {
         console.error("Error fetching snapshot:", err);
       } finally {
-        if (active) setSnapshotLoading(false);
+        if (active) {
+            setSnapshotLoading(false);
+            setSnapshotChecked(true);
+        }
       }
     };
     fetchSnapshot();
     return () => { active = false; };
   }, [currentSymbol]);
 
-  // Helpers de visualización
+  // 2. Sync Profile from Snapshot (Priority)
+  useEffect(() => {
+    // Si no hay snapshot, no hacemos nada (mantenemos lo que venía de props)
+    if (!snapshot) return;
+
+    if (snapshot.profile_structural) {
+      const ps = snapshot.profile_structural as any; 
+      const metrics = ps.metrics || ps.Metrics || {};
+      const identity = ps.identity || ps.Identity || {};
+      const classification = ps.classification || ps.Classification || {};
+
+      const mktCap = num(metrics.marketCap) ?? num(metrics.MarketCap);
+      const volAvg = num(metrics.averageVolume) ?? num(metrics.AverageVolume);
+      const lastDiv = num(metrics.lastDividend) ?? num(metrics.LastDividend);
+
+      const mappedProfile: UIProfile = {
+        symbol: identity.ticker || identity.symbol,
+        companyName: identity.name || identity.companyName,
+        sector: classification.sector,
+        industry: classification.industry,
+        country: identity.country,
+        description: identity.description,
+        ceo: identity.ceo,
+        fullTimeEmployees: identity.fullTimeEmployees ? String(identity.fullTimeEmployees) : undefined,
+        ipoDate: identity.founded || identity.ipoDate, 
+        exchange: identity.exchange,
+        exchangeShortName: identity.exchange,
+        phone: identity.phone,
+        isEtf: String(identity.isEtf) === 'true',
+        isActivelyTrading: String(identity.isActivelyTrading) === 'true',
+        cik: identity.cik,
+        isin: identity.isin,
+        cusip: identity.cusip,
+        currency: identity.currency,
+        website: identity.website ? identity.website.trim() : undefined,
+        image: identity.logo ? identity.logo.trim() : undefined,
+
+        price: num(metrics.price) ?? num(metrics.Price),
+        mktCap,
+        marketCap: mktCap,
+        beta: num(metrics.beta) ?? num(metrics.Beta),
+        lastDiv,
+        range: metrics.range ?? metrics.Range,
+        change: num(metrics.change) ?? num(metrics.Change),
+        changePercentage: num(metrics.changePercentage) ?? num(metrics.ChangePercentage) ?? num(metrics.changesPercentage),
+        volume: num(metrics.volume) ?? num(metrics.Volume),
+        volAvg,
+        averageVolume: volAvg,
+      };
+
+      console.log(`[OverviewCard] Using profile_structural from snapshot for ${currentSymbol}`, {
+        metrics,
+        market_snapshot: snapshot.market_snapshot
+      });
+      setProfile(prev => {
+        // IMPORTANTE: Si prev tiene datos y mappedProfile tiene undefined, NO sobrescribir con undefined.
+        // Pero si mappedProfile trae datos nuevos, usarlos.
+        const next = prev ? { ...prev } : {};
+        
+        // Volatile fields that we prefer to keep from "live" data (props/FMP) if available
+        // "no importa que estos valores se tomen directamente de la api de fmp" -> Preferimos la data fresca
+        const volatileFields = ['price', 'change', 'changePercentage', 'volume'];
+
+        // Merge explícito: Solo sobrescribir si el nuevo valor es válido (no null/undefined)
+        for (const [key, value] of Object.entries(mappedProfile)) {
+          if (value !== undefined && value !== null) {
+            // Si es un campo volátil y ya tenemos un valor (presumiblemente fresco de props), no lo sobrescribimos con el snapshot (histórico)
+            if (volatileFields.includes(key) && (next as any)[key] !== undefined && (next as any)[key] !== null) {
+                continue;
+            }
+            (next as any)[key] = value;
+          }
+        }
+
+        // Fallback robusto para el precio: si metrics.price falló, intentar market_snapshot
+        if ((next.price === undefined || next.price === null) && snapshot.market_snapshot?.price) {
+           next.price = num(snapshot.market_snapshot.price);
+        }
+
+        return next;
+      });
+      setLoading(false); 
+    }
+  }, [snapshot, currentSymbol]);
+
+  // 3. Fetch FMP Data (Fallback) - REMOVED per Fintra Architecture (Supabase Only)
+  // El frontend nunca habla con FMP. Supabase decide.
+
+
+
+  // ── Render Helpers ──
   const getScoreColor = (s: number) => {
     if (s >= 70) return "text-green-400";
     if (s >= 50) return "text-yellow-400";
@@ -233,97 +331,13 @@ export default function OverviewCard({
     return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-xs" variant="outline">Justa</Badge>;
   };
 
-  // carga profile desde /api/fmp/profile
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      if (!currentSymbol) {
-        console.log("[OverviewCard] No currentSymbol, skipping fetch");
-        return;
-      }
-
-      // Check if we already have full data from props (selectedStock)
-      const hasFullProfile = selectedStock && typeof selectedStock === 'object' && 'companyName' in selectedStock;
-
-      console.log(`[OverviewCard] Starting fetch for symbol: ${currentSymbol}. Has full profile? ${hasFullProfile}`);
-      
-      if (!hasFullProfile) {
-          setLoading(true);
-      }
-      
-      setError(null);
-      try {
-        // Prepare promises
-        const promises: Promise<any>[] = [
-          fmp.scores(currentSymbol)
-        ];
-
-        // Only fetch profile/quote if we don't have it from props
-        if (!hasFullProfile) {
-            promises.push(fmp.profile(currentSymbol));
-            promises.push(fmp.quote(currentSymbol));
-        }
-
-        // Execute fetches
-        const results = await Promise.all(promises);
-        const scores = results[0];
-        
-        if (!active) return;
-
-        setScoresData(scores);
-
-        if (!hasFullProfile) {
-            const profileArr = results[1];
-            const quoteArr = results[2];
-            
-            let rawProfile = null;
-            if (Array.isArray(profileArr)) {
-                rawProfile = profileArr.length > 0 ? profileArr[0] : null;
-            } else if (profileArr && typeof profileArr === 'object') {
-                rawProfile = profileArr;
-            }
-
-            let rawQuote = null;
-            if (Array.isArray(quoteArr)) {
-                rawQuote = quoteArr.length > 0 ? quoteArr[0] : null;
-            } else if (quoteArr && typeof quoteArr === 'object') {
-                rawQuote = quoteArr;
-            }
-
-            // Combinar datos de profile y quote
-            const combinedData = {
-                ...(rawProfile || {}),
-                ...(rawQuote && {
-                    price: rawQuote.price,
-                    change: rawQuote.change,
-                    changePercentage: rawQuote.changesPercentage,
-                    volume: rawQuote.volume,
-                })
-            };
-            
-            const normalized = normalizeProfile(combinedData);
-            setProfile(normalized);
-        }
-
-      } catch (err: any) {
-        console.error("Error fetching company data:", err);
-        if (active && !hasFullProfile) setError("Error al cargar los datos de la empresa");
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [currentSymbol, selectedStock]);
+  // ── Render Principal ──
 
   if ((loading || isParentLoading) && !data.symbol) {
     return (
       <Card className="bg-tarjetas border-none flex items-center justify-center w-full h-full">
         <CardContent className="p-0 flex items-center justify-center w-full h-full">
-          <div className="text-gray-500 text-sm">
-            Cargando ticker...
-          </div>
+          <div className="text-gray-500 text-sm">Cargando ticker...</div>
         </CardContent>
       </Card>
     );
@@ -343,14 +357,15 @@ export default function OverviewCard({
     <Card className="bg-tarjetas border-none shadow-lg w-full h-full flex flex-col group relative overflow-hidden rounded-none">
       <CardContent className="p-0 flex flex-col h-full">
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr] gap-0 items-center border-b border-zinc-800 bg-black/10 h-full">
+            
             {/* 1. STOCK: Logo, Ticker, Nombre */}
-            <div className="flex items-center gap-3 px-1 border-r border-zinc-800 h-full">
-                  <div className="relative h-10 max-h-10 aspect-square flex items-center justify-center overflow-hidden border-none rounded-none shrink-0">
+            <div className="flex items-center gap-3 px-0 border-r border-zinc-800 h-full">
+                  <div className="relative h-12 max-h-12 aspect-square flex items-center justify-center overflow-hidden border-none rounded-none shrink-0">
                     {data.image ? (
                       <img 
                         src={data.image} 
                         alt={data.symbol || "Logo"} 
-                        className="w-full h-full object-contain p-1"
+                        className="w-full h-full object-contain p-0"
                         onError={(e: any) => {
                            e.currentTarget.style.display = 'none';
                            const span = e.currentTarget.parentElement?.querySelector('.fallback-text') as HTMLElement;
@@ -363,55 +378,58 @@ export default function OverviewCard({
                     </span>
                   </div>
                 <div className="flex flex-col min-w-0 justify-center">
-                    {/* <div className="flex items-center gap-2">
-                        <span className="font-bold text-white text-base leading-none">{data.symbol || currentSymbol || "N/A"}</span>
-                    </div> */}
-                    <span className="text-gray-400 text-[10px] leading-tight font-medium truncate max-w-[150px]" title={data.companyName}>
-                        {data.companyName || (loading || isParentLoading ? "Cargando..." : "N/A")}
+                    <span className="text-gray-400 text-[10px] leading-tight font-medium truncate max-w-[150px]" title={snapshot?.profile_structural?.identity?.name || data.companyName}>
+                        {snapshot?.profile_structural?.identity?.name || data.companyName || (loading || isParentLoading ? "Cargando..." : "N/A")}
                     </span>
                 </div>
             </div>
 
             {/* 2. PRECIO */}
             <div className="flex  items-center gap-1 justify-center px-1 border-r border-zinc-800 h-full">
-                {/* <span className="text-[9px] uppercase text-zinc-600 font-bold ">PRECIO</span> */}
                 <div className="text-base text-white leading-none">
                   {Number.isFinite(Number(data.price)) ? `$${Number(data.price).toFixed(2)}` : "N/A"}
                 </div>
-                <div className={`text-[10px] font-medium ${Number(data.change) >= 0 ? "text-green-400" : "text-red-400"}`}>
-                  {Number(data.change) >= 0 ? "+" : ""}{Number(data.changePercentage).toFixed(2)}%
+                <div className={`text-[10px] font-medium ${Number(data.change ?? 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                  {Number(data.change ?? 0) >= 0 ? "+" : ""}{Number.isFinite(Number(data.changePercentage)) ? Number(data.changePercentage).toFixed(2) : "0.00"}%
                 </div>
             </div>
 
             {/* 3. FGOS */}
             <div className="flex items-center justify-center px-1 gap-1 border-r border-zinc-800 h-full">
                 <span className="text-[9px] uppercase text-zinc-600 font-bold">FSS</span>
-                {snapshotLoading ? (
+                {/* Principio: Si hay dato se muestra. Si no hay y carga -> Skeleton */}
+                {Number.isFinite(snapshot?.fgos_score) ? (
+                   <div className={`text-lg font-black leading-none ${getScoreColor(snapshot!.fgos_score!)}`}>{snapshot!.fgos_score}</div>
+                ) : snapshotLoading ? (
                   <Skeleton className="h-6 w-10 bg-white/10 rounded-sm" />
                 ) : (
-                  <div className={`text-lg font-black leading-none ${getScoreColor(snapshot?.fgos_score ?? 0)}`}>{snapshot?.fgos_score ?? "-"}</div>
+                  <div className="text-lg font-black leading-none text-zinc-700">-</div>
                 )}
             </div>
 
             {/* 4. VALUACIÓN */}
             <div className="flex flex-col items-center justify-center px-2 border-r border-zinc-800 h-full">
                 <span className="text-[9px] uppercase text-zinc-600 font-bold tracking-widest mb-1.5">VALUACIÓN</span>
-                {snapshotLoading ? (
+                {snapshot?.valuation_status ? (
+                   getValBadge(snapshot.valuation_status)
+                ) : snapshotLoading ? (
                   <Skeleton className="h-5 w-20 bg-white/10 rounded-full" />
                 ) : (
-                  getValBadge(snapshot?.valuation_status)
+                   getValBadge(null)
                 )}
             </div>
 
             {/* 5. VEREDICTO */}
             <div className="flex flex-col items-center justify-center px-2 border-r border-zinc-800 h-full text-center">
                 <span className="text-[9px] uppercase text-zinc-600 font-bold tracking-widest mb-1">VERDICT FINTRA</span>
-                {snapshotLoading ? (
+                {snapshot?.verdict_text ? (
+                  <span className="text-white font-medium text-[10px] leading-tight max-w-[150px] line-clamp-2" title={snapshot.verdict_text}>
+                      {snapshot.verdict_text}
+                  </span>
+                ) : snapshotLoading ? (
                   <Skeleton className="h-4 w-24 bg-white/10 rounded-sm" />
                 ) : (
-                  <span className="text-white font-medium text-[10px] leading-tight max-w-[150px] line-clamp-2" title={snapshot?.verdict_text || "N/A"}>
-                      {snapshot?.verdict_text || "N/A"}
-                  </span>
+                   <span className="text-zinc-600 text-[10px]">N/A</span>
                 )}
             </div>
 
@@ -420,19 +438,18 @@ export default function OverviewCard({
                 <span className="text-[9px] uppercase text-zinc-600 font-bold tracking-widest flex items-center gap-1 mb-0.5">
                     E.H.S. <Activity className="w-3 h-3 text-blue-400"/>
                 </span>
-                {snapshotLoading ? (
-                  <Skeleton className="h-6 w-10 bg-white/10 rounded-sm" />
-                ) : (
+                {Number.isFinite(snapshot?.ecosystem_score) ? (
                    <div className="flex flex-col items-center">
-                      <div className="text-lg font-mono text-blue-400 font-bold leading-none">{snapshot?.ecosystem_score ?? "-"}</div>
+                      <div className="text-lg font-mono text-blue-400 font-bold leading-none">{snapshot!.ecosystem_score}</div>
                       <span className="text-[8px] text-gray-500 font-medium mt-0.5 leading-none">Eco Health</span>
                    </div>
+                ) : snapshotLoading ? (
+                  <Skeleton className="h-6 w-10 bg-white/10 rounded-sm" />
+                ) : (
+                   <div className="text-lg font-mono text-zinc-700 font-bold leading-none">-</div>
                 )}
             </div>
         </div>
-
-        {/* The Detailed Grid */}
-
       </CardContent>
     </Card>
   );

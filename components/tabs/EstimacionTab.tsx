@@ -108,7 +108,7 @@ export default function EstimacionTab({ selectedStock }: EstimacionTabProps) {
     }
 
     // 2. Hedge Funds
-    const topHolders = apiData.holders?.slice(0, 3).map(h => h.holder) || ["Fund A", "Fund B", "Fund C"];
+    const topHolders = apiData.holders?.slice(0, 3).map((h: any) => h.holder) || ["Fund A", "Fund B", "Fund C"];
 
     // 3. Projections for Chart
     // Create quarters for next 2 years (8 quarters)
@@ -332,7 +332,7 @@ export default function EstimacionTab({ selectedStock }: EstimacionTabProps) {
               {loading ? (
                 <li>Cargando...</li>
               ) : (
-                derivedData.hedgeFunds.map((fund, i) => (
+                derivedData.hedgeFunds.map((fund: string, i: number) => (
                     <li key={i} className="flex items-center gap-1">
                     <span className="w-2 h-[1px] bg-cyan-300"></span>
                     {fund}

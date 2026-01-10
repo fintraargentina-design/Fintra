@@ -5,16 +5,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { getHeatmapColor, HeatmapDirection } from "@/lib/ui/heatmap";
 
-// --- CONSTANTS ---
-const CORE_METRICS = [
-  "ROIC", 
-  "ROE", 
-  "Margen neto", 
-  "FCF Margin", 
-  "Crecimiento Ventas", 
-  "Crecimiento Beneficio"
-];
-
 // --- TYPES ---
 type TimelineResponse = {
   ticker: string;
@@ -29,7 +19,7 @@ type TimelineResponse = {
     label: string;
     unit: string;
     category: string;
-    priority: "A" | "B" | "C";
+    priority: "A" | "B";
     heatmap: {
       direction: "higher_is_better" | "lower_is_better";
       scale: "relative_row";
@@ -39,36 +29,30 @@ type TimelineResponse = {
         value: number | null;
         display: string | null;
         normalized: number | null;
-        period_type: "Q" | "TTM" | "FY" | null;
+        period_type: "FY" | null;
         period_end_date?: string;
       };
     };
   }[];
 };
 
-export interface FundamentalCardProps {
+export interface DividendosTableCardProps {
   symbol: string;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
   peerTicker?: string | null;
   highlightedMetrics?: string[] | null;
-  timelineData?: TimelineResponse | null;
 }
 
-export default function FundamentalCard({ 
+export default function DividendosTableCard({ 
   symbol, 
   scrollRef, 
   peerTicker, 
-  highlightedMetrics,
-  timelineData 
-}: FundamentalCardProps) {
+  highlightedMetrics 
+}: DividendosTableCardProps) {
   const [internalData, setInternalData] = useState<TimelineResponse | null>(null);
   const [peerData, setPeerData] = useState<TimelineResponse | null>(null);
-  const [internalLoading, setInternalLoading] = useState(true);
-  const [expanded, setExpanded] = useState(false);
-
-  const isControlled = timelineData !== undefined;
-  const data = isControlled ? timelineData : internalData;
-  const loading = isControlled ? !data : internalLoading;
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(true); // Default to expanded since few metrics
 
   // Fetch peer data when selected
   useEffect(() => {
@@ -80,7 +64,7 @@ export default function FundamentalCard({
     let mounted = true;
     const fetchPeer = async () => {
         try {
-            const res = await fetch(`/api/analysis/fundamentals-timeline?ticker=${peerTicker}`);
+            const res = await fetch(`/api/analysis/dividends-timeline?ticker=${peerTicker}`);
             if (res.ok) {
                 const json = await res.json();
                 if (mounted) setPeerData(json);
@@ -94,18 +78,16 @@ export default function FundamentalCard({
     return () => { mounted = false; };
   }, [peerTicker]);
 
+  // Fetch main data
   useEffect(() => {
     let mounted = true;
+    setLoading(true);
     
     const fetchData = async () => {
-      if (isControlled) return;
-
-      setInternalLoading(true);
       try {
-        const res = await fetch(`/api/analysis/fundamentals-timeline?ticker=${symbol}`);
+        const res = await fetch(`/api/analysis/dividends-timeline?ticker=${symbol}`);
         if (!res.ok) {
-            // Silently fail or log? The existing code logged error.
-            console.error("Failed to fetch fundamentals timeline");
+            console.error("Failed to fetch dividends timeline");
             return;
         }
         const json = await res.json();
@@ -116,25 +98,22 @@ export default function FundamentalCard({
       } catch (err) {
         console.error(err);
       } finally {
-        if (mounted) setInternalLoading(false);
+        if (mounted) setLoading(false);
       }
     };
     
     fetchData();
     return () => { mounted = false; };
-  }, [symbol, isControlled]);
+  }, [symbol]);
 
-  // Filter metrics based on expanded state
-  const visibleMetrics = data?.metrics?.filter(metric => {
-    if (expanded) return true;
-    return CORE_METRICS.includes(metric.label);
-  }) || [];
+  // Use internal data
+  const data = internalData;
 
   return (
     <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden mt-0">
       <div className="px-1 py-1 bg-white/[0.02] shrink-0">
         <h4 className="text-xs font-medium text-gray-400 text-center">
-          Fundamentales de <span className="text-[#FFA028]">{symbol}</span>
+          Histórico de Dividendos de <span className="text-[#FFA028]">{symbol}</span>
         </h4>
       </div>
 
@@ -146,7 +125,7 @@ export default function FundamentalCard({
               {data?.years.map((year, yearIdx) => (
                 year.columns.map(col => (
                     <TableHead key={col} className={`px-2 text-gray-300 text-[10px] h-6 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}>
-                        {col}
+                        {col.replace('_FY', '')}
                     </TableHead>
                 ))
               ))}
@@ -156,11 +135,11 @@ export default function FundamentalCard({
             {loading ? (
                <TableRow>
                  <TableCell colSpan={100} className="text-center py-8 text-xs text-gray-500">
-                   <Loader2 className="w-4 h-4 animate-spin inline mr-2"/> Cargando fundamentales...
+                   <Loader2 className="w-4 h-4 animate-spin inline mr-2"/> Cargando dividendos...
                  </TableCell>
                </TableRow>
             ) : (
-              visibleMetrics.map((metric) => {
+              data?.metrics.map((metric) => {
                 const isHighlighted = highlightedMetrics?.includes(metric.label);
                 return (
                   <TableRow 
@@ -207,24 +186,6 @@ export default function FundamentalCard({
             )}
           </TableBody>
         </Table>
-      </div>
-      
-      {/* Toggle Button */}
-      <div className="bg-[#1D1D1D] border-t border-zinc-800 p-1 flex justify-center shrink-0">
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-white transition-colors uppercase tracking-wider font-medium"
-        >
-          {expanded ? (
-            <>
-              Ver menos métricas <ChevronUp className="w-3 h-3" />
-            </>
-          ) : (
-            <>
-              Ver más métricas <ChevronDown className="w-3 h-3" />
-            </>
-          )}
-        </button>
       </div>
     </div>
   );

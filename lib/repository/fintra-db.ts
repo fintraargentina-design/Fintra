@@ -9,8 +9,11 @@ export async function getLatestSnapshot(symbol: string): Promise<FintraSnapshotD
   // Incluimos las nuevas columnas JSONB en la selección
   const { data, error } = await supabase
     .from('fintra_snapshots')
-    .select('ticker, fgos_score, valuation, investment_verdict, snapshot_date, created_at, fgos_components')
+    .select('ticker, fgos_score, valuation, investment_verdict, snapshot_date, created_at, fgos_components, profile_structural, market_snapshot')
     .eq('ticker', symbol)
+    // IMPORTANT: Ignore snapshots that don't have a valid price in the profile metrics.
+    // This prevents flickering in the UI when a new snapshot is created but not yet fully populated (e.g. market data missing).
+    .not('profile_structural->metrics->price', 'is', null)
     .order('snapshot_date', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -32,6 +35,8 @@ export async function getLatestSnapshot(symbol: string): Promise<FintraSnapshotD
     calculated_at: data.created_at,
     fgos_score: data.fgos_score,
     fgos_breakdown: data.fgos_components,
+    profile_structural: data.profile_structural,
+    market_snapshot: data.market_snapshot,
     // ecosystem_score removed as it is now in fintra_ecosystem_reports
     ecosystem_score: ecoReport?.ecosystem_score ?? 50, // Default to 50 if not found
     valuation_score: 50, // Default as it's not in the new schema explicitly
@@ -107,8 +112,21 @@ export async function saveEcosystemReport(data: {
 
 /**
  * Obtiene la lista de sectores disponibles en fintra_snapshots.
+ * Ordenados por capitalización de mercado descendente (vía RPC).
  */
 export async function getAvailableSectors(): Promise<string[]> {
+  // 1. Intentar obtener sectores ordenados por Market Cap via RPC
+  const { data: orderedSectors, error: rpcError } = await supabase.rpc('get_sectors_by_market_cap');
+
+  if (!rpcError && orderedSectors) {
+     return orderedSectors
+       .map((row: any) => row.sector)
+       .filter((s: any) => typeof s === 'string' && s.length > 0);
+   }
+
+  console.warn('Error fetching ordered sectors (falling back to simple list):', rpcError);
+
+  // 2. Fallback: Obtener cualquier sector disponible (sin orden específico)
   const { data, error } = await supabase
     .from('fintra_snapshots')
     .select('sector');

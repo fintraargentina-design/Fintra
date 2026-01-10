@@ -291,10 +291,19 @@ export default function StockTerminal() {
               {/* Panel izquierdo */}
               <div className="w-full xl:w-auto flex flex-col gap-1 min-h-0 h-full overflow-hidden">
                 <div className="w-full h-[60%] flex flex-col min-h-0">
+                  
                   <Tabs defaultValue="mercados" className="w-full h-full flex flex-col">
+                    
                     <div className="w-full border-b border-zinc-800 bg-transparent z-10 shrink-0">
-                      <div className="w-full overflow-x-auto scrollbar-thin whitespace-nowrap">
-                        <TabsList className="bg-transparent h-auto p-0 flex min-w-full w-max gap-0.5 border-b-2 border-black justify-start">
+                      
+                      <div className="w-full flex items-center justify-between gap-2 overflow-x-auto scrollbar-thin whitespace-nowrap">
+                        <div className="flex items-center px-4 shrink-0">
+                          <h1 className="text-xl font-medium text-[#FFA028] truncate">
+                            Fintra 
+                          </h1>
+                        </div>
+                       
+                        <TabsList className="bg-transparent h-auto p-0 flex gap-0.5 border-b-2 border-black justify-start flex-1">
                           <TabsTrigger 
                             value="mercados"
                             className="bg-zinc-900 rounded-none border-b-0 data-[state=active]:bg-[#0056FF] data-[state=active]:text-white text-xs px-4 py-1 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors w-auto"
@@ -305,7 +314,7 @@ export default function StockTerminal() {
                             value="sector_score"
                             className="bg-zinc-900 rounded-none border-b-0 data-[state=active]:bg-[#0056FF] data-[state=active]:text-white text-xs px-4 py-1 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors w-auto"
                           >
-                            Clasificación Fintra - FSS
+                            Clasificación Fintra - IFS
                           </TabsTrigger>
                           <TabsTrigger 
                             value="ticker_search"
@@ -331,11 +340,11 @@ export default function StockTerminal() {
                   </Tabs>
                 </div>
 
-                <div className="w-full h-[40%] grid grid-cols-2 gap-1 min-h-0">
-                   <div className="h-full w-full overflow-hidden rounded border border-zinc-800 bg-tarjetas relative">
+                <div className="w-full h-[40%] grid grid-cols-2 gap-1 min-h-0 pb-1">
+                   <div className="h-full w-full overflow-hidden border border-zinc-800 bg-tarjetas relative">
                       <NoticiasTab symbol={selectedSymbol} />
                    </div>
-                   <div className="h-full w-full overflow-hidden rounded border border-zinc-800 bg-tarjetas relative">
+                   <div className="h-full w-full overflow-hidden border border-zinc-800 bg-tarjetas relative">
                       <TwitsTab />
                    </div>
                 </div>

@@ -18,9 +18,10 @@ export async function GET(req: Request) {
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    const limit = limitParam ? parseInt(limitParam) : 50;
+    // Removed default limit of 50 to allow full Supabase cron processing
+    const limit = limitParam ? parseInt(limitParam) : null;
 
-    console.log(`[recompute-fgos] Starting recompute. Sector: ${sector}, Ticker: ${tickerParam} (Limit: ${limit})`);
+    console.log(`[recompute-fgos] Starting recompute. Sector: ${sector}, Ticker: ${tickerParam} (Limit: ${limit || 'Unlimited'})`);
 
     // 1. Fetch target snapshots for TODAY
     let query = supabaseAdmin
@@ -34,8 +35,11 @@ export async function GET(req: Request) {
         query = query.eq('sector', sector);
     }
 
-    if (limitParam && !tickerParam) {
+    if (limit) {
         query = query.limit(limit);
+    } else {
+        // Ensure we fetch all records if no limit is specified (Supabase defaults to 1000)
+        query = query.limit(10000);
     }
 
     const { data: snapshots, error } = await query;

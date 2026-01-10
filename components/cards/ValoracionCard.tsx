@@ -88,7 +88,7 @@ const METRIC_EXPLANATIONS: Record<string, { description: string; examples: strin
   }
 };
 
-export default function ValoracionCard({ symbol, scrollRef, peerTicker }: { symbol: string; scrollRef?: React.RefObject<HTMLDivElement | null>; peerTicker?: string | null }) {
+export default function ValoracionCard({ symbol, scrollRef, peerTicker, highlightedMetrics }: { symbol: string; scrollRef?: React.RefObject<HTMLDivElement | null>; peerTicker?: string | null; highlightedMetrics?: string[] | null }) {
   const [data, setData] = useState<TimelineResponse | null>(null);
   const [peerData, setPeerData] = useState<TimelineResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -199,15 +199,17 @@ export default function ValoracionCard({ symbol, scrollRef, peerTicker }: { symb
                    </TableCell>
                  </TableRow>
               ) : (
-                visibleMetrics.map((metric) => (
+                visibleMetrics.map((metric) => {
+                const isHighlighted = highlightedMetrics?.includes(metric.label);
+                return (
                   <TableRow 
                     key={metric.key} 
-                    className="border-zinc-800 hover:bg-white/5 border-b cursor-pointer group"
+                    className={`border-zinc-800 border-b cursor-pointer group transition-all duration-300 ${isHighlighted ? 'bg-[#FFA028]/10 border-l-2 border-l-[#FFA028] shadow-[inset_0_0_20px_rgba(255,160,40,0.05)]' : 'hover:bg-white/5 border-l-2 border-l-transparent'}`}
                     onClick={() => setExplanationModal({ isOpen: true, selectedMetric: metric.label })}
                   >
-                    <TableCell className="font-bold text-gray-200 px-2 py-0.5 text-xs w-[120px] border-r border-zinc-800 group-hover:text-blue-400 transition-colors">
-                      {metric.label}
-                    </TableCell>
+                  <TableCell className="font-bold text-gray-200 px-2 py-0.5 text-xs w-[120px] border-r border-zinc-800 group-hover:text-blue-400 transition-colors">
+                    {metric.label}
+                  </TableCell>
                     {data?.years?.map((year, yearIdx) => (
                       year.columns.flatMap(col => {
                           const cellData = metric.values[col];
@@ -240,7 +242,8 @@ export default function ValoracionCard({ symbol, scrollRef, peerTicker }: { symb
                       })
                     ))}
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>

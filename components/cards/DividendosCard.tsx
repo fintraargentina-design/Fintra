@@ -1,5 +1,5 @@
 'use client';
-
+// Fintra/components/cards/DividendosCard.tsx
 import React from 'react';
 import dynamic from 'next/dynamic';
 import * as echarts from 'echarts/core';
@@ -16,8 +16,7 @@ import {
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { fmp } from '@/lib/fmp/client';
-import type { DividendsResponse } from '@/lib/fmp/types';
+import { supabase } from '@/lib/supabase';
 import { BanknoteIcon, CalendarDays, History } from 'lucide-react';
 
 echarts.use([
@@ -35,32 +34,78 @@ const ReactECharts = dynamic(() => import('echarts-for-react/lib/core'), { ssr: 
 
 type View = 'historico' | 'calendario' | 'payout';
 
+// Internal type matching the UI needs (similar to FMP response but adapted)
+interface DividendData {
+  dpsByYear: { year: number; dps: number }[];
+  yieldByYear: { year: number; yield: number | null }[];
+  payout: { eps: number | null; fcf: number | null };
+  yieldTTM: number | null;
+  exDates: string[]; // Kept for type compatibility, though empty
+}
+
 export default function DividendosCard({ symbol }: { symbol: string }) {
-  const [data, setData] = React.useState<DividendsResponse | null>(null);
+  const [data, setData] = React.useState<DividendData | null>(null);
   const [view, setView] = React.useState<View>('historico');
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     let alive = true;
     setLoading(true);
-    fmp.dividends(symbol, 'force-cache')
-      .then((d) => { 
-        console.log(`[DividendosCard] Data received for ${symbol}:`, d);
-        if (alive) setData(d); 
-      })
-      .catch((err) => { 
+
+    async function fetchData() {
+      try {
+        const { data: rows, error } = await supabase
+          .from('datos_dividendos')
+          .select('*')
+          .eq('ticker', symbol)
+          .order('year', { ascending: true });
+
+        if (error) throw error;
+
+        if (alive && rows) {
+          // Map rows to UI structure
+          const dpsByYear = rows.map((r) => ({ 
+            year: r.year, 
+            dps: r.dividend_per_share 
+          }));
+          
+          const yieldByYear = rows.map((r) => ({ 
+            year: r.year, 
+            yield: r.dividend_yield 
+          }));
+
+          // Use latest year for payout snapshot
+          const latest = rows[rows.length - 1];
+
+          setData({
+            dpsByYear,
+            yieldByYear,
+            payout: {
+              eps: latest?.payout_eps ?? null,
+              fcf: latest?.payout_fcf ?? null,
+            },
+            yieldTTM: latest?.dividend_yield ?? null,
+            exDates: [], // No calendar data in annual records
+          });
+        }
+      } catch (err) {
         console.error(`[DividendosCard] Error fetching for ${symbol}:`, err);
-        if (alive) setData(null); 
-      })
-      .finally(() => { if (alive) setLoading(false); });
+        if (alive) setData(null);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+
+    fetchData();
+
     return () => { alive = false; };
   }, [symbol]);
 
   // ────────────────── Opciones de gráficos ──────────────────
   const optionHistorico = React.useMemo(() => {
-    const years = (data?.dpsByYear ?? []).map((x: any) => String(x.year)).reverse();
-    const dps = (data?.dpsByYear ?? []).map((x: any) => +(x.dps ?? 0).toFixed(2)).reverse();
-    const yld = (data?.yieldByYear ?? []).map((x: any) => (x.yield == null ? null : +(+x.yield).toFixed(2))).reverse();
+    const years = (data?.dpsByYear ?? []).map((x) => String(x.year)); // Removed reverse() as data is ordered ascending
+    const dps = (data?.dpsByYear ?? []).map((x) => +(x.dps ?? 0).toFixed(2));
+    const yld = (data?.yieldByYear ?? []).map((x) => (x.yield == null ? null : +(+x.yield).toFixed(2)));
 
     return {
       backgroundColor: 'transparent',
@@ -109,44 +154,6 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
           areaStyle: { opacity: 0.08 },
         },
       ],
-    };
-  }, [data]);
-
-  const optionCalendario = React.useMemo(() => {
-    // calendario del año actual con ex-dates
-    const exDates = (data?.exDates ?? []).filter(Boolean);
-    const year = new Date().getFullYear();
-    const range: [string, string] = [`${year}-01-01`, `${year}-12-31`];
-
-    return {
-      backgroundColor: 'transparent',
-      tooltip: {
-        trigger: 'item' as const,
-        formatter: (p: any) => {
-          const date = Array.isArray(p?.value) ? p.value[0] : (p?.name ?? '');
-          return date ? `Ex-Date: ${date}` : '';
-        },
-      },
-      calendar: [{
-        top: 40,
-        left: 30,
-        right: 30,
-        cellSize: ['auto', 18],
-        range,
-        itemStyle: { color: 'rgba(31,41,55,0.6)', borderColor: 'rgba(75,85,99,0.5)' },
-        dayLabel: { color: '#9ca3af' },
-        monthLabel: { color: '#9ca3af' },
-        yearLabel: { color: '#9ca3af' },
-      }],
-      series: [{
-        type: 'scatter' as const,
-        coordinateSystem: 'calendar' as const,
-        symbolSize: 6,
-        itemStyle: { color: '#22c55e' },
-        data: exDates
-          .filter((d: any) => String(d).startsWith(String(year)))
-          .map((d: any) => [d, 1] as [string, number]),
-      }],
     };
   }, [data]);
 
@@ -209,11 +216,6 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
     };
   }, [data]);
 
-  const option =
-    view === 'historico' ? optionHistorico :
-    view === 'calendario' ? optionCalendario :
-    optionPayout;
-
   return (
     <div className="h-[360px] bg-tarjetas border-none">
       <div className="pb-2 px-6 pt-6 flex flex-row items-center justify-between">
@@ -274,14 +276,18 @@ export default function DividendosCard({ symbol }: { symbol: string }) {
         <div style={{ height: 260, width: '100%' }}>
           {loading ? (
             <div className="h-32 grid place-items-center text-gray-500 text-sm">Cargando datos de Dividendos...</div>
+          ) : view === 'calendario' ? (
+             <div className="h-full grid place-items-center text-gray-500 text-sm p-4 text-center">
+               El calendario de dividendos futuros no está disponible en la vista histórica.
+               <br/>
+               Consulte su broker para fechas ex-dividend próximas.
+             </div>
           ) : (
             <ReactECharts
               echarts={echarts}
               option={
                 view === 'historico'
                   ? optionHistorico
-                  : view === 'calendario'
-                  ? optionCalendario
                   : optionPayout
               }
               style={{ width: '100%', height: '100%' }}

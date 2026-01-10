@@ -48,7 +48,7 @@ type TimelineResponse = {
   }[];
 };
 
-export default function DesempenoCard({ symbol, scrollRef, peerTicker }: { symbol: string; scrollRef?: React.RefObject<HTMLDivElement | null>; peerTicker?: string | null }) {
+export default function DesempenoCard({ symbol, scrollRef, peerTicker, highlightedMetrics }: { symbol: string; scrollRef?: React.RefObject<HTMLDivElement | null>; peerTicker?: string | null; highlightedMetrics?: string[] | null }) {
   const [data, setData] = useState<TimelineResponse | null>(null);
   const [peerData, setPeerData] = useState<TimelineResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -161,11 +161,13 @@ export default function DesempenoCard({ symbol, scrollRef, peerTicker }: { symbo
                     </TableCell>
                 </TableRow>
             ) : (
-              performanceMetrics.map((metric) => (
-                <TableRow 
-                  key={metric.key} 
-                  className="border-zinc-800 hover:bg-white/5 border-b"
-                >
+              performanceMetrics.map((metric) => {
+                const isHighlighted = highlightedMetrics?.includes(metric.label);
+                return (
+                  <TableRow 
+                    key={metric.key} 
+                    className={`border-zinc-800 border-b transition-all duration-300 ${isHighlighted ? 'bg-[#FFA028]/10 border-l-2 border-l-[#FFA028] shadow-[inset_0_0_20px_rgba(255,160,40,0.05)]' : 'hover:bg-white/5 border-l-2 border-l-transparent'}`}
+                  >
                   <TableCell className="font-bold text-gray-200 px-2 py-0.5 text-xs w-[120px] border-r border-zinc-800">
                     {metric.label}
                   </TableCell>
@@ -199,7 +201,8 @@ export default function DesempenoCard({ symbol, scrollRef, peerTicker }: { symbo
                       ];
                   })}
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>

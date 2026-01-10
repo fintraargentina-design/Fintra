@@ -137,6 +137,22 @@ export function createFmpClient(get: FetcherFunction) {
       });
     },
 
+    /** Income Statement */
+    incomeStatement(symbol: string, opts?: { period?: "annual" | "quarter"; limit?: number; cache?: CacheOpt }) {
+      return get<any[]>("/income-statement", {
+        params: { symbol, period: opts?.period ?? "annual", limit: opts?.limit ?? 5 },
+        cache: opts?.cache ?? "force-cache",
+      });
+    },
+
+    /** Balance Sheet Statement */
+    balanceSheet(symbol: string, opts?: { period?: "annual" | "quarter"; limit?: number; cache?: CacheOpt }) {
+      return get<any[]>("/balance-sheet-statement", {
+        params: { symbol, period: opts?.period ?? "annual", limit: opts?.limit ?? 5 },
+        cache: opts?.cache ?? "force-cache",
+      });
+    },
+
     /** Cash-flow (annual/quarter) */
     cashflow(symbol: string, opts?: { period?: "annual" | "quarter"; limit?: number; cache?: CacheOpt }) {
       return get<CashFlowResponse>("/cashflow", {
@@ -150,6 +166,13 @@ export function createFmpClient(get: FetcherFunction) {
       return get<any[]>("/quote", {
         params: { symbol },
         cache: opts?.cache ?? "no-cache", // Sin cache para datos en tiempo real
+      });
+    },
+
+    /** Stock Price Change */
+    stockPriceChange(symbol: string, opts?: { cache?: CacheOpt }) {
+      return get<any[]>(`/stock-price-change/${symbol}`, {
+        cache: opts?.cache ?? "no-cache",
       });
     },
 

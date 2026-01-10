@@ -117,7 +117,7 @@ function calculateProjections(data: EstimationData, currentPrice?: number): Proj
   
   const revenueGrowth = growth[0].revenueGrowth || 5;
   const epsGrowth = growth?.[0]?.epsgrowth || 0;
-  const netIncomeGrowth = growth[0].growthNetIncome || 6;
+  const netIncomeGrowth = growth[0].netIncomeGrowth || 6;
 
   return [
     {
@@ -608,12 +608,12 @@ export default function EstimacionCard({
                   />
                   <Stat 
                     label="Crecimiento EBITDA" 
-                    value={formatPercent(data.growth[0].growthOperatingIncome)} 
+                    value={formatPercent(data.growth[0].operatingIncomeGrowth)} 
                     color="text-green-400"
                   />
                   <Stat 
                     label="Crecimiento FCF" 
-                    value={formatPercent(data.growth[0].growthNetIncome)} 
+                    value={formatPercent(data.growth[0].netIncomeGrowth)} 
                     color="text-green-400" 
                   />
                 </div>

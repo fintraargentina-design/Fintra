@@ -1,10 +1,11 @@
 "use client";
-
+// Fintra/components/cards/ResumenCard.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { RefreshCw, Search } from "lucide-react";
-import { fmp } from "@/lib/fmp/client";
+import { getLatestSnapshot } from "@/lib/repository/fintra-db";
+import { FintraSnapshotDB, ProfileStructural } from "@/lib/engine/types";
 
 interface ResumenCardProps {
   symbol: string;
@@ -31,9 +32,10 @@ export default function ResumenCard({
   onOpenSearchModal,
   isParentLoading,
 }: ResumenCardProps) {
-  const [scoresData, setScoresData] = useState<any>(null);
-  const [scoresLoading, setScoresLoading] = useState(false);
-  const [scoresError, setScoresError] = useState<string | null>(null);
+  // Snapshot state only
+  const [snapshot, setSnapshot] = useState<FintraSnapshotDB | null>(null);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [snapshotError, setSnapshotError] = useState<string | null>(null);
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [searchValue, setSearchValue] = useState("");
@@ -43,12 +45,52 @@ export default function ResumenCard({
   const currentSymbol = useMemo(() => (symbol || "").toUpperCase(), [symbol]);
 
   const data = useMemo(() => {
+    // 1. Priority: Snapshot Profile Structural
+    const ps = snapshot?.profile_structural;
+    const hasProfile = ps && 'identity' in ps;
+
+    if (hasProfile) {
+        const profile = ps as ProfileStructural;
+        const identity = profile.identity || {};
+        const classification = profile.classification || {};
+        const metrics = profile.metrics || {};
+        
+        const num = (x: any) => {
+            const n = Number(x);
+            return Number.isFinite(n) ? n : undefined;
+        };
+        
+        const str = (s: any) => (typeof s === "string" ? s.trim() : undefined);
+
+        return {
+            symbol: str(identity.ticker) || currentSymbol,
+            companyName: str(identity.name),
+            sector: str(classification.sector),
+            industry: str(classification.industry),
+            ceo: str(identity.ceo),
+            country: str(identity.country),
+            website: str(identity.website),
+            marketCap: num(metrics.marketCap),
+            fullTimeEmployees: num(identity.fullTimeEmployees),
+            beta: num(metrics.beta),
+            volume: num(metrics.volume),
+            lastDividend: num(metrics.lastDividend),
+            range: str(metrics.range),
+            ipoDate: str(identity.founded),
+            exchange: str(identity.exchange),
+            description: str(identity.description),
+        };
+    }
+
+    // 2. Fallback: Props Data
     if (stockBasicData && typeof stockBasicData === "object") {
       return {
         ...stockBasicData,
         symbol: (stockBasicData.symbol || currentSymbol || "").toUpperCase(),
       };
     }
+
+    // 3. Default Empty
     return {
       symbol: currentSymbol,
       companyName: "",
@@ -67,31 +109,38 @@ export default function ResumenCard({
       exchange: "",
       description: "",
     };
-  }, [stockBasicData, currentSymbol]);
+  }, [stockBasicData, currentSymbol, snapshot]);
 
+  // Combined Effect: Fetch Snapshot (Single Source of Truth)
   useEffect(() => {
     let active = true;
-    const fetchScores = async () => {
+
+    const loadData = async () => {
       if (!currentSymbol) return;
-      setScoresLoading(true);
-      setScoresError(null);
+
+      // 1. Init Loading States
+      setSnapshotLoading(true);
+      setSnapshotError(null);
+      setSnapshot(null); // Clear previous snapshot
+
       try {
-        const response = await fmp.scores(currentSymbol);
-        const scores = Array.isArray(response) ? response[0] : response;
-        if (!active) return;
-        setScoresData(scores || null);
-      } catch (e: any) {
-        if (!active) return;
-        setScoresError(e?.message || "Error al cargar scores");
-        setScoresData(null);
+        // 2. Fetch Snapshot
+        const fetchedSnapshot = await getLatestSnapshot(currentSymbol);
+        if (active && fetchedSnapshot) {
+            setSnapshot(fetchedSnapshot);
+        }
+      } catch (err) {
+        console.error("Error fetching snapshot:", err);
+        if (active) setSnapshotError("Error cargando snapshot");
       } finally {
-        if (active) setScoresLoading(false);
+        if (active) {
+            setSnapshotLoading(false);
+        }
       }
     };
-    fetchScores();
-    return () => {
-      active = false;
-    };
+
+    loadData();
+    return () => { active = false; };
   }, [currentSymbol]);
 
   const handleNAClick = (fieldName: string) => {
@@ -171,9 +220,37 @@ export default function ResumenCard({
     return <span className="text-zinc-200 text-xs font-medium truncate">{value}</span>;
   };
 
-  const scoreAltman = scoresData?.altmanZScore ?? scoresData?.altmanZ ?? scoresData?.altmanZscore ?? null;
-  const scorePiotroski = scoresData?.piotroskiScore ?? scoresData?.piotroski ?? null;
-  const scoresRaw = scoresData?.raw ?? scoresData ?? {};
+  // Determine effective scores source: Snapshot (if available)
+  // Note: Snapshot usually stores these in profile_structural.financial_scores
+  const snapshotScores = (snapshot?.profile_structural && 'financial_scores' in snapshot.profile_structural)
+    ? (snapshot.profile_structural as ProfileStructural).financial_scores
+    : {};
+  
+  // Helper to get value from snapshot
+  const getScore = (keySnapshot: string) => {
+      if (snapshotScores && Object.keys(snapshotScores).length > 0 && keySnapshot in snapshotScores) {
+          const val = (snapshotScores as any)[keySnapshot];
+          if (val !== undefined && val !== null) {
+              return val;
+          }
+      }
+      return null;
+  };
+
+  const scoreAltman = getScore('altman_z');
+  const scorePiotroski = getScore('piotroski_score');
+  
+  // Raw financial values
+  const valTotalAssets = getScore('total_assets');
+  const valTotalLiabilities = getScore('total_liabilities');
+  const valRevenue = getScore('revenue');
+  const valEbit = getScore('ebit');
+  const valMarketCap = getScore('marketCap');
+  const valWorkingCapital = getScore('working_capital');
+
+  // We rely on loading state only if we don't have snapshot data either.
+  const hasData = Boolean(snapshotScores && Object.keys(snapshotScores).length > 0);
+  const isLoading = snapshotLoading && !hasData;
 
   return (
     <Card className="bg-tarjetas border-none shadow-lg w-full flex flex-col overflow-hidden rounded-none">
@@ -277,29 +354,29 @@ export default function ResumenCard({
           </div>
         </div>
 
-        {scoresLoading && (
+        {isLoading && (
           <div className="border-t border-zinc-800 bg-black/40 px-4 py-3">
             <div className="text-xs text-zinc-500">Cargando scores...</div>
           </div>
         )}
-        {scoresError && !scoresLoading && (
+        {snapshotError && !isLoading && !hasData && (
           <div className="border-t border-zinc-800 bg-black/40 px-4 py-3">
-            <div className="text-xs text-red-400">{scoresError}</div>
+            <div className="text-xs text-red-400">{snapshotError}</div>
           </div>
         )}
 
-        {scoresData && !scoresLoading && (
+        {hasData && (
           <div className="border-t border-zinc-800 bg-black/40 px-4 py-3">
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
               {[
                 { label: "Altman Z", value: scoreAltman, kind: "altman" },
                 { label: "Piotroski", value: scorePiotroski, kind: "piotroski" },
-                { label: "Activos", value: scoresRaw.totalAssets, kind: "money" },
-                { label: "Pasivos", value: scoresRaw.totalLiabilities, kind: "money" },
-                { label: "Ingresos", value: scoresRaw.revenue, kind: "money" },
-                { label: "EBIT", value: scoresRaw.ebit, kind: "money" },
-                { label: "Mkt Cap", value: scoresRaw.marketCap, kind: "money" },
-                { label: "Working Cap", value: scoresRaw.workingCapital, kind: "money" },
+                { label: "Activos", value: valTotalAssets, kind: "money" },
+                { label: "Pasivos", value: valTotalLiabilities, kind: "money" },
+                { label: "Ingresos", value: valRevenue, kind: "money" },
+                { label: "EBIT", value: valEbit, kind: "money" },
+                { label: "Mkt Cap", value: valMarketCap, kind: "money" },
+                { label: "Working Cap", value: valWorkingCapital, kind: "money" },
               ].map((item, idx) => (
                 <div
                   key={idx}

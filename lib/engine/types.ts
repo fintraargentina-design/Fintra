@@ -263,6 +263,8 @@ export interface FintraSnapshotDB {
   ecosystem_data?: any;
   ecosystem_report?: string | null;
   calculated_at?: string;
+  profile_structural?: ProfileStructural | null;
+  investment_verdict?: any;
   [key: string]: any;
 }
 
