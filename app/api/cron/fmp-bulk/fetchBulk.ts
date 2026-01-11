@@ -91,6 +91,18 @@ async function downloadToCache(
 
   const filePath = path.join(CACHE_DIR, `${endpointKey}_latest.csv`);
 
+  // CACHE CHECK: If file exists and is fresh (< 60 mins), skip download
+  try {
+      const stats = await fs.promises.stat(filePath);
+      const ageMins = (Date.now() - stats.mtimeMs) / 1000 / 60;
+      if (ageMins < 60 && stats.size > 0) {
+          console.log(`✅ CACHE HIT ${endpointKey} (${ageMins.toFixed(1)} mins old). Skipping download.`);
+          return filePath;
+      }
+  } catch (e) {
+      // File does not exist, proceed to download
+  }
+
   console.log(`⬇️ Downloading ${endpointKey} to cache...`);
   const fd = await fs.promises.open(filePath, 'w');
   

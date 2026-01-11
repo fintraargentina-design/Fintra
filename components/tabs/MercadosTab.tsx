@@ -302,7 +302,7 @@ export default function MercadosTab() {
                             </div>
 
                             <div className="flex-1 flex items-center justify-end pr-2">
-                               <span className="text-xl text-white tracking-tighter">
+                               <span className="text-lg text-white tracking-tighter">
                                  {data ? formatChange(change) : "---"}
                                </span>
                             </div>

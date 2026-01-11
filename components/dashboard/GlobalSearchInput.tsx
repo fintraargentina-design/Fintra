@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, KeyboardEvent, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Search, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -12,7 +12,25 @@ export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: st
   const [results, setResults] = useState<UnifiedSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const router = useRouter();
+  
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Reset selected index when results change
+  useEffect(() => {
+    setSelectedIndex(-1);
+  }, [results]);
+
+  // Scroll to selected item
+  useEffect(() => {
+    if (selectedIndex >= 0 && listRef.current) {
+      const selectedElement = listRef.current.children[selectedIndex] as HTMLElement;
+      if (selectedElement) {
+        selectedElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+  }, [selectedIndex]);
 
   useEffect(() => {
     const timer = setTimeout(async () => {
@@ -36,6 +54,28 @@ export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: st
 
     return () => clearTimeout(timer);
   }, [query]);
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (!results.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev < results.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < results.length) {
+        handleSelect(results[selectedIndex]);
+      } else if (results.length > 0) {
+        // Default to first result if none selected
+        handleSelect(results[0]);
+      }
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+    }
+  };
 
   const handleSelect = async (stock: UnifiedSearchResult) => {
     setQuery("");
@@ -70,6 +110,7 @@ export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: st
                 setQuery(e.target.value);
                 if (e.target.value.length >= 2) setOpen(true);
             }}
+            onKeyDown={handleKeyDown}
             onFocus={() => query.length >= 2 && setOpen(true)}
           />
           {loading && <Loader2 className="absolute right-2 top-1.5 h-3 w-3 animate-spin text-gray-500" />}
@@ -77,7 +118,7 @@ export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: st
       </PopoverAnchor>
       
       <PopoverContent 
-        className="p-0 w-[280px] bg-[#121212] border-zinc-800 shadow-xl overflow-hidden rounded-none" 
+        className="p-0 w-[500px] bg-[#121212] border-zinc-800 shadow-xl rounded-none" 
         align="start" 
         sideOffset={5}
         onOpenAutoFocus={(e) => e.preventDefault()}
@@ -91,25 +132,30 @@ export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: st
                  No se encontraron resultados
               </div>
            ) : (
-             <div className="max-h-[300px] overflow-y-auto scrollbar-thin">
-                {results.map((stock) => (
+             <div 
+               ref={listRef}
+               className="max-h-[350px] w-full overflow-y-auto scrollbar-thin"
+             >
+                {results.map((stock, index) => (
                   <div 
                     key={`${stock.ticker}-${stock.source}`}
-                    className="flex items-center justify-between px-3 py-2 hover:bg-white/5 cursor-pointer border-b border-zinc-800/50 last:border-0 group transition-colors"
+                    className={`flex items-center justify-between px-3 py-2 cursor-pointer border-b border-zinc-800/50 last:border-0 group transition-colors ${
+                      index === selectedIndex ? "bg-white/10" : "hover:bg-white/5"
+                    }`}
                     onClick={() => handleSelect(stock)}
                   >
                     <div className="min-w-0 flex-1 mr-2">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-bold text-white text-xs font-mono">{stock.ticker}</span>
-                        {stock.source === 'local' ? (
+                        <span className="font-light text-white text-xs font-mono">{stock.ticker}</span>
+                        {/* {stock.source === 'local' ? (
                            <span className="text-[8px] bg-blue-500/10 text-blue-400 px-1 rounded-none border border-blue-500/20">DB</span>
                         ) : (
                            <span className="text-[8px] bg-yellow-500/10 text-yellow-400 px-1 rounded-none border border-yellow-500/20">FMP</span>
-                        )}
+                        )} */}
                       </div>
-                      <div className="text-[10px] text-gray-400 truncate group-hover:text-gray-300">{stock.name}</div>
+                      <div className="text-[12px] text-gray-400 font-mono font-light truncate group-hover:text-white">{stock.name}</div>
                     </div>
-                    <div className="text-[9px] text-gray-600 font-mono shrink-0 border border-zinc-800 px-1 rounded-none bg-black/20">
+                    <div className="text-[10px] text-gray-400 font-mono shrink-0 border border-zinc-800 px-1 rounded-none bg-black/20">
                         {stock.exchange}
                     </div>
                   </div>

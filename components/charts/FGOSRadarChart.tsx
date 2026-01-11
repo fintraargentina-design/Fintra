@@ -131,8 +131,8 @@ export default function FGOSRadarChart({ symbol, data, comparedSymbol }: { symbo
       },
       legend: {
         data: [symbol, ...(peerData && comparedSymbol ? [comparedSymbol] : [])],
-        bottom: 15,
-        left: 30,
+        bottom: 5,
+        left: 5,
         itemWidth: 8,
         itemHeight: 8,
         textStyle: { 
@@ -144,7 +144,7 @@ export default function FGOSRadarChart({ symbol, data, comparedSymbol }: { symbo
       radar: {
         indicator: indicator,
         shape: 'polygon',
-        radius: '50%',
+        radius: '65%',
         center: ['50%', '50%'],
         splitNumber: 4,
         axisName: {

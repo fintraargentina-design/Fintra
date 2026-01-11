@@ -32,28 +32,34 @@ function mapDbToFmp(fin: any): { profile: FmpProfile, ratios: FmpRatios, metrics
   };
 }
 
-export async function backfillSnapshotsForDate(date: string) {
+export async function backfillSnapshotsForDate(date: string, targetTicker?: string) {
   const asOf = dayjs(date);
 
   // 1. Obtener tickers con datos ese día
   // Filter by active stocks only
-  const activeTickersList = await getActiveStockTickers(supabase);
-  const activeTickersSet = new Set(activeTickersList);
+  let uniqueTickers = new Set<string>();
 
-  const { data: tickers } = await supabase
-    .from('datos_financieros')
-    .select('ticker')
-    .lte('period_end_date', date);
+  if (targetTicker) {
+    console.log(`[Backfill] Debug mode: Processing only ${targetTicker}`);
+    uniqueTickers.add(targetTicker);
+  } else {
+    const activeTickersList = await getActiveStockTickers(supabase);
+    const activeTickersSet = new Set(activeTickersList);
 
-  if (!tickers || !tickers.length) return;
+    const { data: tickers } = await supabase
+        .from('datos_financieros')
+        .select('ticker')
+        .lte('period_end_date', date);
 
-  // Dedupe and Filter
-  const uniqueTickers = new Set<string>();
-  tickers.forEach((t: { ticker: string }) => {
-    if (activeTickersSet.has(t.ticker)) {
-      uniqueTickers.add(t.ticker);
-    }
-  });
+    if (!tickers || !tickers.length) return;
+
+    // Dedupe and Filter
+    tickers.forEach((t: { ticker: string }) => {
+        if (activeTickersSet.has(t.ticker)) {
+        uniqueTickers.add(t.ticker);
+        }
+    });
+  }
 
   for (const ticker of uniqueTickers) {
     // -----------------------------
@@ -69,13 +75,19 @@ export async function backfillSnapshotsForDate(date: string) {
       .limit(1)
       .single();
 
-    if (!fin) continue;
+    if (!fin) {
+        if (targetTicker) console.warn(`[Backfill] No financials found for ${ticker} on ${date}`);
+        continue;
+    }
 
     // -----------------------------
     // 3. Sector
     // -----------------------------
     const sector = fin.sector;
-    if (!sector) continue;
+    if (!sector) {
+        if (targetTicker) console.warn(`[Backfill] No sector found for ${ticker}`);
+        continue;
+    }
 
     // -----------------------------
     // 4. Sector stats (Unused in current engine but kept for reference)
@@ -178,6 +190,11 @@ export async function backfillSnapshotsForDate(date: string) {
     };
 
     // Upsert
-    await supabase.from('fintra_snapshots').upsert(snapshot, { onConflict: 'ticker,snapshot_date' });
+    const { error } = await supabase.from('fintra_snapshots').upsert(snapshot, { onConflict: 'ticker,snapshot_date' });
+    if (error) {
+        console.error(`[Backfill] Error upserting snapshot for ${ticker}:`, error);
+    } else {
+        if (targetTicker) console.log(`[Backfill] Snapshot upserted for ${ticker}`);
+    }
   }
 }

@@ -111,10 +111,10 @@ export async function backfillValuationForDate(date: string) {
     const status =
       composite !== null
         ? composite <= 30
-          ? 'Barata'
+          ? 'undervalued'
           : composite >= 70
-          ? 'Cara'
-          : 'Justa'
+          ? 'overvalued'
+          : 'fair'
         : null;
 
     rows.push({

@@ -86,18 +86,26 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 160, 40, 0.5);
+  background: #0056FF;
   border-radius: 0px;
 }
+/* font-mono
+ */
+ 
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 160, 40, 0.7);
+  background: #0056FF;
 }
 
 /* Scrollbar personalizada más fina */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #0056FF transparent;
+}
+
 .scrollbar-thin::-webkit-scrollbar {
   height: 4px;
-  width: 4px;
+  width: 2px !important;
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
@@ -105,8 +113,8 @@
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 160, 40, 0.5);
-  border-radius: 8px;
+  background-color: #0056FF;
+  border-radius: 0px;
 }
 
 /* Responsive breakpoints helpers */
@@ -199,7 +207,7 @@
 .peers-scroll {
   background-color: transparent !important;
   scrollbar-width: thin; /* Firefox */
-  scrollbar-color: rgba(234, 88, 12, 0.4) transparent; /* thumb | track */
+  scrollbar-color: #0056FF transparent; /* thumb | track */
 }
 
 /* WebKit (Chrome, Edge, Safari) */
@@ -210,7 +218,7 @@
   background: transparent;
 }
 .peers-scroll::-webkit-scrollbar-thumb {
-  background-color: rgba(234, 88, 12, 0.4);
-  border-radius: 8px;
+  background-color: #0056FF;
+  border-radius: 0px;
   border: 2px solid transparent;
 }

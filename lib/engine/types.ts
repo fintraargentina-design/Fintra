@@ -38,7 +38,7 @@ export interface ValuationResult {
   pe_ratio: number | null;
   ev_ebitda: number | null;
   price_to_fcf: number | null;
-  valuation_status: 'Undervalued' | 'Overvalued' | 'Fair' | 'Pending';
+  valuation_status: 'undervalued' | 'overvalued' | 'fair' | 'pending';
   intrinsic_value?: number | null;
   upside_potential?: number | null;
 }

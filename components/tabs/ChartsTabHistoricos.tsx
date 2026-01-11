@@ -334,31 +334,31 @@ export default function ChartsTabHistoricos({
     // Common Options
     const commonOptions = {
       backgroundColor: "transparent",
-      animation: false,
-      grid: { left: '1%', right: '5%', top: '5%', bottom: '20%', containLabel: true },
+      animation: true,
+      grid: { left: '1%', right: '5%', top: '5%', bottom: '10%', containLabel: true },
       dataZoom: [{ type: 'inside', realtime: true, start: 0, end: 100 }],
       toolbox: {
         feature: {
           saveAsImage: {
-            title: "Guardar imagen",
-            backgroundColor: "#141414",
+            title: null,
+            backgroundColor: "#0c0c0cff",
             pixelRatio: 2
           }
         },
         iconStyle: {
-          borderColor: "#9ca3af"
+          borderColor: "#0056FF"
         },
         right: -8,
         top: 0
       },
       legend: { 
-        bottom: '10%', 
+        bottom: '0%', 
         left: 'center', 
         orient: 'horizontal', 
         icon: 'rect',
         itemHeight: 2,
         itemWidth: 12,
-        textStyle: { color: "#9ca3af" },
+        textStyle: { color: "#9ca3af", fontSize: 10 },
         // Mapeamos 'primary' al símbolo real para la leyenda
         data: [getLabel(symbol), ...otherKeys.map(getLabel)] 
       },
@@ -374,10 +374,10 @@ export default function ChartsTabHistoricos({
       xAxis: {
         type: 'category', 
         data: aligned.map(d => d.date),
-        boundaryGap: false,
-        axisLine: { lineStyle: { color: "#475569" } },
-        axisLabel: { color: "#cbd5e1" },
-        splitLine: { show: false }
+        boundaryGap: true,
+        axisLine: { lineStyle: { color: "#475569", width: 0.5 } },
+        axisLabel: { color: "#cbd5e1", fontSize: 10 },
+        splitLine: { show: true, lineStyle: { color: "rgba(148,163,184,0.15)" } }
       }
     };
 

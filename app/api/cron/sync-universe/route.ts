@@ -1,145 +1,17 @@
-// app/api/cron/sync-universe/route.ts
-
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-admin';
-import { fetchAllFmpData } from '../fmp-bulk/fetchBulk';
+import { runSyncUniverse } from './core';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-const FMP_API_KEY = process.env.FMP_API_KEY;
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const ticker = searchParams.get('ticker') || undefined;
 
-if (!FMP_API_KEY) {
-  throw new Error('Missing required env vars');
-}
-const supabase = supabaseAdmin;
-
-const BATCH_SIZE = 1000;
-
-export async function GET() {
   try {
-    console.log('🌍 Sync Fintra Universe (Profiles Bulk)');
-
-    const today = new Date().toISOString().slice(0, 10);
-
-    // 1️⃣ Descargar perfiles completos usando fetchAllFmpData
-    // Esto maneja paginación (parts), cache y retries automáticamente.
-    const result = await fetchAllFmpData('profiles', FMP_API_KEY);
-
-    if (!result.ok) {
-        throw new Error(`Error descargando profiles: ${result.error?.message}`);
-    }
-
-    const rows = result.data; // Array of objects from CSV
-    console.log(`📥 Perfiles recibidos: ${rows.length}`);
-
-    // 2️⃣ Procesar en batches
-    let processed = 0;
-
-    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-      const slice = rows.slice(i, i + BATCH_SIZE);
-
-      const dbRows = slice.map((p: any) => {
-        const sector = p.sector || null;
-        const industry = p.industry || null;
-        const name = p.companyName || null;
-        const ticker = p.symbol;
-
-        // Determinar Instrument Type
-        let instrument_type = 'EQUITY'; // Default
-        const isEtf = String(p.isEtf).toLowerCase() === 'true';
-        const isAdr = String(p.isAdr).toLowerCase() === 'true';
-        const isFund = String(p.isFund).toLowerCase() === 'true';
-        const exchangeShort = p.exchange || null; // e.g. "SAO", "CCC"
-
-        if (isEtf) instrument_type = 'ETF';
-        else if (isAdr) instrument_type = 'ADR';
-        else if (isFund) instrument_type = 'FUND';
-        else if (exchangeShort === 'CRYPTO' || exchangeShort === 'CCC') instrument_type = 'CRYPTO';
-        // Si no es ninguno de los anteriores y tiene sector/industria, es EQUITY.
-        // Si no tiene nada, asumimos EQUITY por defecto (acciones comunes).
-
-        // Confidence Logic
-        // 1.0 → perfil completo (name + sector + industry)
-        // 0.5 → perfil parcial (name)
-        // 0.0 → solo ticker
-        let confidence = 0.0;
-        if (ticker) {
-            if (name && sector && industry) {
-                confidence = 1.0;
-            } else if (name) {
-                confidence = 0.5;
-            }
-        }
-
-        return {
-            ticker: ticker,
-            name: name,
-            exchange: p.exchangeFullName || null, // Map CSV exchangeFullName to DB exchange
-            exchange_short: exchangeShort,        // Map CSV exchange to DB exchange_short
-            currency: p.currency || null,
-            
-            // New Structural Fields
-            sector: sector,
-            industry: industry,
-            sub_industry: null, // CSV doesn't have it
-            
-            instrument_type: instrument_type,
-            is_etf: isEtf,
-            is_adr: isAdr,
-            is_fund: isFund,
-            
-            country: p.country || null,
-            region: null, // CSV doesn't have it
-            
-            profile_confidence: confidence,
-            last_profile_update: today,
-            
-            // Standard Fields
-            is_active: true,
-            last_seen: today,
-            source: 'FMP'
-        };
-      });
-
-      const { error } = await supabase
-        .from('fintra_universe')
-        .upsert(dbRows, { onConflict: 'ticker' });
-
-      if (error) {
-          console.error('Upsert error:', error);
-          throw error;
-      }
-
-      processed += dbRows.length;
-      if (i % (BATCH_SIZE * 5) === 0) {
-          console.log(`✔ Batch ${Math.floor(i / BATCH_SIZE) + 1} → ${processed} procesados`);
-      }
-    }
-
-    // 3️⃣ Marcar como inactivos los no vistos hoy
-    const { error: deactivateError } = await supabase.rpc('execute_sql', {
-      sql: `
-        update fintra_universe
-        set is_active = false
-        where source = 'FMP'
-          and last_seen < '${today}';
-      `
-    });
-
-    if (deactivateError) {
-        console.warn('Warning: Failed to deactivate stale tickers', deactivateError);
-    }
-
-    console.log('✅ Fintra Universe sincronizado correctamente con Perfiles Completos');
-
-    return NextResponse.json({
-      ok: true,
-      total_symbols: rows.length,
-      processed
-    });
+    const result = await runSyncUniverse(ticker);
+    return NextResponse.json(result);
   } catch (err: any) {
-    console.error('❌ Error en syncFintraUniverse', err);
     return NextResponse.json(
       { ok: false, error: err.message },
       { status: 500 }

@@ -83,7 +83,7 @@ export function resolveValuationFromSector(
   if (!scores.length) {
     return {
       valuation_score: null,
-      valuation_status: 'Pending',
+      valuation_status: 'pending',
       confidence: 0,
       warnings: ['Insufficient valuation data']
     };
@@ -92,10 +92,10 @@ export function resolveValuationFromSector(
   const avgScore =
     scores.reduce((a, b) => a + b, 0) / scores.length;
 
-  let status: 'Undervalued' | 'Fair' | 'Overvalued' = 'Fair';
+  let status: 'undervalued' | 'fair' | 'overvalued' = 'fair';
 
-  if (avgScore >= 70) status = 'Undervalued';
-  else if (avgScore < 40) status = 'Overvalued';
+  if (avgScore >= 70) status = 'undervalued';
+  else if (avgScore < 40) status = 'overvalued';
 
   // Confidence basada en calidad del benchmark
   const confidence =

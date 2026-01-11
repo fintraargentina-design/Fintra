@@ -21,7 +21,8 @@ export async function fetchFinancialsBulk(apiKey: string, activeTickers: Set<str
   
   // RESTRICTION: Fetch from current year back to 2023
   // Including 2020-2022 as well if user requested full history
-  const years = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
+  // Adjusted for validation: Removed 2026 to prevent 404/429 loops on future data
+  const years = [2020, 2021, 2022, 2023, 2024, 2025];
   
   // FMP financial BULK endpoints REQUIRE explicit 'year' and 'period' parameters.
   // We want FY and all Quarters to build TTM

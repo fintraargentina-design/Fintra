@@ -19,6 +19,6 @@ export function normalizeValuation(
     pe_ratio: Number.isFinite(pe) ? pe : null,
     ev_ebitda: Number.isFinite(evEbitda) ? evEbitda : null,
     price_to_fcf: Number.isFinite(pfcf) ? pfcf : null,
-    valuation_status: 'Pending'
+    valuation_status: 'pending'
   };
 }

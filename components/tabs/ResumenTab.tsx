@@ -7,7 +7,6 @@ interface ResumenTabProps {
   onPeerSelect?: (ticker: string) => void;
   selectedPeer?: string | null;
   onStockSearch?: (symbol: string) => void;
-  onOpenSearchModal?: () => void;
   isLoading?: boolean;
 }
 
@@ -18,7 +17,6 @@ export default function ResumenTab({
   onPeerSelect, 
   selectedPeer,
   onStockSearch,
-  onOpenSearchModal,
   isLoading
 }: ResumenTabProps) {
   return (
@@ -29,7 +27,6 @@ export default function ResumenTab({
             symbol={symbol}
             stockBasicData={stockBasicData}
             onStockSearch={onStockSearch}
-            onOpenSearchModal={onOpenSearchModal}
             isParentLoading={isLoading}
           />
         </div>

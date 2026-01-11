@@ -6,9 +6,8 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
  * Responsabilidad ÚNICA:
  * Consolidar 1 fila por ticker con el estado de mercado más reciente conocido.
  */
-export async function runMarketStateBulk() {
+export async function runMarketStateBulk(targetTicker?: string) {
   const BATCH_SIZE = 1000;
-  const start = performance.now();
   console.log('🚀 Starting Market State Bulk Update...');
 
   try {
@@ -16,22 +15,27 @@ export async function runMarketStateBulk() {
 
     // 1. Fetch ALL active tickers from fintra_universe
     let allTickers: string[] = [];
-    let page = 0;
-    
-    console.log('📥 Fetching active tickers...');
-    while(true) {
-        const { data, error } = await supabase
-            .from('fintra_universe')
-            .select('ticker')
-            .eq('is_active', true)
-            .range(page * BATCH_SIZE, (page + 1) * BATCH_SIZE - 1);
+
+    if (targetTicker) {
+        console.log(`[MarketStateBulk] Running for single ticker: ${targetTicker}`);
+        allTickers = [targetTicker];
+    } else {
+        let page = 0;
+        console.log('📥 Fetching active tickers...');
+        while(true) {
+            const { data, error } = await supabase
+                .from('fintra_universe')
+                .select('ticker')
+                .eq('is_active', true)
+                .range(page * BATCH_SIZE, (page + 1) * BATCH_SIZE - 1);
+                
+            if (error) throw new Error(`Error fetching tickers: ${error.message}`);
+            if (!data || data.length === 0) break;
             
-        if (error) throw new Error(`Error fetching tickers: ${error.message}`);
-        if (!data || data.length === 0) break;
-        
-        allTickers.push(...data.map(d => d.ticker));
-        if (data.length < BATCH_SIZE) break;
-        page++;
+            allTickers.push(...data.map(d => d.ticker));
+            if (data.length < BATCH_SIZE) break;
+            page++;
+        }
     }
     
     console.log(`📋 Found ${allTickers.length} active tickers.`);
@@ -104,15 +108,19 @@ export async function runMarketStateBulk() {
             let last_price_date = null;
 
             if (snap) {
-                const m = snap.profile_structural?.metrics || {};
-                price = m.price;
-                change = m.change;
-                change_percentage = m.changePercentage; // camelCase in FMP JSON
-                market_cap = m.marketCap || m.mktCap; // Handle variations
-                last_price_date = snap.snapshot_date;
+                const metrics = snap.profile_structural.metrics;
+                price = metrics.price;
+                change = metrics.changes;
+                // Try to get change percentage if available, otherwise calc? 
+                // Profile usually has 'changes' (absolute). FMP sometimes has 'changesPercentage' or similar in other endpoints.
+                // Here we stick to what we have in snapshot.
+                // If we want percentage, we might need to look at profile_structural keys carefully.
+                // Assuming metrics matches FMP quote/profile structure.
+                
+                market_cap = metrics.mktCap || metrics.marketCap;
+                last_price_date = snap.snapshot_date; // Approximation
             }
 
-            // Extract YTD
             let ytd_return = null;
             if (perf) {
                 ytd_return = perf.return_percent;
@@ -145,29 +153,18 @@ export async function runMarketStateBulk() {
         }
     };
 
-    // 3. Loop chunks
-    for (let i = 0; i < allTickers.length; i += BATCH_SIZE) {
-        const chunk = allTickers.slice(i, i + BATCH_SIZE);
+    // Process all tickers in chunks
+    for (let i = 0; i < allTickers.length; i += 100) {
+        const chunk = allTickers.slice(i, i + 100);
         await processChunk(chunk);
         processed += chunk.length;
-        
-        if (i % (BATCH_SIZE * 5) === 0) {
-            console.log(`⏳ Progress: ${processed}/${allTickers.length} tickers...`);
-        }
     }
 
-    const duration = ((performance.now() - start) / 1000).toFixed(2);
-    console.log(`✅ Market State Sync Complete. Processed: ${processed}, Upserted: ${upserted}, Time: ${duration}s`);
+    console.log(`✅ Market State Update Complete. Processed: ${processed}, Upserted: ${upserted}`);
+    return { success: true, processed, upserted };
 
-    return { 
-        success: true, 
-        processed, 
-        upserted,
-        duration_seconds: duration
-    };
-
-  } catch (e: any) {
-      console.error('🔥 Fatal Error in Market State Sync:', e);
-      throw e;
+  } catch (error) {
+    console.error('❌ Critical Error in Market State Bulk:', error);
+    throw error;
   }
 }

@@ -2,16 +2,12 @@
 // Fintra/components/cards/ResumenCard.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { RefreshCw, Search } from "lucide-react";
-import { getLatestSnapshot } from "@/lib/repository/fintra-db";
-import { FintraSnapshotDB, ProfileStructural } from "@/lib/engine/types";
+import { getResumenData, ResumenData } from "@/lib/repository/fintra-db";
 
 interface ResumenCardProps {
   symbol: string;
   stockBasicData?: any;
   onStockSearch?: (symbol: string) => Promise<any> | any;
-  onOpenSearchModal?: () => void;
   isParentLoading?: boolean;
 }
 
@@ -29,32 +25,18 @@ export default function ResumenCard({
   symbol,
   stockBasicData,
   onStockSearch,
-  onOpenSearchModal,
   isParentLoading,
 }: ResumenCardProps) {
-  // Snapshot state only
-  const [snapshot, setSnapshot] = useState<FintraSnapshotDB | null>(null);
-  const [snapshotLoading, setSnapshotLoading] = useState(false);
-  const [snapshotError, setSnapshotError] = useState<string | null>(null);
-
-  const [editingField, setEditingField] = useState<string | null>(null);
-  const [searchValue, setSearchValue] = useState("");
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
+  // Resumen state
+  const [resumen, setResumen] = useState<ResumenData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const currentSymbol = useMemo(() => (symbol || "").toUpperCase(), [symbol]);
 
   const data = useMemo(() => {
-    // 1. Priority: Snapshot Profile Structural
-    const ps = snapshot?.profile_structural;
-    const hasProfile = ps && 'identity' in ps;
-
-    if (hasProfile) {
-        const profile = ps as ProfileStructural;
-        const identity = profile.identity || {};
-        const classification = profile.classification || {};
-        const metrics = profile.metrics || {};
-        
+    // 1. Priority: Resumen Data
+    if (resumen) {
         const num = (x: any) => {
             const n = Number(x);
             return Number.isFinite(n) ? n : undefined;
@@ -63,22 +45,22 @@ export default function ResumenCard({
         const str = (s: any) => (typeof s === "string" ? s.trim() : undefined);
 
         return {
-            symbol: str(identity.ticker) || currentSymbol,
-            companyName: str(identity.name),
-            sector: str(classification.sector),
-            industry: str(classification.industry),
-            ceo: str(identity.ceo),
-            country: str(identity.country),
-            website: str(identity.website),
-            marketCap: num(metrics.marketCap),
-            fullTimeEmployees: num(identity.fullTimeEmployees),
-            beta: num(metrics.beta),
-            volume: num(metrics.volume),
-            lastDividend: num(metrics.lastDividend),
-            range: str(metrics.range),
-            ipoDate: str(identity.founded),
-            exchange: str(identity.exchange),
-            description: str(identity.description),
+            symbol: str(resumen.ticker) || currentSymbol,
+            companyName: str(resumen.name),
+            sector: str(resumen.sector),
+            industry: str(resumen.industry),
+            ceo: str(resumen.ceo),
+            country: str(resumen.country),
+            website: str(resumen.website),
+            marketCap: num(resumen.market_cap),
+            fullTimeEmployees: num(resumen.employees),
+            beta: num(resumen.beta),
+            volume: num(resumen.volume),
+            lastDividend: undefined, // Not in ResumenData
+            range: undefined, // Not in ResumenData
+            ipoDate: undefined, // Not in ResumenData
+            exchange: str(resumen.exchange),
+            description: str(resumen.description),
         };
     }
 
@@ -109,9 +91,9 @@ export default function ResumenCard({
       exchange: "",
       description: "",
     };
-  }, [stockBasicData, currentSymbol, snapshot]);
+  }, [stockBasicData, currentSymbol, resumen]);
 
-  // Combined Effect: Fetch Snapshot (Single Source of Truth)
+  // Combined Effect: Fetch Resumen Data
   useEffect(() => {
     let active = true;
 
@@ -119,22 +101,22 @@ export default function ResumenCard({
       if (!currentSymbol) return;
 
       // 1. Init Loading States
-      setSnapshotLoading(true);
-      setSnapshotError(null);
-      setSnapshot(null); // Clear previous snapshot
+      setLoading(true);
+      setError(null);
+      setResumen(null); 
 
       try {
-        // 2. Fetch Snapshot
-        const fetchedSnapshot = await getLatestSnapshot(currentSymbol);
-        if (active && fetchedSnapshot) {
-            setSnapshot(fetchedSnapshot);
+        // 2. Fetch Resumen
+        const fetchedResumen = await getResumenData(currentSymbol);
+        if (active && fetchedResumen) {
+            setResumen(fetchedResumen);
         }
       } catch (err) {
-        console.error("Error fetching snapshot:", err);
-        if (active) setSnapshotError("Error cargando snapshot");
+        console.error("Error fetching resumen:", err);
+        if (active) setError("Error cargando resumen");
       } finally {
         if (active) {
-            setSnapshotLoading(false);
+            setLoading(false);
         }
       }
     };
@@ -143,138 +125,57 @@ export default function ResumenCard({
     return () => { active = false; };
   }, [currentSymbol]);
 
-  const handleNAClick = (fieldName: string) => {
-    setEditingField(fieldName);
-    setSearchValue("");
-  };
-
-  const handleSearch = async () => {
-    if (!searchValue.trim() || !onStockSearch) return;
-    setSearchLoading(true);
-    setSearchError(null);
-    try {
-      await onStockSearch(searchValue.trim().toUpperCase());
-      setEditingField(null);
-      setSearchValue("");
-    } catch (error: any) {
-      setSearchError(error?.message || "Error al buscar");
-    } finally {
-      setSearchLoading(false);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") handleSearch();
-    if (e.key === "Escape") {
-      setEditingField(null);
-      setSearchValue("");
-      setSearchError(null);
-    }
-  };
-
-  const renderEditableField = (value: any, fieldName: string) => {
-    if (editingField === fieldName) {
-      if (searchLoading) {
-        return (
-          <div className="px-2 py-1 bg-black/20 text-[#FFA028] text-xs flex items-center space-x-2 rounded">
-            <RefreshCw className="w-3 h-3 animate-spin" />
-            <span>Cargando...</span>
-          </div>
-        );
-      }
-      return (
-        <div className="flex flex-col gap-1 min-w-[150px]">
-          <div className="flex items-center gap-2">
-            <Input
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder="Ticker..."
-              className="h-6 text-xs bg-black/40 border-zinc-700"
-              autoFocus
-            />
-            <Search
-              className="w-3 h-3 text-gray-400 cursor-pointer hover:text-[#FFA028]"
-              onClick={handleSearch}
-            />
-          </div>
-          {searchError && <span className="text-red-400 text-[10px]">{searchError}</span>}
-        </div>
-      );
-    }
-
+  const renderField = (value: any) => {
     if (value === undefined || value === null || value === "N/A" || value === "") {
       return (
-        <span
-          className="text-gray-500 cursor-pointer hover:text-[#FFA028] transition-colors text-xs italic"
-          onClick={() => {
-            handleNAClick(fieldName);
-            setSearchError(null);
-          }}
-        >
+        <span className="text-gray-500 text-xs italic">
           N/A
         </span>
       );
     }
-
     return <span className="text-zinc-200 text-xs font-medium truncate">{value}</span>;
   };
 
-  // Determine effective scores source: Snapshot (if available)
-  // Note: Snapshot usually stores these in profile_structural.financial_scores
-  const snapshotScores = (snapshot?.profile_structural && 'financial_scores' in snapshot.profile_structural)
-    ? (snapshot.profile_structural as ProfileStructural).financial_scores
-    : {};
-  
-  // Helper to get value from snapshot
-  const getScore = (keySnapshot: string) => {
-      if (snapshotScores && Object.keys(snapshotScores).length > 0 && keySnapshot in snapshotScores) {
-          const val = (snapshotScores as any)[keySnapshot];
-          if (val !== undefined && val !== null) {
-              return val;
-          }
-      }
-      return null;
-  };
-
-  const scoreAltman = getScore('altman_z');
-  const scorePiotroski = getScore('piotroski_score');
+  const scoreAltman = resumen?.altman_z;
+  const scorePiotroski = resumen?.piotroski_score;
   
   // Raw financial values
-  const valTotalAssets = getScore('total_assets');
-  const valTotalLiabilities = getScore('total_liabilities');
-  const valRevenue = getScore('revenue');
-  const valEbit = getScore('ebit');
-  const valMarketCap = getScore('marketCap');
-  const valWorkingCapital = getScore('working_capital');
+  const valTotalAssets = resumen?.total_assets;
+  const valTotalLiabilities = resumen?.total_liabilities;
+  const valRevenue = resumen?.revenue;
+  const valEbit = resumen?.ebit;
+  // Note: ResumenData uses 'market_cap' but previous UI used 'marketCap' alias in getScore. 
+  // We'll use resumen.market_cap
+  const valMarketCap = resumen?.market_cap; 
+  const valWorkingCapital = resumen?.working_capital;
 
-  // We rely on loading state only if we don't have snapshot data either.
-  const hasData = Boolean(snapshotScores && Object.keys(snapshotScores).length > 0);
-  const isLoading = snapshotLoading && !hasData;
+  // We rely on loading state only if we don't have resumen data either.
+  const hasData = Boolean(resumen);
+  const isLoading = loading && !hasData;
 
   return (
     <Card className="bg-tarjetas border-none shadow-lg w-full flex flex-col overflow-hidden rounded-none">
       <CardContent className="p-0">
-        <div className="p-4 bg-black/20">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 border border-zinc-800 rounded-sm overflow-hidden">
+        <div className="p-2 bg-black/20">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 border-none border-zinc-800 overflow-hidden">
             <div className="lg:col-span-3 flex flex-col p-4 bg-tarjetas border-r border-zinc-800 gap-4">
               <h3 className="text-[#FFA028] text-xs font-bold uppercase tracking-wider">Corporate Profile</h3>
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Sector</span>
-                  {renderEditableField(data.sector, "sector")}
+                  {renderField(data.sector)}
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Industry</span>
-                  {renderEditableField(data.industry, "industry")}
+                  {renderField(data.industry)}
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-zinc-500 text-[10px] uppercase tracking-wider">CEO</span>
-                  {renderEditableField(data.ceo, "ceo")}
+                  {renderField(data.ceo)}
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Country</span>
-                  {renderEditableField(data.country, "country")}
+                  {renderField(data.country)}
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Website</span>
@@ -288,7 +189,7 @@ export default function ResumenCard({
                       {String(data.website).replace(/^https?:\/\//, "").replace(/\/$/, "")}
                     </a>
                   ) : (
-                    renderEditableField(null, "website")
+                    renderField(null)
                   )}
                 </div>
               </div>
@@ -303,11 +204,10 @@ export default function ResumenCard({
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Employees</span>
-                  {renderEditableField(
+                  {renderField(
                     Number.isFinite(Number(data.fullTimeEmployees))
                       ? Number(data.fullTimeEmployees).toLocaleString()
-                      : undefined,
-                    "employees",
+                      : undefined
                   )}
                 </div>
                 <div className="flex flex-col gap-0.5">
@@ -347,7 +247,7 @@ export default function ResumenCard({
                   </span>
                 </div>
               </div>
-              <p className="text-zinc-400 text-xs leading-relaxed text-justify overflow-y-auto max-h-[160px] pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+              <p className="text-zinc-400 text-xs leading-relaxed text-justify overflow-y-auto font-mono max-h-[160px] pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
                 {data.description || "No description available."}
               </p>
             </div>
@@ -359,9 +259,9 @@ export default function ResumenCard({
             <div className="text-xs text-zinc-500">Cargando scores...</div>
           </div>
         )}
-        {snapshotError && !isLoading && !hasData && (
+        {error && !isLoading && !hasData && (
           <div className="border-t border-zinc-800 bg-black/40 px-4 py-3">
-            <div className="text-xs text-red-400">{snapshotError}</div>
+            <div className="text-xs text-red-400">{error}</div>
           </div>
         )}
 
@@ -380,9 +280,9 @@ export default function ResumenCard({
               ].map((item, idx) => (
                 <div
                   key={idx}
-                  className="flex flex-col justify-center items-center border-r last:border-r-0 border-zinc-800/50 px-2"
+                  className="flex flex-col justify-center items-center border-r last:border-r-0 border-zinc-800 px-2"
                 >
-                  <span className="text-zinc-600 text-[9px] uppercase tracking-wider mb-0.5">{item.label}</span>
+                  <span className="text-zinc-500 text-[9px] uppercase tracking-wider mb-0.5">{item.label}</span>
                   <span
                     className={`font-mono font-medium text-xs ${
                       item.kind === "altman"

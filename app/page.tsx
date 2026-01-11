@@ -22,7 +22,6 @@ import SectorAnalysisPanel from '@/components/dashboard/SectorAnalysisPanel';
 import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
 import TickerSearchPanel from '@/components/dashboard/TickerSearchPanel';
 import GlobalSearchInput from '@/components/dashboard/GlobalSearchInput';
-import StockSearchModal from '@/components/modals/StockSearchModal';
 import EstimacionTab from '@/components/tabs/EstimacionTab';
 import MercadosTab from '@/components/tabs/MercadosTab';
 import ResumenTab from '@/components/tabs/ResumenTab';
@@ -42,7 +41,6 @@ export default function StockTerminal() {
   const [activeTab, setActiveTab] = useState<TabKey>('empresa');
   const [user, setUser] = useState<User | null>(null);
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // Memoize comparedSymbols to prevent unnecessary re-renders in ChartsTabHistoricos
   const comparedSymbolsList = useMemo(() => selectedCompetitor ? [selectedCompetitor] : [], [selectedCompetitor]);
@@ -214,7 +212,6 @@ export default function StockTerminal() {
             onPeerSelect={setSelectedCompetitor}
             selectedPeer={selectedCompetitor}
             onStockSearch={buscarDatosAccion}
-            onOpenSearchModal={() => setIsSearchOpen(true)}
             isLoading={isLoading}
           />
         );
@@ -350,11 +347,11 @@ export default function StockTerminal() {
                 </div>
 
                 <div className="w-full h-[40%] grid grid-cols-2 gap-1 min-h-0 pb-1">
-                   <div className="h-full w-full overflow-hidden border border-zinc-800 bg-tarjetas relative">
-                      <NoticiasTab symbol={selectedSymbol} />
+                  <div className="h-full w-full overflow-hidden border border-zinc-800 bg-tarjetas relative">
+                      <TwitsTab />
                    </div>
                    <div className="h-full w-full overflow-hidden border border-zinc-800 bg-tarjetas relative">
-                      <TwitsTab />
+                      <NoticiasTab symbol={selectedSymbol} />
                    </div>
                 </div>
               </div>
@@ -381,13 +378,12 @@ export default function StockTerminal() {
                       <OverviewCard
                         selectedStock={stockBasicData || selectedSymbol}
                         onStockSearch={buscarDatosAccion}
-                        onOpenSearchModal={() => setIsSearchOpen(true)}
                         isParentLoading={isLoading}
                         analysisData={stockAnalysis}
                       />
                     </div>
 
-                    <div className="shrink-0 w-full border-zinc-800 h-[20%] overflow-hidden bg-tarjetas">
+                    <div className="shrink-0 w-full border-zinc-800 h-[15%] overflow-hidden bg-tarjetas">
                         <PeersAnalysisPanel 
                             symbol={selectedSymbol}
                             onPeerSelect={setSelectedCompetitor}
@@ -437,11 +433,6 @@ export default function StockTerminal() {
           </div>
         )}
       </div>
-      <StockSearchModal 
-        isOpen={isSearchOpen} 
-        onClose={() => setIsSearchOpen(false)} 
-        onSelectSymbol={handleTopStockClick} 
-      />
       <Footer />
     </div>
   );

@@ -1,4 +1,4 @@
-export type ValuationStatus = 'Barata' | 'Justa' | 'Cara';
+export type ValuationStatus = 'undervalued' | 'fair' | 'overvalued';
 
 export interface InvestmentVerdict {
   verdict: string;
@@ -20,26 +20,26 @@ export function resolveInvestmentVerdict(
   let verdict = 'Neutral';
 
   if (category === 'High') {
-    if (valuationStatus === 'Barata') verdict = 'Oportunidad clara';
-    else if (valuationStatus === 'Justa') verdict = 'Buena empresa, esperar mejor precio';
+    if (valuationStatus === 'undervalued') verdict = 'Oportunidad clara';
+    else if (valuationStatus === 'fair') verdict = 'Buena empresa, esperar mejor precio';
     else verdict = 'Excelente empresa, expectativas exigentes';
   }
 
   if (category === 'Medium') {
-    if (valuationStatus === 'Barata') verdict = 'Potencial selectivo';
-    else if (valuationStatus === 'Justa') verdict = 'Neutral';
+    if (valuationStatus === 'undervalued') verdict = 'Potencial selectivo';
+    else if (valuationStatus === 'fair') verdict = 'Neutral';
     else verdict = 'Precio exigente';
   }
 
   if (category === 'Low') {
-    if (valuationStatus === 'Barata') verdict = 'Barata por una razón';
+    if (valuationStatus === 'undervalued') verdict = 'Barata por una razón';
     else verdict = 'Evitar';
   }
 
   const confidence =
-    category === 'High' && valuationStatus === 'Barata'
+    category === 'High' && valuationStatus === 'undervalued'
       ? 'High'
-      : category === 'Low' && valuationStatus === 'Cara'
+      : category === 'Low' && valuationStatus === 'overvalued'
       ? 'High'
       : 'Medium';
 
