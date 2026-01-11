@@ -355,18 +355,18 @@ export default function OverviewCard({
   }
 
   return (
-    <Card className="bg-tarjetas border-none shadow-lg w-full h-[80px] flex flex-col group relative overflow-hidden rounded-none">
-      <CardContent className="p-0 flex flex-col h-full">
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr] gap-0 items-center border-b border-zinc-800 bg-black/10 h-full">
+    <Card className="bg-tarjetas border-none shadow-lg w-full h-[full] flex flex-col group relative overflow-hidden rounded-none">
+      <CardContent className="p-0 flex flex-col h-[full]">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr] gap-0 items-center border-b border-zinc-800 bg-black/10 h-[full]">
             
             {/* 1. STOCK: Logo, Ticker, Nombre */}
-            <div className="flex items-center gap-3 px-1 border-r border-zinc-800 h-full">
-                  <div className="relative h-full aspect-square flex items-center justify-center overflow-hidden border-none rounded-none shrink-0">
+            <div className="flex items-center gap-3 px-1 border-r border-zinc-800 h-[full]">
+                  <div className="relative h-[full] aspect-square flex items-center justify-center overflow-hidden border-none rounded-none shrink-0">
                     {data.image ? (
                       <img 
                         src={data.image} 
                         alt={data.symbol || "Logo"} 
-                        className="w-full h-full object-contain p-0"
+                        className="w-12 h-12 object-contain p-0"
                         onError={(e: any) => {
                            e.currentTarget.style.display = 'none';
                            const span = e.currentTarget.parentElement?.querySelector('.fallback-text') as HTMLElement;

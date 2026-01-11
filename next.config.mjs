@@ -3,6 +3,7 @@
 const isProd = process.env.NODE_ENV === 'production';
 
 const nextConfig = {
+  turbopack: {},
   reactStrictMode: true,
   typescript: {
     // En producción NO ignorar errores
