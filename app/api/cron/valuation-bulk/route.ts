@@ -48,8 +48,12 @@ interface ValuationRow {
 // --- Helper Functions ---
 
 async function downloadFile(url: string, filePath: string) {
+  // Use native fetch but with Node.js compatible handling (via undici default)
+  // Increase robustness against header overflow by limiting what we process if possible, 
+  // but mostly just handle errors gracefully.
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.statusText}`);
+  
   const arrayBuffer = await res.arrayBuffer();
   await fs.writeFile(filePath, Buffer.from(arrayBuffer));
 }
@@ -182,7 +186,7 @@ export async function GET() {
 
     // 3. Download other bulk files
     const files = [
-      { key: 'profile', url: `${BASE_URL}/profile-bulk?part=0&apikey=${API_KEY}`, path: path.join(SNAPSHOT_CACHE_DIR, 'profiles_latest.csv') },
+      { key: 'profile', url: `${BASE_URL}/profile-bulk?apikey=${API_KEY}`, path: path.join(SNAPSHOT_CACHE_DIR, 'profiles_latest.csv') },
       { key: 'metrics', url: `${BASE_URL}/key-metrics-ttm-bulk?apikey=${API_KEY}`, path: path.join(SNAPSHOT_CACHE_DIR, 'metrics_latest.csv') },
       { key: 'ratios', url: `${BASE_URL}/ratios-ttm-bulk?apikey=${API_KEY}`, path: path.join(SNAPSHOT_CACHE_DIR, 'ratios_latest.csv') }
     ];
@@ -193,7 +197,18 @@ export async function GET() {
          // We prefer the user-provided snapshot cache and do not refresh it automatically here.
       } else {
         console.log(`[valuation-bulk] Downloading ${f.key}...`);
-        await downloadFile(f.url, f.path);
+        try {
+            await downloadFile(f.url, f.path);
+        } catch (err: any) {
+             console.error(`[valuation-bulk] Error downloading ${f.key}:`, err.message);
+             // Critical failure if profile/metrics/ratios missing? 
+             // Maybe we can proceed with partial data if files exist from before?
+             // But here we are in the else block (file didn't exist).
+             // Retry once?
+             console.log(`[valuation-bulk] Retrying download for ${f.key}...`);
+             await new Promise(r => setTimeout(r, 2000));
+             await downloadFile(f.url, f.path);
+        }
       }
     }
 

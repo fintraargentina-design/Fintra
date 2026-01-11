@@ -110,29 +110,53 @@ export async function GET(req: Request) {
 
     // BUILD SNAPSHOTS
     // Map tickers to buildSnapshot calls
-    const snapshotPromises = tickers.map(async (ticker) => {
-      const profile = profilesMap.get(ticker) || null;
-      const ratios = ratiosMap.get(ticker) || null;
-      const metrics = metricsMap.get(ticker) || null;
-      const scores = scoresMap.get(ticker) || null;
+    const BATCH_SIZE = 10; // Reduced to 10 to prevent Access Violation / Memory issues
+    const snapshots: any[] = [];
 
-      return buildSnapshot(
-        ticker,
-        profile,
-        ratios,
-        metrics,
-        null, // quote (not available in bulk)
-        null, // priceChange (not available in bulk)
-        scores,
-        [], // incomeGrowthRows (handled by separate cron)
-        []  // cashflowGrowthRows
-      );
-    });
+    console.log(`🏗️ Building Snapshots for ${tickers.length} tickers in batches of ${BATCH_SIZE}...`);
 
-    // Wait for all snapshots to be built
-    const snapshotsRaw = await Promise.all(snapshotPromises);
-    const snapshots = snapshotsRaw.filter(s => s !== null);
-    
+    for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
+        const batchTickers = tickers.slice(i, i + BATCH_SIZE);
+        const batchIndex = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(tickers.length / BATCH_SIZE);
+        
+        console.log(`Processing Batch ${batchIndex}/${totalBatches} (${batchTickers.length} items)...`);
+
+        const batchPromises = batchTickers.map(async (ticker) => {
+            try {
+                const profile = profilesMap.get(ticker) || null;
+                const ratios = ratiosMap.get(ticker) || null;
+                const metrics = metricsMap.get(ticker) || null;
+                const scores = scoresMap.get(ticker) || null;
+
+                return await buildSnapshot(
+                    ticker,
+                    profile,
+                    ratios,
+                    metrics,
+                    null, // quote (not available in bulk)
+                    null, // priceChange (not available in bulk)
+                    scores,
+                    [], // incomeGrowthRows (handled by separate cron)
+                    []  // cashflowGrowthRows
+                );
+            } catch (err: any) {
+                console.error(`❌ CRITICAL ERROR building snapshot for ${ticker}:`, err.message);
+                return null;
+            }
+        });
+
+        // Wait for current batch to finish before starting next
+        const batchResults = await Promise.all(batchPromises);
+        snapshots.push(...batchResults.filter(s => s !== null));
+        
+        // Optional: Small breathing room for the event loop
+        if (global.gc) {
+            global.gc(); // Force GC if exposed
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
     console.log(`💾 Upserting ${snapshots.length} snapshots...`);
     
     // UPSERT

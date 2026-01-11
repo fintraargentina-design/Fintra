@@ -1,9 +1,14 @@
 // /next.config.mjs
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 /** @type {import('next').NextConfig} */
 const isProd = process.env.NODE_ENV === 'production';
 
 const nextConfig = {
-  turbopack: {},
   reactStrictMode: true,
   typescript: {
     // En producción NO ignorar errores
@@ -17,6 +22,9 @@ const nextConfig = {
       };
     }
     return config;
+  },
+  turbopack: {
+    root: __dirname,
   },
 };
 
