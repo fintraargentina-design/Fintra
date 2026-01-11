@@ -5,6 +5,8 @@ import Papa from 'papaparse';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
+import { getBenchmarksForSector } from '@/lib/engine/benchmarks';
+import { resolveValuationFromSector } from '@/lib/engine/resolveValuationFromSector';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes
@@ -245,6 +247,23 @@ export async function GET() {
 
     console.log(`[valuation-bulk] Loaded ${fyMap.size} FY periods.`);
 
+    // 5b. Pre-fetch Sector Benchmarks
+    // We fetch benchmarks once per sector to avoid async calls in the loop
+    console.log(`[valuation-bulk] Pre-fetching sector benchmarks...`);
+    const uniqueSectors = Array.from(new Set(profileData.map(p => p.sector).filter(s => s)));
+    const sectorBenchmarksMap = new Map<string, any>();
+    
+    // We use "today" so it finds the latest available benchmarks <= today
+    for (const sector of uniqueSectors) {
+        if (!sector) continue;
+        // getBenchmarksForSector handles caching internally, but we do it here to have a synchronous map
+        const benches = await getBenchmarksForSector(sector, today, true);
+        if (benches) {
+            sectorBenchmarksMap.set(sector, benches);
+        }
+    }
+    console.log(`[valuation-bulk] Loaded benchmarks for ${sectorBenchmarksMap.size} sectors.`);
+
     // 6. Build Valuation Rows
     console.log(`[valuation-bulk] Building valuation rows...`);
     const allRows: ValuationRow[] = [];
@@ -326,6 +345,22 @@ export async function GET() {
              evSales = getSafeNumber(metrics.evToSalesTTM);
         }
 
+        // Compute Valuation Status (Sector Benchmarks)
+        let valuationStatus = 'Pending';
+        if (sector && sectorBenchmarksMap.has(sector)) {
+            const benchmarks = sectorBenchmarksMap.get(sector);
+            const valResult = resolveValuationFromSector(
+                { 
+                    sector, 
+                    pe_ratio: pe, 
+                    ev_ebitda: evEbitda, 
+                    price_to_fcf: pFcf 
+                },
+                benchmarks
+            );
+            valuationStatus = valResult.valuation_status;
+        }
+
         // Common Fields
         const baseRow = {
             ticker,
@@ -347,7 +382,7 @@ export async function GET() {
             ev_ebitda_percentile: null,
             p_fcf_percentile: null,
             composite_percentile: null,
-            valuation_status: null, // Will be computed after percentiles
+            valuation_status: valuationStatus,
             source: 'fmp_bulk',
             data_freshness: daysSinceEod
         };

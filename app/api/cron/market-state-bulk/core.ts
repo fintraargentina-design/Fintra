@@ -1,0 +1,173 @@
+import { supabaseAdmin } from '@/lib/supabase-admin';
+
+/**
+ * CORE LOGIC: Market State Bulk
+ * 
+ * Responsabilidad ÚNICA:
+ * Consolidar 1 fila por ticker con el estado de mercado más reciente conocido.
+ */
+export async function runMarketStateBulk() {
+  const BATCH_SIZE = 1000;
+  const start = performance.now();
+  console.log('🚀 Starting Market State Bulk Update...');
+
+  try {
+    const supabase = supabaseAdmin;
+
+    // 1. Fetch ALL active tickers from fintra_universe
+    let allTickers: string[] = [];
+    let page = 0;
+    
+    console.log('📥 Fetching active tickers...');
+    while(true) {
+        const { data, error } = await supabase
+            .from('fintra_universe')
+            .select('ticker')
+            .eq('is_active', true)
+            .range(page * BATCH_SIZE, (page + 1) * BATCH_SIZE - 1);
+            
+        if (error) throw new Error(`Error fetching tickers: ${error.message}`);
+        if (!data || data.length === 0) break;
+        
+        allTickers.push(...data.map(d => d.ticker));
+        if (data.length < BATCH_SIZE) break;
+        page++;
+    }
+    
+    console.log(`📋 Found ${allTickers.length} active tickers.`);
+
+    // 2. Process in chunks
+    let processed = 0;
+    let upserted = 0;
+
+    // Helper to process a chunk
+    const processChunk = async (tickers: string[]) => {
+        // A. Fetch Snapshots (Latest per ticker)
+        const { data: snapshots, error: snapError } = await supabase
+            .from('fintra_snapshots')
+            .select('ticker, profile_structural, snapshot_date')
+            .in('ticker', tickers)
+            .order('snapshot_date', { ascending: false }); 
+        
+        if (snapError) console.error('Error fetching snapshots:', snapError);
+
+        // B. Fetch Performance (Latest YTD)
+        const { data: performance, error: perfError } = await supabase
+            .from('datos_performance')
+            .select('ticker, return_percent, performance_date')
+            .eq('window_code', 'YTD')
+            .in('ticker', tickers)
+            .lte('performance_date', new Date().toISOString()) // No future data
+            .order('performance_date', { ascending: false });
+
+        if (perfError) console.error('Error fetching performance:', perfError);
+
+        // C. Map for O(1) access
+        const snapMap = new Map<string, any>();
+        if (snapshots) {
+            for (const s of snapshots) {
+                // If we already have a snapshot for this ticker, skip (since we ordered by date desc, first is latest)
+                if (snapMap.has(s.ticker)) continue;
+
+                // Validate price presence
+                const metrics = s.profile_structural?.metrics;
+                const price = metrics?.price;
+                
+                // Check if price is valid (not null, not undefined, finite)
+                if (price !== null && price !== undefined && !isNaN(Number(price))) {
+                    snapMap.set(s.ticker, s);
+                }
+            }
+        }
+
+        const perfMap = new Map<string, any>();
+        if (performance) {
+            for (const p of performance) {
+                if (perfMap.has(p.ticker)) continue; // First is latest
+                perfMap.set(p.ticker, p);
+            }
+        }
+
+        // D. Build Rows
+        const rowsToUpsert: any[] = [];
+        const now = new Date().toISOString();
+
+        for (const ticker of tickers) {
+            const snap = snapMap.get(ticker);
+            const perf = perfMap.get(ticker);
+
+            // Extract metrics
+            let price = null;
+            let change = null;
+            let change_percentage = null;
+            let market_cap = null;
+            let last_price_date = null;
+
+            if (snap) {
+                const m = snap.profile_structural?.metrics || {};
+                price = m.price;
+                change = m.change;
+                change_percentage = m.changePercentage; // camelCase in FMP JSON
+                market_cap = m.marketCap || m.mktCap; // Handle variations
+                last_price_date = snap.snapshot_date;
+            }
+
+            // Extract YTD
+            let ytd_return = null;
+            if (perf) {
+                ytd_return = perf.return_percent;
+            }
+
+            rowsToUpsert.push({
+                ticker,
+                price: price ? Number(price) : null,
+                change: change ? Number(change) : null,
+                change_percentage: change_percentage ? Number(change_percentage) : null,
+                market_cap: market_cap ? Number(market_cap) : null,
+                ytd_return: ytd_return ? Number(ytd_return) : null,
+                last_price_date,
+                source: 'snapshot',
+                updated_at: now
+            });
+        }
+
+        // E. Bulk Upsert
+        if (rowsToUpsert.length > 0) {
+            const { error } = await supabase
+                .from('fintra_market_state')
+                .upsert(rowsToUpsert, { onConflict: 'ticker' });
+            
+            if (error) {
+                console.error(`❌ Upsert error for chunk starting ${tickers[0]}:`, error);
+            } else {
+                upserted += rowsToUpsert.length;
+            }
+        }
+    };
+
+    // 3. Loop chunks
+    for (let i = 0; i < allTickers.length; i += BATCH_SIZE) {
+        const chunk = allTickers.slice(i, i + BATCH_SIZE);
+        await processChunk(chunk);
+        processed += chunk.length;
+        
+        if (i % (BATCH_SIZE * 5) === 0) {
+            console.log(`⏳ Progress: ${processed}/${allTickers.length} tickers...`);
+        }
+    }
+
+    const duration = ((performance.now() - start) / 1000).toFixed(2);
+    console.log(`✅ Market State Sync Complete. Processed: ${processed}, Upserted: ${upserted}, Time: ${duration}s`);
+
+    return { 
+        success: true, 
+        processed, 
+        upserted,
+        duration_seconds: duration
+    };
+
+  } catch (e: any) {
+      console.error('🔥 Fatal Error in Market State Sync:', e);
+      throw e;
+  }
+}

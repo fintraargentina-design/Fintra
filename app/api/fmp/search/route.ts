@@ -26,24 +26,44 @@ export async function GET(req: Request) {
   try {
     // Explicitly use the full URL to avoid base URL issues in fmpGet
     // Endpoint: https://financialmodelingprep.com/stable/search-symbol
-    const url = new URL("https://financialmodelingprep.com/stable/search-symbol");
-    url.searchParams.set("query", query);
-    url.searchParams.set("limit", limitNum.toString());
-    if (exchange) url.searchParams.set("exchange", exchange);
-    url.searchParams.set("apikey", apiKey);
+    // And fallback/merge with: https://financialmodelingprep.com/stable/search-name
+    
+    const symbolUrl = new URL("https://financialmodelingprep.com/stable/search-symbol");
+    symbolUrl.searchParams.set("query", query);
+    symbolUrl.searchParams.set("limit", limitNum.toString());
+    if (exchange) symbolUrl.searchParams.set("exchange", exchange);
+    symbolUrl.searchParams.set("apikey", apiKey);
 
-    const res = await fetch(url.toString(), {
-        next: { revalidate: 600 } // Cache FMP response for 10 minutes
-    });
+    const nameUrl = new URL("https://financialmodelingprep.com/stable/search-name");
+    nameUrl.searchParams.set("query", query);
+    nameUrl.searchParams.set("limit", limitNum.toString());
+    if (exchange) nameUrl.searchParams.set("exchange", exchange);
+    nameUrl.searchParams.set("apikey", apiKey);
 
-    if (!res.ok) {
-        throw new Error(`FMP error: ${res.status} ${res.statusText}`);
+    const [symbolRes, nameRes] = await Promise.all([
+      fetch(symbolUrl.toString(), { next: { revalidate: 600 } }),
+      fetch(nameUrl.toString(), { next: { revalidate: 600 } })
+    ]);
+
+    const symbolData = symbolRes.ok ? await symbolRes.json() : [];
+    const nameData = nameRes.ok ? await nameRes.json() : [];
+
+    const safeSymbolData = Array.isArray(symbolData) ? symbolData : [];
+    const safeNameData = Array.isArray(nameData) ? nameData : [];
+
+    // Merge and deduplicate by symbol
+    const merged = [...safeSymbolData];
+    const seen = new Set(safeSymbolData.map((x: any) => x.symbol));
+
+    for (const item of safeNameData) {
+      if (!seen.has(item.symbol)) {
+        merged.push(item);
+        seen.add(item.symbol);
+      }
     }
-
-    const data = await res.json();
     
     // Ensure we return an array
-    return NextResponse.json(Array.isArray(data) ? data : [], {
+    return NextResponse.json(merged.slice(0, limitNum), {
       status: 200,
       headers: {
         "Content-Type": "application/json",

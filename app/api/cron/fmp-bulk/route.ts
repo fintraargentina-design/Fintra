@@ -1,7 +1,5 @@
 // Fintra/app/api/cron/fmp-bulk/route.ts
 
-// Fintra/app/api/cron/fmp-bulk/route.ts
-
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { NextResponse } from 'next/server';
 import { fetchAllFmpData } from './fetchBulk';
@@ -35,41 +33,48 @@ export async function GET(req: Request) {
 
   try {
     // ─────────────────────────────────────────
-    // CURSOR
+    // CURSOR (Data-based Idempotency)
     // ─────────────────────────────────────────
-    const { data: state } = await supabase
-      .from('cron_state')
-      .select('last_run_date')
-      .eq('name', CRON_NAME)
-      .single();
+    // Check if snapshots exist for today
+    const { count } = await supabase
+      .from('fintra_snapshots')
+      .select('*', { count: 'exact', head: true })
+      .eq('snapshot_date', today);
+
+    const hasDataToday = (count || 0) > 0;
 
     // Bypass check if we are in test mode (ticker override)
-    if (state?.last_run_date === today && !tickerParam) {
-      return NextResponse.json({ skipped: true, date: today });
+    if (hasDataToday && !tickerParam) {
+      console.log(`✅ Snapshots already exist for ${today} (count=${count}). Skipping.`);
+      return NextResponse.json({ skipped: true, date: today, count });
     }
 
     // ─────────────────────────────────────────
     // FETCH BULKS
     // ─────────────────────────────────────────
-    const bulk = await fetchAllFmpData(fmpKey);
-    const { profiles, ratios, metrics, scores } = bulk;
+    console.log('🚀 Starting Parallel Bulk Fetch...');
+    const [profilesRes, ratiosRes, metricsRes, scoresRes] = await Promise.all([
+        fetchAllFmpData('profiles', fmpKey),
+        fetchAllFmpData('ratios', fmpKey),
+        fetchAllFmpData('metrics', fmpKey),
+        fetchAllFmpData('scores', fmpKey)
+    ]);
 
-    // ─────────────────────────────────────────
-    // SECTOR STATS
-    // ─────────────────────────────────────────
-    const { data: sectorStatsRows } = await supabase
-      .from('sector_stats')
-      .select('*')
-      .eq('stats_date', today);
+    // Check for critical failures (Profiles is critical)
+    if (!profilesRes.ok) throw new Error(`Profiles Fetch Failed: ${profilesRes.error?.message}`);
+    
+    // Others are optional but good to have
+    if (!ratiosRes.ok) console.warn(`Ratios Fetch Failed: ${ratiosRes.error?.message}`);
+    if (!metricsRes.ok) console.warn(`Metrics Fetch Failed: ${metricsRes.error?.message}`);
+    if (!scoresRes.ok) console.warn(`Scores Fetch Failed: ${scoresRes.error?.message}`);
 
-    const sectorStatsMap: Record<string, any> = {};
-    for (const row of sectorStatsRows ?? []) {
-      // SAFETY: Skip stats with insufficient sample size
-      if ((row.sample_size || 0) < 3) continue;
-
-      sectorStatsMap[row.sector] ??= {};
-      sectorStatsMap[row.sector][row.metric] = row;
-    }
+    const bulk = {
+        profiles: profilesRes.data,
+        ratios: ratiosRes.data,
+        metrics: metricsRes.data,
+        scores: scoresRes.data
+    };
+    console.log(`📥 Bulk Data Ready: Profiles=${bulk.profiles.length}, Ratios=${bulk.ratios.length}`);
 
     // ─────────────────────────────────────────
     // UNIVERSO ACTIVO
@@ -95,196 +100,56 @@ export async function GET(req: Request) {
       ? allActiveTickers.slice(0, parseInt(limitParam))
       : allActiveTickers;
 
-    if (!limitParam && !tickerParam) {
-      console.log("🚀 BULK FULL RUN — processing entire active stock universe");
-    }
+    console.log(`🏗️ Building Snapshots for ${tickers.length} tickers...`);
+    
+    // Create lookup maps for O(1) access
+    const profilesMap = new Map<string, any>(bulk.profiles.map((p: any) => [p.symbol, p]));
+    const ratiosMap = new Map<string, any>(bulk.ratios.map((r: any) => [r.symbol, r]));
+    const metricsMap = new Map<string, any>(bulk.metrics.map((m: any) => [m.symbol, m]));
+    const scoresMap = new Map<string, any>(bulk.scores.map((s: any) => [s.symbol, s]));
 
-    const discardStats: Record<string, number> = {};
+    // BUILD SNAPSHOTS
+    // Map tickers to buildSnapshot calls
+    const snapshotPromises = tickers.map(async (ticker) => {
+      const profile = profilesMap.get(ticker) || null;
+      const ratios = ratiosMap.get(ticker) || null;
+      const metrics = metricsMap.get(ticker) || null;
+      const scores = scoresMap.get(ticker) || null;
 
-    // Batching state
-    const UPSERT_BATCH_SIZE = 100;
-    let pendingSnapshots: any[] = [];
-    let inserted = 0;
-
-    // ─────────────────────────────────────────
-    // LOOP PRINCIPAL
-    // ─────────────────────────────────────────
-    for (const sym of tickers) {
-      try {
-        if (tickerParam) console.log(`🔍 Processing ${sym}...`);
-
-        const profile = profiles.get(sym)?.[0] ?? null;
-
-          if (!profile) {
-            console.warn('⚠️ PROFILE MISSING (bulk)', sym);
-          }
-
-
-        const snapshot = await buildSnapshot(
-          sym,
-          profile,
-          ratios.get(sym)?.[0] ?? {},
-          metrics.get(sym)?.[0] ?? {},
-          // Quotes endpoint deprecated (404). Profile contains price/vol/change.
-          profile ?? {},
-          {},
-          scores.get(sym)?.[0] ?? {},
-          bulk.income_growth.get(sym) ?? [],
-          bulk.cashflow_growth.get(sym) ?? []
-        );
-
-        if (!snapshot) {
-          const discard = (global as any).__LAST_DISCARD_REASON__;
-
-          const reason =
-            discard?.sym === sym ? discard.reason : 'unknown';
-
-          discardStats[reason] = (discardStats[reason] ?? 0) + 1;
-
-          console.warn('📉 TICKER DISCARDED', {
-            sym,
-            reason
-          });
-
-          continue;
-        }
-
-        const sector =
-          snapshot.profile_structural?.classification?.sector ?? null;
-
-        if (sector && sectorStatsMap[sector]) {
-          const valuationResolved = resolveValuationFromSector(
-            {
-              sector,
-              pe_ratio: snapshot.valuation?.pe_ratio,
-              ev_ebitda: snapshot.valuation?.ev_ebitda,
-              price_to_fcf: snapshot.valuation?.price_to_fcf
-            },
-            sectorStatsMap[sector]
-          );
-
-          const baseValuation: ValuationResult = snapshot.valuation ?? {
-            pe_ratio: null,
-            ev_ebitda: null,
-            price_to_fcf: null,
-            valuation_status: 'Pending'
-          };
-
-          snapshot.valuation = {
-            pe_ratio: baseValuation.pe_ratio,
-            ev_ebitda: baseValuation.ev_ebitda,
-            price_to_fcf: baseValuation.price_to_fcf,
-            valuation_status: valuationResolved.valuation_status,
-            intrinsic_value: baseValuation.intrinsic_value ?? null,
-            upside_potential: baseValuation.upside_potential ?? null
-          };
-        }
-
-        snapshot.snapshot_date = today;
-        pendingSnapshots.push(snapshot);
-
-        if (pendingSnapshots.length >= UPSERT_BATCH_SIZE) {
-          try {
-            await upsertSnapshots(supabase, pendingSnapshots);
-            inserted += pendingSnapshots.length;
-          } catch (err) {
-            console.error('❌ UPSERT CHUNK FAILED', err);
-          }
-          pendingSnapshots = [];
-        }
-
-        if (sym === DEBUG_TICKER) {
-          console.log('🧪 DEBUG SNAPSHOT FINAL', snapshot);
-        }
-      } catch (err) {
-        discardStats['exception'] =
-          (discardStats['exception'] ?? 0) + 1;
-
-        console.warn(`⚠️ SNAPSHOT ERROR ${sym}`, err);
-        continue;
-      }
-    }
-
-    // ─────────────────────────────────────────
-    // FLUSH REMAINING
-    // ─────────────────────────────────────────
-    if (pendingSnapshots.length > 0) {
-      try {
-        await upsertSnapshots(supabase, pendingSnapshots);
-        inserted += pendingSnapshots.length;
-      } catch (err) {
-        console.error('❌ UPSERT FINAL CHUNK FAILED', err);
-      }
-    }
-
-    // ─────────────────────────────────────────
-    // REBUILD STATS
-    // ─────────────────────────────────────────
-    if (!tickerParam) {
-      try {
-        await supabase.rpc('build_sector_stats', { snap_date: today });
-      } catch (err) {
-        console.warn('⚠️ Build sector stats failed:', err);
-      }
-    }
-
-    console.log('📊 DISCARD SUMMARY', discardStats);
-
-    // ─────────────────────────────────────────
-    // ALERTAS
-    // ─────────────────────────────────────────
-    if (inserted === 0) {
-      await sendCriticalAlert(
-        `🚨 FINTRA ALERTA\nCron sin inserts.\nFecha: ${today}`
+      return buildSnapshot(
+        ticker,
+        profile,
+        ratios,
+        metrics,
+        null, // quote (not available in bulk)
+        null, // priceChange (not available in bulk)
+        scores,
+        [], // incomeGrowthRows (handled by separate cron)
+        []  // cashflowGrowthRows
       );
-    }
-
-    let coverage = 0;
-    if (!tickerParam) {
-      try {
-        const { data: cov } = await supabase.rpc(
-          'fintra_snapshot_coverage',
-          { snap_date: today }
-        );
-        coverage = Number(cov);
-
-        if (coverage < MIN_COVERAGE) {
-          await sendCriticalAlert(
-            `🚨 FINTRA ALERTA\nCoverage bajo.\nFecha: ${today}\nCoverage: ${(coverage * 100).toFixed(1)}%`
-          );
-        }
-      } catch (err) {
-        console.warn('⚠️ Coverage check failed:', err);
-      }
-    }
-
-    const tEnd = performance.now();
-
-    return NextResponse.json({
-      success: true,
-      date: today,
-      processed: tickers.length,
-      inserted,
-      coverage,
-      time_ms: Math.round(tEnd - tStart),
-      discard_stats: discardStats,
-      mode: 'FINTRA v2 – BULK ESTABLE'
     });
 
-  } catch (e: any) {
-    console.error('CSV BULK ERROR:', e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    // Wait for all snapshots to be built
+    const snapshotsRaw = await Promise.all(snapshotPromises);
+    const snapshots = snapshotsRaw.filter(s => s !== null);
+    
+    console.log(`💾 Upserting ${snapshots.length} snapshots...`);
+    
+    // UPSERT
+    const result = await upsertSnapshots(supabase, snapshots);
+
+    const tEnd = performance.now();
+    const duration = ((tEnd - tStart) / 1000).toFixed(2);
+
+    return NextResponse.json({
+      ok: true,
+      processed: snapshots.length,
+      duration_seconds: duration,
+      result
+    });
+
+  } catch (err: any) {
+    console.error('❌ Bulk Cron Error:', err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
-
-async function sendCriticalAlert(message: string) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!token || !chatId) return;
-
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text: message })
-  });
 }

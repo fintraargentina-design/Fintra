@@ -21,6 +21,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import SectorAnalysisPanel from '@/components/dashboard/SectorAnalysisPanel';
 import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
 import TickerSearchPanel from '@/components/dashboard/TickerSearchPanel';
+import GlobalSearchInput from '@/components/dashboard/GlobalSearchInput';
 import StockSearchModal from '@/components/modals/StockSearchModal';
 import EstimacionTab from '@/components/tabs/EstimacionTab';
 import MercadosTab from '@/components/tabs/MercadosTab';
@@ -302,7 +303,7 @@ export default function StockTerminal() {
                       
                       <div className="w-full flex items-center justify-between gap-2 overflow-x-auto scrollbar-thin whitespace-nowrap">
                         <div className="flex items-center px-4 shrink-0">
-                          <h1 className="text-xl font-medium text-[#FFA028] truncate">
+                          <h1 className="text-l font-medium text-[#FFA028] truncate">
                             Fintra 
                           </h1>
                         </div>
@@ -326,6 +327,10 @@ export default function StockTerminal() {
                           >
                             Screener
                           </TabsTrigger>
+                          
+                          <div className="shrink-0 ml-1">
+                             <GlobalSearchInput onSelect={handleTopStockClick} />
+                          </div>
                         </TabsList>
                       </div>
                     </div>

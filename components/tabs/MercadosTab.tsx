@@ -267,152 +267,146 @@ export default function MercadosTab() {
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin p-0 pb-2">
-        {/* 1. Cotizaciones de Indices */}
-        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-0.5">
-          {MARKET_GROUPS.map((group) => (
-            <div key={group.title} className="flex flex-col gap-0.5">
-              <div className="bg-[#333] text-zinc-100 px-3 py-0 text-xs tracking-wider text-center">
-                {group.title}
-              </div>
-              <div className="flex flex-col gap-0.5"> 
-                {group.tickers.map((ticker) => {
-                  const data = quotes[ticker];
-                  const name = group.names[ticker as keyof typeof group.names] || ticker;
-                  const change = data?.changesPercentage;
-                  const absChange = data?.change;
-                  
-                  return (
+        <div className="flex flex-col xl:flex-row h-full">
+          {/* 1. Cotizaciones de Indices (Columna Izquierda - 5 columnas internas) */}
+          <div className="flex-1 p-0.5 min-w-0">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-0.5">
+              {MARKET_GROUPS.map((group) => (
+                <div key={group.title} className="flex flex-col gap-0.5">
+                  <div className="bg-[#333] text-zinc-100 px-3 py-0 text-xs tracking-wider text-center">
+                    {group.title}
+                  </div>
+                  <div className="flex flex-col gap-0.5"> 
+                    {group.tickers.map((ticker) => {
+                      const data = quotes[ticker];
+                      const name = group.names[ticker as keyof typeof group.names] || ticker;
+                      const change = data?.changesPercentage;
+                      const absChange = data?.change;
+                      
+                      return (
+                        <Card 
+                          key={ticker}
+                          className="border-none transition-all hover:brightness-110 cursor-default overflow-hidden relative shadow-sm"
+                          style={{ backgroundColor: getHeatmapColor(change) }}
+                        >
+                          <div className="p-1 flex flex-col justify-between h-[85px]">
+                            <div className="flex justify-between items-start w-full">
+                              <span className="text-white text-[11px] leading-tight line-clamp-2 max-w-[70%]">
+                                {name}
+                              </span>
+                               {change !== undefined && (
+                                 <div className="opacity-50">
+                                    {change > 0 ? <TrendingUp className="w-3 h-3 text-white" /> : change < 0 ? <TrendingDown className="w-3 h-3 text-white" /> : <Minus className="w-3 h-3 text-white" />}
+                                 </div>
+                               )}
+                            </div>
+
+                            <div className="flex-1 flex items-center justify-end pr-2">
+                               <span className="text-xl text-white tracking-tighter">
+                                 {data ? formatChange(change) : "---"}
+                               </span>
+                            </div>
+                            
+                            <div className="flex justify-between items-end w-full mt-1 border-t border-white/10 pt-1">
+                              <div className="flex items-baseline gap-1">
+                                 <span className="text-[10px] font-medium text-white/80">{ticker}</span>
+                              </div>
+                              <div className="flex flex-col items-end">
+                                 <span className="text-xs font-medium text-white leading-none">
+                                   {data ? formatPrice(data.price, ticker) : "---"}
+                                 </span>
+                                 <span className="text-[10px] text-white/70">
+                                   {data && absChange !== undefined ? (absChange > 0 ? "+" : "") + absChange.toFixed(2) : ""}
+                                 </span>
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 2. Horarios de Mercado (Columna Derecha - 2 columnas internas) */}
+          <div className="w-full xl:w-[250px] shrink-0 border-l border-zinc-800 bg-black/20 flex flex-col">
+            <div className="px-3 py-0 border-b border-zinc-800 flex justify-between items-center bg-white/[0.02]">
+               <h4 className="text-xs uppercase font-medium text-zinc-100">Horarios</h4>
+               <span className="text-[12px] text-zinc-500 font-mono">{now ? now.toLocaleTimeString() : '--:--:--'}</span>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto scrollbar-thin p-0.5">
+               {loadingHours && marketHours.length === 0 ? (
+                 <div className="grid grid-cols-2 gap-0.5">
+                   {[...Array(10)].map((_, i) => (
+                     <div key={i} className="h-24 bg-zinc-900/50 animate-pulse" />
+                   ))}
+                 </div>
+               ) : errorHours ? (
+                 <div className="flex items-center justify-center p-4 text-zinc-500 text-xs">
+                   {errorHours}
+                 </div>
+               ) : (
+                <div className="grid grid-cols-2 gap-0.5">
+                  {marketHours.map((market, idx) => (
                     <Card 
-                      key={ticker}
-                      className="border-none transition-all hover:brightness-110 cursor-default overflow-hidden relative shadow-sm"
-                      style={{ backgroundColor: getHeatmapColor(change) }}
+                      key={`${market.name}-${idx}`}
+                      className={`
+                        border-none transition-all hover:brightness-110 cursor-default overflow-hidden relative shadow-sm rounded-none
+                        ${market.isMarketOpen ? 'bg-[#001A00]' : 'bg-[#1A0000]'}
+                      `}
                     >
                       <div className="p-1 flex flex-col justify-between h-[85px]">
-                        <div className="flex justify-between items-start w-full">
-                          <span className="text-white text-[11px] leading-tight line-clamp-2 max-w-[70%]">
-                            {name}
-                          </span>
-                           {change !== undefined && (
-                             <div className="opacity-50">
-                                {change > 0 ? <TrendingUp className="w-3 h-3 text-white" /> : change < 0 ? <TrendingDown className="w-3 h-3 text-white" /> : <Minus className="w-3 h-3 text-white" />}
-                             </div>
-                           )}
+                        {/* Header: Name + Badge */}
+                        <div className="flex items-start justify-between gap-0">
+                          <div className="flex flex-col">
+                            <span className="text-white text-[11px] font-semibold flex items-center gap-1.5">
+                              <Globe className="w-3 h-3 text-zinc-400" />
+                              {market.displayName}
+                            </span>
+                            <span className="text-[9px] text-zinc-400 truncate max-w-[100px]" title={market.timezone}>
+                              {market.timezone?.replace('America/', '').replace('Europe/', '').replace('Asia/', '')}
+                            </span>
+                          </div>
+                          
+                          <Badge 
+                            variant="outline" 
+                            className={`
+                              text-[9px] px-1 py-0 h-4 border-0 font-bold
+                              ${market.isMarketOpen 
+                                ? 'bg-green-500/20 text-green-400' 
+                                : 'bg-red-500/20 text-red-400'}
+                            `}
+                          >
+                            {market.isMarketOpen ? 'OPEN' : 'CLOSED'}
+                          </Badge>
                         </div>
 
-                        <div className="flex-1 flex items-center justify-end pr-2">
-                           <span className="text-xl text-white tracking-tighter">
-                             {data ? formatChange(change) : "---"}
-                           </span>
+                        {/* Big Clock Center */}
+                        <div className="flex items-center justify-center my-0">
+                          <span className="text-xl font-mono text-white tracking-wider">
+                            {formatTimeInZone(market.timezone).slice(0, 5)}
+                          </span>
                         </div>
-                        
-                        <div className="flex justify-between items-end w-full mt-1 border-t border-white/10 pt-1">
-                          <div className="flex items-baseline gap-1">
-                             <span className="text-[10px] font-medium text-white/80">{ticker}</span>
-                          </div>
-                          <div className="flex flex-col items-end">
-                             <span className="text-xs font-medium text-white leading-none">
-                               {data ? formatPrice(data.price, ticker) : "---"}
-                             </span>
-                             <span className="text-[10px] text-white/70">
-                               {data && absChange !== undefined ? (absChange > 0 ? "+" : "") + absChange.toFixed(2) : ""}
-                             </span>
+
+                        {/* Hours */}
+                        <div className="mt-0 pt-1 border-t border-white/5 flex flex-col gap-0.5 justify-end">
+                          <div className="flex items-center justify-between text-[9px] leading-tight">
+                            <span className="text-zinc-500">{market.openingAdditional ? 'Sesión 1' : 'Horario'}</span>
+                            <span className="text-zinc-300 font-mono">
+                              {market.openingHour?.replace(/\s[+-]\d{2}:\d{2}$/, "")} - {market.closingHour?.replace(/\s[+-]\d{2}:\d{2}$/, "")}
+                            </span>
                           </div>
                         </div>
                       </div>
                     </Card>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+               )}
             </div>
-          ))}
-        </div>
-
-        {/* Separador */}
-        <div className="mt-6 mb-2 px-3 border-b border-zinc-800 pb-1 flex justify-between items-center">
-           <h4 className="text-xs font-medium text-gray-400">Horarios de Mercado Global</h4>
-           <span className="text-[10px] text-zinc-500 font-mono">{now ? now.toLocaleTimeString() : '--:--:--'}</span>
-        </div>
-
-        {/* 2. Horarios de Mercado */}
-        <div className="px-0.5">
-           {loadingHours && marketHours.length === 0 ? (
-             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-0.5 p-0.5">
-               {[...Array(10)].map((_, i) => (
-                 <div key={i} className="h-24 bg-zinc-900/50 animate-pulse" />
-               ))}
-             </div>
-           ) : errorHours ? (
-             <div className="flex items-center justify-center p-4 text-zinc-500 text-xs">
-               {errorHours}
-             </div>
-           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-0.5">
-              {marketHours.map((market, idx) => (
-                <Card 
-                  key={`${market.name}-${idx}`}
-                  className={`
-                    border-none transition-all hover:brightness-110 cursor-default overflow-hidden relative shadow-sm rounded-none
-                    ${market.isMarketOpen ? 'bg-[#001A00]' : 'bg-[#1A0000]'}
-                  `}
-                >
-                  <div className="p-1 flex flex-col justify-between h-[85px]">
-                    {/* Header: Name + Badge */}
-                    <div className="flex items-start justify-between gap-0">
-                      <div className="flex flex-col">
-                        <span className="text-white text-[11px] font-semibold flex items-center gap-1.5">
-                          <Globe className="w-3 h-3 text-zinc-400" />
-                          {market.displayName}
-                        </span>
-                        <span className="text-[9px] text-zinc-400 truncate max-w-[100px]" title={market.timezone}>
-                          {market.timezone?.replace('America/', '').replace('Europe/', '').replace('Asia/', '')}
-                        </span>
-                      </div>
-                      
-                      <Badge 
-                        variant="outline" 
-                        className={`
-                          text-[9px] px-1 py-0 h-4 border-0 font-bold
-                          ${market.isMarketOpen 
-                            ? 'bg-green-500/20 text-green-400' 
-                            : 'bg-red-500/20 text-red-400'}
-                        `}
-                      >
-                        {market.isMarketOpen ? 'OPEN' : 'CLOSED'}
-                      </Badge>
-                    </div>
-
-                    {/* Big Clock Center */}
-                    <div className="flex items-center justify-center my-0">
-                      <span className="text-2xl font-mono text-white tracking-wider">
-                        {formatTimeInZone(market.timezone).slice(0, 5)}
-                        <span className="text-sm text-zinc-500 ml-3 align-top mt-1 inline-block">
-                           {formatTimeInZone(market.timezone).slice(6)}
-                        </span>
-                      </span>
-                    </div>
-
-                    {/* Hours */}
-                    <div className="mt-0 pt-1 border-t border-white/5 flex flex-col gap-0.5 justify-end">
-                      <div className="flex items-center justify-between text-[10px] leading-tight">
-                        <span className="text-zinc-500">{market.openingAdditional ? 'Sesión 1' : 'Horario'}</span>
-                        <span className="text-zinc-300 font-mono">
-                          {market.openingHour?.replace(/\s[+-]\d{2}:\d{2}$/, "")} - {market.closingHour?.replace(/\s[+-]\d{2}:\d{2}$/, "")}
-                        </span>
-                      </div>
-                      {market.openingAdditional && (
-                        <div className="flex items-center justify-between text-[10px] leading-tight">
-                          <span className="text-zinc-500">Sesión 2</span>
-                          <span className="text-zinc-300 font-mono">
-                            {market.openingAdditional?.replace(/\s[+-]\d{2}:\d{2}$/, "")} - {market.closingAdditional?.replace(/\s[+-]\d{2}:\d{2}$/, "")}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-           )}
+          </div>
         </div>
       </div>
     </div>

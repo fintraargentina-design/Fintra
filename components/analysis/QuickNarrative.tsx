@@ -3,14 +3,19 @@
 
 import React, { useState } from "react";
 import { NarrativeAnchor } from "@/lib/analysis/narrativeAnchors";
+import { NarrativeDrift } from "@/lib/analysis/narrativeDrift";
+import { Locale } from "@/lib/i18n/types";
+import { resolveNarrativeText, resolveTemporalHint } from "@/lib/i18n/resolveNarrative";
 import { CheckCircle2, AlertTriangle, Info, AlertOctagon } from "lucide-react";
 
 interface QuickNarrativeProps {
   anchors: NarrativeAnchor[];
   onHighlight: (metrics: string[] | null) => void;
+  drift?: NarrativeDrift | null;
+  locale?: Locale;
 }
 
-export default function QuickNarrative({ anchors, onHighlight }: QuickNarrativeProps) {
+export default function QuickNarrative({ anchors, onHighlight, drift, locale = 'es' }: QuickNarrativeProps) {
   const [fixedHighlight, setFixedHighlight] = useState<string | null>(null);
 
   if (!anchors || anchors.length === 0) return null;
@@ -67,6 +72,11 @@ export default function QuickNarrative({ anchors, onHighlight }: QuickNarrativeP
 
   return (
     <div className="w-full flex flex-col gap-1.5 px-1 py-2 bg-transparent">
+      {drift && (
+        <div className="px-1">
+           <span className="text-zinc-500 text-xs italic">{drift.message}</span>
+        </div>
+      )}
       <div className="flex items-center gap-2">
          <h4 className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Lectura rápida</h4>
          <div className="h-[1px] flex-1 bg-zinc-800/50"></div>
@@ -80,15 +90,26 @@ export default function QuickNarrative({ anchors, onHighlight }: QuickNarrativeP
              <div
                key={anchor.id}
                className={`
-                 flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium
-                 ${getToneClass(anchor.tone, isActive)}
-               `}
+                flex items-center gap-1.5 px-2 py-1 rounded text-[11px] 
+                ${anchor.dominance === 'primary' ? 'font-semibold' : 'font-medium'}
+                ${getToneClass(anchor.tone, isActive)}
+              `}
                onMouseEnter={() => handleMouseEnter(anchor)}
                onMouseLeave={handleMouseLeave}
                onClick={() => handleClick(anchor)}
              >
                {getIcon(anchor.tone)}
-               <span>{anchor.label}</span>
+               <span>
+                 {resolveNarrativeText(anchor, locale)}
+                 {anchor.temporal_hint && (
+                    <span className="text-zinc-500 font-normal ml-1">
+                      ({resolveTemporalHint(anchor.temporal_hint, locale)})
+                    </span>
+                  )}
+                  {anchor.dominance === 'primary' && (
+                    <span className="text-zinc-600 font-normal ml-1 uppercase text-[9px] tracking-tight">(key)</span>
+                  )}
+               </span>
              </div>
            );
         })}

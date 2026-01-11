@@ -10,27 +10,31 @@ const CRON_NAME = 'fmp_bulk_snapshots';
 export async function GET() {
   const today = new Date().toISOString().slice(0, 10);
 
-  const { data: state } = await supabaseAdmin
-    .from('cron_state')
-    .select('last_run_date')
-    .eq('name', CRON_NAME)
+  // CHECK REAL DATA instead of cron_state
+  const { data: latestSnapshot } = await supabaseAdmin
+    .from('fintra_snapshots')
+    .select('snapshot_date')
+    .order('snapshot_date', { ascending: false })
+    .limit(1)
     .single();
 
-  // Nunca corrió
-  if (!state?.last_run_date) {
-    await sendAlert(`⚠️ FINTRA ALERTA\nEl cron ${CRON_NAME} nunca corrió.`);
+  const lastRunDate = latestSnapshot?.snapshot_date;
+
+  // Nunca corrió (o tabla vacía)
+  if (!lastRunDate) {
+    await sendAlert(`⚠️ FINTRA ALERTA\nEl cron ${CRON_NAME} nunca generó snapshots (tabla vacía).`);
     return NextResponse.json({ alert: true, reason: 'never_ran' });
   }
 
   // No corrió hoy
-  if (state.last_run_date < today) {
+  if (lastRunDate < today) {
     await sendAlert(
-      `🚨 FINTRA ALERTA\nEl cron ${CRON_NAME} NO corrió hoy.\nÚltima corrida: ${state.last_run_date}`
+      `🚨 FINTRA ALERTA\nEl cron ${CRON_NAME} NO generó snapshots hoy.\nÚltima fecha detectada: ${lastRunDate}`
     );
-    return NextResponse.json({ alert: true, reason: 'stale' });
+    return NextResponse.json({ alert: true, reason: 'stale', last_run: lastRunDate });
   }
 
-  return NextResponse.json({ ok: true, last_run: state.last_run_date });
+  return NextResponse.json({ ok: true, last_run: lastRunDate });
 }
 
 // --- ALERTA TELEGRAM ---

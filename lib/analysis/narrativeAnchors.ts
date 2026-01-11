@@ -1,11 +1,14 @@
 
 export type AnchorTone = "positive" | "warning" | "neutral" | "negative";
+export type TemporalHint = "recent" | "persistent" | "fading";
 
 export interface NarrativeAnchor {
   id: string;
   label: string;
   tone: AnchorTone;
   highlight: string[];
+  temporal_hint?: TemporalHint;
+  dominance?: 'primary' | 'secondary';
   // Returns true if this anchor applies to the current context
   when: (ctx: AnchorContext) => boolean;
 }

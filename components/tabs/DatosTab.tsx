@@ -4,7 +4,7 @@ import { useRef, useMemo, useState, useEffect } from "react";
 import FundamentalCard from "@/components/cards/FundamentalCard";
 import ValoracionCard from "@/components/cards/ValoracionCard";
 import DesempenoCard from "@/components/cards/DesempenoCard";
-import DividendosCard from "@/components/cards/DividendosCard";
+import DividendosTableCard from "@/components/cards/DividendosTableCard";
 import { useSyncedHorizontalScroll } from "@/lib/ui/useSyncedHorizontalScroll";
 import QuickNarrative from "@/components/analysis/QuickNarrative";
 import DecisionRead from "@/components/analysis/DecisionRead";
@@ -20,6 +20,11 @@ import { evaluateStructuralConsistency, StructuralSignal } from "@/lib/analysis/
 import { mapStructuralSignalsToNarratives } from "@/lib/analysis/structuralNarrativeAdapter";
 import { evaluateStructuralPeerContrast } from "@/lib/analysis/structuralPeerContrast";
 import { compressNarrativeAnchors } from "@/lib/analysis/anchorCompression";
+import { attachTemporalContext } from "@/lib/analysis/temporalContext";
+import { applyNarrativePrecedence } from "@/lib/analysis/narrativePrecedence";
+import { evaluateNarrativeDrift, NarrativeDrift } from "@/lib/analysis/narrativeDrift";
+import { evaluateCrossDomainConsistency } from "@/lib/analysis/crossDomainConsistency";
+import CrossDomainRead from "@/components/analysis/CrossDomainRead";
 import { supabase } from "@/lib/supabase";
 
 type PeriodSel = "ttm" | "FY" | "Q1" | "Q2" | "Q3" | "Q4" | "annual" | "quarter";
@@ -213,11 +218,20 @@ export default function DatosTab({
 
     // Apply Signal Fatigue Control (Compression)
     const compressedAnchors = compressNarrativeAnchors(allAnchors);
-    setAnchors(compressedAnchors);
+
+    // Apply Temporal Context
+    const temporalAnchors = timelineData 
+        ? attachTemporalContext(compressedAnchors, timelineData) 
+        : compressedAnchors;
+
+    // Apply Narrative Precedence (Step 14)
+    const finalAnchors = applyNarrativePrecedence(temporalAnchors);
+
+    setAnchors(finalAnchors);
 
     // Evaluate Decision Anchors
     // Consistency: Decision is based on the visible (compressed) signal set
-    const activeNarrativeIds = compressedAnchors.map(a => a.id);
+    const activeNarrativeIds = finalAnchors.map(a => a.id);
     setDecisionResult(evaluateDecisionAnchors(decisionAnchors, activeNarrativeIds));
   }, [symbol, stockBasicData, ratios, metrics, stockAnalysis, peerTicker, dividendAnchors, cashFlowAnchors, structuralAnchors]);
 
@@ -250,16 +264,23 @@ export default function DatosTab({
   const fundamentalRef = useRef<HTMLDivElement>(null);
   const valoracionRef = useRef<HTMLDivElement>(null);
   const desempenoRef = useRef<HTMLDivElement>(null);
+  const dividendosRef = useRef<HTMLDivElement>(null);
 
   // Group refs in a stable array
   const scrollRefs = useMemo(() => [
     fundamentalRef,
     valoracionRef,
-    desempenoRef
+    desempenoRef,
+    dividendosRef
   ], []);
 
   // Activate the hook
   useSyncedHorizontalScroll(scrollRefs);
+
+  // Cross-Domain Consistency
+  const crossDomainInsights = useMemo(() => {
+    return evaluateCrossDomainConsistency(anchors.map(a => a.id));
+  }, [anchors]);
 
   return (
     <div className="w-full h-full flex flex-col gap-1 p-1 overflow-hidden">
@@ -272,6 +293,7 @@ export default function DatosTab({
           {decisionResult.length > 0 && (
             <div className="border-t border-zinc-800/50 pt-1">
               <DecisionRead anchors={decisionResult} />
+              <CrossDomainRead insights={crossDomainInsights} />
               <DecisionPeerContrast contrasts={contrasts} peerTicker={peerTicker || ""} />
             </div>
           )}
@@ -304,7 +326,12 @@ export default function DatosTab({
            />
         </div>
         <div className="bg-tarjetas border border-zinc-800">
-           <DividendosCard symbol={symbol} />
+           <DividendosTableCard 
+             symbol={symbol}
+             peerTicker={peerTicker}
+             scrollRef={dividendosRef}
+             highlightedMetrics={highlightMetrics}
+           />
         </div>
       </div>
     </div>

@@ -15,30 +15,19 @@ export async function GET() {
 
   try {
     // ─────────────────────────────────────────
-    // 1. CHECK CURSOR (Idempotency + Data Integrity)
+    // 1. CHECK IDEMPOTENCY (Real Data)
     // ─────────────────────────────────────────
-    const { data: state } = await supabaseAdmin
-      .from('cron_state')
-      .select('last_run_date')
-      .eq('name', CRON_NAME)
-      .single();
-
     // Verify if we actually have data for today
     const { count } = await supabaseAdmin
       .from('sector_benchmarks')
       .select('*', { count: 'exact', head: true })
       .eq('snapshot_date', today);
 
-    const alreadyRun = state?.last_run_date === today;
     const hasData = (count ?? 0) > 0;
 
-    if (alreadyRun && hasData) {
-      console.log('✅ Already run today & Data exists. Skipping.');
-      return NextResponse.json({ skipped: true, date: today });
-    }
-
-    if (alreadyRun && !hasData) {
-      console.warn(`⚠️ Cron marked as done but NO DATA found (count=${count}). Forcing re-run.`);
+    if (hasData) {
+      console.log('✅ Sector benchmarks already exist for today. Skipping.');
+      return NextResponse.json({ skipped: true, date: today, count });
     }
 
     // ─────────────────────────────────────────
@@ -268,13 +257,6 @@ export async function GET() {
     if (lowConfidenceSectors.size > 0) {
       console.log(`⚠️ Low Confidence (3 <= Sample < 10): ${Array.from(lowConfidenceSectors).slice(0, 5).join(', ')}...`);
     }
-
-    await supabaseAdmin
-      .from('cron_state')
-      .upsert({
-        name: CRON_NAME,
-        last_run_date: today
-      });
 
     return NextResponse.json({
       success: true,
