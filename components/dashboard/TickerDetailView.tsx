@@ -1,0 +1,290 @@
+'use client';
+
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { StockEcosystem } from '@/lib/fmp/types';
+import { StockData, StockAnalysis, StockPerformance, searchStockData } from '@/lib/stockQueries';
+import NavigationBar from '@/components/layout/NavigationBar';
+import DatosTab from '@/components/tabs/DatosTab';
+import ChartsTabHistoricos from '@/components/tabs/ChartsTabHistoricos';
+import FGOSRadarChart from "@/components/charts/FGOSRadarChart";
+import { registerStockSearch } from '@/lib/supabase';
+import { fmp } from '@/lib/fmp/client';
+import EcosystemCard from '@/components/cards/EcosystemCard';
+import CompetidoresTab from '@/components/tabs/CompetidoresTab';
+import OverviewCard from '@/components/cards/OverviewCard';
+import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
+import EstimacionTab from '@/components/tabs/EstimacionTab';
+import ResumenTab from '@/components/tabs/ResumenTab';
+import { getLatestSnapshot, getEcosystemDetailed } from '@/lib/repository/fintra-db';
+
+export type TabKey = 'resumen' | 'competidores' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'indices' | 'horarios' | 'empresa';
+
+interface TickerDetailViewProps {
+  ticker: string;
+  isActive: boolean;
+  onTickerChange?: (ticker: string) => void;
+}
+
+export default function TickerDetailView({ ticker, isActive, onTickerChange }: TickerDetailViewProps) {
+  const [stockBasicData, setStockBasicData] = useState<StockData | null>(null);
+  const [stockAnalysis, setStockAnalysis] = useState<StockAnalysis | null>(null);
+  const [stockPerformance, setStockPerformance] = useState<StockPerformance | null>(null);
+  const [stockEcosystem, setStockEcosystem] = useState<StockEcosystem | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState<TabKey>('empresa');
+  const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
+
+  // Estados para FundamentalCard (Prop Drilling)
+  const [stockRatios, setStockRatios] = useState<any>(null);
+  const [stockMetrics, setStockMetrics] = useState<any>(null);
+
+  // Memoize comparedSymbols to prevent unnecessary re-renders in ChartsTabHistoricos
+  const comparedSymbolsList = useMemo(() => selectedCompetitor ? [selectedCompetitor] : [], [selectedCompetitor]);
+
+  const lastRequestedSymbolRef = useRef<string>('');
+
+  const buscarDatosAccion = async (symbol: string) => {
+    const sym = symbol?.trim().toUpperCase();
+    if (!sym) return;
+    
+    // If the search is for a different ticker than current prop, notify parent
+    if (sym !== ticker && onTickerChange) {
+        onTickerChange(sym);
+        return; // Parent will update prop, which triggers useEffect
+    }
+    
+    // If it's the same ticker (or initial load), we proceed to fetch
+    lastRequestedSymbolRef.current = sym;
+    
+    setIsLoading(true);
+    setError('');
+    // Resetear estados previos
+    setStockRatios(null);
+    setStockMetrics(null);
+    setStockBasicData(null);
+    setStockAnalysis(null);
+    setStockPerformance(null);
+    setStockEcosystem(null);
+
+    try {
+      await registerStockSearch(sym);
+
+      // Fetch Financial Data for Cards
+      const [result, fundamentals] = await Promise.all([
+        searchStockData(sym),
+        // Fetch explícito de Ratios y Metrics TTM
+        Promise.all([
+          fmp.ratiosTTM(sym).catch(err => { console.error("Ratios fetch error", err); return []; }),
+          fmp.keyMetricsTTM(sym).catch(err => { console.error("Metrics fetch error", err); return []; })
+        ])
+      ]);
+
+      // Verificar si seguimos en el mismo símbolo
+      if (lastRequestedSymbolRef.current !== sym) {
+        console.log(`Ignoring result for ${sym} as user switched to ${lastRequestedSymbolRef.current}`);
+        return;
+      }
+
+      // Procesar fundamentales
+      const [ratiosData, metricsData] = fundamentals;
+      setStockRatios(ratiosData?.[0] || null);
+      setStockMetrics(metricsData?.[0] || null);
+
+      if (result.success) {
+        setStockBasicData(result.basicData || null);
+        setStockAnalysis(result.analysisData || null);
+        setStockPerformance(result.performanceData || null);
+
+        // --- INTEGRACIÓN FINTRA DB ---
+        try {
+          // 1. Obtener Snapshot más reciente (demo)
+          const snapshot = await getLatestSnapshot(sym);
+          
+          if (lastRequestedSymbolRef.current !== sym) return; // Check again after await
+
+          if (snapshot) {
+             console.log("Fintra DB Snapshot found:", snapshot);
+             // Aquí podríamos actualizar stockAnalysis con datos de la DB si se prefiere
+             if (snapshot.fgos_breakdown) {
+                setStockAnalysis((prev: any) => ({
+                    ...prev,
+                    fgos_breakdown: snapshot.fgos_breakdown
+                }));
+             }
+          }
+
+          // 2. Obtener Ecosistema Detallado
+          const ecoData = await getEcosystemDetailed(sym);
+          
+          if (lastRequestedSymbolRef.current !== sym) return; // Check again after await
+          
+          // Transformar para el componente EcosystemCard
+          if (ecoData.suppliers.length > 0 || ecoData.clients.length > 0) {
+             const transformEco = (items: any[]) => items.map(i => ({
+                 id: i.partner_symbol,
+                 n: i.partner_name,
+                 dep: i.dependency_score,
+                 val: i.partner_valuation || 0,
+                 ehs: i.partner_ehs || 0,
+                 fgos: i.partner_fgos || 0,
+                 txt: i.risk_level // o i.partner_verdict
+             }));
+             
+             setStockEcosystem({
+                 suppliers: transformEco(ecoData.suppliers),
+                 clients: transformEco(ecoData.clients)
+             });
+          } else {
+             setStockEcosystem(result.ecosystemData ?? null);
+          }
+        } catch (dbErr) {
+          console.error("Error fetching from Fintra DB:", dbErr);
+          setStockEcosystem(result.ecosystemData ?? null);
+        }
+
+        // We don't call setSelectedStock here because we are controlled by props
+      } else {
+        const errorMessage = result.error || 'Error al buscar datos';
+        setError(errorMessage);
+      }
+    } catch (e) {
+      console.error(e);
+      setError('Error al buscar datos de la acción');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Cargar datos automáticamente para el símbolo
+  useEffect(() => {
+    console.log(`[TickerDetailView] useEffect triggered. ticker: "${ticker}"`);
+    if (ticker && ticker !== 'N/A' && ticker !== '') {
+      buscarDatosAccion(ticker);
+    }
+  }, [ticker]);
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'empresa':
+        return (
+          <ResumenTab 
+            stockBasicData={stockBasicData} 
+            stockAnalysis={stockAnalysis}
+            symbol={ticker}
+            onPeerSelect={setSelectedCompetitor}
+            selectedPeer={selectedCompetitor}
+            onStockSearch={buscarDatosAccion}
+            isLoading={isLoading}
+          />
+        );
+      case 'competidores':
+        return (
+          <CompetidoresTab
+            symbol={ticker}
+            onPeerSelect={setSelectedCompetitor}
+            selectedPeer={selectedCompetitor}
+          />
+        );
+      case 'ecosistema':
+        return (
+          <EcosystemCard 
+            mainTicker={ticker}
+            suppliers={stockEcosystem?.suppliers}
+            clients={stockEcosystem?.clients}
+          />
+        );
+      case 'datos':
+        return (
+          <DatosTab
+            stockAnalysis={stockAnalysis}
+            stockPerformance={stockPerformance}
+            stockBasicData={stockBasicData}
+            symbol={ticker}
+            ratios={stockRatios}
+            metrics={stockMetrics}
+            peerTicker={selectedCompetitor}
+          />
+        );
+      case 'chart':
+        return (
+          <ChartsTabHistoricos
+            symbol={ticker}
+            companyName={stockBasicData?.companyName}
+            comparedSymbols={comparedSymbolsList}
+            isActive={isActive}
+          />
+        );
+      case 'estimacion':
+        return (
+          <EstimacionTab 
+            selectedStock={stockBasicData || { symbol: ticker }}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="w-full h-full flex flex-col">
+        {/* Overview Section - Always visible */}
+        <div className="shrink-0 w-full border-zinc-800 h-[6%] overflow-hidden py-0 bg-tarjetas">
+            <OverviewCard
+            selectedStock={stockBasicData || ticker}
+            onStockSearch={buscarDatosAccion}
+            isParentLoading={isLoading}
+            analysisData={stockAnalysis}
+            />
+        </div>
+
+        <div className="shrink-0 w-full border-zinc-800 h-[15%] overflow-hidden bg-tarjetas">
+            <PeersAnalysisPanel 
+                symbol={ticker}
+                onPeerSelect={setSelectedCompetitor}
+                selectedPeer={selectedCompetitor}
+            />
+        </div>
+
+        {/* Mitad Superior: Navigation Bar y Contenido de Tabs */}
+        <div className="flex-1 flex flex-col min-h-0 mt-3">
+            <div className="w-full flex items-center justify-between ">
+            <div className="flex-1">
+                <NavigationBar
+                orientation="horizontal"
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                symbol={ticker}
+                />
+            </div>
+            </div>
+            
+            <div className={`w-full flex-1 scrollbar-thin border-r border-l border-zinc-800 ${(activeTab === 'datos' || activeTab === 'competidores') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+            {renderTabContent()}
+            </div>
+
+            {/* Charts Section - Fixed Height 30% - Only visible for 'empresa' and 'datos' */}
+            {(activeTab === 'empresa' || activeTab === 'datos') && (
+                <div className="flex flex-col lg:flex-row w-full h-[35%] gap-1 shrink-0 border-t border-zinc-800 pt-1">
+                    <div className="w-full lg:w-3/5 h-full border-t-0 border-zinc-800 bg-tarjetas overflow-hidden">
+                        <ChartsTabHistoricos
+                            symbol={ticker}
+                            companyName={stockBasicData?.companyName}
+                            comparedSymbols={comparedSymbolsList}
+                            isActive={isActive}
+                        />
+                    </div>
+                    <div className="w-full lg:w-2/5 h-full border border-zinc-800 bg-tarjetas overflow-hidden">
+                        <FGOSRadarChart 
+                            symbol={ticker} 
+                            data={stockAnalysis?.fgos_breakdown} 
+                            comparedSymbol={selectedCompetitor}
+                            isActive={isActive}
+                        />
+                    </div>
+                </div>
+            )}
+        </div>
+    </div>
+  );
+}

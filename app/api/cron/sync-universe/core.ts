@@ -10,7 +10,7 @@ const supabase = supabaseAdmin;
 
 const BATCH_SIZE = 1000;
 
-export async function runSyncUniverse(targetTicker?: string) {
+export async function runSyncUniverse(targetTicker?: string, limit?: number) {
   try {
     console.log('🌍 Sync Fintra Universe (Profiles Bulk)');
 
@@ -34,6 +34,12 @@ export async function runSyncUniverse(targetTicker?: string) {
         if (rows.length === 0) {
             console.warn(`⚠️ Ticker ${targetTicker} not found in profile bulk data.`);
         }
+    }
+    
+    // LIMIT (Benchmark Mode)
+    if (limit && limit > 0) {
+        console.log(`🧪 BENCHMARK MODE: Limiting to first ${limit} rows`);
+        rows = rows.slice(0, limit);
     }
 
     // 2️⃣ Procesar en batches

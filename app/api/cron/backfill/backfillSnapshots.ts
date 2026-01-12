@@ -44,21 +44,12 @@ export async function backfillSnapshotsForDate(date: string, targetTicker?: stri
     uniqueTickers.add(targetTicker);
   } else {
     const activeTickersList = await getActiveStockTickers(supabase);
-    const activeTickersSet = new Set(activeTickersList);
-
-    const { data: tickers } = await supabase
-        .from('datos_financieros')
-        .select('ticker')
-        .lte('period_end_date', date);
-
-    if (!tickers || !tickers.length) return;
-
-    // Dedupe and Filter
-    tickers.forEach((t: { ticker: string }) => {
-        if (activeTickersSet.has(t.ticker)) {
-        uniqueTickers.add(t.ticker);
-        }
-    });
+    
+    // TRUST THE UNIVERSE: Iterate all active tickers.
+    // The loop below will check if financials exist for each ticker.
+    // Previous optimization using datos_financieros query was hitting 1000 row limit.
+    console.log(`[Backfill] Universe size: ${activeTickersList.length}`);
+    activeTickersList.forEach(t => uniqueTickers.add(t));
   }
 
   for (const ticker of uniqueTickers) {

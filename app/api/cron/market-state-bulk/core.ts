@@ -6,7 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
  * Responsabilidad ÚNICA:
  * Consolidar 1 fila por ticker con el estado de mercado más reciente conocido.
  */
-export async function runMarketStateBulk(targetTicker?: string) {
+export async function runMarketStateBulk(targetTicker?: string, limit?: number) {
   const BATCH_SIZE = 1000;
   console.log('🚀 Starting Market State Bulk Update...');
 
@@ -38,6 +38,12 @@ export async function runMarketStateBulk(targetTicker?: string) {
         }
     }
     
+    // LIMIT (Benchmark Mode)
+    if (limit && limit > 0 && !targetTicker) {
+        console.log(`🧪 BENCHMARK MODE: Limiting market state cache to first ${limit} tickers`);
+        allTickers = allTickers.slice(0, limit);
+    }
+
     console.log(`📋 Found ${allTickers.length} active tickers.`);
 
     // 2. Process in chunks
@@ -111,11 +117,19 @@ export async function runMarketStateBulk(targetTicker?: string) {
                 const metrics = snap.profile_structural.metrics;
                 price = metrics.price;
                 change = metrics.changes;
-                // Try to get change percentage if available, otherwise calc? 
-                // Profile usually has 'changes' (absolute). FMP sometimes has 'changesPercentage' or similar in other endpoints.
-                // Here we stick to what we have in snapshot.
-                // If we want percentage, we might need to look at profile_structural keys carefully.
-                // Assuming metrics matches FMP quote/profile structure.
+                
+                // MANDATORY: Calculate change_percentage vs previous close
+                // Formula: (price - prev_close) / prev_close * 100
+                // Derived: change / (price - change) * 100
+                if (price != null && change != null) {
+                    const p = Number(price);
+                    const c = Number(change);
+                    const prevClose = p - c;
+                    
+                    if (prevClose !== 0 && !isNaN(prevClose)) {
+                         change_percentage = (c / prevClose) * 100;
+                    }
+                }
                 
                 market_cap = metrics.mktCap || metrics.marketCap;
                 last_price_date = snap.snapshot_date; // Approximation

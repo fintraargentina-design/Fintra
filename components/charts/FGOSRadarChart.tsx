@@ -29,9 +29,36 @@ const parseBreakdown = (d: any) => {
   return d;
 };
 
-export default function FGOSRadarChart({ symbol, data, comparedSymbol }: { symbol: string, data: any, comparedSymbol?: string | null }) {
+export default function FGOSRadarChart({ 
+  symbol, 
+  data, 
+  comparedSymbol,
+  isActive = true 
+}: { 
+  symbol: string, 
+  data: any, 
+  comparedSymbol?: string | null,
+  isActive?: boolean 
+}) {
   const [peerData, setPeerData] = useState<any>(null);
   const [loadingPeer, setLoadingPeer] = useState(false);
+  
+  // ECharts instance ref
+  const chartRef = React.useRef<any>(null);
+
+  // Lifecycle Control: Resize on activation
+  useEffect(() => {
+    if (isActive && chartRef.current) {
+      const timer = setTimeout(() => {
+        try {
+          chartRef.current.resize();
+        } catch (e) {
+          console.warn("FGOS Chart resize failed", e);
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isActive]);
 
   // Helper para generar datos mockeados si falla la API
   const generateMockPeerData = () => ({
@@ -184,6 +211,7 @@ export default function FGOSRadarChart({ symbol, data, comparedSymbol }: { symbo
                 echarts={echarts}
                 option={option}
                 style={{ height: '100%', width: '100%' }}
+                onChartReady={(instance) => { chartRef.current = instance; }}
             />
         </div>
       </CardContent>

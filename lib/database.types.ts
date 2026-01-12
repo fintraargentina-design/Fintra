@@ -73,6 +73,44 @@ export interface Database {
           created_at?: string
         }
       }
+      prices_daily: {
+        Row: {
+          ticker: string
+          price_date: string
+          open: number | null
+          high: number | null
+          low: number | null
+          close: number
+          adj_close: number | null
+          volume: number | null
+          source: string | null
+          created_at: string
+        }
+        Insert: {
+          ticker: string
+          price_date: string
+          open?: number | null
+          high?: number | null
+          low?: number | null
+          close: number
+          adj_close?: number | null
+          volume?: number | null
+          source?: string | null
+          created_at?: string
+        }
+        Update: {
+          ticker?: string
+          price_date?: string
+          open?: number | null
+          high?: number | null
+          low?: number | null
+          close?: number
+          adj_close?: number | null
+          volume?: number | null
+          source?: string | null
+          created_at?: string
+        }
+      }
       // ... Agrega aquí otras tablas si es necesario
     }
   }

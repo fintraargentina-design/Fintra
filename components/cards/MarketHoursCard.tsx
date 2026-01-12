@@ -148,12 +148,7 @@ export default function MarketHoursCard() {
                         <Globe className="w-3 h-3 text-zinc-400" />
                         {market.displayName}
                       </span>
-                      <span className="text-[9px] text-zinc-400 truncate max-w-[100px]" title={market.timezone}>
-                        {market.timezone?.replace('America/', '').replace('Europe/', '').replace('Asia/', '')}
-                      </span>
-                    </div>
-                    
-                    <Badge 
+                      <Badge 
                       variant="outline" 
                       className={`
                         text-[9px] px-1 py-0 h-4 border-0 font-bold
@@ -164,6 +159,22 @@ export default function MarketHoursCard() {
                     >
                       {market.isMarketOpen ? 'OPEN' : 'CLOSED'}
                     </Badge>
+                      {/* <span className="text-[9px] text-zinc-400 truncate max-w-[100px]" title={market.timezone}>
+                        {market.timezone?.replace('America/', '').replace('Europe/', '').replace('Asia/', '')}
+                      </span> */}
+                    </div>
+                    
+                    {/* <Badge 
+                      variant="outline" 
+                      className={`
+                        text-[9px] px-1 py-0 h-4 border-0 font-bold
+                        ${market.isMarketOpen 
+                          ? 'bg-green-500/20 text-green-400' 
+                          : 'bg-red-500/20 text-red-400'}
+                      `}
+                    >
+                      {market.isMarketOpen ? 'OPEN' : 'CLOSED'}
+                    </Badge> */}
                   </div>
 
                   {/* Big Clock Center */}

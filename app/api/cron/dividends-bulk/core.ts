@@ -48,20 +48,31 @@ export async function runDividendsBulk(targetTicker?: string) {
       console.log(`[Dividends Cron] Debug mode: processing only ${targetTicker}`);
       tickers = [targetTicker];
     } else {
-      // 1. Get active tickers from snapshots (source of truth for "active")
-      const { data: snapshots, error: snapError } = await supabaseAdmin
-        .from('fintra_snapshots')
-        .select('ticker')
-        .order('snapshot_date', { ascending: false }) // Prioritize recently active
-        .limit(10000);
+      // 1. Get active tickers from fintra_universe
+      // We use the same pattern as other crons: fetch all active tickers
+      console.log('[Dividends Cron] Fetching active tickers...');
+      const BATCH_SIZE = 1000;
+      let page = 0;
+      const allTickers = new Set<string>();
 
-      if (snapError) throw snapError;
-      if (!snapshots || snapshots.length === 0) {
-        return { message: 'No active tickers found' };
+      while (true) {
+        const { data, error } = await supabaseAdmin
+          .from('fintra_universe')
+          .select('ticker')
+          .eq('is_active', true)
+          .range(page * BATCH_SIZE, (page + 1) * BATCH_SIZE - 1);
+
+        if (error) throw new Error(`Error fetching tickers: ${error.message}`);
+        if (!data || data.length === 0) break;
+
+        data.forEach(d => {
+            if (d.ticker) allTickers.add(d.ticker);
+        });
+
+        if (data.length < BATCH_SIZE) break;
+        page++;
       }
-
-      // Deduplicate tickers
-      tickers = Array.from(new Set(snapshots.map((s) => s.ticker)));
+      tickers = Array.from(allTickers);
     }
     
     console.log(`[Dividends Cron] Processing ${tickers.length} tickers...`);

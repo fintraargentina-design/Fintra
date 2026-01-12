@@ -132,17 +132,17 @@ export default function FundamentalCard({
 
   return (
     <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden mt-0">
-      <div className="px-1 py-1 bg-white/[0.02] shrink-0">
+      {/* <div className="px-1 py-1 bg-white/[0.02] shrink-0">
         <h4 className="text-xs font-medium text-gray-400 text-center">
           Fundamentales de <span className="text-[#FFA028]">{symbol}</span>
         </h4>
-      </div>
+      </div> */}
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-0 scrollbar-thin">
         <Table className="w-full text-sm border-collapse">
           <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
             <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
-              <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[150px] text-left">Métrica</TableHead>
+              <TableHead className="px-2 text-gray-300 text-[12px] h-6 w-[150px] font-light font-nano text-left">Fundamentales</TableHead>
               {data?.years.map((year, yearIdx) => (
                 year.columns.map(col => (
                     <TableHead key={col} className={`px-2 text-gray-300 text-[10px] h-6 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}>
@@ -210,18 +210,18 @@ export default function FundamentalCard({
       </div>
       
       {/* Toggle Button */}
-      <div className="bg-[#1D1D1D] border-t border-zinc-800 p-1 flex justify-center shrink-0">
+      <div className="bg-transparent border-t-0 border-zinc-800 p-1 flex justify-center shrink-0">
         <button
           onClick={() => setExpanded(!expanded)}
           className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-white transition-colors uppercase tracking-wider font-medium"
         >
           {expanded ? (
             <>
-              Ver menos métricas <ChevronUp className="w-3 h-3" />
+              <ChevronUp className="w-3 h-3" />
             </>
           ) : (
             <>
-              Ver más métricas <ChevronDown className="w-3 h-3" />
+              Ver más Fundamentales <ChevronDown className="w-3 h-3" />
             </>
           )}
         </button>

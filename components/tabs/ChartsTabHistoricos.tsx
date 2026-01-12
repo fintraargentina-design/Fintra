@@ -63,6 +63,7 @@ type Props = {
   companyName?: string;
   showBenchmark?: boolean;
   comparedSymbols?: string[]; // Array of tickers
+  isActive?: boolean;
 };
 
 const VIEWS = [
@@ -102,6 +103,7 @@ export default function ChartsTabHistoricos({
   companyName,
   showBenchmark = true,
   comparedSymbols = [],
+  isActive = true, // Default to true if not provided (backwards compatibility)
 }: Props) {
   const { toast } = useToast();
   const [range, setRange] = React.useState<RangeKey>("3A");
@@ -112,6 +114,24 @@ export default function ChartsTabHistoricos({
   const [benchmarkTicker, setBenchmarkTicker] = React.useState<string>("");
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+
+  // ECharts instance ref
+  const chartRef = React.useRef<any>(null);
+
+  // Lifecycle Control: Resize on activation
+  React.useEffect(() => {
+    if (isActive && chartRef.current) {
+      // Small delay to ensure container dimensions are updated
+      const timer = setTimeout(() => {
+        try {
+          chartRef.current.resize();
+        } catch (e) {
+          console.warn("Chart resize failed", e);
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isActive]);
 
   // Stabilize comparedSymbols for dependency checks
   const comparedSymbolsKey = comparedSymbols.join(',');
@@ -556,6 +576,7 @@ export default function ChartsTabHistoricos({
         notMerge
         lazyUpdate
         style={{ height: "100%", width: "100%" }}
+        onChartReady={(instance) => { chartRef.current = instance; }}
       />
     );
   };

@@ -29,7 +29,7 @@ export async function backfillPerformanceForDate(date: string) {
 
     if (series.length < 2) continue;
 
-    const lastPrice = series.at(-1).close;
+    const lastPrice = series[series.length - 1].close;
 
     for (const w of WINDOWS) {
       let windowSeries: any[] = [];

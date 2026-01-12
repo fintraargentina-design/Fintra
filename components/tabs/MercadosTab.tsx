@@ -366,9 +366,6 @@ export default function MercadosTab() {
                               <Globe className="w-3 h-3 text-zinc-400" />
                               {market.displayName}
                             </span>
-                            <span className="text-[9px] text-zinc-400 truncate max-w-[100px]" title={market.timezone}>
-                              {market.timezone?.replace('America/', '').replace('Europe/', '').replace('Asia/', '')}
-                            </span>
                           </div>
                           
                           <Badge 

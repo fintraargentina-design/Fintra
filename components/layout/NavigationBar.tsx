@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button"
-import type { TabKey } from "@/app/page"
+import type { TabKey } from "@/components/dashboard/StockTerminal"
 
 interface NavigationBarProps {
   orientation?: 'horizontal' | 'vertical';

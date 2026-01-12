@@ -527,7 +527,7 @@ async function persistFinancialsStreaming(
     return stats;
 }
 
-export async function runFinancialsBulk(targetTicker?: string) {
+export async function runFinancialsBulk(targetTicker?: string, limit?: number) {
     const fmpKey = process.env.FMP_API_KEY!;
     if (!fmpKey) {
         throw new Error('Missing FMP_API_KEY');
@@ -548,6 +548,10 @@ export async function runFinancialsBulk(targetTicker?: string) {
             console.warn(`[FinancialsBulk] Ticker ${targetTicker} not in active set. Processing anyway.`);
             activeSet = new Set([targetTicker]);
         }
+    } else if (limit && limit > 0) {
+        console.log(`🧪 BENCHMARK MODE: Limiting financials to first ${limit} tickers`);
+        const limitedTickers = allActiveTickers.slice(0, limit);
+        activeSet = new Set(limitedTickers);
     }
 
     // 3. Parse CSVs (filtered by activeSet)

@@ -104,7 +104,7 @@
 }
 
 .scrollbar-thin::-webkit-scrollbar {
-  height: 4px;
+  height: 2px;
   width: 2px !important;
 }
 
@@ -212,7 +212,7 @@
 
 /* WebKit (Chrome, Edge, Safari) */
 .peers-scroll::-webkit-scrollbar {
-  width: 8px;
+  width: 2px;
 }
 .peers-scroll::-webkit-scrollbar-track {
   background: transparent;

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { FintraSnapshotDB, EcosystemRelationDB, EcosystemDataJSON, EcoNodeJSON, EcosystemReportDB } from '@/lib/engine/types';
+import { getIntradayPrice } from "@/lib/services/market-data-service";
 
 export type OverviewData = {
   // Identity
@@ -35,9 +36,13 @@ export async function getOverviewData(ticker: string): Promise<OverviewData> {
     .eq('ticker', upperTicker)
     .maybeSingle();
 
-  const [universeRes, marketRes] = await Promise.all([
+  // 3. Intraday (Server-side Resolver)
+  const intradayPromise = getIntradayPrice(upperTicker);
+
+  const [universeRes, marketRes, intradayData] = await Promise.all([
     universeQuery,
-    marketQuery
+    marketQuery,
+    intradayPromise
   ]);
 
   const u = (universeRes.data || {}) as any;
@@ -51,8 +56,8 @@ export async function getOverviewData(ticker: string): Promise<OverviewData> {
     name: u.name || null,
     logo_url: logo_url,
 
-    price: m.price || null,
-    change_percentage: m.change_percentage || null,
+    price: intradayData.price ?? m.price ?? null,
+    change_percentage: intradayData.change_percentage ?? m.change_percentage ?? null,
 
     fgos_score: m.fgos_score || null,
     valuation_status: m.valuation_status || null,
@@ -272,4 +277,57 @@ export async function getAvailableSectors(): Promise<string[]> {
 
   const sectors = Array.from(new Set(data.map(d => d.sector).filter(Boolean) as string[])).sort();
   return sectors;
+}
+
+export async function getLatestEcosystemReport(ticker: string): Promise<EcosystemReportDB | null> {
+  // Fetch latest ecosystem report from DB
+  const { data, error } = await supabase
+    .from('fintra_ecosystem_reports')
+    .select('*')
+    .eq('ticker', ticker.toUpperCase())
+    .order('date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn(`[getLatestEcosystemReport] Error fetching report for ${ticker}:`, error);
+    return null;
+  }
+
+  return data as EcosystemReportDB;
+}
+
+export async function saveEcosystemReport(input: {
+  mainTicker: string;
+  suppliers: EcoNodeJSON[];
+  clients: EcoNodeJSON[];
+  report: string;
+}): Promise<{ score: number }> {
+  const ticker = input.mainTicker.toUpperCase();
+  
+  const supplierCount = input.suppliers.length;
+  const clientCount = input.clients.length;
+  const calculatedScore = Math.min(100, 50 + (supplierCount + clientCount) * 2);
+
+  const row = {
+    ticker: ticker,
+    date: new Date().toISOString(),
+    data: {
+      suppliers: input.suppliers,
+      clients: input.clients
+    },
+    ecosystem_score: calculatedScore,
+    report_md: input.report
+  };
+
+  const { error } = await supabase
+    .from('fintra_ecosystem_reports')
+    .insert(row);
+
+  if (error) {
+    console.error(`[saveEcosystemReport] Error saving report for ${ticker}:`, error);
+    throw error;
+  }
+
+  return { score: calculatedScore };
 }

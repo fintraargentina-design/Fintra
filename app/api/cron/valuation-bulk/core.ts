@@ -79,10 +79,11 @@ function calculatePercentile(value: number, sortedValues: number[]): number {
 export interface ValuationRunOptions {
   targetTicker?: string;
   debugMode?: boolean; // Must be true to allow single-ticker API calls and fake percentiles
+  limit?: number;
 }
 
 export async function runValuationBulk(options: ValuationRunOptions = {}) {
-  const { targetTicker, debugMode } = options;
+  const { targetTicker, debugMode, limit } = options;
 
   if (!API_KEY) {
     throw new Error('Missing FMP_API_KEY');
@@ -148,6 +149,58 @@ export async function runValuationBulk(options: ValuationRunOptions = {}) {
 
     console.log(`[valuation-bulk] Data loaded. Ratios: ${ratiosData.length}, Metrics: ${metricsData.length}, Profiles: ${profilesData.length}`);
 
+    // 2. Filter Rows by Ticker Universe (Active Only)
+    console.log('[valuation-bulk] Fetching active universe...');
+    const activeSet = new Set<string>();
+    const BATCH_SIZE = 1000;
+    let page = 0;
+
+    while (true) {
+        const { data, error } = await supabaseAdmin
+            .from('fintra_universe')
+            .select('ticker')
+            .eq('is_active', true)
+            .range(page * BATCH_SIZE, (page + 1) * BATCH_SIZE - 1);
+
+        if (error) throw new Error(`Error fetching universe: ${error.message}`);
+        if (!data || data.length === 0) break;
+
+        data.forEach(d => {
+            if (d.ticker) activeSet.add(d.ticker);
+        });
+
+        if (data.length < BATCH_SIZE) break;
+        page++;
+    }
+    console.log(`[valuation-bulk] Active Universe Size: ${activeSet.size}`);
+
+    if (targetTicker && activeSet.has(targetTicker)) {
+       // Keep only target
+       profilesData = profilesData.filter(p => p.symbol === targetTicker);
+    } else if (limit && limit > 0) {
+        console.log(`🧪 BENCHMARK MODE: Limiting valuation to first ${limit} tickers`);
+        // We need to limit based on the rows we have, but ensuring they are active
+        // Simplest way: take first N active tickers found in the CSV data
+        const limitedTickers = new Set<string>();
+        let count = 0;
+        
+        // This is a heuristic: we iterate profiles (which drives the process)
+        for(const p of profilesData) {
+            if (activeSet.has(p.symbol)) {
+                limitedTickers.add(p.symbol);
+                count++;
+                if (count >= limit) break;
+            }
+        }
+        activeSet.clear(); // Replace full active set with limited set
+        for (const t of limitedTickers) activeSet.add(t);
+    }
+
+    // Filter all datasets
+    profilesData = profilesData.filter(p => activeSet.has(p.symbol));
+    ratiosData = ratiosData.filter(r => activeSet.has(r.symbol));
+    metricsData = metricsData.filter(m => activeSet.has(m.symbol));
+
      let symbolKey = 'symbol';
      if (targetTicker && ratiosData.length > 0) {
          symbolKey = Object.keys(ratiosData[0]).find(k => k.trim().toLowerCase() === 'symbol') || 'symbol';
@@ -187,8 +240,9 @@ export async function runValuationBulk(options: ValuationRunOptions = {}) {
         const metricsRow = metricsMap.get(ticker);
         const profileRow = profileMap.get(ticker);
 
-        if (!profileRow) {
+        if (!profileRow || !profileRow.sector) {
             // Profile is needed for Sector and Price
+            // DB requires sector (NOT NULL)
             continue; 
         }
 
