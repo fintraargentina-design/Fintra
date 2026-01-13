@@ -6,6 +6,14 @@ export async function upsertSnapshots(
 ) {
   if (rows.length === 0) return;
 
+  const CHUNK_SIZE = 500;
+  for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+      const chunk = rows.slice(i, i + CHUNK_SIZE);
+      await processSnapshotChunk(supabase, chunk);
+  }
+}
+
+async function processSnapshotChunk(supabase: any, rows: any[]) {
   const today = rows[0].snapshot_date;
   const tickers = rows.map(r => r.ticker);
 

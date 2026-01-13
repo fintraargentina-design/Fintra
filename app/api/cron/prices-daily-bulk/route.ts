@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { runPricesDailyBulk } from './core';
+import { runPricesDailyBulk } from '@/app/api/cron/prices-daily-bulk/core';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

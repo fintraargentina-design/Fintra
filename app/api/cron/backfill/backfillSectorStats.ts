@@ -15,6 +15,19 @@ const METRICS = [
 export async function backfillSectorStatsForDate(date: string) {
   for (const metric of METRICS) {
     const query = `
+with latest_data as (
+  select distinct on (df.ticker)
+    df.ticker,
+    c.sector,
+    df.${metric} as val
+  from datos_financieros df
+  join fintra_universe c on c.ticker = df.ticker
+  where df.period_type in ('TTM','FY')
+    and df.period_end_date <= '${date}'::date
+    and df.${metric} is not null
+    and c.sector is not null
+  order by df.ticker, df.period_end_date desc
+)
 insert into sector_stats (
   sector,
   metric,
@@ -25,28 +38,22 @@ insert into sector_stats (
   sample_size
 )
 select
-  c.sector,
+  sector,
   '${metric}',
   '${date}'::date,
 
-  percentile_cont(0.10) within group (order by df.${metric}),
-  percentile_cont(0.25) within group (order by df.${metric}),
-  percentile_cont(0.50) within group (order by df.${metric}),
-  percentile_cont(0.75) within group (order by df.${metric}),
-  percentile_cont(0.90) within group (order by df.${metric}),
+  percentile_cont(0.10) within group (order by val),
+  percentile_cont(0.25) within group (order by val),
+  percentile_cont(0.50) within group (order by val),
+  percentile_cont(0.75) within group (order by val),
+  percentile_cont(0.90) within group (order by val),
 
-  avg(df.${metric}),
-  stddev(df.${metric}),
+  avg(val),
+  stddev(val),
   count(*)
 
-from datos_financieros df
-join companies c on c.ticker = df.ticker
-
-where df.period_type in ('TTM','FY')
-  and df.period_end_date <= '${date}'::date
-  and df.${metric} is not null
-
-group by c.sector
+from latest_data
+group by sector
 
 on conflict (sector, metric, stats_date)
 do update set

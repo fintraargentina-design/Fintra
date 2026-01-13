@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-
+import FintraLogo from '@/public/3.png';
 import SectorAnalysisPanel from '@/components/dashboard/SectorAnalysisPanel';
 import TickerSearchPanel from '@/components/dashboard/TickerSearchPanel';
 import GlobalSearchInput from '@/components/dashboard/GlobalSearchInput';
@@ -98,10 +98,12 @@ export default function StockTerminal() {
                     <div className="w-full border-b border-zinc-800 bg-transparent z-10 shrink-0">
                       
                       <div className="w-full flex items-center justify-between gap-2 overflow-x-auto scrollbar-thin whitespace-nowrap">
-                        <div className="flex items-center px-4 shrink-0">
-                          <h1 className="text-l font-medium text-[#FFA028] truncate">
+                        <div className="flex items-center px-0 shrink-0">
+                          <img src={FintraLogo.src} alt="Fintra Logo" className=" h-6 ml-2" />
+                          {/* <h1 className="text-l font-medium text-[#FFA028] truncate">
                             Fintra 
-                          </h1>
+                          </h1> */}
+                          
                         </div>
                        
                         <TabsList className="bg-transparent h-auto p-0 flex gap-0.5 border-b-2 border-black justify-start flex-1">

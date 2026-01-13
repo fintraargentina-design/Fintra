@@ -90,6 +90,22 @@ export function createFmpClient(get: FetcherFunction) {
       });
     },
 
+    /** Cash Flow Statement (Full) */
+    cashFlowStatement(symbol: string, opts?: { period?: "annual" | "quarter"; limit?: number; cache?: CacheOpt }) {
+      return get<CashFlowResponse>("/cash-flow-statement", {
+        params: { symbol, period: opts?.period ?? "annual", limit: opts?.limit ?? 5 },
+        cache: opts?.cache ?? "force-cache",
+      });
+    },
+
+    /** Income Statement (Full) */
+    incomeStatement(symbol: string, opts?: { period?: "annual" | "quarter"; limit?: number; cache?: CacheOpt }) {
+      return get<any[]>("/income-statement", {
+        params: { symbol, period: opts?.period ?? "annual", limit: opts?.limit ?? 50 },
+        cache: opts?.cache ?? "force-cache",
+      });
+    },
+
     /** Performance (retornos, vol y drawdown) */
     performance(symbol: string, cache: CacheOpt = "force-cache") {
       return get<PerformanceResponse>("/performance", { params: { symbol }, cache });

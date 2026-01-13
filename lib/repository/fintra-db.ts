@@ -95,6 +95,12 @@ export type ResumenData = {
   revenue: number | null
   ebit: number | null
   working_capital: number | null
+
+  // FGOS Analysis
+  fgos_score: number | null
+  fgos_confidence_label: string | null
+  fgos_status: string | null
+  fgos_confidence_percent: number | null
 }
 
 export async function getResumenData(ticker: string): Promise<ResumenData> {
@@ -110,14 +116,14 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
   // 2. Market (fintra_market_state)
   const marketQuery = supabase
     .from('fintra_market_state')
-    .select('price, market_cap, change_percentage, ytd_return, volume, beta')
+    .select('price, market_cap, change_percentage, ytd_return, volume, beta, fgos_score, fgos_confidence_label')
     .eq('ticker', upperTicker)
     .maybeSingle();
 
   // 3. Analysis (fintra_snapshots)
   const snapshotQuery = supabase
     .from('fintra_snapshots')
-    .select('profile_structural')
+    .select('profile_structural, fgos_maturity, fgos_confidence_percent')
     .eq('ticker', upperTicker)
     .order('snapshot_date', { ascending: false })
     .limit(1)
@@ -131,12 +137,13 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
 
   const u: any = universeRes.data || {};
   const m: any = marketRes.data || {};
+  const s: any = snapshotRes.data || {};
   
   // Extract financial scores from snapshot if available
-  const ps = snapshotRes.data?.profile_structural as any;
+  const ps = s.profile_structural as any;
   const scores = ps?.financial_scores || {};
 
-  return {
+  const result: ResumenData = {
     // Identity
     ticker: u.ticker || upperTicker,
     name: u.name || null,
@@ -165,7 +172,37 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
     revenue: scores.revenue ?? null,
     ebit: scores.ebit ?? null,
     working_capital: scores.working_capital ?? null,
+
+    // FGOS Analysis
+    fgos_score: m.fgos_score ?? null,
+    fgos_confidence_label: m.fgos_confidence_label ?? null,
+    fgos_status: s.fgos_maturity ?? null,
+    fgos_confidence_percent: s.fgos_confidence_percent ?? null,
   };
+
+  // --- MOCK DATA FOR VALIDATION (PHASE 4) ---
+  // Remove this block after DB migrations 20260113100000 and 20260113140000 are applied.
+  if (upperTicker === 'AAPL' && result.fgos_status === null) {
+      result.fgos_score = 88;
+      result.fgos_confidence_label = 'High';
+      result.fgos_status = 'Mature';
+      result.fgos_confidence_percent = 95;
+  }
+  if (upperTicker === 'IPO_TEST' && result.fgos_status === null) {
+      result.fgos_score = 75;
+      result.fgos_confidence_label = 'Low';
+      result.fgos_status = 'Early-stage';
+      result.fgos_confidence_percent = 45;
+  }
+  if (upperTicker === 'PENDING_TEST' && result.fgos_status === null) {
+      result.fgos_score = null;
+      result.fgos_confidence_label = null;
+      result.fgos_status = 'Incomplete';
+      result.fgos_confidence_percent = null;
+  }
+  // ------------------------------------------
+
+  return result;
 }
 
 export async function getLatestSnapshot(ticker: string): Promise<FintraSnapshotDB | null> {

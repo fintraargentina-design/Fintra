@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { getHeatmapColor } from "@/lib/utils";
 import { EnrichedStockData } from "@/lib/services/stock-enrichment";
 import { supabase } from "@/lib/supabase";
+import { FgosScoreCell } from "@/components/ui/FgosScoreCell";
 
 interface PeersAnalysisPanelProps {
   symbol: string;
@@ -84,7 +85,7 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
         // 2. Enrich data desde Supabase únicamente (sin APIs por ticker)
         const { data: snapshots } = await supabase
           .from('fintra_snapshots')
-          .select('ticker, fgos_score, valuation, created_at')
+          .select('ticker, fgos_score, fgos_confidence_label, valuation, created_at')
           .in('ticker', peersList)
           .order('created_at', { ascending: false });
 
@@ -117,6 +118,7 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
             estimation: 0,
             targetPrice: 0,
             fgos: s?.fgos_score ?? 0,
+            confidenceLabel: s?.fgos_confidence_label,
             valuation: s?.valuation?.valuation_status ?? "N/A",
             ecosystem: e ?? 50
           };
@@ -140,11 +142,6 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
 
     return () => { active = false; };
   }, [symbol]);
-
-  const getFgosColor = (s: number) => 
-    s >= 70 ? "bg-green-500/10 text-green-400 border-green-500/20" : 
-    s >= 50 ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" : 
-    "bg-red-500/10 text-red-400 border-red-500/20";
 
   const getValBadge = (v: string, isSelected: boolean = false) => {
     const lowerV = v?.toLowerCase() || "";
@@ -209,11 +206,8 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
                       onClick={() => onPeerSelect?.(isSelected ? "" : peer.ticker)}
                     >
                       <TableCell className="font-bold text-white px-2 py-0.5 text-xs w-[60px]">{peer.ticker}</TableCell>
-                      <TableCell 
-                        className="text-center px-2 py-0.5 text-[10px] font-bold text-white w-[70px]"
-                        style={isSelected ? undefined : { backgroundColor: getHeatmapColor(peer.fgos - 50) }}
-                      >
-                        {peer.fgos || '-'}
+                      <TableCell className="text-center px-2 py-0.5 w-[70px]">
+                        <FgosScoreCell score={peer.fgos} confidenceLabel={peer.confidenceLabel} />
                       </TableCell>
                       <TableCell className="text-center px-2 py-0.5 w-[80px]">
                         {getValBadge(peer.valuation, isSelected)}

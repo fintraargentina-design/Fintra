@@ -129,21 +129,30 @@ async function getMissingTickersForPeriod(
     
     const tickerList = Array.from(tickers);
     const periodLabel = type === 'FY' ? `${year}` : `${year}${period}`;
+    const existingTickers = new Set<string>();
 
-    // Query DB for tickers that HAVE this data
-    const { data, error } = await supabaseAdmin
-        .from('datos_financieros')
-        .select('ticker')
-        .eq('period_type', type)
-        .eq('period_label', periodLabel)
-        .in('ticker', tickerList);
+    // Batch processing to avoid 414 URI Too Large
+    const BATCH_SIZE = 1000;
+    for (let i = 0; i < tickerList.length; i += BATCH_SIZE) {
+        const batch = tickerList.slice(i, i + BATCH_SIZE);
+        
+        const { data, error } = await supabaseAdmin
+            .from('datos_financieros')
+            .select('ticker')
+            .eq('period_type', type)
+            .eq('period_label', periodLabel)
+            .in('ticker', batch);
 
-    if (error) {
-        console.error(`[financials-bulk] Error checking missing tickers for ${periodLabel}:`, error);
-        return tickers; // Assume all missing on error to be safe (or empty? Safe to process)
+        if (error) {
+            console.error(`[financials-bulk] Error checking missing tickers for ${periodLabel} (batch ${i}):`, error);
+            // Continue to next batch, effectively treating failed batch as "missing" (re-process safe)
+            continue;
+        }
+
+        if (data) {
+            data.forEach(r => existingTickers.add(r.ticker));
+        }
     }
-
-    const existingTickers = new Set(data?.map(r => r.ticker) || []);
     
     // Return only those NOT in existingTickers
     const missing = new Set<string>();

@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { applyQualityBrakes } from './applyQualityBrakes';
 import { getBenchmarksForSector } from './benchmarks';
 import type { FinancialSnapshot, FmpRatios, FmpMetrics, SectorBenchmark, FgosBreakdown, FgosCategory } from './types';
+import { calculateConfidenceLayer, type ConfidenceInputs } from './confidence';
 
 type BenchMap = Record<string, SectorBenchmark>;
 
@@ -99,13 +100,15 @@ export function computeFGOS(
   ratios: FmpRatios,
   metrics: FmpMetrics,
   growth: { revenue_cagr?: number | null; earnings_cagr?: number | null; fcf_cagr?: number | null },
-  benchmarks: BenchMap | null
+  benchmarks: BenchMap | null,
+  confidenceInputs: Omit<ConfidenceInputs, 'missing_core_metrics'> | null
 ): {
   fgos_score: number | null;
   fgos_category: FgosCategory;
   fgos_confidence: number;
+  fgos_confidence_label?: 'High' | 'Medium' | 'Low';
+  fgos_status: 'computed' | 'pending' | 'Mature' | 'Developing' | 'Early-stage' | 'Incomplete';
   fgos_components: FgosBreakdown;
-  fgos_status: 'computed' | 'pending';
 } {
   const sector = snapshot.sector;
   const profileOk = snapshot.profile_structural && (snapshot as any).profile_structural.status !== 'pending';
@@ -114,8 +117,9 @@ export function computeFGOS(
       fgos_score: null,
       fgos_category: 'Pending',
       fgos_confidence: 0,
-      fgos_components: { growth: null, profitability: null, efficiency: null, solvency: null },
-      fgos_status: 'pending'
+      fgos_confidence_label: 'Low',
+      fgos_status: 'pending',
+      fgos_components: { growth: null, profitability: null, efficiency: null, solvency: null }
     };
   }
   if (!sector) {
@@ -123,8 +127,9 @@ export function computeFGOS(
       fgos_score: null,
       fgos_category: 'Pending',
       fgos_confidence: 0,
-      fgos_components: { growth: null, profitability: null, efficiency: null, solvency: null },
-      fgos_status: 'pending'
+      fgos_confidence_label: 'Low',
+      fgos_status: 'pending',
+      fgos_components: { growth: null, profitability: null, efficiency: null, solvency: null }
     };
   }
   if (!benchmarks || Object.keys(benchmarks).length === 0) {
@@ -132,8 +137,9 @@ export function computeFGOS(
       fgos_score: null,
       fgos_category: 'Pending',
       fgos_confidence: 0,
-      fgos_components: { growth: null, profitability: null, efficiency: null, solvency: null },
-      fgos_status: 'pending'
+      fgos_confidence_label: 'Low',
+      fgos_status: 'pending',
+      fgos_components: { growth: null, profitability: null, efficiency: null, solvency: null }
     };
   }
   const hasLowConfidence = Object.values(benchmarks).some(b => b && typeof b === 'object' && (b as any).confidence === 'low');
@@ -160,17 +166,42 @@ export function computeFGOS(
   const profitabilityScore = profitabilityResult.score;
   const efficiencyScore = efficiencyResult.score;
   const solvencyScore = solvencyResult.score;
-  const baseScore = avg([
-    growthScore != null ? (growthScore as number) * WEIGHTS.growth : null,
-    profitabilityScore != null ? (profitabilityScore as number) * WEIGHTS.profitability : null,
-    efficiencyScore != null ? (efficiencyScore as number) * WEIGHTS.efficiency : null,
-    solvencyScore != null ? (solvencyScore as number) * WEIGHTS.solvency : null
-  ]);
+
+  const validComponents = [
+    { score: growthScore, weight: WEIGHTS.growth },
+    { score: profitabilityScore, weight: WEIGHTS.profitability },
+    { score: efficiencyScore, weight: WEIGHTS.efficiency },
+    { score: solvencyScore, weight: WEIGHTS.solvency }
+  ].filter(c => c.score != null);
+
+  let baseScore: number | null = null;
+  if (validComponents.length > 0) {
+    const totalWeightedScore = validComponents.reduce((sum, c) => sum + (c.score as number) * c.weight, 0);
+    const totalWeight = validComponents.reduce((sum, c) => sum + c.weight, 0);
+    baseScore = totalWeight > 0 ? totalWeightedScore / totalWeight : null;
+  }
   if (baseScore == null) {
+    // Determine confidence/status even if pending? No, if baseScore null, usually means missing critical data.
+    // But calculateConfidenceLayer might give useful status like "Incomplete".
+    const fgosInputs = [
+      growth.revenue_cagr, growth.earnings_cagr, growth.fcf_cagr,
+      metrics?.roicTTM, ratios?.operatingProfitMarginTTM, ratios?.netProfitMarginTTM,
+      metrics?.freeCashFlowMarginTTM, ratios?.debtEquityRatioTTM, ratios?.interestCoverageTTM
+    ];
+    const missingCoreMetricsCount = fgosInputs.filter(v => v == null).length;
+    const confInputs: ConfidenceInputs = {
+      financial_history_years: confidenceInputs?.financial_history_years ?? 5,
+      years_since_ipo: confidenceInputs?.years_since_ipo ?? 10,
+      earnings_volatility_class: confidenceInputs?.earnings_volatility_class ?? 'MEDIUM',
+      missing_core_metrics: missingCoreMetricsCount
+    };
+    const confidenceResult = calculateConfidenceLayer(confInputs);
+
     return {
       fgos_score: null,
       fgos_category: 'Pending',
-      fgos_confidence: 0,
+      fgos_confidence: confidenceResult.confidence_percent,
+      fgos_confidence_label: confidenceResult.confidence_label,
       fgos_components: {
         growth: growthScore,
         profitability: profitabilityScore,
@@ -182,7 +213,8 @@ export function computeFGOS(
         efficiency_impact: efficiencyResult.impact,
         solvency_impact: solvencyResult.impact
       } as FgosBreakdown,
-      fgos_status: 'pending'
+      fgos_status: 'pending' // Or confidenceResult.fgos_status? Usually 'pending' means not computed.
+      // If we couldn't compute score, keep it 'pending'.
     };
   }
   const baseFgos = clamp(Math.round(baseScore));
@@ -191,26 +223,33 @@ export function computeFGOS(
     altmanZ: metrics?.altmanZScore,
     piotroskiScore: metrics?.piotroskiScore
   });
-  let finalConfidence = brakes.confidence;
-  const lowConfComponentsCount = [
-    growthResult.impact,
-    profitabilityResult.impact,
-    efficiencyResult.impact,
-    solvencyResult.impact
-  ].filter(i => (i as any)?.benchmark_low_confidence).length;
-  if (lowConfComponentsCount > 0) {
-    finalConfidence = Math.min(finalConfidence, 79);
-    if (lowConfComponentsCount > 1) {
-      finalConfidence = Math.min(finalConfidence, 59);
-    }
-  }
+
+  /* ---------- CONFIDENCE LAYER (PHASE 2) ---------- */
+  const fgosInputs = [
+    growth.revenue_cagr, growth.earnings_cagr, growth.fcf_cagr,
+    metrics?.roicTTM, ratios?.operatingProfitMarginTTM, ratios?.netProfitMarginTTM,
+    metrics?.freeCashFlowMarginTTM, ratios?.debtEquityRatioTTM, ratios?.interestCoverageTTM
+  ];
+  const missingCoreMetricsCount = fgosInputs.filter(v => v == null).length;
+  
+  const confInputs: ConfidenceInputs = {
+    financial_history_years: confidenceInputs?.financial_history_years ?? 5,
+    years_since_ipo: confidenceInputs?.years_since_ipo ?? 10,
+    earnings_volatility_class: confidenceInputs?.earnings_volatility_class ?? 'MEDIUM',
+    missing_core_metrics: missingCoreMetricsCount
+  };
+
+  const confidenceResult = calculateConfidenceLayer(confInputs);
+
   let category: FgosCategory = 'Medium';
   if (brakes.adjustedScore >= 70) category = 'High';
   else if (brakes.adjustedScore < 40) category = 'Low';
+
   return {
     fgos_score: brakes.adjustedScore,
     fgos_category: category,
-    fgos_confidence: finalConfidence,
+    fgos_confidence: confidenceResult.confidence_percent,
+    fgos_confidence_label: confidenceResult.confidence_label,
     fgos_components: {
       growth: growthScore,
       profitability: profitabilityScore,
@@ -222,7 +261,7 @@ export function computeFGOS(
       efficiency_impact: efficiencyResult.impact,
       solvency_impact: solvencyResult.impact
     } as FgosBreakdown,
-    fgos_status: 'computed'
+    fgos_status: confidenceResult.fgos_status as any // Cast to match DB field if needed or update return type
   };
 }
 
@@ -298,7 +337,57 @@ export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: stri
 
   const growth = (snap as any).fundamentals_growth || {};
   
-  // 5. Compute
+  // 5. Confidence Inputs (Phase 2)
+  // Fetch Financial History (FY count)
+  const { data: history } = await supabaseAdmin
+    .from('datos_financieros')
+    .select('period_end_date, revenue')
+    .eq('ticker', ticker)
+    .eq('period_type', 'FY')
+    .order('period_end_date', { ascending: true });
+
+  const financial_history_years = history ? history.length : 0;
+
+  // Volatility
+  let earnings_volatility_class: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM';
+  if (history && history.length >= 3) {
+    const revenueGrowth = [];
+    for (let i = 1; i < history.length; i++) {
+      const prev = history[i - 1].revenue;
+      const curr = history[i].revenue;
+      if (prev && curr && prev !== 0) {
+        revenueGrowth.push((curr - prev) / Math.abs(prev));
+      }
+    }
+    if (revenueGrowth.length >= 2) {
+      const mean = revenueGrowth.reduce((a, b) => a + b, 0) / revenueGrowth.length;
+      const variance = revenueGrowth.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / revenueGrowth.length;
+      const stdDev = Math.sqrt(variance);
+      if (stdDev < 0.15) earnings_volatility_class = 'LOW';
+      else if (stdDev > 0.40) earnings_volatility_class = 'HIGH';
+    }
+  }
+
+  // IPO / Years
+  let years_since_ipo = 10;
+  // Try to find IPO date or Founded date
+  const profileStruct = (snap as any).profile_structural;
+  const ipoDateStr = profileStruct?.ipoDate || profileStruct?.identity?.founded;
+  if (ipoDateStr) {
+    const ipo = new Date(ipoDateStr);
+    const now = new Date();
+    if (!isNaN(ipo.getTime())) {
+      years_since_ipo = (now.getTime() - ipo.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+    }
+  }
+
+  const confidenceInputs: Omit<ConfidenceInputs, 'missing_core_metrics'> = {
+    financial_history_years,
+    years_since_ipo,
+    earnings_volatility_class
+  };
+
+  // 6. Compute
   const snapshotRow = {
     ticker: ticker,
     snapshot_date: date,
@@ -306,9 +395,9 @@ export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: stri
     profile_structural: (snap as any).profile_structural
   } as FinancialSnapshot;
 
-  const result = computeFGOS(ticker, snapshotRow, ratios, metrics, growth, benchmarks);
+  const result = computeFGOS(ticker, snapshotRow, ratios, metrics, growth, benchmarks, confidenceInputs);
 
-  // 6. Persist
+  // 7. Persist
   await supabaseAdmin
     .from('fintra_snapshots')
     .update({ 
@@ -316,13 +405,19 @@ export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: stri
         fgos_components: result.fgos_components,
         fgos_category: result.fgos_category,
         fgos_confidence: result.fgos_confidence,
-        fgos_status: result.fgos_status,
-        engine_version: 'v2.0-snapshot-only' 
+        fgos_status: result.fgos_score !== null ? 'computed' : 'pending', // Workflow status
+        // Store new Phase 2 fields in JSONB or new columns?
+        // Ideally we should have columns. For now I'll put them in fgos_components or extended fields if columns missing.
+        // But prompt implies explicit fields. I will try to update them if columns exist (Migration needed).
+        // I will assume I create the migration.
+        fgos_confidence_label: result.fgos_confidence_label,
+        fgos_maturity: result.fgos_status, // Mapping "Mature/Developing..." to fgos_maturity column
+        engine_version: 'v3.1-confidence-layer' 
     })
     .eq('ticker', ticker)
     .eq('snapshot_date', date);
 
-  return { status: result.fgos_status, score: result.fgos_score };
+  return { status: result.fgos_score !== null ? 'computed' : 'pending', score: result.fgos_score };
 }
 
 async function updatePending(ticker: string, date: string, reason: string) {

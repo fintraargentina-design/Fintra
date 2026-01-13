@@ -7,24 +7,19 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function checkSchema() {
-  console.log('Checking fintra_ecosystem_relations schema...');
+  console.log('Checking fintra_market_state schema...');
   const { data, error } = await supabase
-    .from('fintra_ecosystem_relations')
+    .from('fintra_market_state')
     .select('*')
     .limit(1);
 
   if (error) {
-    console.error('Error fetching fintra_ecosystem_relations:', error);
+    console.error('Error fetching fintra_market_state:', error);
     return;
   }
 
   if (data && data.length > 0) {
     console.log('Columns found:', Object.keys(data[0]));
-  } else {
-    console.log('Table is empty, cannot infer columns from data.');
-    // Try to inspect via error message hack?
-    // Try selecting a non-existent column to see if it lists available ones?
-    // No, Postgres error messages usually don't list all columns.
   }
 }
 

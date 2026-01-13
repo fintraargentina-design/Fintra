@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getResumenData, ResumenData } from "@/lib/repository/fintra-db";
+import FgosAnalysisBlock from "@/components/dashboard/FgosAnalysisBlock";
 
 interface ResumenCardProps {
   symbol: string;
@@ -305,6 +306,16 @@ export default function ResumenCard({
                 </div>
               ))}
             </div>
+
+            {/* FGOS Analysis Block (Phase 4) */}
+            {resumen && (
+              <FgosAnalysisBlock
+                fgosScore={resumen.fgos_score}
+                confidenceLabel={resumen.fgos_confidence_label}
+                confidencePercent={resumen.fgos_confidence_percent}
+                fgosStatus={resumen.fgos_status}
+              />
+            )}
           </div>
         )}
 

@@ -38,24 +38,53 @@ export async function runSectorBenchmarks(targetTicker?: string) {
     // 2. FETCH SNAPSHOTS (Base Universe & Sector Map)
     // ─────────────────────────────────────────
     // We fetch ALL snapshots for today to build the universe
-    let query = supabaseAdmin
-      .from('fintra_snapshots')
-      .select(`
-        ticker,
-        sector,
-        valuation,
-        fundamentals_growth,
-        profile_structural
-      `)
-      .eq('snapshot_date', today);
+    // Use pagination to bypass 1000 row limit
+    let allSnapshots: any[] = [];
+    let page = 0;
+    const PAGE_SIZE = 1000;
 
     if (targetTicker) {
-        query = query.eq('ticker', targetTicker);
+        const { data, error } = await supabaseAdmin
+          .from('fintra_snapshots')
+          .select(`
+            ticker,
+            sector,
+            valuation,
+            fundamentals_growth,
+            profile_structural
+          `)
+          .eq('snapshot_date', today)
+          .eq('ticker', targetTicker);
+        
+        if (error) throw error;
+        if (data) allSnapshots = data;
+    } else {
+        while (true) {
+            console.log(`Fetching snapshots page ${page}...`);
+            const { data, error } = await supabaseAdmin
+              .from('fintra_snapshots')
+              .select(`
+                ticker,
+                sector,
+                valuation,
+                fundamentals_growth,
+                profile_structural
+              `)
+              .eq('snapshot_date', today)
+              .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+            
+            if (error) throw error;
+            if (!data || data.length === 0) break;
+            
+            allSnapshots = allSnapshots.concat(data);
+            
+            if (data.length < PAGE_SIZE) break;
+            page++;
+        }
     }
 
-    const { data: snapshots, error: snapError } = await query;
-
-    if (snapError) throw snapError;
+    const snapshots = allSnapshots;
+    
     if (!snapshots?.length) {
       return { error: 'No snapshots found for today' };
     }

@@ -108,7 +108,7 @@ export default function NoticiasTab({
       setError(null);
       
       const response = await fetch(
-        `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${symbol}&apikey=${process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY}&limit=20`
+        `/api/proxy/news?symbol=${symbol}`
       );
       
       if (!response.ok) {

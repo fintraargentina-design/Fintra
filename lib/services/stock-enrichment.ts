@@ -15,6 +15,7 @@ export interface EnrichedStockData {
   targetPrice: number | null;
   // Intelligence Data
   fgos: number;
+  confidenceLabel?: string;
   valuation: string;
   ecosystem: number;
 }

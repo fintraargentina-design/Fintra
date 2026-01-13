@@ -15,6 +15,15 @@ export const maxDuration = 300; // 5 minutes max (Vercel Limit)
 export async function GET(req: Request) {
   const startTime = Date.now();
   const steps: any[] = [];
+  
+  // Parse Query Params
+  const { searchParams } = new URL(req.url);
+  const limitStr = searchParams.get('limit');
+  const limit = limitStr ? parseInt(limitStr, 10) : undefined;
+
+  if (limit) {
+    console.log(`🧪 [MasterCronAll] Running in LIMIT MODE: ${limit} tickers`);
+  }
 
   try {
     console.log('🚀 [MasterCronAll] Starting CANONICAL FULL MARKET update...');
@@ -33,7 +42,7 @@ export async function GET(req: Request) {
     // 2️⃣ prices-daily-bulk
     // ──────────────────────────────────────────────
     const t2 = Date.now();
-    await runPricesDailyBulk({});
+    await runPricesDailyBulk({ limit });
     steps.push({ step: '2. prices-daily-bulk', duration_ms: Date.now() - t2 });
     console.log('✅ [MasterCronAll] 2. Prices Daily complete');
 
@@ -42,7 +51,7 @@ export async function GET(req: Request) {
     // 3️⃣ financials-bulk
     // ──────────────────────────────────────────────
     const t3 = Date.now();
-    await runFinancialsBulk();
+    await runFinancialsBulk(undefined, limit);
     steps.push({ step: '3. financials-bulk', duration_ms: Date.now() - t3 });
     console.log('✅ [MasterCronAll] 3. Financials Bulk complete');
 
@@ -51,7 +60,7 @@ export async function GET(req: Request) {
     // 4️⃣ fmp-bulk
     // ──────────────────────────────────────────────
     const t4 = Date.now();
-    await runFmpBulk();
+    await runFmpBulk(undefined, limit);
     steps.push({ step: '4. fmp-bulk (snapshots)', duration_ms: Date.now() - t4 });
     console.log('✅ [MasterCronAll] 4. FMP Bulk (Snapshots) complete');
 
@@ -60,7 +69,7 @@ export async function GET(req: Request) {
     // 5️⃣ valuation-bulk
     // ──────────────────────────────────────────────
     const t5 = Date.now();
-    await runValuationBulk({ debugMode: false });
+    await runValuationBulk({ debugMode: false, limit });
     steps.push({ step: '5. valuation-bulk', duration_ms: Date.now() - t5 });
     console.log('✅ [MasterCronAll] 5. Valuation Bulk complete');
 
@@ -78,7 +87,7 @@ export async function GET(req: Request) {
     // 7️⃣ performance-bulk
     // ──────────────────────────────────────────────
     const t7 = Date.now();
-    await runPerformanceBulk();
+    await runPerformanceBulk(undefined, limit);
     steps.push({ step: '7. performance-bulk', duration_ms: Date.now() - t7 });
     console.log('✅ [MasterCronAll] 7. Performance Bulk complete');
 
@@ -87,7 +96,7 @@ export async function GET(req: Request) {
     // 8️⃣ market-state-bulk
     // ──────────────────────────────────────────────
     const t8 = Date.now();
-    await runMarketStateBulk();
+    await runMarketStateBulk(undefined, limit);
     steps.push({ step: '8. market-state-bulk', duration_ms: Date.now() - t8 });
     console.log('✅ [MasterCronAll] 8. Market State Bulk complete');
 

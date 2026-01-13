@@ -5,155 +5,280 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
  * 
  * Responsabilidad ÚNICA:
  * Consolidar 1 fila por ticker con el estado de mercado más reciente conocido.
+ * Joins backend tables (universe, snapshots, performance, benchmarks) into fintra_market_state.
  */
 export async function runMarketStateBulk(targetTicker?: string, limit?: number) {
-  const BATCH_SIZE = 1000;
+  const BATCH_SIZE = 500;
   console.log('🚀 Starting Market State Bulk Update...');
 
   try {
     const supabase = supabaseAdmin;
 
-    // 1. Fetch ALL active tickers from fintra_universe
-    let allTickers: string[] = [];
+    // 1. Fetch ALL active tickers from fintra_universe with PROFILE DATA
+    // We need profile data: sector, industry, country. 
+    // Other fields (website, description, employees, ceo) come from fintra_snapshots.profile_structural
+    let allTickers: any[] = [];
+    
+    // We fetch full objects now, not just strings
+    const universeQuery = supabase
+        .from('fintra_universe')
+        .select('ticker, sector, industry, country, name, is_active');
 
     if (targetTicker) {
-        console.log(`[MarketStateBulk] Running for single ticker: ${targetTicker}`);
-        allTickers = [targetTicker];
+        universeQuery.eq('ticker', targetTicker);
     } else {
-        let page = 0;
-        console.log('📥 Fetching active tickers...');
-        while(true) {
-            const { data, error } = await supabase
-                .from('fintra_universe')
-                .select('ticker')
-                .eq('is_active', true)
-                .range(page * BATCH_SIZE, (page + 1) * BATCH_SIZE - 1);
-                
-            if (error) throw new Error(`Error fetching tickers: ${error.message}`);
-            if (!data || data.length === 0) break;
+        universeQuery.eq('is_active', true);
+    }
+
+    if (limit && limit > 0 && !targetTicker) {
+        universeQuery.limit(limit);
+    }
+
+    // Handle pagination for universe manually if needed, but supabase-js limit is high.
+    // We'll use a loop to be safe for large universe.
+    let page = 0;
+    const UNIVERSE_BATCH = 1000;
+    
+    while(true) {
+        const { data, error } = await universeQuery.range(page * UNIVERSE_BATCH, (page + 1) * UNIVERSE_BATCH - 1);
+        if (error) throw new Error(`Error fetching universe: ${error.message}`);
+        if (!data || data.length === 0) break;
+        allTickers.push(...data);
+        if (data.length < UNIVERSE_BATCH) break;
+        if (targetTicker) break; 
+        page++;
+    }
+
+    console.log(`📋 Found ${allTickers.length} active tickers to process.`);
+
+    // 2. Pre-fetch Sector Benchmarks (Global Context)
+    // We need latest benchmarks to compute percentiles
+    // Get latest date first
+    const { data: latestBench } = await supabase
+        .from('sector_benchmarks')
+        .select('snapshot_date')
+        .order('snapshot_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+    
+    const benchmarkMap = new Map<string, any>(); // sector -> metric -> benchmark_row
+    
+    if (latestBench) {
+        const { data: benchmarks } = await supabase
+            .from('sector_benchmarks')
+            .select('*')
+            .eq('snapshot_date', latestBench.snapshot_date);
             
-            allTickers.push(...data.map(d => d.ticker));
-            if (data.length < BATCH_SIZE) break;
-            page++;
+        if (benchmarks) {
+            benchmarks.forEach((b: any) => {
+                if (!benchmarkMap.has(b.sector)) {
+                    benchmarkMap.set(b.sector, {});
+                }
+                benchmarkMap.get(b.sector)[b.metric] = b;
+            });
         }
     }
-    
-    // LIMIT (Benchmark Mode)
-    if (limit && limit > 0 && !targetTicker) {
-        console.log(`🧪 BENCHMARK MODE: Limiting market state cache to first ${limit} tickers`);
-        allTickers = allTickers.slice(0, limit);
-    }
 
-    console.log(`📋 Found ${allTickers.length} active tickers.`);
-
-    // 2. Process in chunks
+    // 3. Process in chunks
     let processed = 0;
     let upserted = 0;
 
     // Helper to process a chunk
-    const processChunk = async (tickers: string[]) => {
+    const processChunk = async (tickersData: any[]) => {
+        const tickers = tickersData.map(t => t.ticker);
+
         // A. Fetch Snapshots (Latest per ticker)
+        // Need: price, changes (for change/change_pct), last_price_date, fgos_score, valuation (contains status), verdict_text, ecosystem_score (if in snap)
         const { data: snapshots, error: snapError } = await supabase
             .from('fintra_snapshots')
-            .select('ticker, profile_structural, snapshot_date')
+            .select('ticker, profile_structural, snapshot_date, fgos_score, fgos_confidence_label, valuation, investment_verdict')
             .in('ticker', tickers)
             .order('snapshot_date', { ascending: false }); 
         
         if (snapError) console.error('Error fetching snapshots:', snapError);
 
-        // B. Fetch Performance (Latest YTD)
+        // B. Fetch Performance (All Windows)
+        // Need: YTD, 1Y, 3Y, 5Y
         const { data: performance, error: perfError } = await supabase
             .from('datos_performance')
-            .select('ticker, return_percent, performance_date')
-            .eq('window_code', 'YTD')
+            .select('ticker, return_percent, window_code')
             .in('ticker', tickers)
-            .lte('performance_date', new Date().toISOString()) // No future data
-            .order('performance_date', { ascending: false });
+            .in('window_code', ['YTD', '1Y', '3Y', '5Y']);
 
         if (perfError) console.error('Error fetching performance:', perfError);
 
-        // C. Map for O(1) access
+        // C. Fetch Ecosystem Reports
+        const { data: ecosystem, error: ecoError } = await supabase
+            .from('fintra_ecosystem_reports')
+            .select('ticker, ecosystem_score')
+            .in('ticker', tickers)
+            .order('date', { ascending: false });
+
+        if (ecoError) console.error('Error fetching ecosystem:', ecoError);
+
+        // D. Build Maps for O(1) access
         const snapMap = new Map<string, any>();
         if (snapshots) {
+            // Dedupe: keep first (latest)
             for (const s of snapshots) {
-                // If we already have a snapshot for this ticker, skip (since we ordered by date desc, first is latest)
-                if (snapMap.has(s.ticker)) continue;
-
-                // Validate price presence
-                const metrics = s.profile_structural?.metrics;
-                const price = metrics?.price;
-                
-                // Check if price is valid (not null, not undefined, finite)
-                if (price !== null && price !== undefined && !isNaN(Number(price))) {
-                    snapMap.set(s.ticker, s);
-                }
+                if (!snapMap.has(s.ticker)) snapMap.set(s.ticker, s);
             }
         }
 
-        const perfMap = new Map<string, any>();
+        const perfMap = new Map<string, any>(); // ticker -> { YTD: 10, 1Y: 20 ... }
         if (performance) {
             for (const p of performance) {
-                if (perfMap.has(p.ticker)) continue; // First is latest
-                perfMap.set(p.ticker, p);
+                if (!perfMap.has(p.ticker)) perfMap.set(p.ticker, {});
+                perfMap.get(p.ticker)[p.window_code] = p.return_percent;
             }
         }
 
-        // D. Build Rows
+        const ecoMap = new Map<string, number>();
+        if (ecosystem) {
+             for (const e of ecosystem) {
+                if (!ecoMap.has(e.ticker)) ecoMap.set(e.ticker, e.ecosystem_score);
+             }
+        }
+
+        // E. Build Rows
         const rowsToUpsert: any[] = [];
         const now = new Date().toISOString();
 
-        for (const ticker of tickers) {
+        for (const tData of tickersData) {
+            const ticker = tData.ticker;
             const snap = snapMap.get(ticker);
-            const perf = perfMap.get(ticker);
+            const perf = perfMap.get(ticker) || {};
+            const ecosystem_score = ecoMap.get(ticker) || null;
 
-            // Extract metrics
+            // Extract profile structural if available
+            const identity = snap?.profile_structural?.identity || {};
+
+            // Determine Price & Market Cap
+            // Priority: Snapshot > ... (snapshot is the source of truth for price here)
             let price = null;
             let change = null;
             let change_percentage = null;
             let market_cap = null;
             let last_price_date = null;
-
+            
+            // From Snapshot
             if (snap) {
-                const metrics = snap.profile_structural.metrics;
-                price = metrics.price;
-                change = metrics.changes;
-                
-                // MANDATORY: Calculate change_percentage vs previous close
-                // Formula: (price - prev_close) / prev_close * 100
-                // Derived: change / (price - change) * 100
-                if (price != null && change != null) {
-                    const p = Number(price);
-                    const c = Number(change);
-                    const prevClose = p - c;
+                const metrics = snap.profile_structural?.metrics;
+                const identity = snap.profile_structural?.identity;
+
+                // Profile Fields from Snapshot
+                if (identity) {
+                    if (!tData.website) tData.website = identity.website;
+                    if (!tData.description) tData.description = identity.description;
+                    if (!tData.employees) tData.employees = identity.fullTimeEmployees;
+                    if (!tData.ceo) tData.ceo = identity.ceo;
+                }
+
+                if (metrics) {
+                    price = metrics.price;
+                    change = metrics.changes;
+                    market_cap = metrics.mktCap || metrics.marketCap;
                     
-                    if (prevClose !== 0 && !isNaN(prevClose)) {
-                         change_percentage = (c / prevClose) * 100;
+                    // Calculate % change
+                    if (price != null && change != null) {
+                        const p = Number(price);
+                        const c = Number(change);
+                        const prevClose = p - c;
+                        if (prevClose !== 0 && !isNaN(prevClose)) {
+                            change_percentage = (c / prevClose) * 100;
+                        }
                     }
                 }
-                
-                market_cap = metrics.mktCap || metrics.marketCap;
-                last_price_date = snap.snapshot_date; // Approximation
+                last_price_date = snap.snapshot_date;
             }
 
-            let ytd_return = null;
-            if (perf) {
-                ytd_return = perf.return_percent;
+            // --- Analytics ---
+            const fgos_score = snap?.fgos_score ?? null;
+            const fgos_confidence_label = snap?.fgos_confidence_label ?? null;
+            // valuation_status is inside valuation JSONB
+            let valuation_status = null;
+            if (snap?.valuation && typeof snap.valuation === 'object') {
+                const status = snap.valuation.valuation_status || snap.valuation.status;
+                if (status) {
+                    valuation_status = String(status).toLowerCase();
+                }
+            }
+
+            // investment_verdict can be text or object. User asks for verdict_text.
+            // Assuming investment_verdict is a string or has a summary. 
+            // If it's a JSON, we might need to extract. Assuming string for now based on 'verdict_text' name.
+            // If snap.investment_verdict is JSON, try to extract 'verdict' or 'summary'.
+            let verdict_text = null;
+            if (snap?.investment_verdict) {
+                if (typeof snap.investment_verdict === 'string') {
+                    verdict_text = snap.investment_verdict;
+                } else if (typeof snap.investment_verdict === 'object') {
+                    verdict_text = snap.investment_verdict.verdict || snap.investment_verdict.summary || JSON.stringify(snap.investment_verdict);
+                }
+            }
+
+            // --- Sector Percentiles ---
+            let sector_percentiles = null;
+            if (tData.sector && fgos_score !== null) {
+                const sectorBench = benchmarkMap.get(tData.sector);
+                if (sectorBench && sectorBench['FGOS']) {
+                    // Compute approximate percentile for FGOS
+                    const b = sectorBench['FGOS'];
+                    // Simple logic: determine bucket
+                    let percentile = 0;
+                    if (fgos_score >= b.p90) percentile = 95;
+                    else if (fgos_score >= b.p75) percentile = 80; // approx between 75 and 90
+                    else if (fgos_score >= b.p50) percentile = 60;
+                    else if (fgos_score >= b.p25) percentile = 40;
+                    else if (fgos_score >= b.p10) percentile = 20;
+                    else percentile = 5;
+
+                    sector_percentiles = {
+                        fgos: percentile,
+                        // Add other metrics if available in snapshot and benchmarks
+                    };
+                }
             }
 
             rowsToUpsert.push({
                 ticker,
+                // Profile
+                sector: tData.sector,
+                industry: tData.industry,
+                // country: tData.country,
+                // website: identity.website ?? null,
+                // company_name: tData.name,
+                // description: identity.description ?? null,
+                // employees: identity.fullTimeEmployees ?? null,
+                // ceo: identity.ceo ?? null,
+
+                // Market
                 price: price ? Number(price) : null,
                 change: change ? Number(change) : null,
                 change_percentage: change_percentage ? Number(change_percentage) : null,
-                market_cap: market_cap ? Number(market_cap) : null,
-                ytd_return: ytd_return ? Number(ytd_return) : null,
                 last_price_date,
-                source: 'snapshot',
+                market_cap: market_cap ? Number(market_cap) : null,
+
+                // Performance
+                ytd_return: perf['YTD'] ? Number(perf['YTD']) : null,
+                // return_1y: perf['1Y'] ? Number(perf['1Y']) : null,
+                // return_3y: perf['3Y'] ? Number(perf['3Y']) : null,
+                // return_5y: perf['5Y'] ? Number(perf['5Y']) : null,
+
+                // Analytics
+                fgos_score,
+                fgos_confidence_label,
+                valuation_status,
+                ecosystem_score,
+                verdict_text,
+                // sector_percentiles, // JSONB
+
+                source: 'market_state_cron',
                 updated_at: now
             });
         }
 
-        // E. Bulk Upsert
+        // F. Bulk Upsert
         if (rowsToUpsert.length > 0) {
             const { error } = await supabase
                 .from('fintra_market_state')
@@ -168,8 +293,8 @@ export async function runMarketStateBulk(targetTicker?: string, limit?: number) 
     };
 
     // Process all tickers in chunks
-    for (let i = 0; i < allTickers.length; i += 100) {
-        const chunk = allTickers.slice(i, i + 100);
+    for (let i = 0; i < allTickers.length; i += BATCH_SIZE) {
+        const chunk = allTickers.slice(i, i + BATCH_SIZE);
         await processChunk(chunk);
         processed += chunk.length;
     }
@@ -177,7 +302,7 @@ export async function runMarketStateBulk(targetTicker?: string, limit?: number) 
     console.log(`✅ Market State Update Complete. Processed: ${processed}, Upserted: ${upserted}`);
     return { success: true, processed, upserted };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Critical Error in Market State Bulk:', error);
     throw error;
   }

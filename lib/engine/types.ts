@@ -30,6 +30,8 @@ export interface FgosResult {
   fgos_category: FgosCategory;
   fgos_breakdown: FgosBreakdown;
   confidence: number;
+  confidence_label?: 'High' | 'Medium' | 'Low';
+  fgos_status?: 'Mature' | 'Developing' | 'Early-stage' | 'Incomplete';
   quality_warnings?: string[];
   calculated_at: string;
 }

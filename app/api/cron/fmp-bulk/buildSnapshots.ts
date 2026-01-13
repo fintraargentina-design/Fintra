@@ -176,7 +176,13 @@ export async function buildSnapshot(
     fgos_confidence: fgos?.confidence ?? null,
     peers: null, // Pending implementation
 
-    valuation: valuation,
+    valuation: valuation ?? {
+      pe_ratio: null,
+      ev_ebitda: null,
+      price_to_fcf: null,
+      valuation_status: 'pending',
+      // reason: 'Data missing'
+    },
     market_position: marketPosition,
     investment_verdict: investmentVerdict,
 

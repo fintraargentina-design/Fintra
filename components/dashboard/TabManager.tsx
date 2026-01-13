@@ -1,166 +1,43 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import { X } from 'lucide-react';
+import { useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { X } from 'lucide-react';
 import TickerDetailView from '@/components/dashboard/TickerDetailView';
+import { useTabContext } from '@/components/providers/TabProvider';
 
+// We keep the props interface for compatibility, but mark them optional/deprecated
 interface TabManagerProps {
-  requestedTicker: string;
+  requestedTicker?: string;
   onActiveTickerChange?: (ticker: string) => void;
 }
 
 export default function TabManager({ requestedTicker, onActiveTickerChange }: TabManagerProps) {
-  // Constants
-  const MAX_OPEN_TABS = 6;
+  const { openTickers, activeTicker, openOrActivateTicker, closeTab } = useTabContext();
 
-  // Initialize with the passed ticker if available
-  const [openTickers, setOpenTickers] = useState<string[]>(() => 
-    requestedTicker ? [requestedTicker] : []
-  );
-  
-  // LRU Tracking: Index 0 = Least Recently Used, Index N = Most Recently Used
-  // Must be kept in sync with openTickers
-  const [lruOrder, setLruOrder] = useState<string[]>(() => 
-    requestedTicker ? [requestedTicker] : []
-  );
-
-  const [activeTicker, setActiveTicker] = useState<string>(requestedTicker || '');
-
-  // --- CORE CONTRACT: Open or Activate Ticker ---
-  const openOrActivateTicker = (ticker: string) => {
-    if (!ticker || ticker === 'N/A') return;
-    const normalizedTicker = ticker.toUpperCase();
-
-    // 1. Check if already open
-    if (openTickers.includes(normalizedTicker)) {
-      // Update Recency: Move to end
-      setLruOrder(prev => {
-        const filtered = prev.filter(t => t !== normalizedTicker);
-        return [...filtered, normalizedTicker];
-      });
-      
-      // Activate if needed
-      if (activeTicker !== normalizedTicker) {
-        setActiveTicker(normalizedTicker);
-        onActiveTickerChange?.(normalizedTicker);
-      }
-      return;
-    }
-
-    // 2. New Ticker: Check limits and evict if necessary
-    if (openTickers.length < MAX_OPEN_TABS) {
-      // Case A: Space available
-      setOpenTickers(prev => [...prev, normalizedTicker]);
-      setLruOrder(prev => [...prev, normalizedTicker]); // Simple append since it wasn't there
-      setActiveTicker(normalizedTicker);
-      onActiveTickerChange?.(normalizedTicker);
-    } else {
-      // Case B: Eviction needed
-      // Identify victim from current LRU state
-      let victim = lruOrder[0];
-      
-      // SAFETY: The ACTIVE tab must NEVER be evicted.
-      // If the LRU tab is somehow the active one, pick the next one.
-      if (victim === activeTicker) {
-        const candidate = lruOrder.find(t => t !== activeTicker);
-        if (candidate) victim = candidate;
-      }
-
-      // Execute Eviction and Addition
-      if (victim) {
-        setOpenTickers(prev => prev.filter(t => t !== victim).concat(normalizedTicker));
-        setLruOrder(prev => prev.filter(t => t !== victim && t !== normalizedTicker).concat(normalizedTicker));
-        setActiveTicker(normalizedTicker);
-        onActiveTickerChange?.(normalizedTicker);
-      }
-    }
-  };
-
-  // --- URL Synchronization (STEP 7) ---
-  const pathname = usePathname();
-  const router = useRouter();
-
-  // 1. URL -> State (Initial Load & PopState)
+  // Sync requestedTicker from parent (StockTerminal) to Context
   useEffect(() => {
-    if (pathname && pathname !== '/') {
-      const parts = pathname.split('/').filter(Boolean);
-      const urlTicker = parts.length > 0 ? parts[0] : null;
-      
-      if (urlTicker && urlTicker.toUpperCase() !== activeTicker) {
-        openOrActivateTicker(urlTicker);
-      }
-    }
-  }, [pathname]); // activeTicker excluded to prevent revert loops
+    if (!requestedTicker) return;
+    if (requestedTicker === activeTicker) return;
+    openOrActivateTicker(requestedTicker);
+  }, [requestedTicker, activeTicker, openOrActivateTicker]);
 
-  // 2. State -> URL (Active Tab Change)
-  useEffect(() => {
-    if (activeTicker) {
-      const targetPath = `/${activeTicker}`;
-      // Prevent redundant updates or loops
-      if (pathname !== targetPath) {
-        router.push(targetPath, { scroll: false });
-      }
-    }
-  }, [activeTicker]);
-
-  // --- External Request Handling ---
-  useEffect(() => {
-    if (requestedTicker) {
-      openOrActivateTicker(requestedTicker);
-    }
-  }, [requestedTicker]);
-
-  // --- Interaction Handlers ---
-
-  const closeTab = (tickerToClose: string) => {
-    // 1. Calculate new list
-    const newTickers = openTickers.filter(t => t !== tickerToClose);
-    
-    // 2. Determine next active ticker if we are closing the active one
-    let nextActive = activeTicker;
-    if (tickerToClose === activeTicker) {
-      if (newTickers.length > 0) {
-        const closedIndex = openTickers.indexOf(tickerToClose);
-        // Try to go left (previous), otherwise stay at 0
-        const newActiveIndex = Math.max(0, closedIndex - 1);
-        nextActive = newTickers[Math.min(newActiveIndex, newTickers.length - 1)];
-      } else {
-        nextActive = '';
-      }
-    }
-
-    // 3. Update state
-    setOpenTickers(newTickers);
-    // Important: Remove from LRU tracking as well
-    setLruOrder(prev => prev.filter(t => t !== tickerToClose));
-
-    // 4. Activate the fallback ticker (using the contract)
-    if (nextActive) {
-      // openOrActivateTicker will handle the activation and LRU update for the fallback
-      // Note: nextActive is already in newTickers, so it hits the "already open" path.
-      openOrActivateTicker(nextActive);
-    } else {
-      // No tabs left
-      setActiveTicker('');
-      onActiveTickerChange?.('');
-    }
-  };
-
+  // Handle local interactions via context
   const handleTickerChange = (newTicker: string) => {
     openOrActivateTicker(newTicker);
+    onActiveTickerChange?.(newTicker);
   };
 
   const activateTab = (ticker: string) => {
     openOrActivateTicker(ticker);
-  }
+    onActiveTickerChange?.(ticker);
+  };
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-transparent">
       {/* Custom Tab Bar */}
       <div className="h-[26px] flex w-full overflow-x-auto border-b border-zinc-800 bg-transparent scrollbar-thin">
-        {openTickers.map(ticker => {
+        {Array.from(new Set(openTickers)).map(ticker => {
           const isActive = ticker === activeTicker;
           return (
             <div
@@ -198,7 +75,7 @@ export default function TabManager({ requestedTicker, onActiveTickerChange }: Ta
             No active tickers
           </div>
         ) : (
-          openTickers.map(ticker => {
+          Array.from(new Set(openTickers)).map(ticker => {
             const isActive = ticker === activeTicker;
             return (
               <div

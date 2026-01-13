@@ -18,6 +18,7 @@ export async function searchStocks(query: string): Promise<UnifiedSearchResult[]
     .from('fintra_universe')
     .select('ticker, name, exchange, currency, is_active')
     .or(`ticker.ilike.${query}%,name.ilike.%${query}%`)
+    .order('ticker', { ascending: true })
     .limit(10);
 
   if (error) {

@@ -69,8 +69,9 @@ export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: st
       if (selectedIndex >= 0 && selectedIndex < results.length) {
         handleSelect(results[selectedIndex]);
       } else if (results.length > 0) {
-        // Default to first result if none selected
-        handleSelect(results[0]);
+        // Default to exact match if exists, otherwise first result
+        const exactMatch = results.find(r => r.ticker.toLowerCase() === query.toLowerCase());
+        handleSelect(exactMatch || results[0]);
       }
     } else if (e.key === 'Escape') {
       setOpen(false);

@@ -8,6 +8,7 @@ import { getHeatmapColor, formatMarketCap } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { getAvailableSectors } from "@/lib/repository/fintra-db";
 import { Loader2 } from "lucide-react";
+import { FgosScoreCell } from "@/components/ui/FgosScoreCell";
 
 // Local interface definition to avoid importing from services that might depend on API clients
 interface EnrichedStockData {
@@ -20,6 +21,7 @@ interface EnrichedStockData {
   estimation: number | null;
   targetPrice: number | null;
   fgos: number;
+  confidenceLabel?: string;
   valuation: string;
   ecosystem: number;
 }
@@ -85,12 +87,13 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
       const from = pageNum * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
-      // Query ONLY fintra_snapshots
+      // Query ONLY fintra_market_state
+      // NOTE: fgos_confidence_label commented out until migration is applied
       const { data: snapshots, error } = await supabase
-        .from('fintra_snapshots')
-        .select('ticker, fgos_score, valuation, investment_verdict, created_at')
+        .from('fintra_market_state')
+        .select('ticker, price, market_cap, ytd_return, fgos_score, valuation_status, ecosystem_score')
         .eq('sector', selectedSector)
-        .order('created_at', { ascending: false })
+        .order('fgos_score', { ascending: false, nullsFirst: false }) // Sort by FGOS by default as per UI intent
         .range(from, to);
 
       if (error) throw error;
@@ -104,58 +107,32 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
           setHasMore(false);
       }
 
-      // Deduplicate tickers defensively (latest snapshot per ticker within this batch)
-      const snapMap = new Map<string, any>();
-      const uniqueTickers: string[] = [];
-      
-      snapshots.forEach((row: any) => {
-        if (!snapMap.has(row.ticker)) {
-          snapMap.set(row.ticker, row);
-          uniqueTickers.push(row.ticker);
-        }
-      });
-      
-      // Fetch ecosystem scores for these tickers
-      const { data: eco } = await supabase
-        .from('fintra_ecosystem_reports')
-        .select('ticker, ecosystem_score, date')
-        .in('ticker', uniqueTickers)
-        .order('date', { ascending: false });
-
-      const ecoMap = new Map<string, number>();
-      (eco || []).forEach((row: any) => {
-        if (!ecoMap.has(row.ticker)) ecoMap.set(row.ticker, row.ecosystem_score);
-      });
-
-      // Map to EnrichedStockData with NULL/defaults for missing fields
-      const enriched: EnrichedStockData[] = uniqueTickers.map((t) => {
-        const s = snapMap.get(t) || {};
-        const e = ecoMap.get(t);
-        return {
-          ticker: t,
-          name: t, // Use ticker as name since we don't fetch profile
-          price: null,
-          marketCap: null,
-          ytd: null,
-          divYield: null,
-          estimation: null,
+      // Map to EnrichedStockData
+      const enriched: EnrichedStockData[] = snapshots.map((row: any) => ({
+          ticker: row.ticker,
+          name: row.ticker, // row.company_name not available yet
+          price: row.price,
+          marketCap: row.market_cap,
+          ytd: row.ytd_return,
+          divYield: null, // Not in market_state yet
+          estimation: null, // Not in market_state yet
           targetPrice: null,
-          fgos: s?.fgos_score ?? 0,
-          valuation: s?.valuation_status ?? s?.valuation?.valuation_status ?? "N/A",
-          ecosystem: e ?? 50
-        };
-      });
+          fgos: row.fgos_score ?? 0,
+          confidenceLabel: row.fgos_confidence_label,
+          valuation: row.valuation_status || "N/A",
+          ecosystem: row.ecosystem_score ?? 50
+      }));
 
       setStocks(prev => {
         if (isNewSector) {
-          return enriched.sort((a, b) => b.fgos - a.fgos);
+          return enriched;
         }
         
-        // Evitar duplicados revisando si el ticker ya existe en el estado global
+        // Evitar duplicados
         const existingTickers = new Set(prev.map(p => p.ticker));
         const newUnique = enriched.filter(e => !existingTickers.has(e.ticker));
         
-        return [...prev, ...newUnique].sort((a, b) => b.fgos - a.fgos);
+        return [...prev, ...newUnique];
       });
     } catch (err) {
       console.error("Error loading sector data:", err);
@@ -271,11 +248,8 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                   onClick={() => onStockSelect?.(stock.ticker)}
                 >
                   <TableCell className="font-bold text-white px-2 py-0.5 text-xs">{stock.ticker}</TableCell>
-                  <TableCell 
-                    className="text-center px-2 py-0.5 text-[10px] font-bold text-white"
-                    style={{ backgroundColor: stock.fgos ? getHeatmapColor(stock.fgos - 50) : 'transparent' }}
-                  >
-                    {stock.fgos || '-'}
+                  <TableCell className="text-center px-2 py-0.5">
+                    <FgosScoreCell score={stock.fgos} confidenceLabel={stock.confidenceLabel} />
                   </TableCell>
                   <TableCell className="text-center px-2 py-0.5">
                     {getValBadge(stock.valuation)}

@@ -3,6 +3,7 @@ import { fetchAllFmpData } from './fetchBulk';
 import { buildSnapshot } from './buildSnapshots';
 import { upsertSnapshots } from './upsertSnapshots';
 import { getActiveStockTickers } from '@/lib/repository/active-stocks';
+import { fetchFinancialHistory, computeGrowthRows } from './fetchGrowthData';
 
 export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
   const fmpKey = process.env.FMP_API_KEY!;
@@ -106,12 +107,19 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
         
         console.log(`Processing Batch ${batchIndex}/${totalBatches} (${batchTickers.length} items)...`);
 
+        // Fetch Financial History for Growth Calculation
+        const historyMap = await fetchFinancialHistory(supabase, batchTickers);
+
         const batchPromises = batchTickers.map(async (ticker) => {
             try {
                 const profile = profilesMap.get(ticker) || null;
                 const ratios = ratiosMap.get(ticker) || null;
                 const metrics = metricsMap.get(ticker) || null;
                 const scores = scoresMap.get(ticker) || null;
+
+                // Compute Growth
+                const history = historyMap.get(ticker) || [];
+                const growthRows = computeGrowthRows(history);
 
                 return await buildSnapshot(
                     ticker,
@@ -121,8 +129,8 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
                     null, // quote (not available in bulk)
                     null, // priceChange (not available in bulk)
                     scores,
-                    [], // incomeGrowthRows (handled by separate cron)
-                    []  // cashflowGrowthRows
+                    growthRows, // incomeGrowthRows (computed from DB)
+                    growthRows  // cashflowGrowthRows (same, as fetchFinancialHistory gets both)
                 );
             } catch (err: any) {
                 console.error(`❌ CRITICAL ERROR building snapshot for ${ticker}:`, err.message);
@@ -132,7 +140,15 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
 
         // Wait for current batch to finish before starting next
         const batchResults = await Promise.all(batchPromises);
-        snapshots.push(...batchResults.filter(s => s !== null));
+        const validSnapshots = batchResults.filter(s => s !== null);
+        snapshots.push(...validSnapshots);
+        
+        // FLUSH to DB every 500 snapshots to prevent memory overflow and data loss on stop
+        if (snapshots.length >= 500) {
+            console.log(`💾 Flushing ${snapshots.length} snapshots to DB...`);
+            await upsertSnapshots(supabase, snapshots);
+            snapshots.length = 0; // Clear array
+        }
         
         // Optional: Small breathing room for the event loop
         if (global.gc) {

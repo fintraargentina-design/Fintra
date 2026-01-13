@@ -335,6 +335,7 @@ export async function getUnifiedStockData(symbol: string) {
         analysisData = {
             symbol: ticker,
             fgos_score: snapshot.fgos_score,
+            fgos_breakdown: snapshot.fgos_components || snapshot.fgos_breakdown, // Map components to breakdown for UI
             valuation_status: snapshot.valuation?.valuation_status,
             investment_verdict: snapshot.investment_verdict,
             // Map legacy fields if needed

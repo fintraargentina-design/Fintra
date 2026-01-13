@@ -227,7 +227,7 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
   };
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="w-full h-full flex flex-col bg-[#0A0A0A]">
         {/* Overview Section - Always visible */}
         <div className="shrink-0 w-full border-zinc-800 h-[6%] overflow-hidden py-0 bg-tarjetas">
             <OverviewCard
