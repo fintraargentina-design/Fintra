@@ -106,21 +106,30 @@ export type ResumenData = {
 export async function getResumenData(ticker: string): Promise<ResumenData> {
   const upperTicker = ticker.toUpperCase();
 
-  // 1. Identity (fintra_universe)
+  // 1. Identity & Structure (fintra_universe)
+  // We only get structural fields here. Descriptive profile data comes from company_profile.
   const universeQuery = supabase
     .from('fintra_universe')
-    .select('ticker, name, sector, industry, country, exchange, website, ceo, full_time_employees, description')
+    .select('ticker, exchange')
     .eq('ticker', upperTicker)
     .maybeSingle();
 
-  // 2. Market (fintra_market_state)
+  // 2. Descriptive Profile (company_profile)
+  // Source of truth for name, sector, industry, description, etc.
+  const profileQuery = supabase
+    .from('company_profile')
+    .select('company_name, sector, industry, country, website, ceo, employees, description')
+    .eq('ticker', upperTicker)
+    .maybeSingle();
+
+  // 3. Market (fintra_market_state)
   const marketQuery = supabase
     .from('fintra_market_state')
     .select('price, market_cap, change_percentage, ytd_return, volume, beta, fgos_score, fgos_confidence_label')
     .eq('ticker', upperTicker)
     .maybeSingle();
 
-  // 3. Analysis (fintra_snapshots)
+  // 4. Analysis (fintra_snapshots)
   const snapshotQuery = supabase
     .from('fintra_snapshots')
     .select('profile_structural, fgos_maturity, fgos_confidence_percent')
@@ -129,13 +138,15 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
     .limit(1)
     .maybeSingle();
 
-  const [universeRes, marketRes, snapshotRes] = await Promise.all([
+  const [universeRes, profileRes, marketRes, snapshotRes] = await Promise.all([
     universeQuery,
+    profileQuery,
     marketQuery,
     snapshotQuery
   ]);
 
   const u: any = universeRes.data || {};
+  const p: any = profileRes.data || {};
   const m: any = marketRes.data || {};
   const s: any = snapshotRes.data || {};
   
@@ -146,15 +157,15 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
   const result: ResumenData = {
     // Identity
     ticker: u.ticker || upperTicker,
-    name: u.name || null,
-    sector: u.sector || null,
-    industry: u.industry || null,
-    country: u.country || null,
+    name: p.company_name || null,
+    sector: p.sector || null,
+    industry: p.industry || null,
+    country: p.country || null,
     exchange: u.exchange || null,
-    website: u.website || null,
-    ceo: u.ceo || null,
-    employees: u.full_time_employees || null,
-    description: u.description || null,
+    website: p.website || null,
+    ceo: p.ceo || null,
+    employees: p.employees || null,
+    description: p.description || null,
 
     // Market
     price: m.price || null,
