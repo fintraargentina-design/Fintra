@@ -88,10 +88,9 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
       const to = from + PAGE_SIZE - 1;
 
       // Query ONLY fintra_market_state
-      // NOTE: fgos_confidence_label commented out until migration is applied
       const { data: snapshots, error } = await supabase
         .from('fintra_market_state')
-        .select('ticker, price, market_cap, ytd_return, fgos_score, valuation_status, ecosystem_score')
+        .select('ticker, price, market_cap, ytd_return, fgos_score, valuation_status, ecosystem_score, fgos_confidence_label')
         .eq('sector', selectedSector)
         .order('fgos_score', { ascending: false, nullsFirst: false }) // Sort by FGOS by default as per UI intent
         .range(from, to);

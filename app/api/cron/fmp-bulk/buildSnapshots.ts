@@ -102,6 +102,36 @@ export async function buildSnapshot(
   /* --------------------------------
      FGOS (NUNCA DESCARTA SNAPSHOT)
   -------------------------------- */
+  // Prepare Confidence Inputs
+  let years_since_ipo = 10;
+  if (profile?.ipoDate) {
+    const ipo = new Date(profile.ipoDate);
+    const now = new Date();
+    if (!isNaN(ipo.getTime())) {
+      years_since_ipo = (now.getTime() - ipo.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+    }
+  }
+
+  const financial_history_years = incomeGrowthRows.length > 0 ? incomeGrowthRows.length + 1 : 0;
+
+  let earnings_volatility_class: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM';
+  if (incomeGrowthRows.length >= 2) {
+      const growthRates = incomeGrowthRows.map(r => r.growthRevenue).filter((g: any) => typeof g === 'number');
+      if (growthRates.length >= 2) {
+          const mean = growthRates.reduce((a: number, b: number) => a + b, 0) / growthRates.length;
+          const variance = growthRates.reduce((a: number, b: number) => a + Math.pow(b - mean, 2), 0) / growthRates.length;
+          const stdDev = Math.sqrt(variance);
+          if (stdDev < 0.15) earnings_volatility_class = 'LOW';
+          else if (stdDev > 0.40) earnings_volatility_class = 'HIGH';
+      }
+  }
+
+  const confidenceInputs = {
+      financial_history_years,
+      years_since_ipo,
+      earnings_volatility_class
+  };
+
   const fgos =
     sector
       ? await calculateFGOSFromData(
@@ -110,6 +140,7 @@ export async function buildSnapshot(
           ratios ?? {},
           metrics ?? {},
           fundamentalsGrowth,
+          confidenceInputs,
           quote ?? {},
           today
         )
@@ -173,7 +204,9 @@ export async function buildSnapshot(
     fgos_components: fgos?.fgos_breakdown ?? null,
     fgos_status: fgosStatus,
     fgos_category: fgos?.fgos_category ?? null,
-    fgos_confidence: fgos?.confidence ?? null,
+    fgos_confidence_percent: fgos?.confidence ?? null,
+    fgos_confidence_label: fgos?.confidence_label ?? null,
+    fgos_maturity: fgos?.fgos_status ?? null,
     peers: null, // Pending implementation
 
     valuation: valuation ?? {

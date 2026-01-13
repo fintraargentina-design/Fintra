@@ -23,17 +23,18 @@ async function main() {
     const { runPricesDailyBulk } = await import('@/app/api/cron/prices-daily-bulk/core');
     const { runFinancialsBulk } = await import('@/app/api/cron/financials-bulk/core');
     const { runFmpBulk } = await import('@/app/api/cron/fmp-bulk/core');
+    const { runCompanyProfileBulk } = await import('@/app/api/cron/company-profile-bulk/core');
     const { runValuationBulk } = await import('@/app/api/cron/valuation-bulk/core');
     const { runSectorBenchmarks } = await import('@/app/api/cron/sector-benchmarks/core');
     const { runPerformanceBulk } = await import('@/app/api/cron/performance-bulk/core');
     const { runMarketStateBulk } = await import('@/app/api/cron/market-state-bulk/core');
 
-    // Parse limit from CLI args, default to 10000
+    // Parse limit from CLI args, default to 0 (ALL)
     const args = process.argv.slice(2);
-    const limitArg = args[0] ? parseInt(args[0], 10) : 10000;
-    const LIMIT = isNaN(limitArg) ? 10000 : limitArg;
+    const limitArg = args[0] ? parseInt(args[0], 10) : 0;
+    const LIMIT = isNaN(limitArg) ? 0 : limitArg;
 
-    console.log(`🚀 [Script] Starting Master Cron with LIMIT=${LIMIT}...`);
+    console.log(`🚀 [Script] Starting Master Cron with LIMIT=${LIMIT === 0 ? 'ALL' : LIMIT}...`);
 
     try {
         // 1. Sync Universe
@@ -51,6 +52,10 @@ async function main() {
         // 4. Snapshots
         console.log('\n--- 4. FMP Bulk (Snapshots) ---');
         await runFmpBulk(undefined, LIMIT);
+
+        // 4.5 Company Profile
+        console.log('\n--- 4.5 Company Profile ---');
+        await runCompanyProfileBulk(LIMIT);
 
         // 5. Valuation
         console.log('\n--- 5. Valuation Bulk ---');

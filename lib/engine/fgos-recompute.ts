@@ -105,7 +105,7 @@ export function computeFGOS(
 ): {
   fgos_score: number | null;
   fgos_category: FgosCategory;
-  fgos_confidence: number;
+  fgos_confidence_percent: number;
   fgos_confidence_label?: 'High' | 'Medium' | 'Low';
   fgos_status: 'computed' | 'pending' | 'Mature' | 'Developing' | 'Early-stage' | 'Incomplete';
   fgos_components: FgosBreakdown;
@@ -116,7 +116,7 @@ export function computeFGOS(
     return {
       fgos_score: null,
       fgos_category: 'Pending',
-      fgos_confidence: 0,
+      fgos_confidence_percent: 0,
       fgos_confidence_label: 'Low',
       fgos_status: 'pending',
       fgos_components: { growth: null, profitability: null, efficiency: null, solvency: null }
@@ -126,7 +126,7 @@ export function computeFGOS(
     return {
       fgos_score: null,
       fgos_category: 'Pending',
-      fgos_confidence: 0,
+      fgos_confidence_percent: 0,
       fgos_confidence_label: 'Low',
       fgos_status: 'pending',
       fgos_components: { growth: null, profitability: null, efficiency: null, solvency: null }
@@ -136,7 +136,7 @@ export function computeFGOS(
     return {
       fgos_score: null,
       fgos_category: 'Pending',
-      fgos_confidence: 0,
+      fgos_confidence_percent: 0,
       fgos_confidence_label: 'Low',
       fgos_status: 'pending',
       fgos_components: { growth: null, profitability: null, efficiency: null, solvency: null }
@@ -200,7 +200,7 @@ export function computeFGOS(
     return {
       fgos_score: null,
       fgos_category: 'Pending',
-      fgos_confidence: confidenceResult.confidence_percent,
+      fgos_confidence_percent: confidenceResult.confidence_percent,
       fgos_confidence_label: confidenceResult.confidence_label,
       fgos_components: {
         growth: growthScore,
@@ -248,7 +248,7 @@ export function computeFGOS(
   return {
     fgos_score: brakes.adjustedScore,
     fgos_category: category,
-    fgos_confidence: confidenceResult.confidence_percent,
+    fgos_confidence_percent: confidenceResult.confidence_percent,
     fgos_confidence_label: confidenceResult.confidence_label,
     fgos_components: {
       growth: growthScore,
@@ -404,7 +404,7 @@ export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: stri
         fgos_score: result.fgos_score, 
         fgos_components: result.fgos_components,
         fgos_category: result.fgos_category,
-        fgos_confidence: result.fgos_confidence,
+        fgos_confidence_percent: result.fgos_confidence_percent,
         fgos_status: result.fgos_score !== null ? 'computed' : 'pending', // Workflow status
         // Store new Phase 2 fields in JSONB or new columns?
         // Ideally we should have columns. For now I'll put them in fgos_components or extended fields if columns missing.
@@ -413,7 +413,7 @@ export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: stri
         fgos_confidence_label: result.fgos_confidence_label,
         fgos_maturity: result.fgos_status, // Mapping "Mature/Developing..." to fgos_maturity column
         engine_version: 'v3.1-confidence-layer' 
-    })
+    } as any)
     .eq('ticker', ticker)
     .eq('snapshot_date', date);
 

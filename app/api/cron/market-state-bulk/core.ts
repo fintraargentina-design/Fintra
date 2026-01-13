@@ -30,10 +30,6 @@ export async function runMarketStateBulk(targetTicker?: string, limit?: number) 
         universeQuery.eq('is_active', true);
     }
 
-    if (limit && limit > 0 && !targetTicker) {
-        universeQuery.limit(limit);
-    }
-
     // Handle pagination for universe manually if needed, but supabase-js limit is high.
     // We'll use a loop to be safe for large universe.
     let page = 0;
@@ -44,6 +40,12 @@ export async function runMarketStateBulk(targetTicker?: string, limit?: number) 
         if (error) throw new Error(`Error fetching universe: ${error.message}`);
         if (!data || data.length === 0) break;
         allTickers.push(...data);
+        
+        if (limit && limit > 0 && allTickers.length >= limit) {
+            allTickers = allTickers.slice(0, limit);
+            break;
+        }
+
         if (data.length < UNIVERSE_BATCH) break;
         if (targetTicker) break; 
         page++;
@@ -91,7 +93,7 @@ export async function runMarketStateBulk(targetTicker?: string, limit?: number) 
         // Need: price, changes (for change/change_pct), last_price_date, fgos_score, valuation (contains status), verdict_text, ecosystem_score (if in snap)
         const { data: snapshots, error: snapError } = await supabase
             .from('fintra_snapshots')
-            .select('ticker, profile_structural, snapshot_date, fgos_score, fgos_confidence_label, valuation, investment_verdict')
+            .select('ticker, profile_structural, snapshot_date, fgos_score, fgos_confidence_label, fgos_confidence_percent, valuation, investment_verdict')
             .in('ticker', tickers)
             .order('snapshot_date', { ascending: false }); 
         
@@ -195,6 +197,7 @@ export async function runMarketStateBulk(targetTicker?: string, limit?: number) 
             // --- Analytics ---
             const fgos_score = snap?.fgos_score ?? null;
             const fgos_confidence_label = snap?.fgos_confidence_label ?? null;
+            const fgos_confidence_percent = snap?.fgos_confidence_percent ?? null;
             // valuation_status is inside valuation JSONB
             let valuation_status = null;
             if (snap?.valuation && typeof snap.valuation === 'object') {
@@ -268,6 +271,7 @@ export async function runMarketStateBulk(targetTicker?: string, limit?: number) 
                 // Analytics
                 fgos_score,
                 fgos_confidence_label,
+                fgos_confidence_percent,
                 valuation_status,
                 ecosystem_score,
                 verdict_text,

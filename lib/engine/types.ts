@@ -170,7 +170,9 @@ export interface FinancialSnapshot {
   fgos_components: FgosBreakdown | null;
   fgos_status?: string | null;
   fgos_category?: string | null;
-  fgos_confidence?: number | null;
+  fgos_confidence_percent?: number | null;
+  fgos_confidence_label?: string | null;
+  fgos_maturity?: string | null;
   peers?: any | null;
   valuation: ValuationResult | null;
   market_position: MarketPosition | null;

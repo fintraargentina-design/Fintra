@@ -46,7 +46,7 @@ export default function TabManager({ requestedTicker, onActiveTickerChange }: Ta
               className={cn(
                 "group flex items-center gap-2 px-4 py-2 text-xs font-medium border-zinc-800 cursor-pointer select-none transition-colors min-w-[100px] justify-between",
                 isActive
-                  ? "border-t-2 border-[#0056FF] text-white"
+                  ? "border-t-2 border-[#0056FF] bg-[#0A0A0A] text-white"
                   : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
               )}
             >

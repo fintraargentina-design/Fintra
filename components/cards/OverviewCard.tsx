@@ -117,10 +117,10 @@ export default function OverviewCard({
   return (
     <Card className="bg-tarjetas border-none shadow-lg w-full h-full flex flex-col group relative overflow-hidden rounded-none">
       <CardContent className="p-0 flex flex-col h-full">
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr] gap-0 items-center border-b border-zinc-800 bg-[#1D1D1D] h-full">
+        <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-0 items-center border-b border-zinc-800 bg-[#1D1D1D] h-full">
             
             {/* 1. STOCK: Logo, Ticker, Nombre */}
-            <div className="flex items-center gap-3 px-0.5 h-full">
+            <div className="flex items-center gap-1 px-0.5 h-full">
                   <div className="relative h-full aspect-square flex items-center justify-center overflow-hidden border-none rounded-none shrink-0">
                     {d.logo_url ? (
                       <img 
@@ -139,25 +139,26 @@ export default function OverviewCard({
                     </span>
                   </div>
                 <div className="flex flex-col min-w-0 justify-center">
-                    <span className="text-gray-400 text-[16px] leading-tight font-medium truncate max-w-[150px]" title={d.name || ""}>
+                    <span className="text-gray-400 text-[12px] leading-tight font-medium truncate max-w-[150px]" title={d.name || ""}>
                         {d.name || (loading || isParentLoading ? "Cargando..." : "N/A")}
                     </span>
                 </div>
             </div>
 
             {/* 2. PRECIO */}
-            <div className="flex  items-center gap-3 justify-center px-1 py-1  h-full">
+            <div className="flex flex-col items-center justify-center gap-1 px-1 py-1 h-full">
                 <div className="text-base text-white leading-none">
                   {Number.isFinite(Number(d.price)) ? `$${Number(d.price).toFixed(2)}` : "N/A"}
                 </div>
-                <div className={`text-[10px] font-medium ${Number(d.change_percentage ?? 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                <span className="text-[9px] uppercase text-zinc-600 font-bold">Precio</span>
+                {/* <div className={`text-[10px] font-medium ${Number(d.change_percentage ?? 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
                   {Number(d.change_percentage ?? 0) >= 0 ? "+" : ""}{Number.isFinite(Number(d.change_percentage)) ? Number(d.change_percentage).toFixed(2) : "0.00"}%
-                </div>
+                </div> */}
             </div>
 
             {/* 3. FGOS */}
-            <div className="flex items-center justify-center px-1 gap-1 h-full">
-                <span className="text-[9px] uppercase text-zinc-600 font-bold">FSS</span>
+            <div className="flex flex-col items-center justify-center px-1 gap-1 h-full">
+                
                 {Number.isFinite(d.fgos_score) ? (
                    <div className={`text-lg font-black leading-none ${getScoreColor(d.fgos_score!)}`}>{d.fgos_score}</div>
                 ) : loading ? (
@@ -165,11 +166,13 @@ export default function OverviewCard({
                 ) : (
                   <div className="text-lg font-black leading-none text-zinc-700">-</div>
                 )}
+<span className="text-[9px] uppercase text-zinc-500 font-bold">I.F.S.</span>
+
             </div>
 
             {/* 4. VALUACIÓN */}
-            <div className="flex flex-col items-center justify-center px-2 h-full">
-                <span className="text-[9px] uppercase text-zinc-600 font-bold tracking-widest mb-1.5">VALUACIÓN</span>
+            <div className="flex flex-col items-center justify-center px-1 gap-1 h-full">
+                
                 {d.valuation_status ? (
                    getValBadge(d.valuation_status)
                 ) : loading ? (
@@ -177,11 +180,12 @@ export default function OverviewCard({
                 ) : (
                    getValBadge(null)
                 )}
+                <span className="text-[9px] uppercase text-zinc-500 font-bold tracking-widest ">VALUACIÓN</span>
             </div>
 
             {/* 5. VEREDICTO */}
             <div className="flex flex-col items-center justify-center px-2 h-full text-center">
-                <span className="text-[9px] uppercase text-zinc-600 font-bold tracking-widest mb-1">VERDICT FINTRA</span>
+                {/* <span className="text-[9px] uppercase text-zinc-600 font-bold tracking-widest mb-1">VERDICT FINTRA</span> */}
                 {d.verdict_text ? (
                   <span className="text-white font-medium text-[10px] leading-tight max-w-[150px] line-clamp-2" title={d.verdict_text}>
                       {d.verdict_text}
@@ -194,20 +198,21 @@ export default function OverviewCard({
             </div>
 
             {/* 6. EHS */}
-            <div className="flex flex-col items-center justify-center px-2 h-full">
-                <span className="text-[9px] uppercase text-zinc-600 font-bold tracking-widest flex items-center gap-1 mb-0.5">
-                    E.H.S. <Activity className="w-3 h-3 text-blue-400"/>
-                </span>
+            <div className="flex flex-col items-center justify-center px-1 gap-1 h-full">
+                
                 {Number.isFinite(d.ecosystem_score) ? (
                    <div className="flex flex-col items-center">
                       <div className="text-lg font-mono text-blue-400 font-bold leading-none">{d.ecosystem_score}</div>
-                      <span className="text-[8px] text-gray-500 font-medium mt-0.5 leading-none">Eco Health</span>
+                      
                    </div>
                 ) : loading ? (
                   <Skeleton className="h-6 w-10 bg-white/10 rounded-sm" />
                 ) : (
                    <div className="text-lg font-mono text-zinc-700 font-bold leading-none">-</div>
                 )}
+                <span className="text-[9px] uppercase text-zinc-500 font-bold tracking-widest flex items-center gap-1 mb-0.5">
+                    ECOSISTEMA
+                </span>
             </div>
         </div>
       </CardContent>
