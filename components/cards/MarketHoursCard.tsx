@@ -119,7 +119,7 @@ export default function MarketHoursCard() {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-thin p-0 pb-2 ">
+      <div className="flex-1 p-0 pb-2 overflow-y-auto">
         {loading && data.length === 0 ? (
            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-0.5 p-0.5">
              {[...Array(10)].map((_, i) => (
@@ -131,7 +131,7 @@ export default function MarketHoursCard() {
              {error}
            </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-0.5 p-0.5">
+         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-0.5 p-0.5">
             {data.map((market, idx) => (
               <Card 
                 key={`${market.name}-${idx}`}

@@ -118,11 +118,14 @@ export default function DividendosTableCard({
         </h4>
       </div> */}
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-0 scrollbar-thin">
-        <Table className="w-full text-sm border-collapse">
-          <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
-            <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
-              <TableHead className="px-2 text-gray-300 text-[12px] h-6 w-[150px] font-light font-nano text-left">Dividendos</TableHead>
+		<div
+			ref={scrollRef as React.RefObject<HTMLDivElement | null>}
+			className="flex-1 p-0 overflow-x-auto overflow-y-hidden"
+		>
+			<Table className="min-w-max text-sm border-collapse">
+			<TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
+			  <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
+				<TableHead className="px-2 text-gray-300 text-[12px] h-6 w-[150px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D]">Dividendos</TableHead>
               {data?.years.map((year, yearIdx) => (
                 year.columns.map(col => (
                     <TableHead key={col} className={`px-2 text-gray-300 text-[10px] h-6 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}>
@@ -132,7 +135,7 @@ export default function DividendosTableCard({
               ))}
             </TableRow>
           </TableHeader>
-          <TableBody>
+			<TableBody>
             {loading ? (
                <TableRow>
                  <TableCell colSpan={100} className="text-center py-8 text-xs text-gray-500">
@@ -147,7 +150,7 @@ export default function DividendosTableCard({
                     key={metric.key} 
                     className={`border-zinc-800 border-b transition-all duration-300 ${isHighlighted ? 'bg-[#FFA028]/10 border-l-2 border-l-[#FFA028] shadow-[inset_0_0_20px_rgba(255,160,40,0.05)]' : 'hover:bg-white/5 border-l-2 border-l-transparent'}`}
                   >
-                  <TableCell className="font-bold text-gray-200 px-2 py-0.5 text-xs w-[100px] border-r border-zinc-800">
+			  	<TableCell className="font-bold text-gray-200 px-2 py-0.5 text-xs w-[100px] border-r border-zinc-800 sticky left-0 z-10 bg-[#0A0A0A]">
                     {metric.label}
                   </TableCell>
                   {data?.years?.map((year, yearIdx) => (
@@ -186,8 +189,8 @@ export default function DividendosTableCard({
               })
             )}
           </TableBody>
-        </Table>
-      </div>
+			</Table>
+		  </div>
     </div>
   );
 }

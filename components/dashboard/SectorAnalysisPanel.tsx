@@ -191,7 +191,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
 
       <Tabs value={selectedSector} onValueChange={handleSectorChange} className="w-full flex-1 flex flex-col min-h-0">
         <div className="w-full border-b border-zinc-800 bg-transparent z-10 shrink-0">
-          <div className="w-full overflow-x-auto scrollbar-thin whitespace-nowrap">
+          <div className="w-full overflow-x-auto whitespace-nowrap">
             <TabsList className="bg-transparent h-auto p-0 flex min-w-full w-max gap-0.5 border-b-2 border-black ">
               {sectors.map((sector) => (
                 <TabsTrigger 
@@ -212,9 +212,9 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
           </h4>
         </div>
 
-        <div 
-          className="flex-1 overflow-y-auto scrollbar-thin relative p-0 border border-t-0 border-zinc-800"
+        <div
           ref={scrollContainerRef}
+          className="flex-1 relative p-0 border border-t-0 border-zinc-800 overflow-y-auto"
           onScroll={handleScroll}
         >
           <table className="w-full text-sm">

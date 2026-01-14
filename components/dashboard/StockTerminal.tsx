@@ -59,7 +59,7 @@ export default function StockTerminal() {
                     
                     <div className="w-full border-b border-zinc-800 bg-transparent z-10 shrink-0">
                       
-                      <div className="w-full flex items-center justify-between gap-2 overflow-x-auto scrollbar-thin whitespace-nowrap">
+                      <div className="w-full flex items-center justify-between gap-2 overflow-x-auto whitespace-nowrap">
                         <div className="flex items-center px-0 shrink-0">
                           <img src={FintraLogo.src} alt="Fintra Logo" className=" h-6 ml-2" />
                           {/* <h1 className="text-l font-medium text-[#FFA028] truncate">

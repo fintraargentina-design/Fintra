@@ -192,7 +192,7 @@ export default function TickerSearchPanel({ onStockSelect }: { onStockSelect?: (
   return (
      <div className="flex flex-row h-full bg-tarjetas overflow-hidden">
         {/* Filters Toolbar - Sidebar */}
-        <div className="w-[260px] p-3 border-r border-zinc-800 bg-[#121212] shrink-0 flex flex-col overflow-y-auto scrollbar-thin">
+        <div className="w-[260px] p-3 border-r border-zinc-800 bg-[#121212] shrink-0 flex flex-col overflow-y-auto">
            <div className="flex flex-col gap-3 mb-4">
               <div className="space-y-1">
                   <Label className="text-[9px] uppercase text-gray-500 font-bold">Sector</Label>
@@ -362,7 +362,7 @@ export default function TickerSearchPanel({ onStockSelect }: { onStockSelect?: (
         </div>
 
         {/* Results Table */}
-        <div className="flex-1 overflow-auto scrollbar-thin relative bg-[#0A0A0A]">
+        <div className="flex-1 overflow-auto relative bg-[#0A0A0A]">
            <Table>
               <TableHeader className="sticky top-0 bg-[#1D1D1D] z-10 shadow-sm">
                  <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] border-b-0">

@@ -200,29 +200,6 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
       fgos_maturity: s.fgos_maturity
     }) : null
   };
-
-  // --- MOCK DATA FOR VALIDATION (PHASE 4) ---
-  // Remove this block after DB migrations 20260113100000 and 20260113140000 are applied.
-  if (upperTicker === 'AAPL' && result.fgos_status === null) {
-      result.fgos_score = 88;
-      result.fgos_confidence_label = 'High';
-      result.fgos_status = 'Mature';
-      result.fgos_confidence_percent = 95;
-  }
-  if (upperTicker === 'IPO_TEST' && result.fgos_status === null) {
-      result.fgos_score = 75;
-      result.fgos_confidence_label = 'Low';
-      result.fgos_status = 'Early-stage';
-      result.fgos_confidence_percent = 45;
-  }
-  if (upperTicker === 'PENDING_TEST' && result.fgos_status === null) {
-      result.fgos_score = null;
-      result.fgos_confidence_label = null;
-      result.fgos_status = 'Incomplete';
-      result.fgos_confidence_percent = null;
-  }
-  // ------------------------------------------
-
   return result;
 }
 

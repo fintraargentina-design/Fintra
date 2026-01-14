@@ -299,8 +299,8 @@ export default function DatosTab({
           )}
       </div>
 
-      <div className="flex-1 flex flex-col gap-1 overflow-y-auto scrollbar-thin">
-        <div className="bg-tarjetas border border-zinc-800">
+		<div className="flex-1 flex flex-col gap-1 overflow-y-auto">
+			<div className="bg-tarjetas border border-zinc-800">
           <FundamentalCard 
             symbol={symbol} 
             peerTicker={peerTicker}
@@ -309,7 +309,7 @@ export default function DatosTab({
             timelineData={timelineData}
           />
         </div>
-        <div className="bg-tarjetas border border-zinc-800">
+			<div className="bg-tarjetas border border-zinc-800">
           <ValoracionCard 
             symbol={symbol} 
             peerTicker={peerTicker}
@@ -317,7 +317,7 @@ export default function DatosTab({
             highlightedMetrics={highlightMetrics}
           />
         </div>
-        <div className="bg-tarjetas border border-zinc-800">
+			<div className="bg-tarjetas border border-zinc-800">
            <DesempenoCard 
              symbol={symbol} 
              peerTicker={peerTicker}
@@ -325,15 +325,15 @@ export default function DatosTab({
              highlightedMetrics={highlightMetrics}
            />
         </div>
-        <div className="bg-tarjetas border border-zinc-800">
+			<div className="bg-tarjetas border border-zinc-800">
            <DividendosTableCard 
              symbol={symbol}
              peerTicker={peerTicker}
              scrollRef={dividendosRef}
              highlightedMetrics={highlightMetrics}
            />
-        </div>
-      </div>
+			</div>
+		</div>
     </div>
   );
 }

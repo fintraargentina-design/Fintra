@@ -50,13 +50,36 @@ export interface FgosResult {
   calculated_at: string;
 }
 
+export type CanonicalValuationStatus =
+  | 'cheap_sector'
+  | 'fair_sector'
+  | 'expensive_sector'
+  | 'pending';
+
+export type LegacyValuationStatus = 'undervalued' | 'overvalued' | 'fair' | 'pending';
+
 export interface ValuationResult {
   pe_ratio: number | null;
   ev_ebitda: number | null;
   price_to_fcf: number | null;
-  valuation_status: 'undervalued' | 'overvalued' | 'fair' | 'pending';
+
+  // Legacy field kept for backward-compat
+  valuation_status: LegacyValuationStatus;
+
   intrinsic_value?: number | null;
   upside_potential?: number | null;
+
+  // Canonical State
+  stage: 'pending' | 'partial' | 'computed';
+  confidence: {
+    label: 'Low' | 'Medium' | 'High';
+    percent: number;
+    valid_metrics_count: number;
+  };
+  explanation: string;
+
+  // Canonical valuation verdict (sector-relative)
+  canonical_status?: CanonicalValuationStatus;
 }
 
 export interface ProfileStructural {
@@ -107,6 +130,24 @@ export interface ProfileStructural {
     ebit: number | null;
     retainedEarnings: number | null;
   };
+}
+
+export interface ValuationMetrics {
+  pe_ratio: number | null;
+  ev_ebitda: number | null;
+  price_to_fcf: number | null;
+}
+
+export interface ValuationState {
+  stage: 'pending' | 'partial' | 'computed';
+  valuation_status: CanonicalValuationStatus;
+  confidence: {
+    label: 'Low' | 'Medium' | 'High';
+    percent: number; // 0-100
+    valid_metrics_count: number;
+  };
+  metrics: ValuationMetrics;
+  explanation: string;
 }
 
 export interface MarketPosition {

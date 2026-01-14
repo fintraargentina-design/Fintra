@@ -108,7 +108,7 @@ export default function EstimacionTab({ selectedStock }: EstimacionTabProps) {
     }
 
     // 2. Hedge Funds
-    const topHolders = apiData.holders?.slice(0, 3).map((h: any) => h.holder) || ["Fund A", "Fund B", "Fund C"];
+    const topHolders = apiData.holders?.slice(0, 3).map((h: any) => h.holder) || [];
 
     // 3. Projections for Chart
     // Create quarters for next 2 years (8 quarters)
@@ -151,19 +151,11 @@ export default function EstimacionTab({ selectedStock }: EstimacionTabProps) {
     };
   }, [apiData, currentPrice]);
 
-  // Static Data (Drivers/Risks/AI Summary) - In a real app, this would come from an AI backend
+  // Static placeholders: evitamos contenido financiero simulado
   const staticData = {
-    drivers: [
-      "Expansión en nuevos mercados",
-      "Innovación en productos/servicios",
-      "Mejora de márgenes operativos"
-    ],
-    risks: [
-      "Competencia intensificada",
-      "Cambios regulatorios",
-      "Volatilidad económica"
-    ],
-    aiSummary: `Según las proyecciones actuales, ${symbol} muestra un potencial de crecimiento basado en sus métricas financieras. El precio objetivo estimado de $${derivedData.targetPrice.toFixed(2)} sugiere una oportunidad interesante. La valoración actual refleja las expectativas del mercado.`
+    drivers: [] as string[],
+    risks: [] as string[],
+    aiSummary: ''
   };
 
   const chartOption = useMemo(() => {

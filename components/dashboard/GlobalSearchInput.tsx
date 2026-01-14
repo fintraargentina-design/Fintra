@@ -133,9 +133,9 @@ export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: st
                  No se encontraron resultados
               </div>
            ) : (
-             <div 
+             <div
                ref={listRef}
-               className="max-h-[350px] w-full overflow-y-auto scrollbar-thin"
+               className="max-h-[350px] w-full overflow-y-auto"
              >
                 {results.map((stock, index) => (
                   <div 
@@ -151,7 +151,7 @@ export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: st
                         {/* {stock.source === 'local' ? (
                            <span className="text-[8px] bg-blue-500/10 text-blue-400 px-1 rounded-none border border-blue-500/20">DB</span>
                         ) : (
-                           <span className="text-[8px] bg-yellow-500/10 text-yellow-400 px-1 rounded-none border border-yellow-500/20">FMP</span>
+                           <span className="text-[8px] bg-yellow-500/10 text-yellow-400 px-1 rounded-none border border-blue-500/20">FMP</span>
                         )} */}
                       </div>
                       <div className="text-[12px] text-gray-400 font-mono font-light truncate group-hover:text-white">{stock.name}</div>

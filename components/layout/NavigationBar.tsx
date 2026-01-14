@@ -17,7 +17,7 @@ export default function NavigationBar({
   const tabs = [
     { key: 'empresa', label: 'Snapshot' },
     /* { key: 'competidores', label: 'Competidores' }, */
-    { key: 'datos', label: 'Datos' },
+    { key: 'datos', label: 'Datos Financieros' },
     { key: 'ecosistema', label: 'Ecosistema' },
     { key: 'estimacion', label: 'Estimación y Análisis IA' },
   ];
@@ -51,7 +51,7 @@ export default function NavigationBar({
   }
   return (
     <div className="w-full border-b border-zinc-800 bg-transparent z-10 shrink-0">
-      <div className="w-full overflow-x-auto scrollbar-thin whitespace-nowrap">
+      <div className="w-full overflow-x-auto whitespace-nowrap">
         {/* Desktop Navigation */}
         <div className="hidden md:flex bg-transparent h-auto p-0 flex-nowrap items-center justify-start min-w-full w-max gap-0.5 border-b-2 border-black">
           {tabs.map((tab) => (
@@ -71,7 +71,7 @@ export default function NavigationBar({
 
       {/* Mobile Navigation - Horizontal Scroll */}
       <div className="md:hidden">
-        <div className="flex gap-0.5 overflow-x-auto scrollbar-thin whitespace-nowrap border-b-2 border-black">
+        <div className="flex gap-0.5 overflow-x-auto whitespace-nowrap border-b-2 border-black">
           {tabs.map((tab) => (
             <button
               key={tab.key}

@@ -90,6 +90,7 @@ const METRIC_EXPLANATIONS: Record<string, { description: string; examples: strin
   }
 };
 
+
 export default function ValoracionCard({ symbol, scrollRef, peerTicker, highlightedMetrics }: { symbol: string; scrollRef?: React.RefObject<HTMLDivElement | null>; peerTicker?: string | null; highlightedMetrics?: string[] | null }) {
   const [data, setData] = useState<TimelineResponse | null>(null);
   const [peerData, setPeerData] = useState<TimelineResponse | null>(null);
@@ -161,15 +162,18 @@ export default function ValoracionCard({ symbol, scrollRef, peerTicker, highligh
 
   return (
     <>
-      <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden mt-0">
+			<div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden mt-0">
         {/* <div className="px-1 py-1 bg-white/[0.02] shrink-0">
           <h4 className="text-xs font-medium text-gray-400 text-center">
             Valoración de <span className="text-[#FFA028]">{symbol}</span>
           </h4>
         </div> */}
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-0 scrollbar-thin">
-          <Table className="w-full text-sm border-collapse">
+			<div
+				ref={scrollRef as React.RefObject<HTMLDivElement | null>}
+				className="flex-1 p-0 overflow-x-auto overflow-y-hidden"
+			>
+		  <Table className="min-w-max text-sm border-collapse">
             <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
               <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
                 <TableHead className="px-2 text-gray-300 text-[12px] h-6 w-[150px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D]">Valoración</TableHead>
@@ -185,7 +189,7 @@ export default function ValoracionCard({ symbol, scrollRef, peerTicker, highligh
                       {col}
                     </TableHead>,
                     peerTicker && (
-                        <TableHead key={`${col}-peer`} className={`px-2 text-[#0056FF] font-bold text-[10px] h-6 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}>
+                        <TableHead key={`${col}-peer`} className={`px-2 text-[#002D72] font-bold text-[10px] h-6 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}>
                             {peerTicker}
                         </TableHead>
                     )
@@ -248,8 +252,8 @@ export default function ValoracionCard({ symbol, scrollRef, peerTicker, highligh
                 })
               )}
             </TableBody>
-          </Table>
-        </div>
+			  </Table>
+			</div>
         
         {/* Toggle Button */}
         <div className="bg-transparent border-t-0 border-zinc-800 p-1 flex justify-center shrink-0">

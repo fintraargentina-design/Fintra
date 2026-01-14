@@ -259,7 +259,7 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
             </div>
             </div>
             
-            <div className={`w-full flex-1 scrollbar-thin border-r border-l border-zinc-800 ${(activeTab === 'datos' || activeTab === 'competidores') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+            <div className={`w-full flex-1 border-r border-l border-zinc-800 ${(activeTab === 'datos' || activeTab === 'competidores') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
             {renderTabContent()}
             </div>
 

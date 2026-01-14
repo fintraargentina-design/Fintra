@@ -60,16 +60,6 @@ export default function FGOSRadarChart({
     }
   }, [isActive]);
 
-  // Helper para generar datos mockeados si falla la API
-  const generateMockPeerData = () => ({
-    growth: Math.floor(Math.random() * 40 + 60),
-    profitability: Math.floor(Math.random() * 40 + 60),
-    efficiency: Math.floor(Math.random() * 40 + 60),
-    solvency: Math.floor(Math.random() * 40 + 60),
-    moat: Math.floor(Math.random() * 40 + 60),
-    sentiment: Math.floor(Math.random() * 40 + 60),
-  });
-
   // Fetch peer data when comparedSymbol changes
   useEffect(() => {
     if (!comparedSymbol || comparedSymbol === "none") {
@@ -93,14 +83,13 @@ export default function FGOSRadarChart({
           if (data?.fgos_breakdown) {
             setPeerData(data.fgos_breakdown);
           } else {
-             // Fallback a mock data si no hay breakdown disponible
-             console.warn(`No FGOS breakdown for ${comparedSymbol}, using mock data`);
-             setPeerData(generateMockPeerData());
+             console.warn(`No FGOS breakdown for ${comparedSymbol}, peer data unavailable`);
+             setPeerData(null);
           }
         }
       } catch (e) {
         console.error("Error fetching peer data", e);
-        if (active) setPeerData(generateMockPeerData()); // Fallback en error
+        if (active) setPeerData(null);
       } finally {
         if (active) setLoadingPeer(false);
       }

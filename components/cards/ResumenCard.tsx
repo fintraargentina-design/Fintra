@@ -248,9 +248,11 @@ export default function ResumenCard({
                   </span>
                 </div>
               </div>
-              <p className="text-zinc-400 text-xs leading-relaxed text-justify overflow-y-auto font-mono max-h-[160px] pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-                {data.description || "No description available."}
-              </p>
+              <div className="max-h-[160px] pr-2 overflow-y-auto">
+                <p className="text-zinc-400 text-xs leading-relaxed text-justify font-mono">
+                  {data.description || "No description available."}
+                </p>
+              </div>
             </div>
           </div>
         </div>

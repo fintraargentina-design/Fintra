@@ -67,56 +67,14 @@
     min-height: clamp(200px, 30vh, 400px);
   }
   
-  .mobile-scroll {
-    @apply overflow-x-auto scrollbar-thin;
-  }
-  
   .mobile-stack {
     @apply flex flex-col md:flex-row;
   }
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
 
-::-webkit-scrollbar-track {
-  background: #27272a;
-}
 
-::-webkit-scrollbar-thumb {
-  background:  #27272a;
-  border-radius: 0px;
-}
-/* font-mono
- */
- 
 
-::-webkit-scrollbar-thumb:hover {
-  background: #0056FF;
-}
-
-/* Scrollbar personalizada más fina */
-.scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.4);
-}
-
-.scrollbar-thin::-webkit-scrollbar {
-  height: 1px;
-  width: 1px !important;
-}
-
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.4);
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.4);
-  border-radius: 0px;
-}
 
 /* Responsive breakpoints helpers */
 @media (max-width: 640px) {
@@ -204,22 +162,26 @@
   color: rgb(170, 104, 38) !important;
 }
 
-/* Fondo y scrollbar transparentes para el contenedor de competidores */
-.peers-scroll {
-  background-color: transparent !important;
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: #27272a transparent; /* thumb | track */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #1D1D1D #333333;
 }
 
-/* WebKit (Chrome, Edge, Safari) */
-.peers-scroll::-webkit-scrollbar {
-  width: 2px;
+*::-webkit-scrollbar {
+  width: 0.5rem;
+  height: 2px;
 }
-.peers-scroll::-webkit-scrollbar-track {
-  background: transparent;
+
+*::-webkit-scrollbar-track {
+  background-color: #333333;
 }
-.peers-scroll::-webkit-scrollbar-thumb {
-  background-color: #0056FF;
-  border-radius: 0px;
-  border: 2px solid transparent;
+
+*::-webkit-scrollbar-thumb {
+  background-color: #1D1D1D;
+  border-radius: 9999px;
 }
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #4a4a4a;
+}
+

@@ -7,6 +7,8 @@ import { calculateMarketPosition } from '@/lib/engine/market-position';
 import { normalizeProfileStructural } from './normalizeProfileStructural';
 import { resolveInvestmentVerdict } from '@/lib/engine/resolveInvestmentVerdict';
 import { rollingFYGrowth } from '@/lib/utils/rollingGrowth';
+import { getBenchmarksForSector } from '@/lib/engine/benchmarks';
+import { buildValuationState } from '@/lib/engine/resolveValuationFromSector';
 import type { FinancialSnapshot, FmpProfile, FmpRatios, FmpMetrics, FmpQuote } from '@/lib/engine/types';
 
 /* ================================
@@ -156,7 +158,36 @@ export async function buildSnapshot(
   /* --------------------------------
      VALUATION
   -------------------------------- */
-  const valuation = normalizeValuation(ratios, profile);
+  let valuation = normalizeValuation(ratios, profile);
+
+  if (valuation && sector) {
+    const sectorBenchmarks = await getBenchmarksForSector(sector, today);
+    if (sectorBenchmarks) {
+      const valState = buildValuationState({
+        sector,
+        pe_ratio: valuation.pe_ratio,
+        ev_ebitda: valuation.ev_ebitda,
+        price_to_fcf: valuation.price_to_fcf
+      }, sectorBenchmarks as any);
+
+      valuation = {
+        ...valuation,
+        stage: valState.stage,
+        // Canonical status stored separately; legacy field kept for compat
+        valuation_status:
+          valState.valuation_status === 'cheap_sector'
+            ? 'undervalued'
+            : valState.valuation_status === 'expensive_sector'
+            ? 'overvalued'
+            : valState.valuation_status === 'fair_sector'
+            ? 'fair'
+            : 'pending',
+        canonical_status: valState.valuation_status,
+        confidence: valState.confidence,
+        explanation: valState.explanation
+      };
+    }
+  }
 
   /* --------------------------------
      INVESTMENT VERDICT
@@ -216,7 +247,13 @@ export async function buildSnapshot(
       ev_ebitda: null,
       price_to_fcf: null,
       valuation_status: 'pending',
-      // reason: 'Data missing'
+      stage: 'pending',
+      confidence: {
+        label: 'Low',
+        percent: 0,
+        valid_metrics_count: 0
+      },
+      explanation: 'Insufficient data to determine valuation status.'
     },
     market_position: marketPosition,
     investment_verdict: investmentVerdict,
