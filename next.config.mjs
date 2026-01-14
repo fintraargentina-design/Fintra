@@ -18,7 +18,7 @@ const nextConfig = {
     if (dev) {
       config.watchOptions = {
         ...config.watchOptions,
-        ignored: ['**/data/fmp-bulk/**', '**/node_modules/**'],
+        ignored: ['**/data/**', '**/node_modules/**', '**/.next/**', '**/.git/**'],
       };
     }
     return config;

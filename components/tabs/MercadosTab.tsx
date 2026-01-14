@@ -249,7 +249,7 @@ export default function MercadosTab() {
   const isLoading = loadingQuotes || loadingHours;
 
   return (
-    <div className="h-full flex flex-col bg-black overflow-hidden">
+    <div className="h-full flex flex-col bg-[#0A0A0A] overflow-hidden">
       {/* Header General */}
       <div className="relative flex items-center justify-center px-1 py-1 border-b border-zinc-800 bg-white/[0.02] shrink-0">
         <h4 className="text-xs font-medium text-gray-400 text-center">
@@ -331,7 +331,7 @@ export default function MercadosTab() {
           </div>
 
           {/* 2. Horarios de Mercado (Columna Derecha - 2 columnas internas) */}
-          <div className="w-full xl:w-[250px] shrink-0 border-l border-zinc-800 bg-black/20 flex flex-col">
+          <div className="w-full xl:w-[250px] shrink-0 border-l border-zinc-800 bg-[#0A0A0A] flex flex-col">
             <div className="px-3 py-0 border-b border-zinc-800 flex justify-between items-center bg-white/[0.02]">
                <h4 className="text-xs uppercase font-medium text-zinc-100">Horarios</h4>
                <span className="text-[12px] text-zinc-500 font-mono">{now ? now.toLocaleTimeString() : '--:--:--'}</span>

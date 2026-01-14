@@ -1,4 +1,3 @@
-
 export interface ConfidenceInputs {
   financial_history_years: number;
   years_since_ipo: number;
@@ -85,5 +84,53 @@ export function calculateConfidenceLayer(inputs: ConfidenceInputs): ConfidenceRe
       volatility_factor,
       completeness_factor
     }
+  };
+}
+
+export interface DimensionalConfidenceResult {
+  confidence_percent: number;
+  confidence_label: 'High' | 'Medium' | 'Low';
+  fgos_status: 'partial';
+}
+
+export function calculateDimensionalConfidence(
+  breakdown: { 
+    growth: number | null; 
+    profitability: number | null; 
+    efficiency: number | null; 
+    solvency: number | null;
+    moat?: number | null;
+    sentiment?: number | null;
+  }
+): DimensionalConfidenceResult {
+  // 1. Count computed dimensions
+  let computedCount = 0;
+  if (breakdown.growth !== null) computedCount++;
+  if (breakdown.profitability !== null) computedCount++;
+  if (breakdown.efficiency !== null) computedCount++;
+  if (breakdown.solvency !== null) computedCount++;
+  if (breakdown.moat != null) computedCount++; // Check for not null/undefined
+  if (breakdown.sentiment != null) computedCount++; // Check for not null/undefined
+
+  // 2. Total dimensions = 6 (growth, profitability, efficiency, solvency, moat, sentiment)
+  const TOTAL_DIMENSIONS = 6;
+
+  // 3. Compute confidence
+  const confidence_percent = Math.floor((computedCount / TOTAL_DIMENSIONS) * 100);
+
+  // 4. Label
+  let confidence_label: 'High' | 'Medium' | 'Low';
+  if (confidence_percent < 40) confidence_label = 'Low';
+  else if (confidence_percent <= 70) confidence_label = 'Medium';
+  else confidence_label = 'High';
+
+  // 5. Status
+  // User mandate: status = 'partial'
+  const fgos_status = 'partial';
+
+  return {
+    confidence_percent,
+    confidence_label,
+    fgos_status
   };
 }

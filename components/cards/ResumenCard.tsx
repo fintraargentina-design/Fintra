@@ -310,6 +310,7 @@ export default function ResumenCard({
             {/* FGOS Analysis Block (Phase 4) */}
             {resumen && (
               <FgosAnalysisBlock
+                fgosState={resumen.fgos_state}
                 fgosScore={resumen.fgos_score}
                 confidenceLabel={resumen.fgos_confidence_label}
                 confidencePercent={resumen.fgos_confidence_percent}

@@ -4,7 +4,9 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { applyQualityBrakes } from './applyQualityBrakes';
 import { getBenchmarksForSector } from './benchmarks';
 import type { FinancialSnapshot, FmpRatios, FmpMetrics, SectorBenchmark, FgosBreakdown, FgosCategory } from './types';
-import { calculateConfidenceLayer, type ConfidenceInputs } from './confidence';
+import { calculateConfidenceLayer, calculateDimensionalConfidence, type ConfidenceInputs } from './confidence';
+import { calculateMoat } from './moat';
+import { calculateSentiment, type PerformanceRow } from './sentiment';
 
 type BenchMap = Record<string, SectorBenchmark>;
 
@@ -101,7 +103,9 @@ export function computeFGOS(
   metrics: FmpMetrics,
   growth: { revenue_cagr?: number | null; earnings_cagr?: number | null; fcf_cagr?: number | null },
   benchmarks: BenchMap | null,
-  confidenceInputs: Omit<ConfidenceInputs, 'missing_core_metrics'> | null
+  confidenceInputs: Omit<ConfidenceInputs, 'missing_core_metrics'> | null,
+  history?: any[] | null,
+  performanceRows?: PerformanceRow[]
 ): {
   fgos_score: number | null;
   fgos_category: FgosCategory;
@@ -241,6 +245,24 @@ export function computeFGOS(
 
   const confidenceResult = calculateConfidenceLayer(confInputs);
 
+  const moatResult = history
+    ? calculateMoat(history, benchmarks as any)
+    : { score: null, status: 'pending', confidence: null } as const;
+
+  // [SENTIMENT CALCULATION]
+  const sentimentResult = calculateSentiment(performanceRows || []);
+
+  // [AUDIT] Override with Dimensional Confidence (User Requirement)
+  const tempBreakdown = {
+    growth: growthScore,
+    profitability: profitabilityScore,
+    efficiency: efficiencyScore,
+    solvency: solvencyScore,
+    moat: moatResult.score,
+    sentiment: sentimentResult.value
+  };
+  const dimensionalConfidence = calculateDimensionalConfidence(tempBreakdown);
+
   let category: FgosCategory = 'Medium';
   if (brakes.adjustedScore >= 70) category = 'High';
   else if (brakes.adjustedScore < 40) category = 'Low';
@@ -248,8 +270,8 @@ export function computeFGOS(
   return {
     fgos_score: brakes.adjustedScore,
     fgos_category: category,
-    fgos_confidence_percent: confidenceResult.confidence_percent,
-    fgos_confidence_label: confidenceResult.confidence_label,
+    fgos_confidence_percent: dimensionalConfidence.confidence_percent,
+    fgos_confidence_label: dimensionalConfidence.confidence_label,
     fgos_components: {
       growth: growthScore,
       profitability: profitabilityScore,
@@ -259,9 +281,20 @@ export function computeFGOS(
       growth_impact: growthResult.impact,
       profitability_impact: profitabilityResult.impact,
       efficiency_impact: efficiencyResult.impact,
-      solvency_impact: solvencyResult.impact
+      solvency_impact: solvencyResult.impact,
+      moat: {
+        value: moatResult.score,
+        confidence: moatResult.confidence,
+        status: moatResult.status as any
+      },
+      sentiment: {
+        value: sentimentResult.value,
+        confidence: sentimentResult.confidence,
+        status: sentimentResult.status,
+        signals: sentimentResult.signals
+      }
     } as FgosBreakdown,
-    fgos_status: confidenceResult.fgos_status as any // Cast to match DB field if needed or update return type
+    fgos_status: dimensionalConfidence.fgos_status as any // Cast to match DB field if needed or update return type
   };
 }
 
@@ -341,10 +374,35 @@ export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: stri
   // Fetch Financial History (FY count)
   const { data: history } = await supabaseAdmin
     .from('datos_financieros')
-    .select('period_end_date, revenue')
+    .select('period_end_date, revenue, roic, gross_margin')
     .eq('ticker', ticker)
     .eq('period_type', 'FY')
     .order('period_end_date', { ascending: true });
+
+  // Fetch Performance Data for Sentiment
+  // Get the latest available performance date up to the snapshot date
+  const { data: perfDateData } = await supabaseAdmin
+    .from('datos_performance')
+    .select('performance_date')
+    .eq('ticker', ticker)
+    .lte('performance_date', date)
+    .order('performance_date', { ascending: false })
+    .limit(1);
+    
+  let performanceRows: PerformanceRow[] = [];
+  if (perfDateData && perfDateData.length > 0) {
+    const latestPerfDate = perfDateData[0].performance_date;
+    const { data: perfData } = await supabaseAdmin
+      .from('datos_performance')
+      .select('window_code, return_percent')
+      .eq('ticker', ticker)
+      .eq('performance_date', latestPerfDate)
+      .in('window_code', ['1M', '3M', '6M', '1Y', '3Y', '5Y']);
+      
+    if (perfData) {
+      performanceRows = perfData as PerformanceRow[];
+    }
+  }
 
   const financial_history_years = history ? history.length : 0;
 
@@ -395,7 +453,7 @@ export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: stri
     profile_structural: (snap as any).profile_structural
   } as FinancialSnapshot;
 
-  const result = computeFGOS(ticker, snapshotRow, ratios, metrics, growth, benchmarks, confidenceInputs);
+  const result = computeFGOS(ticker, snapshotRow, ratios, metrics, growth, benchmarks, confidenceInputs, history, performanceRows);
 
   // 7. Persist
   await supabaseAdmin
@@ -405,13 +463,9 @@ export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: stri
         fgos_components: result.fgos_components,
         fgos_category: result.fgos_category,
         fgos_confidence_percent: result.fgos_confidence_percent,
-        fgos_status: result.fgos_score !== null ? 'computed' : 'pending', // Workflow status
-        // Store new Phase 2 fields in JSONB or new columns?
-        // Ideally we should have columns. For now I'll put them in fgos_components or extended fields if columns missing.
-        // But prompt implies explicit fields. I will try to update them if columns exist (Migration needed).
-        // I will assume I create the migration.
+        fgos_status: result.fgos_status, // Persist the actual Dimensional Status (Mature, Partial, etc.)
         fgos_confidence_label: result.fgos_confidence_label,
-        fgos_maturity: result.fgos_status, // Mapping "Mature/Developing..." to fgos_maturity column
+        fgos_maturity: result.fgos_status, // Redundant but keeping for backward compatibility if used
         engine_version: 'v3.1-confidence-layer' 
     } as any)
     .eq('ticker', ticker)

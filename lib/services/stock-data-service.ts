@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { createFmpClient } from '@/lib/fmp/factory';
 import { fmpGet } from '@/lib/fmp/server';
 import dayjs from 'dayjs';
+import { buildFGOSState } from '@/lib/engine/fgos-state';
 
 // Server-side FMP client
 const serverFetcher = async <T>(path: string, opts?: { params?: any; cache?: RequestCache }) => {
@@ -336,6 +337,14 @@ export async function getUnifiedStockData(symbol: string) {
             symbol: ticker,
             fgos_score: snapshot.fgos_score,
             fgos_breakdown: snapshot.fgos_components || snapshot.fgos_breakdown, // Map components to breakdown for UI
+            fgos_state: buildFGOSState({
+                fgos_score: snapshot.fgos_score,
+                fgos_components: snapshot.fgos_components || snapshot.fgos_breakdown,
+                fgos_confidence_percent: snapshot.fgos_confidence_percent,
+                fgos_confidence_label: snapshot.fgos_confidence_label,
+                fgos_status: snapshot.fgos_status,
+                fgos_maturity: snapshot.fgos_maturity
+            }),
             valuation_status: snapshot.valuation?.valuation_status,
             investment_verdict: snapshot.investment_verdict,
             // Map legacy fields if needed

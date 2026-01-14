@@ -142,6 +142,8 @@ export async function buildSnapshot(
           fundamentalsGrowth,
           confidenceInputs,
           quote ?? {},
+          null, // financialHistory (Moat pending in bulk)
+          null, // performanceRows (Sentiment pending in bulk)
           today
         )
       : null;

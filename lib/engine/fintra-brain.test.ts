@@ -74,7 +74,10 @@ describe('calculateFGOSFromData - Low Confidence Benchmarks', () => {
       mockRatios,
       mockMetrics,
       mockGrowth,
+      null,
       {},
+      null,
+      null,
       '2023-01-01'
     );
 
@@ -116,7 +119,10 @@ describe('calculateFGOSFromData - Low Confidence Benchmarks', () => {
       mockRatios,
       mockMetrics,
       mockGrowth,
+      null,
       {},
+      null,
+      null,
       '2023-01-01'
     );
     
@@ -141,10 +147,42 @@ describe('calculateFGOSFromData - Low Confidence Benchmarks', () => {
     // @ts-ignore
     benchmarksModule.getBenchmarksForSector.mockReturnValue(lowConfBenchmarks);
     
-    const result2 = await calculateFGOSFromData('TEST', mockProfile, mockRatios, mockMetrics, mockGrowth, {}, '2023-01-01');
+    const result2 = await calculateFGOSFromData('TEST', mockProfile, mockRatios, mockMetrics, mockGrowth, null, {}, null, null, '2023-01-01');
     
     // Expected for each: 90 * 0.25 + 50 * 0.75 = 60
     expect(result2?.fgos_breakdown.growth).toBeCloseTo(60);
+  });
+
+  it('should NOT flag low confidence if benchmarks are sufficient', async () => {
+    const highConfBenchmarks = {
+      revenue_cagr: createStats(0.10, 'high', 100),
+      earnings_cagr: createStats(0.10, 'high', 100),
+      fcf_cagr: createStats(0.10, 'high', 100),
+      roic: createStats(0.15, 'high', 100),
+      operating_margin: createStats(0.20, 'high', 100),
+      net_margin: createStats(0.15, 'high', 100),
+      fcf_margin: createStats(0.15, 'high', 100),
+      debt_to_equity: createStats(0.5, 'high', 100),
+      interest_coverage: createStats(10, 'high', 100)
+    };
+
+    // @ts-ignore
+    benchmarksModule.getBenchmarksForSector.mockReturnValue(highConfBenchmarks);
+
+    const result = await calculateFGOSFromData(
+      'TEST',
+      mockProfile,
+      mockRatios,
+      mockMetrics,
+      mockGrowth,
+      null,
+      {},
+      null,
+      null,
+      '2023-01-01'
+    );
+
+    expect(result?.fgos_breakdown.benchmark_low_confidence).toBe(false);
   });
 
   it('should not change score for high confidence benchmarks', async () => {
@@ -170,7 +208,10 @@ describe('calculateFGOSFromData - Low Confidence Benchmarks', () => {
       mockRatios,
       mockMetrics,
       mockGrowth,
+      null,
       {},
+      null,
+      null,
       '2023-01-01'
     );
     

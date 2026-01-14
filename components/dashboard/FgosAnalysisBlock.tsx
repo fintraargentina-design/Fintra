@@ -1,59 +1,92 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { FgosState } from '@/lib/engine/fgos-state';
 
 interface FgosAnalysisBlockProps {
-  fgosScore: number | null;
-  confidenceLabel: string | null;
-  confidencePercent: number | null;
-  fgosStatus: string | null;
+  fgosState?: FgosState | null;
+  // Legacy props (kept for backward compatibility)
+  fgosScore?: number | null;
+  confidenceLabel?: string | null;
+  confidencePercent?: number | null;
+  fgosStatus?: string | null;
 }
 
 export default function FgosAnalysisBlock({
+  fgosState,
   fgosScore,
   confidenceLabel,
   confidencePercent,
   fgosStatus
 }: FgosAnalysisBlockProps) {
-  if (fgosScore === null) return null;
+  // Render Guard: Must have either new state or legacy score
+  if (!fgosState && fgosScore === null) return null;
 
-  // 1. Normalize Status
-  // DB might have "Mature", "Developing", etc. 
-  // Map safely.
-  const status = fgosStatus || "Incomplete";
-  const label = confidenceLabel || "Low"; // Fallback
-  const percent = confidencePercent !== null ? `${Math.round(confidencePercent)}%` : "N/A";
+  let displayScore: string | number = "N/A";
+  let displayConfidence = "Low (0%)";
+  let displayStatus = "Pending";
+  let displayVerdict = "N/A";
+  let displayNarrative = "Insufficient data.";
 
-  // 2. Verdict Derivation
-  const getVerdict = (s: string) => {
-    switch (s) {
-      case "Mature": return "Actionable";
-      case "Developing": return "Use with caution";
-      case "Early-stage": return "Informational only";
-      case "Incomplete": return "Not comparable";
-      default: return "Not comparable";
-    }
-  };
+  if (fgosState) {
+    // --- New Path (Canonical State) ---
+    displayScore = fgosState.quality.score !== null ? fgosState.quality.score : "N/A";
+    
+    displayConfidence = `${fgosState.confidence.label} (${Math.round(fgosState.confidence.percent)}%)`;
+    
+    // Format stage: pending -> PENDING, partial -> PARTIAL
+    displayStatus = fgosState.stage.toUpperCase();
+    
+    // Map bucket to Verdict-like string
+    displayVerdict = fgosState.quality.bucket !== 'unknown' 
+      ? fgosState.quality.bucket.toUpperCase() 
+      : "N/A";
 
-  const verdict = getVerdict(status);
+    displayNarrative = fgosState.explanation;
 
-  // 3. Narrative Copy
-  const getNarrative = (s: string) => {
-    switch (s) {
-      case "Mature":
-        return "The company exhibits strong and consistent business quality across multiple financial cycles. The FGOS score is considered highly reliable.";
-      case "Developing":
-        return "The company shows solid business fundamentals, though some metrics lack long-term consistency. The FGOS assessment should be interpreted with moderate confidence.";
-      case "Early-stage":
-        return "The business demonstrates promising operational quality, but its public financial history is too short to reliably assess long-term performance. This FGOS score should be considered informational.";
-      case "Incomplete":
-        return "Insufficient or missing financial data prevents a reliable FGOS assessment at this time.";
-      default:
-        return "Insufficient or missing financial data prevents a reliable FGOS assessment at this time.";
-    }
-  };
+  } else {
+    // --- Legacy Path (Inference) ---
+    // TODO: Remove this block once all consumers use fgosState
+    if (fgosScore === null) return null;
 
-  const narrative = getNarrative(status);
+    // 1. Normalize Status
+    const status = fgosStatus || "Incomplete";
+    const label = confidenceLabel || "Low"; 
+    const percent = confidencePercent !== null ? `${Math.round(confidencePercent)}%` : "N/A";
+
+    displayScore = fgosScore;
+    displayConfidence = `${label} (${percent})`;
+    displayStatus = status;
+
+    // 2. Verdict Derivation
+    const getVerdict = (s: string) => {
+      switch (s) {
+        case "Mature": return "Actionable";
+        case "Developing": return "Use with caution";
+        case "Early-stage": return "Informational only";
+        case "Incomplete": return "Not comparable";
+        default: return "Not comparable";
+      }
+    };
+    displayVerdict = getVerdict(status);
+
+    // 3. Narrative Copy
+    const getNarrative = (s: string) => {
+      switch (s) {
+        case "Mature":
+          return "The company exhibits strong and consistent business quality across multiple financial cycles. The FGOS score is considered highly reliable.";
+        case "Developing":
+          return "The company shows solid business fundamentals, though some metrics lack long-term consistency. The FGOS assessment should be interpreted with moderate confidence.";
+        case "Early-stage":
+          return "The business demonstrates promising operational quality, but its public financial history is too short to reliably assess long-term performance. This FGOS score should be considered informational.";
+        case "Incomplete":
+          return "Insufficient or missing financial data prevents a reliable FGOS assessment at this time.";
+        default:
+          return "Insufficient or missing financial data prevents a reliable FGOS assessment at this time.";
+      }
+    };
+    displayNarrative = getNarrative(status);
+  }
 
   return (
     <div className="w-full mt-4 border-t border-zinc-800 pt-4">
@@ -66,21 +99,21 @@ export default function FgosAnalysisBlock({
             <TableBody>
               <TableRow className="border-zinc-800/50 hover:bg-transparent">
                 <TableCell className="py-2 text-xs text-zinc-500 font-medium">Business Quality</TableCell>
-                <TableCell className="py-2 text-xs text-zinc-200 text-right font-mono">{fgosScore} / 100</TableCell>
+                <TableCell className="py-2 text-xs text-zinc-200 text-right font-mono">{displayScore} / 100</TableCell>
               </TableRow>
               <TableRow className="border-zinc-800/50 hover:bg-transparent">
                 <TableCell className="py-2 text-xs text-zinc-500 font-medium">Confidence</TableCell>
                 <TableCell className="py-2 text-xs text-zinc-200 text-right font-mono">
-                  {label} <span className="text-zinc-500">({percent})</span>
+                  {displayConfidence}
                 </TableCell>
               </TableRow>
               <TableRow className="border-zinc-800/50 hover:bg-transparent">
                 <TableCell className="py-2 text-xs text-zinc-500 font-medium">FGOS Status</TableCell>
-                <TableCell className="py-2 text-xs text-zinc-200 text-right font-mono">{status}</TableCell>
+                <TableCell className="py-2 text-xs text-zinc-200 text-right font-mono">{displayStatus}</TableCell>
               </TableRow>
               <TableRow className="border-none hover:bg-transparent">
                 <TableCell className="py-2 text-xs text-zinc-500 font-medium">Verdict</TableCell>
-                <TableCell className="py-2 text-xs text-zinc-200 text-right font-medium">{verdict}</TableCell>
+                <TableCell className="py-2 text-xs text-zinc-200 text-right font-medium">{displayVerdict}</TableCell>
               </TableRow>
             </TableBody>
           </Table>
@@ -89,7 +122,7 @@ export default function FgosAnalysisBlock({
         {/* Narrative */}
         <div className="flex items-center">
             <p className="text-sm text-zinc-400 leading-relaxed italic border-l-2 border-zinc-700 pl-4 py-1">
-              "{narrative}"
+              "{displayNarrative}"
             </p>
         </div>
       </div>

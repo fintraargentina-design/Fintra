@@ -139,6 +139,8 @@ export async function runBulkUpdate(targetTicker?: string, limitParam?: number, 
         metrics,
         {}, // Growth vacío en bulk
         { price: profile.price || profile.Price },
+        null, // financialHistory
+        null, // performanceRows
         today
       );
 

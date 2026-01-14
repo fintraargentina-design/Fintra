@@ -33,13 +33,42 @@ echarts.use([
 
 const ReactECharts = dynamic(() => import("echarts-for-react/lib/core"), { ssr: false });
 
-// --- Simple In-Memory Cache ---
+// --- Simple Session Storage Cache ---
 const CACHE_DURATION = 1000 * 60 * 60; // 1 hour
+const CACHE_KEY_PREFIX = "fintra_chart_cache_";
+
 type CacheEntry = {
   data: OHLC[];
   timestamp: number;
 };
-const chartDataCache: Record<string, CacheEntry> = {};
+
+const getFromCache = (ticker: string): CacheEntry | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const item = sessionStorage.getItem(CACHE_KEY_PREFIX + ticker);
+    if (!item) return null;
+    const parsed = JSON.parse(item);
+    if (Date.now() - parsed.timestamp < CACHE_DURATION) {
+      return parsed;
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const saveToCache = (ticker: string, data: OHLC[]) => {
+  if (typeof window === "undefined") return;
+  try {
+    const entry: CacheEntry = {
+      data,
+      timestamp: Date.now(),
+    };
+    sessionStorage.setItem(CACHE_KEY_PREFIX + ticker, JSON.stringify(entry));
+  } catch (e) {
+    console.warn("Failed to save to session storage", e);
+  }
+};
 
 type RangeKey = "1A" | "3A" | "5A" | "MAX";
 
@@ -176,10 +205,10 @@ export default function ChartsTabHistoricos({
         // C. Fetch in parallel
         const promises = Array.from(symbolsToFetch).map(async (ticker) => {
            // 1. Check Cache
-           const now = Date.now();
-           if (chartDataCache[ticker] && (now - chartDataCache[ticker].timestamp < CACHE_DURATION)) {
+           const cached = getFromCache(ticker);
+           if (cached) {
              console.log(`[ChartsTab] Cache HIT for ${ticker}`);
-             return { ticker, data: chartDataCache[ticker].data };
+             return { ticker, data: cached.data };
            }
 
            try {
@@ -221,10 +250,7 @@ export default function ChartsTabHistoricos({
              }
 
              // Save to Cache
-             chartDataCache[ticker] = {
-               data,
-               timestamp: Date.now()
-             };
+             saveToCache(ticker, data);
 
              return { ticker, data }; 
            } catch (err) {
@@ -593,7 +619,7 @@ export default function ChartsTabHistoricos({
                 rounded-none border-b-2 px-3 py-0 text-xs transition-colors font-medium
                 ${
                   range === r
-                    ? 'bg-[#0056FF] text-white border-[#0056FF]'
+                    ? 'bg-[#002D72] text-white'
                     : 'bg-zinc-900 border-black text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
                 }
               `}
@@ -617,7 +643,7 @@ export default function ChartsTabHistoricos({
                 rounded-none border-b-2 px-3 py-0 text-xs transition-colors font-medium
                 ${
                   view === v.key
-                    ? 'bg-[#0056FF] text-white border-[#0056FF]'
+                    ? 'bg-[#002D72] text-white'
                     : 'bg-zinc-900 border-black text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
                 }
               `}

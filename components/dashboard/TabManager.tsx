@@ -36,7 +36,7 @@ export default function TabManager({ requestedTicker, onActiveTickerChange }: Ta
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-transparent">
       {/* Custom Tab Bar */}
-      <div className="h-[26px] flex w-full overflow-x-auto border-b border-zinc-800 bg-transparent scrollbar-thin">
+      <div className="h-[27px] flex w-full overflow-x-auto border-b border-zinc-800 bg-transparent scrollbar-thin ">
         {Array.from(new Set(openTickers)).map(ticker => {
           const isActive = ticker === activeTicker;
           return (
@@ -44,9 +44,9 @@ export default function TabManager({ requestedTicker, onActiveTickerChange }: Ta
               key={ticker}
               onClick={() => activateTab(ticker)}
               className={cn(
-                "group flex items-center gap-2 px-4 py-2 text-xs font-medium border-zinc-800 cursor-pointer select-none transition-colors min-w-[100px] justify-between",
+                "group flex items-center gap-2 px-4 py-2 text-xs font-medium bg-[#0A0A0A] border-zinc-800 cursor-pointer select-none transition-colors min-w-[100px] justify-between",
                 isActive
-                  ? "border-t-2 border-[#0056FF] bg-[#0A0A0A] text-white"
+                  ? "bg-[#002D72] text-white border-black mb-0.5"
                   : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
               )}
             >

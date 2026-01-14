@@ -103,7 +103,7 @@ async function main() {
         }
 
         // Delay to avoid rate limits (safe buffer)
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise(r => setTimeout(r, 10000));
         current = current.add(1, 'day');
     }
 

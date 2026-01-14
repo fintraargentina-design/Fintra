@@ -7,7 +7,9 @@ import { getBenchmarksForSector } from './benchmarks';
 import { applyQualityBrakes } from './applyQualityBrakes';
 import { fmp } from '@/lib/fmp/client';
 
-import { calculateConfidenceLayer, type ConfidenceInputs } from './confidence';
+import { calculateConfidenceLayer, calculateDimensionalConfidence, type ConfidenceInputs } from './confidence';
+import { calculateMoat, type FinancialHistoryRow } from './moat';
+import { calculateSentiment, type PerformanceRow } from './sentiment';
 
 /* ================================
    Helpers
@@ -137,6 +139,8 @@ export async function calculateFGOSFromData(
   },
   confidenceInputs: Omit<ConfidenceInputs, 'missing_core_metrics'> | null,
   _quote: any,
+  financialHistory: FinancialHistoryRow[] | null,
+  performanceRows: PerformanceRow[] | null,
   snapshotDate: string
 ): Promise<FgosResult | null> {
   try {
@@ -251,6 +255,11 @@ export async function calculateFGOSFromData(
       baseScore = totalWeight > 0 ? totalWeightedScore / totalWeight : null;
     }
 
+    /* ---------- MOAT (NEW) ---------- */
+    const moatResult = financialHistory
+      ? calculateMoat(financialHistory, benchmarks as any)
+      : { score: null, status: 'pending', confidence: null } as const;
+
     /* ---------- CONFIDENCE LAYER (PHASE 2) ---------- */
     // 1. Calculate missing_core_metrics based on inputs used
     const fgosInputs = [
@@ -271,6 +280,20 @@ export async function calculateFGOSFromData(
 
     const confidenceResult = calculateConfidenceLayer(confInputs);
 
+    // [SENTIMENT]
+    const sentimentResult = calculateSentiment(performanceRows || []);
+
+    // [AUDIT] Override confidence with Dimensional Completeness logic (User Requirement)
+    const tempBreakdown = {
+      growth: growthScore,
+      profitability: profitabilityScore,
+      efficiency: efficiencyScore,
+      solvency: solvencyScore,
+      moat: moatResult.score,
+      sentiment: sentimentResult.value
+    };
+    const dimensionalConfidence = calculateDimensionalConfidence(tempBreakdown);
+
     if (baseScore == null) {
       return {
         ticker,
@@ -285,11 +308,18 @@ export async function calculateFGOSFromData(
           growth_impact: growthResult.impact,
           profitability_impact: profitabilityResult.impact,
           efficiency_impact: efficiencyResult.impact,
-          solvency_impact: solvencyResult.impact
+          solvency_impact: solvencyResult.impact,
+          moat: { value: null, confidence: null, status: 'pending' },
+          sentiment: {
+            value: sentimentResult.value,
+            confidence: sentimentResult.confidence,
+            status: sentimentResult.status,
+            signals: sentimentResult.signals
+          }
         } as FgosBreakdown,
-        confidence: confidenceResult.confidence_percent,
-        confidence_label: confidenceResult.confidence_label,
-        fgos_status: confidenceResult.fgos_status,
+        confidence: dimensionalConfidence.confidence_percent,
+        confidence_label: dimensionalConfidence.confidence_label,
+        fgos_status: dimensionalConfidence.fgos_status,
         calculated_at: new Date().toISOString()
       };
     }
@@ -323,11 +353,22 @@ export async function calculateFGOSFromData(
         growth_impact: growthResult.impact,
         profitability_impact: profitabilityResult.impact,
         efficiency_impact: efficiencyResult.impact,
-        solvency_impact: solvencyResult.impact
+        solvency_impact: solvencyResult.impact,
+        moat: {
+          value: moatResult.score,
+          confidence: moatResult.confidence,
+          status: moatResult.status as any
+        },
+        sentiment: {
+          value: sentimentResult.value,
+          confidence: sentimentResult.confidence,
+          status: sentimentResult.status,
+          signals: sentimentResult.signals
+        }
       } as FgosBreakdown,
-      confidence: confidenceResult.confidence_percent,
-      confidence_label: confidenceResult.confidence_label,
-      fgos_status: confidenceResult.fgos_status,
+      confidence: dimensionalConfidence.confidence_percent,
+      confidence_label: dimensionalConfidence.confidence_label,
+      fgos_status: dimensionalConfidence.fgos_status,
       quality_warnings: brakes.warnings,
       calculated_at: new Date().toISOString()
     };
@@ -408,6 +449,8 @@ export async function calculateFGOS(ticker: string): Promise<FgosResult | null> 
     {},
     confidenceInputs,
     {},
+    null, // financialHistory
+    null, // performanceRows
     new Date().toISOString().slice(0, 10)
   );
 }

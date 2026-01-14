@@ -108,58 +108,17 @@ function normalize(val: number, min: number, max: number): number {
   return (val - min) / (max - min);
 }
 
-// --- Handler ---
+// --- Logic Helpers ---
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const ticker = searchParams.get("ticker")?.toUpperCase();
-
-  if (!ticker) {
-    return NextResponse.json({ error: "Ticker is required" }, { status: 400 });
-  }
-
-  try {
-    // 1. Fetch Data
-    const [finRes, valRes, perfRes] = await Promise.all([
-      supabase
-        .from('datos_financieros')
-        .select('*')
-        .eq('ticker', ticker)
-        .order('period_end_date', { ascending: true }),
-      supabase
-        .from('datos_valuacion')
-        .select('*')
-        .eq('ticker', ticker),
-      supabase
-        .from('datos_performance')
-        .select('*')
-        .eq('ticker', ticker)
-        // We fetch all to filter for latest in memory or we could try to sort/limit per window
-        // But simply fetching all for the ticker is safe for now (usually < 100 rows)
-    ]);
-
-    if (finRes.error) throw new Error(`Financials error: ${finRes.error.message}`);
-    if (valRes.error) throw new Error(`Valuation error: ${valRes.error.message}`);
-    if (perfRes.error) throw new Error(`Performance error: ${perfRes.error.message}`);
-
-    const financials = finRes.data || [];
-    const valuations = valRes.data || [];
-    const performance = perfRes.data || [];
-
-    // 2. Identify Financial Periods & Columns
-    // Map: Label -> Year
+function identifyFinancialPeriods(financials: any[], valuations: any[]): string[] {
     const periodMap = new Map<string, { year: number, type: PeriodType, date: string }>();
 
     financials.forEach(row => {
-      // Normalize Label: 2023Q1 -> 2023_Q1, 2023 -> 2023_FY
       let label = row.period_label;
       let type: PeriodType = row.period_type as PeriodType;
       
-      // Fix FMP inconsistency if any
       if (!label) return;
       
-      // Convert to format YYYY_TYPE
-      // Example DB: 2023Q1, 2023 (for FY)
       let formattedLabel = label;
       let year = parseInt(label.slice(0, 4));
       
@@ -172,6 +131,8 @@ export async function GET(req: Request) {
           formattedLabel = label.replace('TTM', '_TTM');
       }
 
+      if (!['Q', 'FY', 'TTM'].includes(type || '')) return;
+
       periodMap.set(formattedLabel, {
         year,
         type,
@@ -179,67 +140,152 @@ export async function GET(req: Request) {
       });
     });
 
-    // Also include Valuation periods if they exist and are not in financials (rare but possible)
     valuations.forEach(row => {
         if (!row.denominator_period) return;
-        let label = row.denominator_period; // e.g. 2023FY, 2023Q3
+        let label = row.denominator_period;
         let year = parseInt(label.slice(0, 4));
         
         let formattedLabel = label;
-        let type: PeriodType = row.denominator_type as PeriodType; // FY or TTM
+        let type: PeriodType = row.denominator_type as PeriodType;
 
         if (label.endsWith('FY')) {
              formattedLabel = label.replace('FY', '_FY');
-        } else if (label.includes('Q')) { // Valuations usually on TTM or FY, but if Q exists
+        } else if (label.includes('Q')) {
              formattedLabel = label.replace('Q', '_Q');
         } else if (label.includes('TTM')) {
              formattedLabel = label.replace('TTM', '_TTM');
         }
+
+        if (type && !['FY', 'TTM'].includes(type)) return;
 
         if (!periodMap.has(formattedLabel)) {
              periodMap.set(formattedLabel, { year, type, date: row.valuation_date });
         }
     });
 
-    // Sort periods
-    const sortedPeriods = Array.from(periodMap.keys()).sort((a, b) => {
-        // Sort by Year then by Quarter/Type
+    return Array.from(periodMap.keys()).sort((a, b) => {
         const [yA, tA] = a.split('_');
         const [yB, tB] = b.split('_');
         if (yA !== yB) return parseInt(yA) - parseInt(yB);
         
-        // Custom sort for periods: Q1 < Q2 < Q3 < Q4 < FY < TTM (or similar?)
-        // Usually: Q1, Q2, Q3, Q4, FY. TTM is a rolling window, often ending same time as a Q.
-        // Let's just use string sort for now, but Q < TTM?
-        // 2023_Q1 < 2023_Q4 < 2023_TTM?
+        const order = ['Q1', 'Q2', 'Q3', 'Q4', 'FY', 'TTM'];
+        const idxA = order.indexOf(tA);
+        const idxB = order.indexOf(tB);
+        
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
         return a.localeCompare(b);
     });
+}
 
-    // 3. Process Performance Columns
-    // Identify latest performance date
+function identifyPerformanceColumns(performance: any[]): string[] {
     const maxPerfDate = performance.reduce((acc, curr) => 
         curr.performance_date > acc ? curr.performance_date : acc, "");
     
-    // Filter performance rows for this date
     const latestPerf = performance.filter(p => p.performance_date === maxPerfDate);
     
-    // Define ordering for windows
     const windowOrder = ['1W', '1M', '3M', '6M', 'YTD', '1Y', '3Y', '5Y', '10Y', 'MAX'];
-    const perfColumns = latestPerf
+    return latestPerf
         .map(p => p.window_code)
-        .filter(w => w) // ensure valid
+        .filter(w => w && windowOrder.includes(w))
         .sort((a, b) => {
             const idxA = windowOrder.indexOf(a);
             const idxB = windowOrder.indexOf(b);
             return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
         });
+}
+
+// --- Handler ---
+
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const ticker = searchParams.get("ticker")?.toUpperCase();
+  const peerTicker = searchParams.get("peerTicker")?.toUpperCase();
+
+  if (!ticker) {
+    return NextResponse.json({ error: "Ticker is required" }, { status: 400 });
+  }
+
+  try {
+    // 1. Fetch Data (Parallel for Main and Peer if present)
+    const fetchTickerData = async (t: string) => {
+        const [finRes, valRes, perfRes] = await Promise.all([
+            supabase.from('datos_financieros').select('*').eq('ticker', t).order('period_end_date', { ascending: true }),
+            supabase.from('datos_valuacion').select('*').eq('ticker', t).order('valuation_date', { ascending: true }),
+            supabase.from('datos_performance').select('*').eq('ticker', t).order('performance_date', { ascending: true })
+        ]);
+        if (finRes.error) throw new Error(`Financials error for ${t}: ${finRes.error.message}`);
+        if (valRes.error) throw new Error(`Valuation error for ${t}: ${valRes.error.message}`);
+        if (perfRes.error) throw new Error(`Performance error for ${t}: ${perfRes.error.message}`);
+        return {
+            financials: finRes.data || [],
+            valuations: valRes.data || [],
+            performance: perfRes.data || []
+        };
+    };
+
+    const mainData = await fetchTickerData(ticker);
+    let peerData = null;
+    if (peerTicker) {
+        peerData = await fetchTickerData(peerTicker);
+    }
+
+    // 2. Identify Periods
+    let sortedPeriods = identifyFinancialPeriods(mainData.financials, mainData.valuations);
+    let perfColumns = identifyPerformanceColumns(mainData.performance);
+
+    // 3. Align with Peer if needed
+    if (peerData) {
+        const peerPeriods = identifyFinancialPeriods(peerData.financials, peerData.valuations);
+        const peerPerfCols = identifyPerformanceColumns(peerData.performance);
+
+        // Intersect
+        sortedPeriods = sortedPeriods.filter(p => peerPeriods.includes(p));
+        perfColumns = perfColumns.filter(c => peerPerfCols.includes(c));
+    }
+
+    // Reconstruct Period Map for metadata (Year/Type/Date) using MAIN data
+    // We need this to build the Years Structure
+    // Note: We only need to rebuild the map for the filtered 'sortedPeriods'
+    const periodMap = new Map<string, { year: number, type: PeriodType, date: string }>();
+    
+    // We can reuse the logic but optimized since we have the list of allowed periods
+    // Or just run the extraction again on Main Data but only keep keys in sortedPeriods?
+    // Let's iterate Main Data again but efficiently.
+    
+    // Actually, identifying periods is fast. We can just loop through mainData again to fill periodMap for the kept periods.
+    mainData.financials.forEach(row => {
+        let label = row.period_label;
+        if (!label) return;
+        let formattedLabel = label.length === 4 ? `${label}_FY` : (label.includes('Q') ? label.replace('Q', '_Q') : label.replace('TTM', '_TTM'));
+        if (sortedPeriods.includes(formattedLabel)) {
+             periodMap.set(formattedLabel, { 
+                 year: parseInt(formattedLabel.slice(0, 4)), 
+                 type: row.period_type as PeriodType, 
+                 date: row.period_end_date 
+             });
+        }
+    });
+    mainData.valuations.forEach(row => {
+        if (!row.denominator_period) return;
+        let label = row.denominator_period;
+        let formattedLabel = label.endsWith('FY') ? label.replace('FY', '_FY') : (label.includes('Q') ? label.replace('Q', '_Q') : label.replace('TTM', '_TTM'));
+        if (sortedPeriods.includes(formattedLabel) && !periodMap.has(formattedLabel)) {
+             periodMap.set(formattedLabel, { 
+                 year: parseInt(formattedLabel.slice(0, 4)), 
+                 type: row.denominator_type as PeriodType, 
+                 date: row.valuation_date 
+             });
+        }
+    });
 
     // 4. Build Years Structure
     const yearsMap = new Map<number, string[]>();
     sortedPeriods.forEach(p => {
-        const year = periodMap.get(p)!.year;
-        if (!yearsMap.has(year)) yearsMap.set(year, []);
-        yearsMap.get(year)!.push(p);
+        const year = periodMap.get(p)?.year;
+        if (year) {
+            if (!yearsMap.has(year)) yearsMap.set(year, []);
+            yearsMap.get(year)!.push(p);
+        }
     });
 
     const yearsList: YearGroup[] = [];
@@ -253,10 +299,10 @@ export async function GET(req: Request) {
         });
     });
 
-    // Add Performance "Year" if data exists
+    // Add Performance "Year" if data exists - SYNTHETIC YEAR 9999
     if (perfColumns.length > 0) {
         yearsList.push({
-            year: 9999, // Signal for "Latest" or just render as "Perf" in frontend
+            year: 9999, // Performance Isolated Year
             tone: yearsList.length % 2 === 0 ? 'light' : 'dark',
             columns: perfColumns
         });
@@ -264,6 +310,13 @@ export async function GET(req: Request) {
 
     // 5. Build Metrics Values
     const responseMetrics: Metric[] = [];
+    
+    // Use mainData for values
+    const financials = mainData.financials;
+    const valuations = mainData.valuations;
+    const latestPerf = mainData.performance.filter(p => 
+        p.performance_date === mainData.performance.reduce((acc, curr) => curr.performance_date > acc ? curr.performance_date : acc, "")
+    );
 
     // Helper to find financial row
     const findFinRow = (col: string) => {
@@ -283,9 +336,9 @@ export async function GET(req: Request) {
         const clean = col.replace('_', '');
         // Valuations can have multiple rows per period (different dates). We take the LATEST valuation_date.
         const matches = valuations.filter(v => 
-             v.denominator_period === clean || 
-             v.denominator_period === col ||
-             (col.endsWith('_FY') && v.denominator_period === col.split('_')[0])
+            v.denominator_period === clean || 
+            v.denominator_period === col ||
+            (col.endsWith('_FY') && v.denominator_period === col.split('_')[0])
         );
         if (matches.length === 0) return null;
         // Sort by date desc
@@ -309,9 +362,13 @@ export async function GET(req: Request) {
             let periodType: PeriodType = null;
             let endDate: string | undefined = undefined;
 
+            // STRICT DOMAIN SEPARATION
+            const isPerformanceCol = perfColumns.includes(col);
+            const isFinancialCol = sortedPeriods.includes(col);
+
             if (config.category === 'performance') {
-                // Only look in perf columns
-                if (perfColumns.includes(col)) {
+                // Performance Metrics: ONLY allowed in Performance Columns
+                if (isPerformanceCol) {
                     const row = findPerfRow(col);
                     if (row) {
                         val = Number(row[config.dbCol]);
@@ -320,8 +377,9 @@ export async function GET(req: Request) {
                     }
                 }
             } else if (config.category === 'valuation') {
-                // Look in valuation data (only for period columns)
-                if (sortedPeriods.includes(col)) {
+                // Valuation Metrics: ONLY allowed in Financial Columns
+                // And specifically FY/TTM (enforced by periodMap construction, but good to be safe)
+                if (isFinancialCol) {
                     const row = findValRow(col);
                     if (row) {
                         val = Number(row[config.dbCol]);
@@ -330,8 +388,8 @@ export async function GET(req: Request) {
                     }
                 }
             } else {
-                // Fundamentals (growth, quality, solvency)
-                if (sortedPeriods.includes(col)) {
+                // Fundamentals (growth, quality, solvency): ONLY allowed in Financial Columns
+                if (isFinancialCol) {
                     const row = findFinRow(col);
                     if (row) {
                         val = Number(row[config.dbCol]);

@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { FintraSnapshotDB, EcosystemRelationDB, EcosystemDataJSON, EcoNodeJSON, EcosystemReportDB } from '@/lib/engine/types';
 import { getIntradayPrice } from "@/lib/services/market-data-service";
+import { buildFGOSState, FgosState } from '@/lib/engine/fgos-state';
 
 export type OverviewData = {
   // Identity
@@ -101,6 +102,7 @@ export type ResumenData = {
   fgos_confidence_label: string | null
   fgos_status: string | null
   fgos_confidence_percent: number | null
+  fgos_state: FgosState | null
 }
 
 export async function getResumenData(ticker: string): Promise<ResumenData> {
@@ -132,7 +134,7 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
   // 4. Analysis (fintra_snapshots)
   const snapshotQuery = supabase
     .from('fintra_snapshots')
-    .select('profile_structural, fgos_maturity, fgos_confidence_percent')
+    .select('profile_structural, fgos_maturity, fgos_confidence_percent, fgos_components, fgos_status')
     .eq('ticker', upperTicker)
     .order('snapshot_date', { ascending: false })
     .limit(1)
@@ -189,6 +191,14 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
     fgos_confidence_label: m.fgos_confidence_label ?? null,
     fgos_status: s.fgos_maturity ?? null,
     fgos_confidence_percent: s.fgos_confidence_percent ?? null,
+    fgos_state: s ? buildFGOSState({
+      fgos_score: m.fgos_score ?? null,
+      fgos_components: s.fgos_components ?? null,
+      fgos_confidence_percent: s.fgos_confidence_percent ?? null,
+      fgos_confidence_label: m.fgos_confidence_label ?? null,
+      fgos_status: s.fgos_status,
+      fgos_maturity: s.fgos_maturity
+    }) : null
   };
 
   // --- MOCK DATA FOR VALIDATION (PHASE 4) ---

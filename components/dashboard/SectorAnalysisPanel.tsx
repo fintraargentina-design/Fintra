@@ -197,7 +197,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                 <TabsTrigger 
                   key={sector} 
                   value={sector} 
-                  className="bg-zinc-900 rounded-none border-b-0 data-[state=active]:bg-[#0056FF] data-[state=active]:text-white text-xs px-2 py-1 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors flex-1"
+                  className="bg-zinc-900 rounded-none border-b-0 data-[state=active]:bg-[#002D72] data-[state=active]:text-white text-xs px-2 py-1 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors flex-1"
                 >
                   {sector}
                 </TabsTrigger>

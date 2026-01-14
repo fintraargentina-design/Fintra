@@ -1,5 +1,7 @@
 "use client";
 
+// fintra/components/cards/ValoracionCard.tsx
+
 import { useState, useEffect } from "react";
 import { X, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import {
@@ -170,7 +172,7 @@ export default function ValoracionCard({ symbol, scrollRef, peerTicker, highligh
           <Table className="w-full text-sm border-collapse">
             <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
               <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
-                <TableHead className="px-2 text-gray-300 text-[12px] h-6 w-[150px] font-light font-nano text-left">Valoración</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[12px] h-6 w-[150px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D]">Valoración</TableHead>
                 {data?.years?.map((year, yearIdx) => (
                   year.columns.flatMap(col => [
                     <TableHead 
@@ -207,7 +209,7 @@ export default function ValoracionCard({ symbol, scrollRef, peerTicker, highligh
                     className={`border-zinc-800 border-b cursor-pointer group transition-all duration-300 ${isHighlighted ? 'bg-[#FFA028]/10 border-l-2 border-l-[#FFA028] shadow-[inset_0_0_20px_rgba(255,160,40,0.05)]' : 'hover:bg-white/5 border-l-2 border-l-transparent'}`}
                     onClick={() => setExplanationModal({ isOpen: true, selectedMetric: metric.label })}
                   >
-                  <TableCell className="font-bold text-gray-200 px-2 py-0.5 text-xs w-[120px] border-r border-zinc-800 group-hover:text-blue-400 transition-colors">
+                  <TableCell className="font-bold text-gray-200 px-2 py-0.5 text-xs w-[120px] border-r border-zinc-800 group-hover:text-blue-400 transition-colors sticky left-0 z-10 bg-[#1D1D1D]">
                     {metric.label}
                   </TableCell>
                     {data?.years?.map((year, yearIdx) => (

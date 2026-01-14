@@ -1,6 +1,7 @@
 "use client";
+// fintra/components/cards/FundamentalCard.tsx
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { getHeatmapColor, HeatmapDirection } from "@/lib/ui/heatmap";
@@ -70,6 +71,20 @@ export default function FundamentalCard({
   const data = isControlled ? timelineData : internalData;
   const loading = isControlled ? !data : internalLoading;
 
+  const localRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = scrollRef || localRef;
+
+  useEffect(() => {
+    if (!loading && scrollContainerRef.current) {
+        // Small timeout to ensure rendering is complete
+        setTimeout(() => {
+            if (scrollContainerRef.current) {
+                scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+            }
+        }, 0);
+    }
+  }, [loading]);
+
   // Fetch peer data when selected
   useEffect(() => {
     if (!peerTicker) {
@@ -138,11 +153,11 @@ export default function FundamentalCard({
         </h4>
       </div> */}
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-0 scrollbar-thin">
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto p-0 scrollbar-thin">
         <Table className="w-full text-sm border-collapse">
           <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
             <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
-              <TableHead className="px-2 text-gray-300 text-[12px] h-6 w-[150px] font-light font-nano text-left">Fundamentales</TableHead>
+              <TableHead className="px-2 text-gray-300 text-[12px] h-6 w-[150px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D]">Fundamentales</TableHead>
               {data?.years.map((year, yearIdx) => (
                 year.columns.map(col => (
                     <TableHead key={col} className={`px-2 text-gray-300 text-[10px] h-6 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}>
@@ -167,7 +182,7 @@ export default function FundamentalCard({
                     key={metric.key} 
                     className={`border-zinc-800 border-b transition-all duration-300 ${isHighlighted ? 'bg-[#FFA028]/10 border-l-2 border-l-[#FFA028] shadow-[inset_0_0_20px_rgba(255,160,40,0.05)]' : 'hover:bg-white/5 border-l-2 border-l-transparent'}`}
                   >
-                  <TableCell className="font-bold text-gray-200 px-2 py-0.5 text-xs w-[100px] border-r border-zinc-800">
+                  <TableCell className="font-bold text-gray-200 px-2 py-0.5 text-xs w-[100px] border-r border-zinc-800 sticky left-0 z-10 bg-[#0A0A0A]">
                     {metric.label}
                   </TableCell>
                   {data?.years?.map((year, yearIdx) => (

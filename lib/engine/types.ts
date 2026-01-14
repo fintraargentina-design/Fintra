@@ -22,6 +22,20 @@ export interface FgosBreakdown {
   profitability_impact?: LowConfidenceImpact;
   efficiency_impact?: LowConfidenceImpact;
   solvency_impact?: LowConfidenceImpact;
+  moat?: {
+    value: number | null;
+    confidence: number | null;
+    status: 'computed' | 'partial' | 'pending';
+  };
+  sentiment?: {
+    value: number | null;
+    confidence: number | null;
+    status: 'computed' | 'partial' | 'pending';
+    signals?: {
+      relative_momentum: number | null;
+      consistency_penalty: number | null;
+    };
+  };
 }
 
 export interface FgosResult {
@@ -31,7 +45,7 @@ export interface FgosResult {
   fgos_breakdown: FgosBreakdown;
   confidence: number;
   confidence_label?: 'High' | 'Medium' | 'Low';
-  fgos_status?: 'Mature' | 'Developing' | 'Early-stage' | 'Incomplete';
+  fgos_status?: 'Mature' | 'Developing' | 'Early-stage' | 'Incomplete' | 'partial';
   quality_warnings?: string[];
   calculated_at: string;
 }

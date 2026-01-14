@@ -118,7 +118,7 @@ export async function runUpdateMvp(targetTicker?: string) {
 
           // Cálculo Puro (CPU bound, muy rápido)
           // Pass null for confidenceInputs to use defaults (MVP mode)
-          const analysis = await calculateFGOSFromData(symbol, profile, ratio, metric, growth, null, quote, today);
+          const analysis = await calculateFGOSFromData(symbol, profile, ratio, metric, growth, null, quote, null, null, today);
 
           if (!analysis) {
             results.failed.push(`${symbol} (Calc Error)`);

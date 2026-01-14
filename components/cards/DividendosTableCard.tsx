@@ -1,4 +1,5 @@
 "use client";
+// fintra/components/cards/DividendosTableCard.tsx
 
 import React, { useEffect, useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
