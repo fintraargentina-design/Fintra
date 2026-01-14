@@ -248,14 +248,25 @@ export async function runPeersBulkFromFile(
     console.log(
       `[PeersBulkFromFile] Built ${relations.length} relations for ${tickersWithPeers} tickers (avg raw peers per ticker: ${tickersWithPeers ? (totalRawPeers / tickersWithPeers).toFixed(2) : 0})`
     );
-    const { error: upsertError } = await supabase
-      .from('stock_peers')
-      .upsert(relations, {
-        onConflict: 'ticker,peer_ticker',
-      });
 
-    if (upsertError) {
-      throw upsertError;
+    const CHUNK_SIZE = 5000;
+    for (let i = 0; i < relations.length; i += CHUNK_SIZE) {
+      const chunk = relations.slice(i, i + CHUNK_SIZE);
+      const chunkIndex = Math.floor(i / CHUNK_SIZE) + 1;
+      const totalChunks = Math.ceil(relations.length / CHUNK_SIZE);
+      
+      console.log(`[PeersBulkFromFile] Upserting chunk ${chunkIndex}/${totalChunks} (${chunk.length} rows)...`);
+      
+      const { error: upsertError } = await supabase
+        .from('stock_peers')
+        .upsert(chunk, {
+          onConflict: 'ticker,peer_ticker',
+        });
+
+      if (upsertError) {
+        console.error(`[PeersBulkFromFile] Error upserting chunk ${chunkIndex}:`, upsertError);
+        throw upsertError;
+      }
     }
   }
 

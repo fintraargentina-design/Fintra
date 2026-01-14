@@ -106,7 +106,7 @@ export async function runPricesDailyBulk(opts: PricesDailyBulkOptions) {
     // 4. Streaming Parse & Process
 
     
-    const BATCH_SIZE = 1000;
+    const BATCH_SIZE = 5000;
     let batch: any[] = [];
     
     // Helper to flush batch
