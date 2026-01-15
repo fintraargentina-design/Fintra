@@ -26,6 +26,7 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { fmp } from "@/lib/fmp/public";
 
 interface NewsItem {
   title: string;
@@ -51,13 +52,6 @@ interface NewsItem {
   }>;
 }
 
-interface NewsResponse {
-  items: string;
-  sentiment_score_definition: string;
-  relevance_score_definition: string;
-  feed: NewsItem[];
-}
-
 interface NoticiasTabProps {
   symbol?: string;
   stockBasicData?: any;
@@ -78,10 +72,8 @@ export default function NoticiasTab({
   const [error, setError] = useState<string | null>(null);
   const [analysisModal, setAnalysisModal] = useState<AnalysisState>(initialAnalysisState);
   
-  // Filter States
-  const [activeCategory, setActiveCategory] = useState("General");
-  const [activeSentiment, setActiveSentiment] = useState("Any");
-  const [sortBy, setSortBy] = useState("Latest");
+  // Filter State
+  const [activeCategory, setActiveCategory] = useState("Stock News");
   
   const [viewNewsModal, setViewNewsModal] = useState<{ isOpen: boolean; url: string | null; title: string | null }>({
     isOpen: false,
@@ -89,12 +81,11 @@ export default function NoticiasTab({
     title: null
   });
 
-  const categories = ["General", "Earnings", "Technology", "Finance", "Crypto", "IPO", "Mergers"];
-  const sentiments = ["Bullish", "Somewhat-Bullish", "Neutral", "Somewhat-Bearish", "Bearish"];
+  const categories = ["Stock News", "General", "Press Releases", "FMP Articles", "Crypto", "Forex"];
 
   useEffect(() => {
     fetchNews();
-  }, [symbol]);
+  }, [symbol, activeCategory]);
 
   const fetchNews = async () => {
     if (!symbol || symbol === "N/A" || symbol.length === 0) {
@@ -107,26 +98,56 @@ export default function NoticiasTab({
       setLoading(true);
       setError(null);
       
-      const response = await fetch(
-        `/api/proxy/news?symbol=${symbol}`
-      );
-      
-      if (!response.ok) {
-        throw new Error('Error al obtener las noticias');
+      let data: any[] = [];
+      const limit = 20;
+
+      switch (activeCategory) {
+          case "Stock News":
+              // Prioritize symbol specific news if available
+              if (symbol) {
+                  data = await fmp.stockNews({ tickers: symbol, limit });
+              } else {
+                  data = await fmp.stockNews({ limit });
+              }
+              break;
+          case "General":
+              data = await fmp.generalNews({ limit });
+              break;
+          case "Press Releases":
+              data = await fmp.pressReleases({ limit });
+              break;
+          case "FMP Articles":
+              data = await fmp.fmpArticles({ limit });
+              break;
+          case "Crypto":
+              data = await fmp.cryptoNews({ limit });
+              break;
+          case "Forex":
+              data = await fmp.forexNews({ limit });
+              break;
+          default:
+              data = await fmp.generalNews({ limit });
       }
       
-      const data: NewsResponse = await response.json();
+      // Map FMP data to NewsItem structure
+      const mappedNews: NewsItem[] = data.map((item: any) => ({
+        title: item.title,
+        url: item.url || item.link,
+        time_published: item.publishedDate || item.date,
+        authors: item.author ? [item.author] : [],
+        summary: item.text || item.content || "",
+        banner_image: item.image,
+        source: item.site || "FMP",
+        category_within_source: activeCategory,
+        source_domain: item.site || "financialmodelingprep.com",
+        topics: item.tickers ? [{ topic: item.tickers, relevance_score: "1.0" }] : [],
+        overall_sentiment_score: 0,
+        overall_sentiment_label: "Neutral", // FMP doesn't provide sentiment in these endpoints
+        ticker_sentiment: []
+      }));
       
-      if (data.feed && Array.isArray(data.feed)) {
-        setNews(data.feed);
-      } else {
-        if ((data as any)["Information"]) {
-             console.warn("Alpha Vantage Limit Reached:", (data as any)["Information"]);
-        }
-        // Fail gracefully instead of throwing error to UI
-        console.warn('News data missing feed:', data);
-        setNews([]);
-      }
+      setNews(mappedNews);
+
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -158,13 +179,13 @@ export default function NoticiasTab({
 
   const formatDate = (dateString: string) => {
     try {
-      const year = dateString.substring(0, 4);
-      const month = dateString.substring(4, 6);
-      const day = dateString.substring(6, 8);
-      const hour = dateString.substring(9, 11);
-      const minute = dateString.substring(11, 13);
-      
-      const date = new Date(`${year}-${month}-${day}T${hour}:${minute}:00`);
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+          // Fallback to manual parsing if ISO fails or if format is different
+          // Existing logic was for Alpha Vantage "YYYYMMDDTHHMM" format?
+          // FMP usually sends "YYYY-MM-DD HH:MM:SS" or ISO.
+          return dateString;
+      }
       
       const now = new Date();
       const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
@@ -186,78 +207,21 @@ export default function NoticiasTab({
     }
   };
 
-  const getTickerSentiment = (newsItem: NewsItem) => {
-    const tickerSentiment = newsItem.ticker_sentiment?.find(
-      (ts) => ts.ticker === symbol
-    );
-    return tickerSentiment;
-  };
-
   const filteredNews = useMemo(() => {
-    let result = [...news];
-
-    // 1. Filter by Category
-    if (activeCategory !== "General") {
-      const lowerCategory = activeCategory.toLowerCase();
-      result = result.filter(item => {
-        const text = (item.title + " " + item.summary).toLowerCase();
-        const hasTopic = item.topics?.some(t => t.topic.toLowerCase().includes(lowerCategory));
-        
-        if (lowerCategory === "earnings") return text.includes("earnings") || text.includes("quarter") || text.includes("report") || text.includes("revenue");
-        if (lowerCategory === "technology") return text.includes("tech") || text.includes("ai") || text.includes("soft") || hasTopic;
-        if (lowerCategory === "finance") return text.includes("stock") || text.includes("market") || text.includes("trade") || hasTopic;
-        if (lowerCategory === "crypto") return text.includes("crypto") || text.includes("bitcoin") || text.includes("coin") || text.includes("blockchain");
-        
-        return text.includes(lowerCategory) || hasTopic;
-      });
-    }
-
-    // 2. Filter by Sentiment
-    if (activeSentiment !== "Any") {
-      result = result.filter(item => {
-        const tickerSentiment = getTickerSentiment(item);
-        const label = tickerSentiment ? tickerSentiment.ticker_sentiment_label : item.overall_sentiment_label;
-        return label === activeSentiment;
-      });
-    }
-
-    // 3. Sort
-    if (sortBy === "Top Stories") {
-       // Sort by relevance score to the ticker, then by sentiment score magnitude
-       result.sort((a, b) => {
-         const sentimentA = getTickerSentiment(a);
-         const sentimentB = getTickerSentiment(b);
-         const relevanceA = sentimentA ? parseFloat(sentimentA.relevance_score) : 0;
-         const relevanceB = sentimentB ? parseFloat(sentimentB.relevance_score) : 0;
-         return relevanceB - relevanceA;
-       });
-    } else {
-       // Latest (Default) - Alpha Vantage usually returns sorted by date, but ensuring it here
-       result.sort((a, b) => {
-         return b.time_published.localeCompare(a.time_published);
-       });
-    }
-
-    return result;
-  }, [news, activeCategory, activeSentiment, sortBy]);
+    return [...news].sort((a, b) => {
+      return new Date(b.time_published).getTime() - new Date(a.time_published).getTime();
+    });
+  }, [news]);
 
   const handleAnalyzeNews = async (newsItem: NewsItem) => {
-    const tickerSentiment = getTickerSentiment(newsItem);
-    const sentimentLabel = tickerSentiment 
-      ? tickerSentiment.ticker_sentiment_label
-      : newsItem.overall_sentiment_label;
-    const relevanceScore = tickerSentiment 
-      ? parseFloat(tickerSentiment.relevance_score)
-      : 0;
-
     const analysisData: NewsAnalysisData = {
       title: newsItem.title,
       summary: newsItem.summary,
       date: newsItem.time_published,
       source: newsItem.source,
       symbol: symbol,
-      sentiment: sentimentLabel,
-      relevance: relevanceScore
+      sentiment: newsItem.overall_sentiment_label || "Neutral",
+      relevance: 0
     };
 
     setAnalysisModal({
@@ -299,8 +263,6 @@ export default function NoticiasTab({
 
   const resetFilters = () => {
     setActiveCategory("General");
-    setActiveSentiment("Any");
-    setSortBy("Latest");
   };
 
   if (loading) {
@@ -335,7 +297,7 @@ export default function NoticiasTab({
             {title ? (
               <span className="text-[#FFA028]">{title}</span>
             ) : (
-              <>Noticias de <span className="text-[#FFA028]">{symbol}</span></>
+              <>Noticias Generales · <span className="text-[#FFA028]">{activeCategory}</span></>
             )}
           </h4>
           
@@ -352,47 +314,27 @@ export default function NoticiasTab({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-auto bg-black border-zinc-800 text-zinc-300 rounded-none p-0">
-                <div className="flex divide-x divide-zinc-800">
-                    {/* Column 1: Categoría */}
-                    <div className="w-32 p-1">
-                        <DropdownMenuLabel className="text-xs font-normal text-zinc-500 px-2 py-1">Categoría</DropdownMenuLabel>
-                        <DropdownMenuRadioGroup value={activeCategory} onValueChange={setActiveCategory}>
-                            {categories.map(cat => (
-                                <DropdownMenuRadioItem key={cat} value={cat} className="pl-2 [&>span]:hidden data-[state=checked]:bg-[#0056FF] data-[state=checked]:text-white focus:data-[state=checked]:bg-[#0056FF] focus:data-[state=checked]:text-white focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">
-                                    {cat}
-                                </DropdownMenuRadioItem>
-                            ))}
-                        </DropdownMenuRadioGroup>
-                    </div>
-                    
-                    {/* Column 2: Tendencia */}
-                    <div className="w-40 p-1">
-                        <DropdownMenuLabel className="text-xs font-normal text-zinc-500 px-2 py-1">Tendencia</DropdownMenuLabel>
-                        <DropdownMenuRadioGroup value={activeSentiment} onValueChange={setActiveSentiment}>
-                            <DropdownMenuRadioItem value="Any" className="pl-2 [&>span]:hidden data-[state=checked]:bg-[#0056FF] data-[state=checked]:text-white focus:data-[state=checked]:bg-[#0056FF] focus:data-[state=checked]:text-white focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">Todas</DropdownMenuRadioItem>
-                            {sentiments.map(sent => (
-                                <DropdownMenuRadioItem key={sent} value={sent} className="pl-2 [&>span]:hidden data-[state=checked]:bg-[#0056FF] data-[state=checked]:text-white focus:data-[state=checked]:bg-[#0056FF] focus:data-[state=checked]:text-white focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">
-                                    {sent}
-                                </DropdownMenuRadioItem>
-                            ))}
-                        </DropdownMenuRadioGroup>
-                    </div>
+                <div className="flex flex-col p-1">
+                    <DropdownMenuLabel className="text-xs font-normal text-zinc-500 px-2 py-1">Categoría</DropdownMenuLabel>
+                    <DropdownMenuRadioGroup value={activeCategory} onValueChange={setActiveCategory}>
+                        {categories.map(cat => (
+                            <DropdownMenuRadioItem
+                              key={cat}
+                              value={cat}
+                              className="pl-2 [&>span]:hidden data-[state=checked]:bg-[#0056FF] data-[state=checked]:text-white focus:data-[state=checked]:bg-[#0056FF] focus:data-[state=checked]:text-white focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs"
+                            >
+                                {cat}
+                            </DropdownMenuRadioItem>
+                        ))}
+                    </DropdownMenuRadioGroup>
 
-                    {/* Column 3: Ordenar */}
-                    <div className="w-32 p-1 flex flex-col">
-                        <div className="flex-1">
-                            <DropdownMenuLabel className="text-xs font-normal text-zinc-500 px-2 py-1">Ordenar</DropdownMenuLabel>
-                            <DropdownMenuRadioGroup value={sortBy} onValueChange={setSortBy}>
-                                <DropdownMenuRadioItem value="Latest" className="pl-2 [&>span]:hidden data-[state=checked]:bg-[#0056FF] data-[state=checked]:text-white focus:data-[state=checked]:bg-[#0056FF] focus:data-[state=checked]:text-white focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">Latest</DropdownMenuRadioItem>
-                                <DropdownMenuRadioItem value="Top Stories" className="pl-2 [&>span]:hidden data-[state=checked]:bg-[#0056FF] data-[state=checked]:text-white focus:data-[state=checked]:bg-[#0056FF] focus:data-[state=checked]:text-white focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer py-0.5 text-xs">Top Stories</DropdownMenuRadioItem>
-                            </DropdownMenuRadioGroup>
-                        </div>
-                        
-                        <div className="pt-1 mt-1 border-t border-zinc-800">
-                            <DropdownMenuItem onClick={resetFilters} className="text-rose-400 focus:text-rose-300 focus:bg-rose-500/10 cursor-pointer py-0.5 text-xs">
-                                Limpiar filtros
-                            </DropdownMenuItem>
-                        </div>
+                    <div className="pt-1 mt-1 border-t border-zinc-800">
+                        <DropdownMenuItem
+                          onClick={resetFilters}
+                          className="text-rose-400 focus:text-rose-300 focus:bg-rose-500/10 cursor-pointer py-0.5 text-xs"
+                        >
+                            Limpiar filtros
+                        </DropdownMenuItem>
                     </div>
                 </div>
 
@@ -411,14 +353,6 @@ export default function NoticiasTab({
           ) : (
             <div className="divide-y divide-zinc-800">
               {filteredNews.map((item, idx) => {
-                const tickerSentiment = getTickerSentiment(item);
-                const sentimentScore = tickerSentiment 
-                    ? parseFloat(tickerSentiment.ticker_sentiment_score)
-                    : item.overall_sentiment_score;
-                const sentimentLabel = tickerSentiment 
-                    ? tickerSentiment.ticker_sentiment_label
-                    : item.overall_sentiment_label;
-
                 return (
                   <div key={idx} className="group p-1 hover:bg-zinc-800/30 transition-colors cursor-default scrollbar-thin">
                     <div className="flex gap-4">
@@ -434,16 +368,7 @@ export default function NoticiasTab({
                                         {formatDate(item.time_published)}
                                     </span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                     <span className={`text-xs font-mono ${
-                                         sentimentLabel.includes('Bullish') || sentimentScore > 0.1 ? 'text-green-500' :
-                                         sentimentLabel.includes('Bearish') || sentimentScore < -0.1 ? 'text-red-500' :
-                                         'text-white'
-                                     }`}>
-                                         {sentimentLabel}
-                                     </span>
-                                     {getSentimentIcon(sentimentLabel, sentimentScore)}
-                                </div>
+                                <div className="flex items-center gap-2" />
                             </div>
 
                             <h3 className="text-zinc-100 font-medium text-xs leading-snug mb-2 group-hover:text-[#FFA028] transition-colors line-clamp-2">

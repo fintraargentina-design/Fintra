@@ -87,6 +87,9 @@ export type ResumenData = {
   ytd_return: number | null
   volume: number | null
   beta: number | null
+  last_dividend: number | null
+  range: string | null
+  ipo_date: string | null
 
   // Analysis (fintra_snapshots)
   altman_z: number | null
@@ -155,27 +158,32 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
   // Extract financial scores from snapshot if available
   const ps = s.profile_structural as any;
   const scores = ps?.financial_scores || {};
+  const metrics = ps?.metrics || {};
+  const identity = ps?.identity || {};
 
   const result: ResumenData = {
     // Identity
     ticker: u.ticker || upperTicker,
-    name: p.company_name || null,
+    name: p.company_name || identity.name || null,
     sector: p.sector || null,
     industry: p.industry || null,
-    country: p.country || null,
-    exchange: u.exchange || null,
-    website: p.website || null,
-    ceo: p.ceo || null,
-    employees: p.employees || null,
-    description: p.description || null,
+    country: p.country || identity.country || null,
+    exchange: u.exchange || identity.exchange || null,
+    website: p.website || identity.website || null,
+    ceo: p.ceo || identity.ceo || null,
+    employees: p.employees || identity.fullTimeEmployees || null,
+    description: p.description || identity.description || null,
 
     // Market
-    price: m.price || null,
-    market_cap: m.market_cap || null,
-    change_percentage: m.change_percentage || null,
+    price: m.price || metrics.price || null,
+    market_cap: m.market_cap || metrics.marketCap || null,
+    change_percentage: m.change_percentage || metrics.changePercentage || null,
     ytd_return: m.ytd_return || null,
-    volume: m.volume || null,
-    beta: m.beta || null,
+    volume: m.volume || metrics.volume || null,
+    beta: m.beta || metrics.beta || null,
+    last_dividend: metrics.lastDividend || null,
+    range: metrics.range || null,
+    ipo_date: identity.founded || null,
 
     // Analysis
     altman_z: scores.altman_z ?? null,

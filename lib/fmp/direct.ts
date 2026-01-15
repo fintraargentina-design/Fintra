@@ -2,7 +2,7 @@
 import { fmpGet } from "./server";
 import { createFmpClient, type GetOpts } from "./factory";
 
-async function directFetcher<T>(path: string, { params = {}, cache }: GetOpts = {}): Promise<T> {
+export async function directFetcher<T>(path: string, { params = {}, cache }: GetOpts = {}): Promise<T> {
   const { symbol, ...otherParams } = params;
 
   // Most FMP endpoints require a symbol.
@@ -83,6 +83,35 @@ async function directFetcher<T>(path: string, { params = {}, cache }: GetOpts = 
     case "/price-target-consensus":
       fmpPath = `/v4/price-target-consensus`;
       query.symbol = requireSymbol();
+      break;
+
+    case "/fmp-articles":
+      fmpPath = `/stable/fmp-articles`;
+      break;
+
+    case "/news/general":
+    case "/news/general-latest":
+      fmpPath = `/stable/news/general-latest`;
+      break;
+
+    case "/news/press-releases":
+    case "/news/press-releases-latest":
+      fmpPath = `/stable/news/press-releases-latest`;
+      break;
+
+    case "/news/stock":
+    case "/news/stock-latest":
+      fmpPath = `/stable/news/stock-latest`;
+      break;
+
+    case "/news/crypto":
+    case "/news/crypto-latest":
+      fmpPath = `/stable/news/crypto-latest`;
+      break;
+
+    case "/news/forex":
+    case "/news/forex-latest":
+      fmpPath = `/stable/news/forex-latest`;
       break;
 
     default:

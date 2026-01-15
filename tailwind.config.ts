@@ -11,8 +11,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-jetbrains-mono)", ...fontFamily.sans],
-        mono: ["var(--font-jetbrains-mono)", ...fontFamily.mono],
+        sans: ["var(--font-work-sans)", ...fontFamily.sans],
+        mono: ["var(--font-work-sans)", ...fontFamily.mono],
       },
       colors: {
         background: 'hsl(var(--background))',

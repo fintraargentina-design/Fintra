@@ -41,37 +41,80 @@ export function buildValuationState(
   input: ValuationInput,
   sectorBenchmarks: SectorBenchmarkMap
 ): ValuationState {
+    // 1. HARD METRIC VALIDATION
+    // A metric is VALID only if:
+    // - value is not null/undefined
+    // - value is finite
+    // - value > 0 (Strictly positive)
+    const validate = (val: number | null | undefined) => {
+        if (val === null || val === undefined) return null;
+        if (!Number.isFinite(val)) return null;
+        if (val <= 0) return null; // Discard negative/zero
+        return val;
+    };
+
+    const pe = validate(input.pe_ratio);
+    const ev = validate(input.ev_ebitda);
+    const pfcf = validate(input.price_to_fcf);
+
     const metrics: ValuationMetrics = {
-        pe_ratio: input.pe_ratio ?? null,
-        ev_ebitda: input.ev_ebitda ?? null,
-        price_to_fcf: input.price_to_fcf ?? null,
+        pe_ratio: pe,
+        ev_ebitda: ev,
+        price_to_fcf: pfcf,
     };
 
     const percentiles: number[] = [];
     
-    // For valuation metrics (lower is cheaper/better usually for P/E, EV/EBITDA, P/FCF),
-    // a LOW value corresponds to a LOW percentile in the distribution.
-    // Low percentile = Cheap = Undervalued.
-    // High percentile = Expensive = Overvalued.
+    // 2. SECTOR NORMALIZATION & PERCENTILE MAPPING
+    // Rule: Use P50 median ONLY.
+    // Logic:
+    // - If metric < P50 -> "Cheap" (Proxy Percentile: 25)
+    // - If metric > P50 -> "Expensive" (Proxy Percentile: 75)
+    // - If metric == P50 -> "Fair" (Proxy Percentile: 50)
     
-    if (input.pe_ratio != null && sectorBenchmarks['pe_ratio']) {
-        percentiles.push(getApproximatePercentile(input.pe_ratio, sectorBenchmarks['pe_ratio']));
+    const resolveProxyPercentile = (val: number, benchmarkKey: string) => {
+        const bench = sectorBenchmarks[benchmarkKey];
+        if (!bench) return null;
+        
+        // We strictly use p50 (median)
+        const median = bench.p50;
+        
+        // If benchmark is invalid? (Shouldn't happen if type is correct)
+        if (median === undefined || median === null) return null;
+
+        if (val < median) return 25; // Below median -> Cheap
+        if (val > median) return 75; // Above median -> Expensive
+        return 50; // Exact match
+    };
+
+    if (pe !== null) {
+        const p = resolveProxyPercentile(pe, 'pe_ratio');
+        if (p !== null) percentiles.push(p);
     }
-    if (input.ev_ebitda != null && sectorBenchmarks['ev_ebitda']) {
-        percentiles.push(getApproximatePercentile(input.ev_ebitda, sectorBenchmarks['ev_ebitda']));
+    if (ev !== null) {
+        const p = resolveProxyPercentile(ev, 'ev_ebitda');
+        if (p !== null) percentiles.push(p);
     }
-    if (input.price_to_fcf != null && sectorBenchmarks['price_to_fcf']) {
-        percentiles.push(getApproximatePercentile(input.price_to_fcf, sectorBenchmarks['price_to_fcf']));
+    if (pfcf !== null) {
+        const p = resolveProxyPercentile(pfcf, 'price_to_fcf');
+        if (p !== null) percentiles.push(p);
     }
     
     const valid_count = percentiles.length;
 
     // Stage (pending / partial / computed)
     let stage: ValuationState['stage'] = 'pending';
-    if (valid_count === 1 || valid_count === 2) stage = 'partial';
-    if (valid_count === 3) stage = 'computed';
+    
+    // STRICT RULE: Minimum 2 metrics required
+    if (valid_count < 2) {
+        stage = 'pending';
+    } else if (valid_count === 2) {
+        stage = 'partial';
+    } else {
+        stage = 'computed'; // 3 metrics
+    }
 
-    // Confidence: only based on coverage
+    // Confidence
     const confidencePercent = Math.round((valid_count / 3) * 100);
     let confidenceLabel: 'Low' | 'Medium' | 'High' = 'Low';
     if (confidencePercent < 40) {
@@ -82,11 +125,11 @@ export function buildValuationState(
       confidenceLabel = 'High';
     }
 
-    // Verdict (canonical) based on median percentile
+    // 3. AGGREGATION (Median of valid percentiles)
     let valuation_status: ValuationState['valuation_status'] = 'pending';
     let medianPercentile = 0;
 
-    if (stage === 'computed') {
+    if (valid_count >= 2) { // Minimum threshold enforcement
       percentiles.sort((a, b) => a - b);
       const mid = Math.floor(percentiles.length / 2);
       if (percentiles.length % 2 !== 0) {
@@ -95,6 +138,7 @@ export function buildValuationState(
         medianPercentile = (percentiles[mid - 1] + percentiles[mid]) / 2;
       }
 
+      // 4. CANONICAL STATES
       if (medianPercentile <= 35) {
         valuation_status = 'cheap_sector';
       } else if (medianPercentile >= 66) {
@@ -106,34 +150,30 @@ export function buildValuationState(
       valuation_status = 'pending';
     }
 
-    // Explanation (narrative alignment)
+    // Explanation
     let explanation = '';
     if (stage === 'pending') {
       explanation =
         'La valoración no puede determinarse aún por falta de métricas comparables suficientes dentro del sector.';
-    } else if (stage === 'partial') {
-      let bracket: 'BARATA' | 'JUSTA' | 'CARA' = 'JUSTA';
-      if (valuation_status === 'cheap_sector') bracket = 'BARATA';
-      else if (valuation_status === 'expensive_sector') bracket = 'CARA';
-
-      explanation =
-        `La valoración es preliminar. Con la información disponible, la empresa se ubica ${bracket} para su sector, aunque el análisis no cuenta aún con cobertura completa de múltiplos.`;
     } else {
-      if (valuation_status === 'cheap_sector') {
-        explanation =
-          'La empresa cotiza a múltiplos inferiores a la mediana de su sector, lo que sugiere una valoración relativamente baja en comparación con sus pares.';
-      } else if (valuation_status === 'fair_sector') {
-        explanation =
-          'La empresa cotiza en línea con los múltiplos promedio de su sector, reflejando una valoración acorde a su contexto competitivo.';
-      } else if (valuation_status === 'expensive_sector') {
-        explanation =
-          'La empresa cotiza a múltiplos superiores a la mediana de su sector, lo que indica una valoración exigente en relación con sus pares.';
-      }
+       // Logic for explanation text...
+       // Keep existing explanation logic but adapted if needed.
+       // The existing logic seems fine.
+       if (valuation_status === 'cheap_sector') {
+          explanation = 'La empresa cotiza a múltiplos inferiores a la mediana de su sector (Cheap).';
+       } else if (valuation_status === 'expensive_sector') {
+          explanation = 'La empresa cotiza a múltiplos superiores a la mediana de su sector (Expensive).';
+       } else {
+          explanation = 'La empresa cotiza en línea con la mediana de su sector (Fair).';
+       }
+
+       if (stage === 'partial') {
+           explanation = `Valoración preliminar (${valid_count}/3 métricas). ` + explanation;
+       }
     }
 
-    if (confidenceLabel === 'Low') {
-      explanation +=
-        ' Este resultado debe interpretarse con cautela debido a la cobertura limitada de métricas comparables.';
+    if (confidenceLabel === 'Low' && stage !== 'pending') {
+      explanation += ' Cautela: cobertura limitada de métricas.';
     }
 
     return {
@@ -172,7 +212,8 @@ export function resolveValuationFromSector(
   };
 
   let score: number | null = null;
-  if (state.stage === 'computed') {
+  // Allow score for both 'computed' and 'partial' as long as it's not pending
+  if (state.valuation_status !== 'pending') {
     if (state.valuation_status === 'cheap_sector') score = 80;
     else if (state.valuation_status === 'fair_sector') score = 50;
     else if (state.valuation_status === 'expensive_sector') score = 20;

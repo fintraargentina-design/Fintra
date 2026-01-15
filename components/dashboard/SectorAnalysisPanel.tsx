@@ -222,7 +222,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
               <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[60px]">Ticker</TableHead>
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Rank. Sectorial IFS</TableHead>
-                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[80px]">Valuación</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Val. Relativa al Sector</TableHead>
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[50px]">Ecosistema</TableHead>
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[60px]">Div. Yield</TableHead>
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[60px]">Estimación</TableHead>

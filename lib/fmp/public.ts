@@ -50,6 +50,56 @@ export const fmp = {
     );
   },
 
+  /* ─────────── News & Articles ─────────── */
+
+  fmpArticles(opts?: { page?: number; limit?: number; cache?: CacheOpt }) {
+    return getJSON<import("@/lib/fmp/types").ArticlesResponse>(
+      "/fmp-articles",
+      { page: opts?.page ?? 0, limit: opts?.limit ?? 20 },
+      opts?.cache ?? "force-cache"
+    );
+  },
+
+  generalNews(opts?: { page?: number; limit?: number; cache?: CacheOpt }) {
+    return getJSON<import("@/lib/fmp/types").NewsResponse>(
+      "/news/general-latest",
+      { page: opts?.page ?? 0, limit: opts?.limit ?? 20 },
+      opts?.cache ?? "force-cache"
+    );
+  },
+
+  pressReleases(opts?: { page?: number; limit?: number; symbol?: string; cache?: CacheOpt }) {
+    return getJSON<import("@/lib/fmp/types").NewsResponse>(
+      "/news/press-releases-latest",
+      { page: opts?.page ?? 0, limit: opts?.limit ?? 20, ...(opts?.symbol ? { symbol: opts.symbol } : {}) },
+      opts?.cache ?? "force-cache"
+    );
+  },
+
+  stockNews(opts?: { page?: number; limit?: number; tickers?: string; cache?: CacheOpt }) {
+    return getJSON<import("@/lib/fmp/types").NewsResponse>(
+      "/news/stock-latest",
+      { page: opts?.page ?? 0, limit: opts?.limit ?? 20, ...(opts?.tickers ? { tickers: opts.tickers } : {}) },
+      opts?.cache ?? "force-cache"
+    );
+  },
+
+  cryptoNews(opts?: { page?: number; limit?: number; symbol?: string; cache?: CacheOpt }) {
+    return getJSON<import("@/lib/fmp/types").NewsResponse>(
+      "/news/crypto-latest",
+      { page: opts?.page ?? 0, limit: opts?.limit ?? 20, ...(opts?.symbol ? { symbol: opts.symbol } : {}) },
+      opts?.cache ?? "force-cache"
+    );
+  },
+
+  forexNews(opts?: { page?: number; limit?: number; symbol?: string; cache?: CacheOpt }) {
+    return getJSON<import("@/lib/fmp/types").NewsResponse>(
+      "/news/forex-latest",
+      { page: opts?.page ?? 0, limit: opts?.limit ?? 20, ...(opts?.symbol ? { symbol: opts.symbol } : {}) },
+      opts?.cache ?? "force-cache"
+    );
+  },
+
   /** Ratios TTM (trailing twelve months) */
   ratiosTTM(symbol: string, opts?: { cache?: CacheOpt }) {
     return getJSON<RatiosResponse>(

@@ -196,3 +196,28 @@ export type PriceTargetConsensus = {
   targetMedian: number;
 };
 
+/** ───────────── News / Articles ───────────── */
+export type FMPNewsItem = {
+  symbol: string | null;
+  publishedDate: string;
+  title: string;
+  image: string;
+  site: string;
+  text: string;
+  url: string;
+};
+
+export type FMPArticle = {
+  title: string;
+  date: string;
+  content: string;
+  tickers: string;
+  image: string;
+  link: string;
+  author: string;
+  site: string;
+};
+
+export type NewsResponse = FMPNewsItem[];
+export type ArticlesResponse = FMPArticle[];
+

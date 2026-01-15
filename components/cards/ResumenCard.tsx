@@ -57,9 +57,9 @@ export default function ResumenCard({
             fullTimeEmployees: num(resumen.employees),
             beta: num(resumen.beta),
             volume: num(resumen.volume),
-            lastDividend: undefined, // Not in ResumenData
-            range: undefined, // Not in ResumenData
-            ipoDate: undefined, // Not in ResumenData
+            lastDividend: num(resumen.last_dividend),
+            range: str(resumen.range),
+            ipoDate: str(resumen.ipo_date),
             exchange: str(resumen.exchange),
             description: str(resumen.description),
         };

@@ -98,14 +98,6 @@ export function createFmpClient(get: FetcherFunction) {
       });
     },
 
-    /** Income Statement (Full) */
-    incomeStatement(symbol: string, opts?: { period?: "annual" | "quarter"; limit?: number; cache?: CacheOpt }) {
-      return get<any[]>("/income-statement", {
-        params: { symbol, period: opts?.period ?? "annual", limit: opts?.limit ?? 50 },
-        cache: opts?.cache ?? "force-cache",
-      });
-    },
-
     /** Performance (retornos, vol y drawdown) */
     performance(symbol: string, cache: CacheOpt = "force-cache") {
       return get<PerformanceResponse>("/performance", { params: { symbol }, cache });
@@ -156,7 +148,7 @@ export function createFmpClient(get: FetcherFunction) {
     /** Income Statement */
     incomeStatement(symbol: string, opts?: { period?: "annual" | "quarter"; limit?: number; cache?: CacheOpt }) {
       return get<any[]>("/income-statement", {
-        params: { symbol, period: opts?.period ?? "annual", limit: opts?.limit ?? 5 },
+        params: { symbol, period: opts?.period ?? "annual", limit: opts?.limit ?? 50 },
         cache: opts?.cache ?? "force-cache",
       });
     },
@@ -248,6 +240,72 @@ export function createFmpClient(get: FetcherFunction) {
     /** Generic fetch for unmapped endpoints */
     fetch<T>(path: string, opts?: GetOpts) {
       return get<T>(path, opts);
+    },
+
+    /* ─────────── News & Articles ─────────── */
+
+    fmpArticles(opts?: { page?: number; limit?: number; cache?: CacheOpt }) {
+      return get<import("@/lib/fmp/types").ArticlesResponse>("/fmp-articles", {
+        params: {
+          page: opts?.page ?? 0,
+          limit: opts?.limit ?? 20,
+        },
+        cache: opts?.cache ?? "force-cache",
+      });
+    },
+
+    generalNews(opts?: { page?: number; limit?: number; cache?: CacheOpt }) {
+      return get<import("@/lib/fmp/types").NewsResponse>("/news/general-latest", {
+        params: {
+          page: opts?.page ?? 0,
+          limit: opts?.limit ?? 20,
+        },
+        cache: opts?.cache ?? "force-cache",
+      });
+    },
+
+    pressReleases(opts?: { page?: number; limit?: number; symbol?: string; cache?: CacheOpt }) {
+      return get<import("@/lib/fmp/types").NewsResponse>("/news/press-releases-latest", {
+        params: {
+          page: opts?.page ?? 0,
+          limit: opts?.limit ?? 20,
+          ...(opts?.symbol ? { symbol: opts.symbol } : {}),
+        },
+        cache: opts?.cache ?? "force-cache",
+      });
+    },
+
+    stockNews(opts?: { page?: number; limit?: number; tickers?: string; cache?: CacheOpt }) {
+      return get<import("@/lib/fmp/types").NewsResponse>("/news/stock-latest", {
+        params: {
+          page: opts?.page ?? 0,
+          limit: opts?.limit ?? 20,
+          ...(opts?.tickers ? { tickers: opts.tickers } : {}),
+        },
+        cache: opts?.cache ?? "force-cache",
+      });
+    },
+
+    cryptoNews(opts?: { page?: number; limit?: number; symbol?: string; cache?: CacheOpt }) {
+      return get<import("@/lib/fmp/types").NewsResponse>("/news/crypto-latest", {
+        params: {
+          page: opts?.page ?? 0,
+          limit: opts?.limit ?? 20,
+          ...(opts?.symbol ? { symbol: opts.symbol } : {}),
+        },
+        cache: opts?.cache ?? "force-cache",
+      });
+    },
+
+    forexNews(opts?: { page?: number; limit?: number; symbol?: string; cache?: CacheOpt }) {
+      return get<import("@/lib/fmp/types").NewsResponse>("/news/forex-latest", {
+        params: {
+          page: opts?.page ?? 0,
+          limit: opts?.limit ?? 20,
+          ...(opts?.symbol ? { symbol: opts.symbol } : {}),
+        },
+        cache: opts?.cache ?? "force-cache",
+      });
     },
   };
 }

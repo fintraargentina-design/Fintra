@@ -145,13 +145,6 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
 
   const getValBadge = (v: string, isSelected: boolean = false) => {
     const lowerV = v?.toLowerCase() || "";
-    if (isSelected) {
-        let label = "Sobrevalorada";
-        if (lowerV.includes("under") || lowerV.includes("infra")) label = "Infravalorada";
-        if (lowerV.includes("fair") || lowerV.includes("justa")) label = "Justa";
-        return <span className="text-gray-300 text-[9px]">{label}</span>;
-    }
-
     if (lowerV.includes("under") || lowerV.includes("infra")) return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Infravalorada</Badge>;
     if (lowerV.includes("fair") || lowerV.includes("justa")) return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Justa</Badge>;
     return <Badge className="text-red-400 bg-red-400/10 border-red-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Sobrevalorada</Badge>;
@@ -172,7 +165,7 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
             <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
               <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[60px]">Ticker</TableHead>
               <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Rank. Sectorial IFS</TableHead>
-              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[80px]">Valuación</TableHead>
+              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Val. Relativa al Sector</TableHead>
               <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[50px]">Ecosistema</TableHead>
               <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[60px]">Div. Yield</TableHead>
               <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[60px]">Estimación</TableHead>
@@ -202,7 +195,7 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
                   return (
                     <TableRow 
                       key={peer.ticker} 
-                      className={`border-zinc-800 hover:bg-white/5 cursor-pointer transition-colors ${isSelected ? '!bg-[#0056FF]' : ''}`}
+                      className={`border-zinc-800 hover:bg-white/5 cursor-pointer transition-colors ${isSelected ? 'border-2 border-[#002D72]' : ''}`}
                       onClick={() => onPeerSelect?.(isSelected ? "" : peer.ticker)}
                     >
                       <TableCell className="font-bold text-white px-2 py-0.5 text-xs w-[60px]">{peer.ticker}</TableCell>
@@ -210,17 +203,17 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
                         <FgosScoreCell score={peer.fgos} confidenceLabel={peer.confidenceLabel} />
                       </TableCell>
                       <TableCell className="text-center px-2 py-0.5 w-[80px]">
-                        {getValBadge(peer.valuation, isSelected)}
+                        {getValBadge(peer.valuation)}
                       </TableCell>
-                      <TableCell className={`text-center px-2 py-0.5 text-[10px] font-bold w-[50px] ${isSelected ? 'text-white' : 'text-blue-400'}`}>
+                      <TableCell className="text-center px-2 py-0.5 text-[10px] font-bold w-[50px] text-blue-400">
                           {peer.ecosystem || '-'}
                       </TableCell>
-                      <TableCell className={`text-center px-2 py-0.5 text-[10px] w-[60px] ${isSelected ? 'text-white' : 'text-gray-300'}`}>
+                      <TableCell className="text-center px-2 py-0.5 text-[10px] w-[60px] text-gray-300">
                         {peer.divYield ? `${peer.divYield.toFixed(2)}%` : '-'}
                       </TableCell>
                       <TableCell 
                         className="text-center px-2 py-0.5 text-[10px] font-medium text-white w-[60px]"
-                        style={isSelected ? undefined : { backgroundColor: getHeatmapColor(peer.estimation) }}
+                        style={{ backgroundColor: getHeatmapColor(peer.estimation) }}
                       >
                         {peer.estimation ? `${peer.estimation > 0 ? '+' : ''}${peer.estimation.toFixed(1)}%` : '-'}
                       </TableCell>
@@ -229,11 +222,11 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
                       </TableCell>
                       <TableCell 
                         className="text-right px-2 py-0.5 text-[10px] font-medium text-white w-[60px]"
-                        style={isSelected ? undefined : { backgroundColor: getHeatmapColor(peer.ytd != null ? Number(peer.ytd) : 0) }}
+                        style={{ backgroundColor: getHeatmapColor(peer.ytd != null ? Number(peer.ytd) : 0) }}
                       >
                         {peer.ytd != null ? `${Number(peer.ytd) >= 0 ? "+" : ""}${Number(peer.ytd).toFixed(1)}%` : '-'}
                       </TableCell>
-                      <TableCell className={`text-right px-2 py-0.5 text-[10px] w-[70px] ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                      <TableCell className="text-right px-2 py-0.5 text-[10px] w-[70px] text-gray-400">
                         {peer.marketCap != null 
                           ? (Number(peer.marketCap) > 1e12 
                               ? `${(Number(peer.marketCap)/1e12).toFixed(1)}T` 
