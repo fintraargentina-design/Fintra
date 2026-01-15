@@ -130,7 +130,7 @@ export default function DesempenoCard({ symbol, scrollRef, peerTicker, highlight
 
 		<div
 			ref={scrollRef as React.RefObject<HTMLDivElement | null>}
-			className="flex-1 p-0 overflow-x-auto overflow-y-hidden"
+			className="flex-1 p-0 overflow-x-auto overflow-y-hidden scrollbar-on-hover"
 		>
 			<Table className="min-w-max text-sm border-collapse">
 		  	<TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">

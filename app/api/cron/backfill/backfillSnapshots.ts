@@ -101,6 +101,7 @@ export async function backfillSnapshotsForDate(date: string, targetTicker?: stri
           earnings_cagr: fin.earnings_cagr,
           fcf_cagr: fin.fcf_cagr // Assuming column exists
         },
+        null,
         { price: 0 }, // No price in financials, usually from quote
         null, // financialHistory
         null, // performanceRows

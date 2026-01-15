@@ -180,6 +180,9 @@ export function deriveFinancialMetrics(params: {
     equity_cagr = calculateCAGR(eqs, periodEndDate);
   }
 
+  // Recalculate invested capital for export (consistent with ROIC fallback)
+  const investedCapital = (totalEquity || 0) + (totalDebt || 0);
+
   return {
     // Persisted inputs
     revenue,
@@ -188,6 +191,11 @@ export function deriveFinancialMetrics(params: {
     total_debt: totalDebt,
     free_cash_flow: fcfVal,
     
+    // Newly Added for Competitive Advantage
+    capex,
+    invested_capital: investedCapital,
+    weighted_shares_out: sharesOutstanding,
+
     // Derived Metrics
     operating_margin: operatingMargin,
     net_margin: netMargin,

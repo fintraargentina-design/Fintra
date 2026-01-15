@@ -184,3 +184,34 @@ html {
   background-color: #4a4a4a;
 }
 
+.scrollbar-on-hover {
+  scrollbar-width: none;
+}
+
+.scrollbar-on-hover:hover {
+  scrollbar-width: thin;
+}
+
+.scrollbar-on-hover::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.scrollbar-on-hover:hover::-webkit-scrollbar {
+  width: 0.5rem;
+  height: 2px;
+}
+
+.scrollbar-on-hover::-webkit-scrollbar-track {
+  background-color: #333333;
+}
+
+.scrollbar-on-hover::-webkit-scrollbar-thumb {
+  background-color: #1D1D1D;
+  border-radius: 9999px;
+}
+
+.scrollbar-on-hover:hover::-webkit-scrollbar-thumb:hover {
+  background-color: #4a4a4a;
+}
+

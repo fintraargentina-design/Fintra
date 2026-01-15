@@ -110,6 +110,9 @@ export default function DividendosTableCard({
   // Use internal data
   const data = internalData;
 
+  const years = data?.years ?? [];
+  const sortedYears = [...years].sort((a, b) => b.year - a.year);
+
   return (
     <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden mt-0">
       {/* <div className="px-1 py-1 bg-white/[0.02] shrink-0">
@@ -120,13 +123,13 @@ export default function DividendosTableCard({
 
 		<div
 			ref={scrollRef as React.RefObject<HTMLDivElement | null>}
-			className="flex-1 p-0 overflow-x-auto overflow-y-hidden"
+			className="flex-1 p-0 overflow-x-auto overflow-y-hidden scrollbar-on-hover"
 		>
 			<Table className="min-w-max text-sm border-collapse">
 			<TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
 			  <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
 				<TableHead className="px-2 text-gray-300 text-[12px] h-6 w-[150px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D]">Dividendos</TableHead>
-		              {data?.years.map((year, yearIdx) => (
+				      {sortedYears.map((year, yearIdx) => (
 				year.columns.flatMap(col => {
 				  const label = col.replace('_FY', '');
 				  return [

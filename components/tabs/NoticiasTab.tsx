@@ -288,8 +288,8 @@ export default function NoticiasTab({
     );
   }
 
-  return (
-    <>
+	return (
+		<>
       <div className="flex flex-col h-full bg-tarjetas overflow-hidden">
         {/* Header */}
         <div className="relative flex items-center justify-center px-1 py-1 border-b border-zinc-800 bg-white/[0.02] shrink-0">
@@ -343,8 +343,8 @@ export default function NoticiasTab({
           </div>
         </div>
 
-        {/* News List */}
-        <div className="flex-1 overflow-y-auto p-0 scrollbar-thin">
+			{/* News List */}
+			<div className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-on-hover">
           {filteredNews.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-zinc-500 space-y-2">
               <MessageSquare className="w-8 h-8 opacity-20" />

@@ -36,6 +36,17 @@ export interface FgosBreakdown {
       consistency_penalty: number | null;
     };
   };
+  competitive_advantage?: {
+    score: number | null;
+    band: 'weak' | 'defendable' | 'strong' | null;
+    confidence: number | null;
+    axes?: {
+      return_persistence?: number | null;
+      operating_stability?: number | null;
+      capital_discipline?: number | null;
+    };
+    years_analyzed?: number;
+  };
 }
 
 export interface FgosResult {

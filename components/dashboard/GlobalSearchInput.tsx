@@ -87,8 +87,15 @@ export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: st
         return;
       }
 
-      setOpen(false);
-      router.push(`/search?query=${encodeURIComponent(query.trim())}`);
+      // Fallback: assume user typed a ticker if no results found
+      const fallbackTicker = query.trim().toUpperCase();
+      handleSelect({
+        ticker: fallbackTicker,
+        name: fallbackTicker,
+        exchange: '',
+        currency: '',
+        source: 'local' as const
+      });
     } else if (e.key === 'Escape') {
       setOpen(false);
     }

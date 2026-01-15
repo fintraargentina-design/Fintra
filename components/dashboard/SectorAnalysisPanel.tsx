@@ -235,7 +235,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
     <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden shadow-sm">
 
 
-      <Tabs value={selectedSector} onValueChange={handleSectorChange} className="w-full flex-1 flex flex-col min-h-0">
+		<Tabs value={selectedSector} onValueChange={handleSectorChange} className="w-full flex-1 flex flex-col min-h-0">
         <div className="w-full border-b border-zinc-800 bg-transparent z-10 shrink-0">
           <div className="w-full overflow-x-auto whitespace-nowrap">
             <TabsList className="bg-transparent h-auto p-0 flex min-w-full w-max gap-0.5 border-b-2 border-black ">
@@ -259,9 +259,9 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
         </div>
 
         {industries.length > 0 && (
-          <div className="w-full border-b border-zinc-800 bg-zinc-900/50 shrink-0">
+			<div className="w-full border-b border-zinc-800 bg-zinc-900/50 shrink-0">
              <Tabs value={selectedIndustry} onValueChange={handleIndustryChange} className="w-full">
-                <div className="w-full overflow-x-auto whitespace-nowrap scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+					<div className="w-full overflow-x-auto whitespace-nowrap scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent scrollbar-on-hover">
                   <TabsList className="bg-transparent h-auto p-0 flex min-w-full w-max gap-0">
                       <TabsTrigger 
                         value="Todas" 
@@ -284,11 +284,11 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
           </div>
         )}
 
-        <div
-          ref={scrollContainerRef}
-          className="flex-1 relative p-0 border border-t-0 border-zinc-800 overflow-y-auto"
-          onScroll={handleScroll}
-        >
+			<div
+			  ref={scrollContainerRef}
+			  className="flex-1 relative p-0 border border-t-0 border-zinc-800 overflow-y-auto scrollbar-on-hover"
+			  onScroll={handleScroll}
+			>
           <table className="w-full text-sm">
             <TableHeader className="sticky top-0 z-10 bg-[#1D1D1D]">
               <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">

@@ -159,7 +159,7 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
         </h4>
       </div>
 
-      <div className="flex-1 relative p-0 border border-t-0 border-zinc-800 overflow-y-auto">
+			<div className="flex-1 relative p-0 border border-t-0 border-zinc-800 overflow-y-auto scrollbar-on-hover">
         <table className="w-full text-sm">
           <TableHeader className="sticky top-0 z-10 bg-[#1D1D1D]">
             <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">

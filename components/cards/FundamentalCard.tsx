@@ -71,6 +71,9 @@ export default function FundamentalCard({
   const data = isControlled ? timelineData : internalData;
   const loading = isControlled ? !data : internalLoading;
 
+  const years = data?.years ?? [];
+  const sortedYears = [...years].sort((a, b) => b.year - a.year);
+
   const localRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = scrollRef || localRef;
 
@@ -155,13 +158,13 @@ export default function FundamentalCard({
 
 			<div
 				ref={scrollContainerRef}
-				className="flex-1 p-0 overflow-x-auto overflow-y-hidden"
+				className="flex-1 p-0 overflow-x-auto overflow-y-hidden scrollbar-on-hover"
 			>
 		<Table className="min-w-max text-sm border-collapse">
           <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10 border-2 border-zinc-800">
             <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
               <TableHead className="px-2 text-gray-300 text-[12px] h-6 w-[150px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D]">Fundamentales</TableHead>
-              {data?.years.map((year, yearIdx) => (
+              {sortedYears.map((year, yearIdx) => (
                 year.columns.flatMap(col => [
                   <TableHead
                     key={col}
@@ -199,7 +202,7 @@ export default function FundamentalCard({
                   <TableCell className="font-bold text-gray-200 px-2 py-0.5 text-xs w-[100px] border border-zinc-800 sticky left-0 z-10 bg-[#1D1D1D]">
                     {metric.label}
                   </TableCell>
-                  {data?.years?.map((year, yearIdx) => (
+                  {sortedYears.map((year, yearIdx) => (
                     year.columns.flatMap(col => {
                         const cellData = metric.values[col];
                         const direction: HeatmapDirection = metric.heatmap.direction === "lower_is_better" 

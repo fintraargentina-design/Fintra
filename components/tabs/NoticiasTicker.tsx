@@ -432,8 +432,8 @@ export default function NoticiasTicker({
           </div>
         </div>
 
-        {/* News List */}
-        <div className="flex-1 overflow-y-auto p-0">
+			{/* News List */}
+			<div className="flex-1 overflow-y-auto p-0 scrollbar-on-hover">
           {filteredNews.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-zinc-500 space-y-2">
               <MessageSquare className="w-8 h-8 opacity-20" />

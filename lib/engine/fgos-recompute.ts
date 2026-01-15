@@ -7,6 +7,7 @@ import type { FinancialSnapshot, FmpRatios, FmpMetrics, SectorBenchmark, FgosBre
 import { calculateConfidenceLayer, calculateDimensionalConfidence, type ConfidenceInputs } from './confidence';
 import { calculateMoat } from './moat';
 import { calculateSentiment, type PerformanceRow } from './sentiment';
+import { calculateCompetitiveAdvantage, type CompetitiveAdvantageHistoryRow } from './competitive-advantage';
 
 type BenchMap = Record<string, SectorBenchmark>;
 
@@ -171,6 +172,24 @@ export function computeFGOS(
   const efficiencyScore = efficiencyResult.score;
   const solvencyScore = solvencyResult.score;
 
+  let competitiveAdvantageResult: ReturnType<typeof calculateCompetitiveAdvantage> | null = null;
+  if (history && Array.isArray(history) && history.length > 0) {
+    const caHistory: CompetitiveAdvantageHistoryRow[] = (history as any[]).map(row => ({
+      period_end_date: row.period_end_date,
+      period_type: row.period_type ?? 'FY',
+      roic: row.roic ?? null,
+      roe: row.roe ?? null,
+      operating_margin: row.operating_margin ?? null,
+      net_margin: row.net_margin ?? null,
+      revenue: row.revenue ?? null,
+      invested_capital: row.invested_capital ?? null,
+      free_cash_flow: row.free_cash_flow ?? null,
+      capex: row.capex ?? null,
+      weighted_shares_out: row.weighted_shares_out ?? null
+    }));
+    competitiveAdvantageResult = calculateCompetitiveAdvantage(caHistory);
+  }
+
   const validComponents = [
     { score: growthScore, weight: WEIGHTS.growth },
     { score: profitabilityScore, weight: WEIGHTS.profitability },
@@ -215,7 +234,16 @@ export function computeFGOS(
         growth_impact: growthResult.impact,
         profitability_impact: profitabilityResult.impact,
         efficiency_impact: efficiencyResult.impact,
-        solvency_impact: solvencyResult.impact
+        solvency_impact: solvencyResult.impact,
+        competitive_advantage: competitiveAdvantageResult
+          ? {
+              score: competitiveAdvantageResult.score,
+              band: competitiveAdvantageResult.band,
+              confidence: competitiveAdvantageResult.confidence,
+              axes: competitiveAdvantageResult.axes,
+              years_analyzed: competitiveAdvantageResult.years_analyzed
+            }
+          : undefined
       } as FgosBreakdown,
       fgos_status: 'pending' // Or confidenceResult.fgos_status? Usually 'pending' means not computed.
       // If we couldn't compute score, keep it 'pending'.
@@ -292,7 +320,16 @@ export function computeFGOS(
         confidence: sentimentResult.confidence,
         status: sentimentResult.status,
         signals: sentimentResult.signals
-      }
+      },
+      competitive_advantage: competitiveAdvantageResult
+        ? {
+            score: competitiveAdvantageResult.score,
+            band: competitiveAdvantageResult.band,
+            confidence: competitiveAdvantageResult.confidence,
+            axes: competitiveAdvantageResult.axes,
+            years_analyzed: competitiveAdvantageResult.years_analyzed
+          }
+        : undefined
     } as FgosBreakdown,
     fgos_status: dimensionalConfidence.fgos_status as any // Cast to match DB field if needed or update return type
   };
@@ -374,7 +411,7 @@ export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: stri
   // Fetch Financial History (FY count)
   const { data: history } = await supabaseAdmin
     .from('datos_financieros')
-    .select('period_end_date, revenue, roic, gross_margin')
+    .select('period_end_date, period_type, revenue, roic, roe, gross_margin, operating_margin, net_margin, invested_capital, free_cash_flow, capex, weighted_shares_out')
     .eq('ticker', ticker)
     .eq('period_type', 'FY')
     .order('period_end_date', { ascending: true });
