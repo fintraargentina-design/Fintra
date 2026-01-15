@@ -73,6 +73,7 @@ export default function NoticiasTicker({
   selectedStock,
   title
 }: NoticiasTickerProps) {
+  const STORAGE_KEY = "fintra_ticker_news_filters";
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +92,36 @@ export default function NoticiasTicker({
 
   const categories = ["General", "Press Release", "Stock News", "Earnings", "Technology", "Finance", "Crypto", "IPO", "Mergers"];
   const sentiments = ["Bullish", "Somewhat-Bullish", "Neutral", "Somewhat-Bearish", "Bearish"];
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as {
+        activeCategory?: string;
+        activeSentiment?: string;
+        sortBy?: string;
+      };
+      if (parsed.activeCategory) setActiveCategory(parsed.activeCategory);
+      if (parsed.activeSentiment) setActiveSentiment(parsed.activeSentiment);
+      if (parsed.sortBy) setSortBy(parsed.sortBy);
+    } catch (e) {
+      console.error("Failed to load news filters from storage", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ activeCategory, activeSentiment, sortBy })
+      );
+    } catch (e) {
+      console.error("Failed to save news filters to storage", e);
+    }
+  }, [activeCategory, activeSentiment, sortBy]);
 
   useEffect(() => {
     fetchNews();
@@ -336,7 +367,7 @@ export default function NoticiasTicker({
         {/* Header */}
         <div className="relative flex items-center justify-center px-1 py-1 border-b border-zinc-800 bg-white/[0.02] shrink-0">
           <h4 className="text-xs font-medium text-gray-400 text-center">
-              Noticias de {symbol}
+              Noticias de · <span className="text-[#FFA028]">{symbol}</span>
           </h4>
           
           <div className="absolute right-1 flex items-center gap-2">
@@ -443,16 +474,6 @@ export default function NoticiasTicker({
                                         <Clock className="w-3 h-3" />
                                         {formatDate(item.time_published)}
                                     </span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                     <span className={`text-xs font-medium ${
-                                         sentimentLabel.includes('Bullish') || sentimentScore > 0.1 ? 'text-green-500' :
-                                         sentimentLabel.includes('Bearish') || sentimentScore < -0.1 ? 'text-red-500' :
-                                         'text-white'
-                                     }`}>
-                                         {sentimentLabel}
-                                     </span>
-                                     {getSentimentIcon(sentimentLabel, sentimentScore)}
                                 </div>
                             </div>
 

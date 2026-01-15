@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getResumenData, ResumenData } from "@/lib/repository/fintra-db";
 import FgosAnalysisBlock from "@/components/dashboard/FgosAnalysisBlock";
+import SectorValuationBlock from "@/components/dashboard/SectorValuationBlock";
 
 interface ResumenCardProps {
   symbol: string;
@@ -318,6 +319,11 @@ export default function ResumenCard({
                 confidencePercent={resumen.fgos_confidence_percent}
                 fgosStatus={resumen.fgos_status}
               />
+            )}
+
+            {/* Sector Relative Valuation Block */}
+            {resumen && (
+              <SectorValuationBlock valuation={resumen.valuation} />
             )}
           </div>
         )}

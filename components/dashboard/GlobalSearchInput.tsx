@@ -56,8 +56,6 @@ export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: st
   }, [query]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (!results.length) return;
-
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setSelectedIndex(prev => (prev < results.length - 1 ? prev + 1 : prev));
@@ -68,11 +66,29 @@ export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: st
       e.preventDefault();
       if (selectedIndex >= 0 && selectedIndex < results.length) {
         handleSelect(results[selectedIndex]);
-      } else if (results.length > 0) {
-        // Default to exact match if exists, otherwise first result
-        const exactMatch = results.find(r => r.ticker.toLowerCase() === query.toLowerCase());
-        handleSelect(exactMatch || results[0]);
+        return;
       }
+
+      if (!query.trim()) {
+        return;
+      }
+
+      const q = query.trim().toLowerCase();
+
+      const exactTicker = results.find(r => r.ticker.toLowerCase() === q);
+      if (exactTicker) {
+        handleSelect(exactTicker);
+        return;
+      }
+
+      const exactName = results.find(r => (r.name || '').toLowerCase() === q);
+      if (exactName) {
+        handleSelect(exactName);
+        return;
+      }
+
+      setOpen(false);
+      router.push(`/search?query=${encodeURIComponent(query.trim())}`);
     } else if (e.key === 'Escape') {
       setOpen(false);
     }

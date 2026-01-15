@@ -1,6 +1,6 @@
 'use client';
 
-import React, { memo } from 'react';
+import React, { memo, useState, useEffect } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import FintraLogo from '@/public/6.png';
 import SectorAnalysisPanel from '@/components/dashboard/SectorAnalysisPanel';
@@ -12,10 +12,40 @@ interface LeftPanelProps {
   onStockSelect: (symbol: string) => void;
 }
 
+const STORAGE_KEY = 'fintra_left_panel_tab';
+
 const LeftPanel = memo(({ onStockSelect }: LeftPanelProps) => {
+  const [activeTab, setActiveTab] = useState("mercados");
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        setActiveTab(saved);
+      }
+      setIsInitialized(true);
+    }
+  }, []);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, value);
+    }
+  };
+
+  // Prevent hydration mismatch by rendering default or nothing until initialized?
+  // Actually, for a smoother UX, rendering default "mercados" is fine, 
+  // it will switch immediately after mount if needed.
+  
   return (
     <div className="w-full h-[60%] flex flex-col min-h-0">
-      <Tabs defaultValue="mercados" className="w-full h-full flex flex-col bg-[#0A0A0A] pt-1">
+      <Tabs 
+        value={activeTab} 
+        onValueChange={handleTabChange}
+        className="w-full h-full flex flex-col bg-[#0A0A0A] pt-1"
+      >
         <div className="w-full border-b border-zinc-800 bg-transparent z-10 shrink-0">
           <div className="w-full flex items-center justify-between gap-2 overflow-x-auto whitespace-nowrap">
             <div className="flex items-center px-0 shrink-0">

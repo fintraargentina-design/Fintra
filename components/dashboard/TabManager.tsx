@@ -22,6 +22,13 @@ export default function TabManager({ requestedTicker, onActiveTickerChange }: Ta
     openOrActivateTicker(requestedTicker);
   }, [requestedTicker, activeTicker, openOrActivateTicker]);
 
+  // Sync Context changes (e.g. from back/forward nav) to Parent
+  useEffect(() => {
+    if (activeTicker && activeTicker !== requestedTicker) {
+      onActiveTickerChange?.(activeTicker);
+    }
+  }, [activeTicker, requestedTicker, onActiveTickerChange]);
+
   // Handle local interactions via context
   const handleTickerChange = (newTicker: string) => {
     openOrActivateTicker(newTicker);

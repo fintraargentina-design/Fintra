@@ -106,6 +106,18 @@ export type ResumenData = {
   fgos_status: string | null
   fgos_confidence_percent: number | null
   fgos_state: FgosState | null
+  valuation: CanonicalValuationState | null
+}
+
+export type CanonicalValuationState = {
+  stage: 'pending' | 'partial' | 'computed';
+  canonical_status: 'cheap_sector' | 'fair_sector' | 'expensive_sector' | 'pending';
+  confidence: {
+    label: 'Low' | 'Medium' | 'High';
+    percent: number;
+  };
+  valid_metrics_count: number;
+  explanation: string;
 }
 
 export async function getResumenData(ticker: string): Promise<ResumenData> {
@@ -137,7 +149,7 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
   // 4. Analysis (fintra_snapshots)
   const snapshotQuery = supabase
     .from('fintra_snapshots')
-    .select('profile_structural, fgos_maturity, fgos_confidence_percent, fgos_components, fgos_status')
+    .select('profile_structural, fgos_maturity, fgos_confidence_percent, fgos_components, fgos_status, valuation')
     .eq('ticker', upperTicker)
     .order('snapshot_date', { ascending: false })
     .limit(1)
@@ -206,7 +218,8 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
       fgos_confidence_label: m.fgos_confidence_label ?? null,
       fgos_status: s.fgos_status,
       fgos_maturity: s.fgos_maturity
-    }) : null
+    }) : null,
+    valuation: s.valuation || null
   };
   return result;
 }
@@ -298,21 +311,48 @@ export async function getEcosystemDetailed(ticker: string) {
 }
 
 export async function getAvailableSectors(): Promise<string[]> {
-  // Use fintra_sector_benchmarks as it is much smaller and represents active sectors
+  // 1️⃣ Intentar ordenar por market cap total usando fintra_market_state (agregado en cliente)
+  const { data: msData, error: msError } = await supabase
+    .from('fintra_market_state')
+    .select('sector, market_cap')
+    .not('sector', 'is', null);
+
+  if (!msError && msData && msData.length > 0) {
+    const totals = new Map<string, number>();
+
+    for (const row of msData as any[]) {
+      const sector = row.sector as string | null;
+      const mc = row.market_cap as number | null;
+      if (!sector || mc == null) continue;
+      totals.set(sector, (totals.get(sector) || 0) + mc);
+    }
+
+    if (totals.size > 0) {
+      return Array.from(totals.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([sector]) => sector);
+    }
+  }
+
+  if (msError) {
+    console.warn('getAvailableSectors: market_state fetch failed, falling back to benchmarks:', msError.message || msError);
+  }
+
+  // 2️⃣ Fallback: usar fintra_sector_benchmarks (lista pequeña de sectores activos)
   const { data, error } = await supabase
     .from('fintra_sector_benchmarks')
     .select('sector');
 
   if (error) {
-    console.warn('Sector benchmarks fetch failed (using fallback):', error.message || error);
-    // Fallback to universe if benchmarks are empty (cold start)
+    console.warn('Sector benchmarks fetch failed (using fallback to universe):', error.message || error);
+    // 3️⃣ Fallback final: universo operativo
     const { data: uData, error: uError } = await supabase
-        .from('fintra_universe')
-        .select('sector')
-        .not('sector', 'is', null);
-        
+      .from('fintra_universe')
+      .select('sector')
+      .not('sector', 'is', null);
+
     if (uError || !uData) return [];
-    
+
     return Array.from(new Set(uData.map(d => d.sector).filter(Boolean) as string[])).sort();
   }
 
@@ -320,6 +360,33 @@ export async function getAvailableSectors(): Promise<string[]> {
 
   const sectors = Array.from(new Set(data.map(d => d.sector).filter(Boolean) as string[])).sort();
   return sectors;
+}
+
+export async function getIndustriesForSector(sector: string): Promise<string[]> {
+  const { data: msData, error: msError } = await supabase
+    .from('fintra_market_state')
+    .select('industry, market_cap')
+    .eq('sector', sector)
+    .not('industry', 'is', null);
+
+  if (!msError && msData && msData.length > 0) {
+    const totals = new Map<string, number>();
+
+    for (const row of msData as any[]) {
+      const industry = row.industry as string | null;
+      const mc = row.market_cap as number | null;
+      if (!industry || mc == null) continue;
+      totals.set(industry, (totals.get(industry) || 0) + mc);
+    }
+
+    if (totals.size > 0) {
+      return Array.from(totals.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([ind]) => ind);
+    }
+  }
+
+  return [];
 }
 
 export async function getLatestEcosystemReport(ticker: string): Promise<EcosystemReportDB | null> {

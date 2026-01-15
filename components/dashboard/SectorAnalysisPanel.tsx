@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { getHeatmapColor, formatMarketCap } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import { getAvailableSectors } from "@/lib/repository/fintra-db";
+import { getAvailableSectors, getIndustriesForSector } from "@/lib/repository/fintra-db";
 import { Loader2 } from "lucide-react";
 import { FgosScoreCell } from "@/components/ui/FgosScoreCell";
 
@@ -29,6 +29,11 @@ interface EnrichedStockData {
 export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?: (symbol: string) => void }) {
   const [sectors, setSectors] = useState<string[]>([]);
   const [selectedSector, setSelectedSector] = useState("");
+  
+  // Industry State
+  const [industries, setIndustries] = useState<string[]>([]);
+  const [selectedIndustry, setSelectedIndustry] = useState("Todas");
+
   const [stocks, setStocks] = useState<EnrichedStockData[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingSectors, setLoadingSectors] = useState(true);
@@ -72,11 +77,13 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
     return () => { mounted = false; };
   }, []);
 
-  // 2. Load stocks when sector changes or pagination
-  const fetchData = async (pageNum: number, isNewSector: boolean) => {
+  // 2. Fetch Data Function
+  const fetchData = async (pageNum: number, isNewFetch: boolean, industryOverride?: string) => {
     if (!selectedSector) return;
     
-    if (isNewSector) {
+    const currentIndustry = industryOverride !== undefined ? industryOverride : selectedIndustry;
+    
+    if (isNewFetch) {
         setLoading(true);
         setStocks([]);
     } else {
@@ -87,18 +94,25 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
       const from = pageNum * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
-      // Query ONLY fintra_market_state
-      const { data: snapshots, error } = await supabase
+      // Query fintra_market_state
+      let query = supabase
         .from('fintra_market_state')
         .select('ticker, price, market_cap, ytd_return, fgos_score, valuation_status, ecosystem_score, fgos_confidence_label')
-        .eq('sector', selectedSector)
-        .order('fgos_score', { ascending: false, nullsFirst: false }) // Sort by FGOS by default as per UI intent
+        .eq('sector', selectedSector);
+
+      if (currentIndustry && currentIndustry !== "Todas") {
+          query = query.eq('industry', currentIndustry);
+      }
+
+      const { data: snapshots, error } = await query
+        .order('fgos_score', { ascending: false, nullsFirst: false })
         .range(from, to);
 
       if (error) throw error;
 
       if (!snapshots || snapshots.length === 0) {
            setHasMore(false);
+           if (isNewFetch) setStocks([]);
            return;
       }
       
@@ -123,7 +137,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
       }));
 
       setStocks(prev => {
-        if (isNewSector) {
+        if (isNewFetch) {
           return enriched;
         }
         
@@ -141,11 +155,43 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
     }
   };
 
+  // 3. Effect: Sector Change -> Load Industries -> Load Data
   useEffect(() => {
-    setPage(0);
-    setHasMore(true);
-    fetchData(0, true);
+    if (!selectedSector) return;
+    
+    let mounted = true;
+
+    const loadIndustriesAndData = async () => {
+        // Reset stocks and show loading while switching sectors
+        setStocks([]); 
+        setLoading(true);
+        setPage(0);
+        setHasMore(true);
+        setSelectedIndustry("Todas");
+        
+        // Fetch industries
+        const inds = await getIndustriesForSector(selectedSector);
+        
+        if (mounted) {
+            setIndustries(inds);
+            // Now fetch data for "Todas"
+            fetchData(0, true, "Todas");
+        }
+    };
+    
+    loadIndustriesAndData();
+    
+    return () => { mounted = false; };
   }, [selectedSector]);
+
+  // 4. Handle Industry Change
+  const handleIndustryChange = (val: string) => {
+      if (val === selectedIndustry) return;
+      setSelectedIndustry(val);
+      setPage(0);
+      setHasMore(true);
+      fetchData(0, true, val);
+  };
 
   const handleScroll = () => {
       if (scrollContainerRef.current) {
@@ -153,7 +199,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
           if (scrollTop + clientHeight >= scrollHeight - 50 && hasMore && !isFetchingMore && !loading) {
               const nextPage = page + 1;
               setPage(nextPage);
-              fetchData(nextPage, false);
+              fetchData(nextPage, false, selectedIndustry);
           }
       }
   };
@@ -211,6 +257,32 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
             <span>Acciones del sector <span className="text-[#FFA028]">{selectedSector}</span> ({stocks.length})</span>
           </h4>
         </div>
+
+        {industries.length > 0 && (
+          <div className="w-full border-b border-zinc-800 bg-zinc-900/50 shrink-0">
+             <Tabs value={selectedIndustry} onValueChange={handleIndustryChange} className="w-full">
+                <div className="w-full overflow-x-auto whitespace-nowrap scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+                  <TabsList className="bg-transparent h-auto p-0 flex min-w-full w-max gap-0">
+                      <TabsTrigger 
+                        value="Todas" 
+                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#FFA028] data-[state=active]:text-[#FFA028] text-[10px] px-3 py-1.5 text-gray-500 hover:text-gray-300 transition-colors"
+                      >
+                        Todas
+                      </TabsTrigger>
+                      {industries.map(ind => (
+                          <TabsTrigger 
+                            key={ind} 
+                            value={ind} 
+                            className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#FFA028] data-[state=active]:text-[#FFA028] text-[10px] px-3 py-1.5 text-gray-500 hover:text-gray-300 transition-colors"
+                          >
+                              {ind}
+                          </TabsTrigger>
+                      ))}
+                  </TabsList>
+                </div>
+             </Tabs>
+          </div>
+        )}
 
         <div
           ref={scrollContainerRef}

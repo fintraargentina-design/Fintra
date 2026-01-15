@@ -65,7 +65,7 @@ export default function DesempenoCard({ symbol, scrollRef, peerTicker, highlight
     let mounted = true;
     const fetchPeer = async () => {
         try {
-            const res = await fetch(`/api/analysis/fundamentals-timeline?ticker=${peerTicker}`);
+            const res = await fetch(`/api/analysis/performance-timeline?ticker=${peerTicker}`);
             if (res.ok) {
                 const json = await res.json();
                 if (mounted) setPeerData(json);
@@ -85,9 +85,9 @@ export default function DesempenoCard({ symbol, scrollRef, peerTicker, highlight
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/analysis/fundamentals-timeline?ticker=${symbol}`);
+        const res = await fetch(`/api/analysis/performance-timeline?ticker=${symbol}`);
         if (!res.ok) {
-            console.error("Failed to fetch fundamentals timeline");
+            console.error("Failed to fetch performance timeline");
             return;
         }
         const json = await res.json();
@@ -144,8 +144,11 @@ export default function DesempenoCard({ symbol, scrollRef, peerTicker, highlight
                   {col}
                 </TableHead>,
                 peerTicker && (
-                    <TableHead key={`${col}-peer`} className={`px-2 text-[#0056FF] font-bold text-[10px] h-6 text-center whitespace-nowrap ${perfYearIndex % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}>
-                        {peerTicker}
+                    <TableHead
+                      key={`${col}-peer`}
+                      className={`px-2 text-[#FFA028] font-bold text-[10px] h-6 text-center whitespace-nowrap ${perfYearIndex % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                    >
+                        {`(${peerTicker}) ${col}`}
                     </TableHead>
                 )
               ])}
@@ -196,7 +199,7 @@ export default function DesempenoCard({ symbol, scrollRef, peerTicker, highlight
                           peerTicker && (
                               <TableCell 
                                   key={`${col}-peer`}
-                                  className={`text-center px-2 py-0.5 text-[10px] font-bold text-[#0056FF] h-8 border-x border-zinc-800/50 ${perfYearIndex % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                                  className={`text-center px-2 py-0.5 text-[10px] font-bold text-[#FFFFFF] h-8 border-x border-zinc-800/50 ${perfYearIndex % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                                   style={{ backgroundColor: getHeatmapColor(peerCellData?.normalized ?? null, direction) }}
                               >
                                   {peerCellData?.display ?? "-"}

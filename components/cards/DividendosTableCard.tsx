@@ -126,15 +126,29 @@ export default function DividendosTableCard({
 			<TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
 			  <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
 				<TableHead className="px-2 text-gray-300 text-[12px] h-6 w-[150px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D]">Dividendos</TableHead>
-              {data?.years.map((year, yearIdx) => (
-                year.columns.map(col => (
-                    <TableHead key={col} className={`px-2 text-gray-300 text-[10px] h-6 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}>
-                        {col.replace('_FY', '')}
-                    </TableHead>
-                ))
-              ))}
-            </TableRow>
-          </TableHeader>
+		              {data?.years.map((year, yearIdx) => (
+				year.columns.flatMap(col => {
+				  const label = col.replace('_FY', '');
+				  return [
+						<TableHead
+						  key={col}
+						  className={`px-2 text-gray-300 text-[10px] h-6 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+						>
+							{label}
+						</TableHead>,
+						peerTicker && (
+						  <TableHead
+							key={`${col}-peer`}
+							className={`px-2 text-[#FFA028] font-bold text-[10px] h-6 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+						  >
+							{`(${peerTicker}) ${label}`}
+						  </TableHead>
+						),
+				  ];
+				})
+				  ))}
+				</TableRow>
+			  </TableHeader>
 			<TableBody>
             {loading ? (
                <TableRow>
@@ -175,7 +189,7 @@ export default function DividendosTableCard({
                             peerTicker && (
                                 <TableCell 
                                     key={`${col}-peer`}
-                                    className={`text-center px-2 py-0.5 text-[10px] font-bold text-[#0056FF] h-8 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                                    className={`text-center px-2 py-0.5 text-[10px] font-bold text-[#FFFFFF] h-8 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                                     style={{ backgroundColor: getHeatmapColor(peerCellData?.normalized ?? null, direction) }}
                                 >
                                     {peerCellData?.display ?? "-"}

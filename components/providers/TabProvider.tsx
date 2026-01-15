@@ -148,13 +148,25 @@ export function TabProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (activeTicker) {
       const targetPath = `/${activeTicker}`;
-      if (pathname !== targetPath) {
-        // Use replace to avoid filling history with tab switches if desired, 
-        // but push is standard for navigation.
-        router.push(targetPath, { scroll: false });
+      if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
+        window.history.pushState(null, '', targetPath);
       }
     }
   }, [activeTicker]);
+
+  // Handle browser back/forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const parts = window.location.pathname.split('/').filter(Boolean);
+      const urlTicker = parts.length > 0 ? parts[0].toUpperCase() : '';
+      if (urlTicker) {
+        openOrActivateTicker(urlTicker);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [openOrActivateTicker]);
 
   return (
     <TabContext.Provider value={{ openTickers, activeTicker, openOrActivateTicker, closeTab }}>
