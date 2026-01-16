@@ -392,7 +392,7 @@ export default function ChartsTabHistoricos({
           }
         },
         iconStyle: {
-          borderColor: "#0056FF"
+          borderColor: "#002D72"
         },
         right: -8,
         top: 0

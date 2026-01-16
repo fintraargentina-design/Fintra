@@ -6,19 +6,15 @@ import { StockData, StockAnalysis, StockPerformance, searchStockData } from '@/l
 import NavigationBar from '@/components/layout/NavigationBar';
 import DatosTab from '@/components/tabs/DatosTab';
 import ChartsTabHistoricos from '@/components/tabs/ChartsTabHistoricos';
-import FGOSRadarChart from "@/components/charts/FGOSRadarChart";
 import { registerStockSearch } from '@/lib/supabase';
 import { fmp } from '@/lib/fmp/client';
 import EcosystemCard from '@/components/cards/EcosystemCard';
-import CompetidoresTab from '@/components/tabs/CompetidoresTab';
 import OverviewCard from '@/components/cards/OverviewCard';
-import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
 import EstimacionTab from '@/components/tabs/EstimacionTab';
 import ResumenTab from '@/components/tabs/ResumenTab';
 import { getLatestSnapshot, getEcosystemDetailed } from '@/lib/repository/fintra-db';
 import TickerExpandidoModal from '@/components/dashboard/TickerExpandidoModal';
-
-export type TabKey = 'resumen' | 'competidores' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'indices' | 'horarios' | 'empresa';
+import type { TabKey } from '@/components/dashboard/StockTerminal';
 
 interface TickerDetailViewProps {
   ticker: string;
@@ -180,14 +176,6 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
             isLoading={isLoading}
           />
         );
-      case 'competidores':
-        return (
-          <CompetidoresTab
-            symbol={ticker}
-            onPeerSelect={setSelectedCompetitor}
-            selectedPeer={selectedCompetitor}
-          />
-        );
       case 'ecosistema':
         return (
           <EcosystemCard 
@@ -230,79 +218,53 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
 
   return (
     <div className="w-full h-full flex flex-col bg-[#0A0A0A]">
-        <div className="shrink-0 w-full border-zinc-800 h-[6%] overflow-hidden py-0 bg-tarjetas">
-            <OverviewCard
-            selectedStock={stockBasicData || ticker}
-            onStockSearch={buscarDatosAccion}
-            isParentLoading={isLoading}
-            analysisData={stockAnalysis}
-            onExpandVerdict={() => setIsExpandedOpen(true)}
-            />
-        </div>
-
-        <div className="shrink-0 w-full border-zinc-800 h-[15%] overflow-hidden bg-tarjetas">
-            <PeersAnalysisPanel 
-                symbol={ticker}
-                onPeerSelect={setSelectedCompetitor}
-                selectedPeer={selectedCompetitor}
-            />
-        </div>
-
-        {/* Mitad Superior: Navigation Bar y Contenido de Tabs */}
-        <div className="flex-1 flex flex-col min-h-0 mt-3">
-            <div className="w-full flex items-center justify-between ">
-            <div className="flex-1">
-                <NavigationBar
-                orientation="horizontal"
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                symbol={ticker}
-                />
-            </div>
-            </div>
-            
-			<div className={`w-full flex-1 border-r border-l border-zinc-800 ${(activeTab === 'datos' || activeTab === 'competidores') ? 'overflow-hidden' : 'overflow-y-auto scrollbar-on-hover'}`}>
-            {renderTabContent()}
-            </div>
-
-            {/* Charts Section - Fixed Height 30% - Only visible for 'empresa' and 'datos' */}
-            {(activeTab === 'empresa' /* || activeTab === 'datos' */) && (
-                <div className="flex flex-col lg:flex-row w-full h-[35%] gap-1 shrink-0 border-t border-zinc-800 pt-1">
-                    <div className="w-full lg:w-3/5 h-full border-t-0 border-zinc-800 bg-tarjetas overflow-hidden">
-                        <ChartsTabHistoricos
-                            symbol={ticker}
-                            companyName={stockBasicData?.companyName}
-                            comparedSymbols={comparedSymbolsList}
-                            isActive={isActive}
-                        />
-                    </div>
-                    <div className="w-full lg:w-2/5 h-full border border-zinc-800 bg-tarjetas overflow-hidden">
-                        <FGOSRadarChart 
-                            symbol={ticker} 
-                            data={stockAnalysis?.fgos_breakdown} 
-                            comparedSymbol={selectedCompetitor}
-                            isActive={isActive}
-                        />
-                    </div>
-                </div>
-            )}
-        </div>
-        <TickerExpandidoModal
-          open={isExpandedOpen}
-          onOpenChange={setIsExpandedOpen}
-          ticker={ticker}
-          selectedCompetitor={selectedCompetitor}
-          setSelectedCompetitor={setSelectedCompetitor}
-          stockBasicData={stockBasicData}
-          stockAnalysis={stockAnalysis}
-          stockPerformance={stockPerformance}
-          stockEcosystem={stockEcosystem}
-          stockRatios={stockRatios}
-          stockMetrics={stockMetrics}
-          isLoading={isLoading}
-          isActive={isActive}
+      <div className="shrink-0 w-full border-zinc-800 h-[6%] overflow-hidden py-0 bg-tarjetas">
+        <OverviewCard
+          selectedStock={stockBasicData || ticker}
           onStockSearch={buscarDatosAccion}
+          isParentLoading={isLoading}
+          analysisData={stockAnalysis}
+          onExpandVerdict={() => setIsExpandedOpen(true)}
         />
+      </div>
+
+      <div className="flex-1 flex flex-col min-h-0 mt-3">
+        <div className="w-full flex items-center justify-between">
+          <div className="flex-1">
+            <NavigationBar
+              orientation="horizontal"
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              symbol={ticker}
+            />
+          </div>
+        </div>
+
+        <div
+          className={`w-full flex-1 border-r border-l border-zinc-800 ${
+            activeTab === 'datos' ? 'overflow-hidden' : 'overflow-y-auto scrollbar-on-hover'
+          }`}
+        >
+          {renderTabContent()}
+        </div>
+      </div>
+
+      <TickerExpandidoModal
+        open={isExpandedOpen}
+        onOpenChange={setIsExpandedOpen}
+        ticker={ticker}
+        selectedCompetitor={selectedCompetitor}
+        setSelectedCompetitor={setSelectedCompetitor}
+        stockBasicData={stockBasicData}
+        stockAnalysis={stockAnalysis}
+        stockPerformance={stockPerformance}
+        stockEcosystem={stockEcosystem}
+        stockRatios={stockRatios}
+        stockMetrics={stockMetrics}
+        isLoading={isLoading}
+        isActive={isActive}
+        onStockSearch={buscarDatosAccion}
+      />
     </div>
   );
 }

@@ -81,13 +81,10 @@ export async function runDividendsBulkV2(): Promise<CronResult> {
     // Sort years descending
     const sortedYears = Array.from(years).sort((a, b) => b - a);
     
-    // Strategy: Process ALL years found in the folder?
-    // The user said "Process ONLY new FYs" in the context of "Cron V2 Activation".
-    // If I process everything every time, it's a "Rehydration", not just a maintenance cron.
-    // But "Rehydration" was Step 1. Cron is Step 9.
-    // Maybe we only process the last 2 years to be safe and fast?
-    // Let's pick the last 2 years available in the folder.
-    const targetYears = sortedYears.slice(0, 2); 
+    // Ventana deslizante: procesar los últimos 5 años disponibles.
+    // Así mantenemos suficiente histórico reciente sin rehidratar todo el
+    // dataset en cada corrida del cron.
+    const targetYears = sortedYears.slice(0, 5); 
     
     console.log(`Dividends V2 Cron: Processing years ${targetYears.join(', ')}`);
 

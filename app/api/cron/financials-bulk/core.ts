@@ -347,7 +347,22 @@ async function persistFinancialsStreaming(
     let rowsBuffer: any[] = [];
     const stats = { processed: 0, skipped: 0, fy_built: 0, q_built: 0, ttm_built: 0 };
 
-    // Flush Helper
+    const sanitizeRow = (row: any) => {
+        const sanitized: any = {};
+        const stringWhitelist = new Set(['ticker', 'period_type', 'period_label', 'period_end_date', 'source']);
+        for (const key of Object.keys(row)) {
+            const value = (row as any)[key];
+            if (typeof value === 'number') {
+                sanitized[key] = Number.isFinite(value) ? value : null;
+            } else if (typeof value === 'string' && !stringWhitelist.has(key) && value.toLowerCase().includes('nan')) {
+                sanitized[key] = null;
+            } else {
+                sanitized[key] = value;
+            }
+        }
+        return sanitized;
+    };
+
     const flushBatch = async () => {
         if (rowsBuffer.length === 0) return;
         
@@ -358,11 +373,16 @@ async function persistFinancialsStreaming(
             uniqueRowsMap.set(key, row);
         });
         const uniqueRows = Array.from(uniqueRowsMap.values());
-        
-        // Remove fcf_cagr as it's not in the database table
-        const dbChunk = uniqueRows.map(({ fcf_cagr, ...row }) => row);
-        
-        await upsertDatosFinancieros(supabaseAdmin, dbChunk);
+
+        const dbChunk = uniqueRows.map(({ fcf_cagr, ...row }) => sanitizeRow(row));
+
+        try {
+          await upsertDatosFinancieros(supabaseAdmin, dbChunk);
+        } catch (e) {
+          const tickers = Array.from(new Set(dbChunk.map((r: any) => r.ticker))).slice(0, 50);
+          console.error('[FinancialsBulk] Upsert failed for tickers:', tickers);
+          throw e;
+        }
         
         // Sync Growth (TTM only)
         const ttmRows = uniqueRows.filter(r => r.period_type === 'TTM');
@@ -388,6 +408,7 @@ async function persistFinancialsStreaming(
 
     // 3. Process each ticker
     for (const ticker of activeTickers) {
+      console.log(`[FinancialsBulk] Processing ticker ${ticker}`);
       const tickerIncome = incomeMap.get(ticker) || [];
       const tickerBalance = balanceMap.get(ticker) || [];
       const tickerCashflow = cashflowMap.get(ticker) || [];
@@ -526,11 +547,18 @@ async function persistFinancialsStreaming(
       
       // Check buffer size
       if (rowsBuffer.length >= maxBatchSize) {
+          console.log('[FinancialsBulk] Flushing batch', {
+            size: rowsBuffer.length,
+            sampleTickers: Array.from(new Set(rowsBuffer.slice(0, 100).map(r => r.ticker))).slice(0, 10)
+          });
           await flushBatch();
       }
     }
 
-    // Final Flush
+    console.log('[FinancialsBulk] Final flush', {
+      remaining: rowsBuffer.length,
+      sampleTickers: Array.from(new Set(rowsBuffer.slice(0, 100).map(r => r.ticker))).slice(0, 10)
+    });
     await flushBatch();
 
     return stats;

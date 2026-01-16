@@ -106,7 +106,7 @@ export default function OverviewCard({
   return (
     <Card className="bg-tarjetas border-none shadow-lg w-full h-full flex flex-col group relative overflow-hidden rounded-none">
       <CardContent className="p-0 flex flex-col h-full">
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_.8fr] gap-0 items-center border-b border-zinc-800 bg-[#1D1D1D] h-full">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_.5fr] gap-0 items-center border-b border-zinc-800 bg-[#1D1D1D] h-full">
             
             {/* 1. STOCK: Logo, Ticker, Nombre */}
             <div className="flex items-center gap-1 px-0.5 h-full">
@@ -187,7 +187,7 @@ export default function OverviewCard({
                    <div className="text-lg font-mono text-zinc-700 font-bold leading-none">-</div>
                 )}
                 <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest flex items-center gap-1 mb-0.5">
-                    RES. RELATIVO
+                    RESULTADO RELATIVO
                 </span>
             </div>
 
@@ -199,7 +199,7 @@ export default function OverviewCard({
                   onClick={onExpandVerdict}
                   variant="ghost"
                   size="icon"
-                  className="p-1 h-5 w-5 text-zinc-500 hover:text-zinc-300 transition-colors"
+                  className="p-1 h-5 w-5 text-zinc-500 hover:text-zinc-300 transition-colors bg-transparent"
                 >
                   <Maximize2 className="w-3 h-3" />
                 </Button>

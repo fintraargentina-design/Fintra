@@ -28,7 +28,7 @@ async function main() {
     const { runSectorBenchmarks } = await import('@/app/api/cron/sector-benchmarks/core');
     const { runPerformanceBulk } = await import('@/app/api/cron/performance-bulk/core');
     const { runMarketStateBulk } = await import('@/app/api/cron/market-state-bulk/core');
-    const { runDividendsBulkV2 } = await import('@/app/api/cron/dividends-bulk/core-v2');
+    const { runDividendsBulkV2 } = await import('@/app/api/cron/dividends-bulk-v2/core');
 
     // Parse limit from CLI args, default to 0 (ALL)
     const args = process.argv.slice(2);
@@ -75,7 +75,7 @@ async function main() {
         await runMarketStateBulk(undefined, LIMIT);
 
         console.log('\n--- 9. Dividends Bulk (V2) ---');
-        await runDividendsBulkV2({ mode: 'auto' });
+        await runDividendsBulkV2();
 
         console.log('\n✅ Master Cron Finished Successfully');
     } catch (error) {

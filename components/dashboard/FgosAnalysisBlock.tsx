@@ -90,7 +90,7 @@ export default function FgosAnalysisBlock({
 
   return (
     <div className="w-full mt-4 border-t border-zinc-800 pt-4">
-      <h3 className="text-sm font-medium text-zinc-400 mb-3">FGOS Analysis</h3>
+      <h3 className="text-sm font-medium text-zinc-400 mb-3">Análisis IFS</h3>
       
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1.5fr] gap-4">
         {/* Summary Table */}

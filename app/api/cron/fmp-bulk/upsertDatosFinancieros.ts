@@ -9,5 +9,9 @@ export async function upsertDatosFinancieros(client: SupabaseClient, rows: any[]
       onConflict: 'ticker,period_type,period_label'
     });
 
-  if (error) throw error;
+  if (error) {
+    const tickers = Array.from(new Set(rows.map((r: any) => r.ticker))).slice(0, 50);
+    console.error('[datos_financieros] Upsert error for tickers:', tickers);
+    throw error;
+  }
 }

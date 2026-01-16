@@ -17,9 +17,9 @@ export async function fetchFinancialHistory(
 
   const { data, error } = await supabase
     .from('datos_financieros')
-    .select('ticker, period_end_date, period_label, revenue, net_income, free_cash_flow')
+    .select('ticker, period_end_date, period_label, revenue, net_income, free_cash_flow, roic, roe, operating_margin, net_margin, invested_capital, capex, weighted_shares_out, period_type')
     .in('ticker', tickers)
-    .eq('period_type', 'FY')
+    .in('period_type', ['FY', 'Q', 'TTM']) // Fetch all types for Moat
     .order('period_end_date', { ascending: false });
 
   if (error) {
@@ -28,6 +28,35 @@ export async function fetchFinancialHistory(
   }
 
   // Group by ticker
+  const map = new Map<string, any[]>();
+  data?.forEach((row: any) => {
+    if (!map.has(row.ticker)) map.set(row.ticker, []);
+    map.get(row.ticker)!.push(row);
+  });
+
+  return map;
+}
+
+export async function fetchValuationHistory(
+  supabase: SupabaseClient,
+  tickers: string[]
+) {
+  if (!tickers.length) return new Map<string, any[]>();
+
+  // Fetching last 5 years of valuation data might be heavy if daily.
+  // For now, we fetch the last 100 records per ticker to try to catch some history if available.
+  // Ideally, we would filter by specific dates (today, -1Y, -3Y, -5Y).
+  const { data, error } = await supabase
+    .from('datos_valuacion')
+    .select('ticker, valuation_date, pe_ratio, ev_ebitda, price_to_fcf, price_to_sales')
+    .in('ticker', tickers)
+    .order('valuation_date', { ascending: false });
+
+  if (error) {
+    console.error('❌ Error fetching valuation history:', error);
+    return new Map<string, any[]>();
+  }
+
   const map = new Map<string, any[]>();
   data?.forEach((row: any) => {
     if (!map.has(row.ticker)) map.set(row.ticker, []);
@@ -66,4 +95,31 @@ export function computeGrowthRows(financials: any[]): GrowthRow[] {
   // Return in descending order (newest first) as usually expected by rolling helpers?
   // rollingFYGrowth sorts them anyway.
   return growthRows.reverse();
+}
+
+export async function fetchPerformanceHistory(
+  supabase: SupabaseClient,
+  tickers: string[]
+) {
+  if (!tickers.length) return new Map<string, any[]>();
+
+  const { data, error } = await supabase
+    .from('datos_performance')
+    .select('ticker, window_code, return_percent, max_drawdown')
+    .in('ticker', tickers)
+    .in('window_code', ['1Y', '3Y', '5Y']);
+
+  if (error) {
+    console.error('❌ Error fetching performance history:', error);
+    return new Map<string, any[]>();
+  }
+
+  // Group by ticker
+  const map = new Map<string, any[]>();
+  data?.forEach((row: any) => {
+    if (!map.has(row.ticker)) map.set(row.ticker, []);
+    map.get(row.ticker)!.push(row);
+  });
+
+  return map;
 }

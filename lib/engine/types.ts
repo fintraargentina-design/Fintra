@@ -243,6 +243,8 @@ export interface FinancialSnapshot {
   valuation: ValuationResult | null;
   market_position: MarketPosition | null;
   investment_verdict: any | null;
+  strategic_state?: any | null; // New field for persisted verdict result
+  relative_return?: any | null; // New field for relative return result
   data_confidence: {
     has_profile: boolean;
     has_financials: boolean;

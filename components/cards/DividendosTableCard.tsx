@@ -144,9 +144,9 @@ export default function DividendosTableCard({
 						peerTicker && (
 						  <TableHead
 							key={`${col}-peer`}
-							className={`px-2 text-[#FFA028] font-bold text-[10px] h-5 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+							className={`px-2 text-[#FFFFFF] font-bold text-[10px] h-5 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-[#002D72]' : 'bg-[#002D72]'}`}
 						  >
-							{`(${peerTicker}) ${label}`}
+							{`${peerTicker}_${label}`}
 						  </TableHead>
 						),
 				  ];
@@ -194,7 +194,7 @@ export default function DividendosTableCard({
                             peerTicker && (
                                 <TableCell 
                                     key={`${col}-peer`}
-                                    className={`text-center px-2 py-0 text-[10px] font-bold text-[#FFFFFF] h-6 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                                    className={`text-center px-2 py-0 text-[10px] font-bold text-[#FFFFFF] h-6 border-x border-[#002D72] ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                                     style={{ backgroundColor: getHeatmapColor(peerCellData?.normalized ?? null, direction) }}
                                 >
                                     {peerCellData?.display ?? "-"}

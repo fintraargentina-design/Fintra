@@ -3,7 +3,7 @@ import { fetchAllFmpData } from './fetchBulk';
 import { buildSnapshot } from './buildSnapshots';
 import { upsertSnapshots } from './upsertSnapshots';
 import { getActiveStockTickers } from '@/lib/repository/active-stocks';
-import { fetchFinancialHistory, computeGrowthRows } from './fetchGrowthData';
+import { fetchFinancialHistory, computeGrowthRows, fetchPerformanceHistory, fetchValuationHistory } from './fetchGrowthData';
 
 export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
   const fmpKey = process.env.FMP_API_KEY!;
@@ -109,6 +109,11 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
 
         // Fetch Financial History for Growth Calculation
         const historyMap = await fetchFinancialHistory(supabase, batchTickers);
+        // Include SPY for benchmark comparison
+        const performanceMap = await fetchPerformanceHistory(supabase, [...batchTickers, 'SPY']);
+        const valuationMap = await fetchValuationHistory(supabase, batchTickers);
+
+        const benchmarkRows = performanceMap.get('SPY') || [];
 
         const batchPromises = batchTickers.map(async (ticker) => {
             try {
@@ -120,6 +125,8 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
                 // Compute Growth
                 const history = historyMap.get(ticker) || [];
                 const growthRows = computeGrowthRows(history);
+                const performanceRows = performanceMap.get(ticker) || [];
+                const valuationRows = valuationMap.get(ticker) || [];
 
                 return await buildSnapshot(
                     ticker,
@@ -130,7 +137,11 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
                     null, // priceChange (not available in bulk)
                     scores,
                     growthRows, // incomeGrowthRows (computed from DB)
-                    growthRows  // cashflowGrowthRows (same, as fetchFinancialHistory gets both)
+                    growthRows, // cashflowGrowthRows (same, as fetchFinancialHistory gets both)
+                    history,    // Full financial history for Moat
+                    performanceRows, // Performance history for Relative Return
+                    valuationRows, // Valuation history for Sentiment
+                    benchmarkRows // Benchmark performance (SPY)
                 );
             } catch (err: any) {
                 console.error(`❌ CRITICAL ERROR building snapshot for ${ticker}:`, err.message);

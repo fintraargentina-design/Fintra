@@ -30,6 +30,17 @@ const parseBreakdown = (d: any) => {
   return d;
 };
 
+// Helper para obtener valor numérico de objetos complejos (ej. moat: { value: 100, ... })
+const getValue = (val: any) => {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'number') return val;
+  if (typeof val === 'object' && val !== null) {
+      // Si tiene propiedad value, usarla. Si no, 0.
+      return typeof val.value === 'number' ? val.value : 0;
+  }
+  return 0;
+};
+
 export default function FGOSRadarChart({ 
   symbol, 
   data, 
@@ -72,19 +83,20 @@ export default function FGOSRadarChart({
     (async () => {
       setLoadingPeer(true);
       try {
+        const tickerFilter = (comparedSymbol as string).toUpperCase();
         const { data, error } = await supabase
           .from('fintra_snapshots')
-          .select('fgos_breakdown')
-          .eq('ticker', comparedSymbol)
-          .order('date', { ascending: false })
+          .select('fgos_components')
+          .eq('ticker', tickerFilter)
+          .order('snapshot_date', { ascending: false })
           .limit(1)
           .maybeSingle();
 
         if (active) {
-          if (data?.fgos_breakdown) {
-            setPeerData(data.fgos_breakdown);
+          if (data?.fgos_components) {
+            setPeerData(data.fgos_components);
           } else {
-             console.warn(`No FGOS breakdown for ${comparedSymbol}, peer data unavailable`);
+             console.warn(`No FGOS components for ${comparedSymbol}, peer data unavailable`);
              setPeerData(null);
           }
         }
@@ -112,10 +124,10 @@ export default function FGOSRadarChart({
     
     // Values for main symbol
     const parsedData = parseBreakdown(data);
-    const mainValues = dimensions.map(d => parsedData?.[d.key] || 0);
+    const mainValues = dimensions.map(d => getValue(parsedData?.[d.key]));
     // Values for peer
     const parsedPeerData = parseBreakdown(peerData);
-    const peerValues = parsedPeerData ? dimensions.map(d => parsedPeerData[d.key] || 0) : [];
+    const peerValues = parsedPeerData ? dimensions.map(d => getValue(parsedPeerData[d.key])) : [];
 
     const seriesData = [
       {
@@ -131,8 +143,8 @@ export default function FGOSRadarChart({
       seriesData.push({
         value: peerValues,
         name: comparedSymbol,
-        itemStyle: { color: '#0056FF' },
-        areaStyle: { color: '#0056FF', opacity: 0.3 },
+        itemStyle: { color: '#002D72' },
+        areaStyle: { color: '#002D72', opacity: 0.5 },
         symbol: 'none'
       });
     }
@@ -161,7 +173,7 @@ export default function FGOSRadarChart({
       radar: {
         indicator: indicator,
         shape: 'polygon',
-        radius: '65%',
+        radius: '50%',
         center: ['50%', '50%'],
         splitNumber: 4,
         axisName: {

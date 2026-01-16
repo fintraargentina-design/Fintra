@@ -280,7 +280,7 @@ export async function calculateFGOSFromData(
 
     const confidenceResult = calculateConfidenceLayer(confInputs);
 
-    const sentimentResult = calculateSentiment(null);
+    const sentimentResult = calculateSentiment(_valuationTimeline || null);
 
     // [AUDIT] Override confidence with Dimensional Completeness logic (User Requirement)
     const tempBreakdown = {
@@ -308,9 +308,16 @@ export async function calculateFGOSFromData(
           profitability_impact: profitabilityResult.impact,
           efficiency_impact: efficiencyResult.impact,
           solvency_impact: solvencyResult.impact,
-          moat: { value: null, confidence: null, status: 'pending' },
-          sentiment: {
+          moat: null,
+          competitive_advantage: {
+            score: null,
+            band: null,
+            confidence: null
+          },
+          sentiment: sentimentResult.value,
+          sentiment_details: {
             value: sentimentResult.value,
+            band: sentimentResult.band,
             confidence: sentimentResult.confidence,
             status: sentimentResult.status,
             signals: sentimentResult.signals
@@ -353,13 +360,21 @@ export async function calculateFGOSFromData(
         profitability_impact: profitabilityResult.impact,
         efficiency_impact: efficiencyResult.impact,
         solvency_impact: solvencyResult.impact,
-        moat: {
-          value: moatResult.score,
+        moat: moatResult.score,
+        competitive_advantage: {
+          score: moatResult.score,
+          band: moatResult.score !== null ? (moatResult.score >= 70 ? 'strong' : moatResult.score < 40 ? 'weak' : 'defendable') : null,
           confidence: moatResult.confidence,
-          status: moatResult.status as any
+          axes: (moatResult as any).details ? {
+            return_persistence: (moatResult as any).details.roic_persistence,
+            operating_stability: (moatResult as any).details.margin_stability
+          } : undefined,
+          years_analyzed: (moatResult as any).details?.years_analyzed
         },
-        sentiment: {
+        sentiment: sentimentResult.value,
+        sentiment_details: {
           value: sentimentResult.value,
+          band: sentimentResult.band,
           confidence: sentimentResult.confidence,
           status: sentimentResult.status,
           signals: sentimentResult.signals
