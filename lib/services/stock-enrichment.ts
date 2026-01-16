@@ -18,6 +18,9 @@ export interface EnrichedStockData {
   confidenceLabel?: string;
   valuation: string;
   ecosystem: number;
+  marketPosition?: any;
+  strategicState?: any;
+  relativeReturn?: any;
 }
 
 /**

@@ -6,7 +6,7 @@ import { getBenchmarksForSector } from './benchmarks';
 import type { FinancialSnapshot, FmpRatios, FmpMetrics, SectorBenchmark, FgosBreakdown, FgosCategory } from './types';
 import { calculateConfidenceLayer, calculateDimensionalConfidence, type ConfidenceInputs } from './confidence';
 import { calculateMoat } from './moat';
-import { calculateSentiment, type PerformanceRow } from './sentiment';
+import { calculateSentiment, type SentimentValuationTimeline } from './sentiment';
 import { calculateCompetitiveAdvantage, type CompetitiveAdvantageHistoryRow } from './competitive-advantage';
 
 type BenchMap = Record<string, SectorBenchmark>;
@@ -106,7 +106,7 @@ export function computeFGOS(
   benchmarks: BenchMap | null,
   confidenceInputs: Omit<ConfidenceInputs, 'missing_core_metrics'> | null,
   history?: any[] | null,
-  performanceRows?: PerformanceRow[]
+  valuationTimeline?: SentimentValuationTimeline | null
 ): {
   fgos_score: number | null;
   fgos_category: FgosCategory;
@@ -276,9 +276,7 @@ export function computeFGOS(
   const moatResult = history
     ? calculateMoat(history, benchmarks as any)
     : { score: null, status: 'pending', confidence: null } as const;
-
-  // [SENTIMENT CALCULATION]
-  const sentimentResult = calculateSentiment(performanceRows || []);
+  const sentimentResult = calculateSentiment(valuationTimeline || null);
 
   // [AUDIT] Override with Dimensional Confidence (User Requirement)
   const tempBreakdown = {
@@ -310,16 +308,15 @@ export function computeFGOS(
       profitability_impact: profitabilityResult.impact,
       efficiency_impact: efficiencyResult.impact,
       solvency_impact: solvencyResult.impact,
-      moat: {
-        value: moatResult.score,
-        confidence: moatResult.confidence,
-        status: moatResult.status as any
-      },
-      sentiment: {
+      moat: competitiveAdvantageResult?.score ?? null,
+      sentiment: sentimentResult.value ?? null,
+      sentiment_details: {
         value: sentimentResult.value,
+        band: sentimentResult.band,
         confidence: sentimentResult.confidence,
         status: sentimentResult.status,
-        signals: sentimentResult.signals
+        signals: sentimentResult.signals,
+        components: sentimentResult.components
       },
       competitive_advantage: competitiveAdvantageResult
         ? {
@@ -416,30 +413,87 @@ export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: stri
     .eq('period_type', 'FY')
     .order('period_end_date', { ascending: true });
 
-  // Fetch Performance Data for Sentiment
-  // Get the latest available performance date up to the snapshot date
-  const { data: perfDateData } = await supabaseAdmin
-    .from('datos_performance')
-    .select('performance_date')
+  const snapshotDateObj = new Date(date);
+
+  const minusYears = (base: Date, years: number) => {
+    const d = new Date(base.getTime());
+    d.setFullYear(d.getFullYear() - years);
+    return d;
+  };
+
+  const targetDates = {
+    TTM: snapshotDateObj,
+    TTM_1A: minusYears(snapshotDateObj, 1),
+    TTM_3A: minusYears(snapshotDateObj, 3),
+    TTM_5A: minusYears(snapshotDateObj, 5)
+  } as const;
+
+  const { data: valuationsData } = await supabaseAdmin
+    .from('datos_valuacion')
+    .select('valuation_date, denominator_type, pe_ratio, ev_ebitda, price_to_fcf, price_to_sales')
     .eq('ticker', ticker)
-    .lte('performance_date', date)
-    .order('performance_date', { ascending: false })
-    .limit(1);
-    
-  let performanceRows: PerformanceRow[] = [];
-  if (perfDateData && perfDateData.length > 0) {
-    const latestPerfDate = perfDateData[0].performance_date;
-    const { data: perfData } = await supabaseAdmin
-      .from('datos_performance')
-      .select('window_code, return_percent')
-      .eq('ticker', ticker)
-      .eq('performance_date', latestPerfDate)
-      .in('window_code', ['1M', '3M', '6M', '1Y', '3Y', '5Y']);
-      
-    if (perfData) {
-      performanceRows = perfData as PerformanceRow[];
+    .eq('denominator_type', 'TTM')
+    .lte('valuation_date', date)
+    .order('valuation_date', { ascending: false });
+
+  const valuations = (valuationsData || []) as any[];
+
+  const pickSnapshot = (target: Date) => {
+    if (!valuations.length) return null;
+    const targetTime = target.getTime();
+    for (const row of valuations) {
+      const rowDate = new Date(row.valuation_date);
+      if (rowDate.getTime() <= targetTime) return row;
     }
-  }
+    return null;
+  };
+
+  const valuationTimeline: SentimentValuationTimeline = {
+    TTM: (() => {
+      const row = pickSnapshot(targetDates.TTM);
+      return row
+        ? {
+            pe_ratio: row.pe_ratio ?? null,
+            ev_ebitda: row.ev_ebitda ?? null,
+            price_to_fcf: row.price_to_fcf ?? null,
+            price_to_sales: row.price_to_sales ?? null
+          }
+        : null;
+    })(),
+    TTM_1A: (() => {
+      const row = pickSnapshot(targetDates.TTM_1A);
+      return row
+        ? {
+            pe_ratio: row.pe_ratio ?? null,
+            ev_ebitda: row.ev_ebitda ?? null,
+            price_to_fcf: row.price_to_fcf ?? null,
+            price_to_sales: row.price_to_sales ?? null
+          }
+        : null;
+    })(),
+    TTM_3A: (() => {
+      const row = pickSnapshot(targetDates.TTM_3A);
+      return row
+        ? {
+            pe_ratio: row.pe_ratio ?? null,
+            ev_ebitda: row.ev_ebitda ?? null,
+            price_to_fcf: row.price_to_fcf ?? null,
+            price_to_sales: row.price_to_sales ?? null
+          }
+        : null;
+    })(),
+    TTM_5A: (() => {
+      const row = pickSnapshot(targetDates.TTM_5A);
+      return row
+        ? {
+            pe_ratio: row.pe_ratio ?? null,
+            ev_ebitda: row.ev_ebitda ?? null,
+            price_to_fcf: row.price_to_fcf ?? null,
+            price_to_sales: row.price_to_sales ?? null
+          }
+        : null;
+    })()
+  };
 
   const financial_history_years = history ? history.length : 0;
 
@@ -490,7 +544,7 @@ export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: stri
     profile_structural: (snap as any).profile_structural
   } as FinancialSnapshot;
 
-  const result = computeFGOS(ticker, snapshotRow, ratios, metrics, growth, benchmarks, confidenceInputs, history, performanceRows);
+  const result = computeFGOS(ticker, snapshotRow, ratios, metrics, growth, benchmarks, confidenceInputs, history, valuationTimeline);
 
   // 7. Persist
   await supabaseAdmin

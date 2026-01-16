@@ -19,7 +19,7 @@ export default function NavigationBar({
     /* { key: 'competidores', label: 'Competidores' }, */
     { key: 'datos', label: 'Datos Financieros' },
     { key: 'ecosistema', label: 'Ecosistema' },
-    { key: 'estimacion', label: 'Estimación y Análisis IA' },
+    { key: 'estimacion', label: 'Escenarios y Conclusión Fintra IA' },
   ];
 
   if (orientation === 'vertical') {

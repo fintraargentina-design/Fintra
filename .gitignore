@@ -37,3 +37,4 @@ next-env.d.ts
 
 # Data folder (local cache, bulk files, etc.)
 /data/
+*_backup.json

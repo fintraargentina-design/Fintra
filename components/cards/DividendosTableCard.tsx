@@ -42,18 +42,20 @@ export interface DividendosTableCardProps {
   scrollRef?: React.RefObject<HTMLDivElement | null>;
   peerTicker?: string | null;
   highlightedMetrics?: string[] | null;
+  defaultExpanded?: boolean;
 }
 
 export default function DividendosTableCard({ 
   symbol, 
   scrollRef, 
   peerTicker, 
-  highlightedMetrics 
+  highlightedMetrics,
+  defaultExpanded = true
 }: DividendosTableCardProps) {
   const [internalData, setInternalData] = useState<TimelineResponse | null>(null);
   const [peerData, setPeerData] = useState<TimelineResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(true); // Default to expanded since few metrics
+  const [expanded, setExpanded] = useState(defaultExpanded);
 
   // Fetch peer data when selected
   useEffect(() => {
@@ -128,21 +130,21 @@ export default function DividendosTableCard({
 			<Table className="min-w-max text-sm border-collapse">
 			<TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
 			  <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
-				<TableHead className="px-2 text-gray-300 text-[12px] h-6 w-[150px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D]">Dividendos</TableHead>
+				<TableHead className="px-2 text-gray-300 text-[10px] h-5 w-[150px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D]">Dividendos</TableHead>
 				      {sortedYears.map((year, yearIdx) => (
 				year.columns.flatMap(col => {
 				  const label = col.replace('_FY', '');
 				  return [
 						<TableHead
 						  key={col}
-						  className={`px-2 text-gray-300 text-[10px] h-6 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+						  className={`px-2 text-gray-300 text-[10px] h-5 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
 						>
 							{label}
 						</TableHead>,
 						peerTicker && (
 						  <TableHead
 							key={`${col}-peer`}
-							className={`px-2 text-[#FFA028] font-bold text-[10px] h-6 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+							className={`px-2 text-[#FFA028] font-bold text-[10px] h-5 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
 						  >
 							{`(${peerTicker}) ${label}`}
 						  </TableHead>
@@ -167,7 +169,7 @@ export default function DividendosTableCard({
                     key={metric.key} 
                     className={`border-zinc-800 border-b transition-all duration-300 ${isHighlighted ? 'bg-[#FFA028]/10 border-l-2 border-l-[#FFA028] shadow-[inset_0_0_20px_rgba(255,160,40,0.05)]' : 'hover:bg-white/5 border-l-2 border-l-transparent'}`}
                   >
-			  	<TableCell className="font-bold text-gray-200 px-2 py-0.5 text-xs w-[100px] border-r border-zinc-800 sticky left-0 z-10 bg-[#0A0A0A]">
+			  	<TableCell className="font-bold text-gray-200 px-2 py-0 text-[10px] h-6 w-[100px] border-r border-zinc-800 sticky left-0 z-10 bg-[#0A0A0A]">
                     {metric.label}
                   </TableCell>
                   {data?.years?.map((year, yearIdx) => (
@@ -184,7 +186,7 @@ export default function DividendosTableCard({
                         return [
                             <TableCell 
                                 key={col}
-                                className={`text-center px-2 py-0.5 text-[10px] font-medium text-white h-8 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                                className={`text-center px-2 py-0 text-[10px] font-medium text-white h-6 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                                 style={{ backgroundColor: getHeatmapColor(cellData?.normalized ?? null, direction) }}
                             >
                                 {cellData?.display ?? "-"}
@@ -192,7 +194,7 @@ export default function DividendosTableCard({
                             peerTicker && (
                                 <TableCell 
                                     key={`${col}-peer`}
-                                    className={`text-center px-2 py-0.5 text-[10px] font-bold text-[#FFFFFF] h-8 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                                    className={`text-center px-2 py-0 text-[10px] font-bold text-[#FFFFFF] h-6 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                                     style={{ backgroundColor: getHeatmapColor(peerCellData?.normalized ?? null, direction) }}
                                 >
                                     {peerCellData?.display ?? "-"}

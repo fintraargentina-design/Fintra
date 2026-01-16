@@ -22,19 +22,19 @@ export interface FgosBreakdown {
   profitability_impact?: LowConfidenceImpact;
   efficiency_impact?: LowConfidenceImpact;
   solvency_impact?: LowConfidenceImpact;
-  moat?: {
+  moat?: number | null;
+  sentiment?: number | null;
+  sentiment_details?: {
     value: number | null;
-    confidence: number | null;
-    status: 'computed' | 'partial' | 'pending';
-  };
-  sentiment?: {
-    value: number | null;
+    band?: 'pessimistic' | 'neutral' | 'optimistic' | null;
     confidence: number | null;
     status: 'computed' | 'partial' | 'pending';
     signals?: {
-      relative_momentum: number | null;
-      consistency_penalty: number | null;
+      relative_deviation: number | null;
+      directional_consistency: number | null;
+      rerating_intensity_penalty: number | null;
     };
+    components?: any;
   };
   competitive_advantage?: {
     score: number | null;

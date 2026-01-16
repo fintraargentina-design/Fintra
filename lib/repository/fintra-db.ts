@@ -4,20 +4,18 @@ import { getIntradayPrice } from "@/lib/services/market-data-service";
 import { buildFGOSState, FgosState } from '@/lib/engine/fgos-state';
 
 export type OverviewData = {
-  // Identity
-  ticker: string
-  name: string | null
-  logo_url: string | null
+	ticker: string
+	name: string | null
+	logo_url: string | null
 
-  // Market (fintra_market_state)
-  price: number | null
-  change_percentage: number | null
+	price: number | null
+	change_percentage: number | null
 
-  // Analysis summary (fintra_market_state)
-  fgos_score: number | null
-  valuation_status: string | null
-  verdict_text: string | null
-  ecosystem_score: number | null
+	fgos_score: number | null
+	valuation_status: string | null
+	verdict_text: string | null
+	ecosystem_score: number | null
+	relative_return: any | null
 }
 
 export async function getOverviewData(ticker: string): Promise<OverviewData> {
@@ -33,7 +31,7 @@ export async function getOverviewData(ticker: string): Promise<OverviewData> {
   // 2. Market & Analysis (fintra_market_state)
   const marketQuery = supabase
     .from('fintra_market_state')
-    .select('price, change_percentage, fgos_score, valuation_status, verdict_text, ecosystem_score')
+		.select('price, change_percentage, fgos_score, valuation_status, verdict_text, ecosystem_score, relative_return')
     .eq('ticker', upperTicker)
     .maybeSingle();
 
@@ -63,7 +61,8 @@ export async function getOverviewData(ticker: string): Promise<OverviewData> {
     fgos_score: m.fgos_score || null,
     valuation_status: m.valuation_status || null,
     verdict_text: m.verdict_text || null,
-    ecosystem_score: m.ecosystem_score || null
+		ecosystem_score: m.ecosystem_score || null,
+		relative_return: m.relative_return || null
   };
 }
 

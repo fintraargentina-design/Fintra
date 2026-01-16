@@ -4,10 +4,11 @@
 import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { getHeatmapColor } from "@/lib/utils";
+import { getHeatmapColor, formatMarketCap } from "@/lib/utils";
 import { EnrichedStockData } from "@/lib/services/stock-enrichment";
 import { supabase } from "@/lib/supabase";
 import { FgosScoreCell } from "@/components/ui/FgosScoreCell";
+import { compareStocks, getValBadge, getFgosBandLabel, getMoatLabel, getRelativeReturnLabel, getStrategicStateLabel } from "./TableUtils";
 
 interface PeersAnalysisPanelProps {
   symbol: string;
@@ -82,50 +83,41 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
              return;
         }
 
-        // 2. Enrich data desde Supabase únicamente (sin APIs por ticker)
-        const { data: snapshots } = await supabase
-          .from('fintra_snapshots')
-          .select('ticker, fgos_score, fgos_confidence_label, valuation, created_at')
-          .in('ticker', peersList)
-          .order('created_at', { ascending: false });
+        // 2. Enrich data desde fintra_market_state (igual que SectorAnalysisPanel)
+        const { data: marketRows, error: marketError } = await supabase
+          .from('fintra_market_state')
+          .select('ticker, price, market_cap, ytd_return, fgos_score, valuation_status, fgos_confidence_label, market_position, strategic_state, relative_return')
+          .in('ticker', peersList);
 
-        const { data: eco } = await supabase
-          .from('fintra_ecosystem_reports')
-          .select('ticker, ecosystem_score, date')
-          .in('ticker', peersList)
-          .order('date', { ascending: false });
+        if (marketError) {
+          console.error("Error fetching market state for peers:", marketError);
+          if (active) {
+            setPeers([]);
+            setIsLoading(false);
+          }
+          return;
+        }
 
-        const snapMap = new Map<string, any>();
-        (snapshots || []).forEach((row: any) => {
-          if (!snapMap.has(row.ticker)) snapMap.set(row.ticker, row);
-        });
+        const enriched: EnrichedStockData[] = (marketRows || []).map((row: any) => ({
+          ticker: row.ticker,
+          name: row.ticker,
+          price: row.price,
+          marketCap: row.market_cap,
+          ytd: row.ytd_return,
+          divYield: null,
+          estimation: null,
+          targetPrice: null,
+          ecosystem: 50, // Default ecosystem score if not available
+          fgos: row.fgos_score ?? 0,
+          confidenceLabel: row.fgos_confidence_label,
+          valuation: row.valuation_status || "N/A",
+          marketPosition: row.market_position,
+          strategicState: row.strategic_state,
+          relativeReturn: row.relative_return
+        }));
 
-        const ecoMap = new Map<string, number>();
-        (eco || []).forEach((row: any) => {
-          if (!ecoMap.has(row.ticker)) ecoMap.set(row.ticker, row.ecosystem_score);
-        });
-
-        const enriched: EnrichedStockData[] = peersList.map((t) => {
-          const s = snapMap.get(t) || {};
-          const e = ecoMap.get(t);
-          return {
-            ticker: t,
-            name: t,
-            price: null as any,
-            marketCap: null as any,
-            ytd: null as any,
-            divYield: 0,
-            estimation: 0,
-            targetPrice: 0,
-            fgos: s?.fgos_score ?? 0,
-            confidenceLabel: s?.fgos_confidence_label,
-            valuation: s?.valuation?.valuation_status ?? "N/A",
-            ecosystem: e ?? 50
-          };
-        });
-
-        // Ordenar por FGOS de mayor a menor
-        enriched.sort((a, b) => b.fgos - a.fgos);
+        // Ordenar usando lógica jerárquica
+        enriched.sort(compareStocks);
 
         if(active) {
              setPeers(enriched);
@@ -143,13 +135,6 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
     return () => { active = false; };
   }, [symbol]);
 
-  const getValBadge = (v: string, isSelected: boolean = false) => {
-    const lowerV = v?.toLowerCase() || "";
-    if (lowerV.includes("under") || lowerV.includes("infra")) return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Infravalorada</Badge>;
-    if (lowerV.includes("fair") || lowerV.includes("justa")) return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Justa</Badge>;
-    return <Badge className="text-red-400 bg-red-400/10 border-red-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Sobrevalorada</Badge>;
-  };
-
   return (
     <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden mt-0">
             
@@ -159,25 +144,26 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
         </h4>
       </div>
 
-			<div className="flex-1 relative p-0 border border-t-0 border-zinc-800 overflow-y-auto scrollbar-on-hover">
+			<div className="flex-1 relative p-0 border border-t-0 border-zinc-800 overflow-y-auto">
         <table className="w-full text-sm">
           <TableHeader className="sticky top-0 z-10 bg-[#1D1D1D]">
             <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
-              <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[60px]">Ticker</TableHead>
-              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Rank. Sectorial IFS</TableHead>
-              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Val. Relativa al Sector</TableHead>
-              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[50px]">Ecosistema</TableHead>
-              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[60px]">Div. Yield</TableHead>
-              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[60px]">Estimación</TableHead>
-              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[70px]">Precio EOD</TableHead>
-              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[60px]">YTD %</TableHead>
-              <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[70px]">Mkt Cap</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[60px]">Ticker</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Ranking Sectorial (IFS)</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Valuación vs. Sector</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Calidad Fund. (Band)</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Est. Competitiva</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Res. Relativo</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Est. Estratégico</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[70px]">Precio EOD</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[60px]">YTD %</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[70px]">Mkt Cap</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
                 <TableRow className="border-zinc-800">
-                    <TableCell colSpan={9} className="h-24 text-center">
+                    <TableCell colSpan={10} className="h-24 text-center">
                         <div className="flex justify-center items-center gap-2 text-gray-400 text-xs">
                            Cargando competidores...
                         </div>
@@ -185,7 +171,7 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
                 </TableRow>
             ) : peers.length === 0 ? (
                 <TableRow className="border-zinc-800">
-                    <TableCell colSpan={9} className="text-center text-gray-500 py-8 text-xs">
+                    <TableCell colSpan={10} className="text-center text-gray-500 py-8 text-xs">
                         No se encontraron competidores para {symbol}.
                     </TableCell>
                 </TableRow>
@@ -199,39 +185,35 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
                       onClick={() => onPeerSelect?.(isSelected ? "" : peer.ticker)}
                     >
                       <TableCell className="font-bold text-white px-2 py-0.5 text-xs w-[60px]">{peer.ticker}</TableCell>
-                      <TableCell className="text-center px-2 py-0.5 w-[70px]">
+                      <TableCell className="text-center px-2 py-0.5">
                         <FgosScoreCell score={peer.fgos} confidenceLabel={peer.confidenceLabel} />
                       </TableCell>
-                      <TableCell className="text-center px-2 py-0.5 w-[80px]">
+                      <TableCell className="text-center px-2 py-0.5">
                         {getValBadge(peer.valuation)}
                       </TableCell>
-                      <TableCell className="text-center px-2 py-0.5 text-[10px] font-bold w-[50px] text-blue-400">
-                          {peer.ecosystem || '-'}
+                      <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
+                        {getFgosBandLabel(peer.fgos)}
                       </TableCell>
-                      <TableCell className="text-center px-2 py-0.5 text-[10px] w-[60px] text-gray-300">
-                        {peer.divYield ? `${peer.divYield.toFixed(2)}%` : '-'}
+                      <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
+                        {getMoatLabel(peer.marketPosition)}
                       </TableCell>
-                      <TableCell 
-                        className="text-center px-2 py-0.5 text-[10px] font-medium text-white w-[60px]"
-                        style={{ backgroundColor: getHeatmapColor(peer.estimation) }}
-                      >
-                        {peer.estimation ? `${peer.estimation > 0 ? '+' : ''}${peer.estimation.toFixed(1)}%` : '-'}
+                      <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
+                        {getRelativeReturnLabel(peer.relativeReturn)}
+                      </TableCell>
+                      <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
+                        {getStrategicStateLabel(peer.strategicState)}
                       </TableCell>
                       <TableCell className="text-right px-2 py-0.5 text-xs font-mono text-white w-[70px]">
                         {peer.price != null ? `$${Number(peer.price).toFixed(2)}` : '-'}
                       </TableCell>
                       <TableCell 
-                        className="text-right px-2 py-0.5 text-[10px] font-medium text-white w-[60px]"
-                        style={{ backgroundColor: getHeatmapColor(peer.ytd != null ? Number(peer.ytd) : 0) }}
+                        className="text-center px-2 py-0.5 text-[10px] font-medium text-white"
+                        style={{ backgroundColor: peer.ytd ? getHeatmapColor(peer.ytd) : 'transparent' }}
                       >
-                        {peer.ytd != null ? `${Number(peer.ytd) >= 0 ? "+" : ""}${Number(peer.ytd).toFixed(1)}%` : '-'}
+                        {peer.ytd != null ? `${peer.ytd >= 0 ? "+" : ""}${Number(peer.ytd).toFixed(1)}%` : '-'}
                       </TableCell>
                       <TableCell className="text-right px-2 py-0.5 text-[10px] w-[70px] text-gray-400">
-                        {peer.marketCap != null 
-                          ? (Number(peer.marketCap) > 1e12 
-                              ? `${(Number(peer.marketCap)/1e12).toFixed(1)}T` 
-                              : `${(Number(peer.marketCap)/1e9).toFixed(1)}B`)
-                          : '-'}
+                        {peer.marketCap != null ? formatMarketCap(Number(peer.marketCap)) : '-'}
                       </TableCell>
                     </TableRow>
                   );
@@ -243,3 +225,4 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
     </div>
   );
 }
+

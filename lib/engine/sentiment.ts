@@ -1,166 +1,277 @@
 
-import { FgosBreakdown } from './types';
+export type SentimentSnapshotLabel = 'TTM' | 'TTM_1A' | 'TTM_3A' | 'TTM_5A';
+
+export interface SentimentValuationSnapshot {
+  pe_ratio: number | null;
+  ev_ebitda: number | null;
+  price_to_fcf: number | null;
+  price_to_sales: number | null;
+}
+
+export type SentimentValuationTimeline = {
+  [K in SentimentSnapshotLabel]: SentimentValuationSnapshot | null;
+};
+
+export type SentimentBand = 'pessimistic' | 'neutral' | 'optimistic';
 
 export interface SentimentSignals {
-  relative_momentum: number | null;
-  consistency_penalty: number | null;
+  relative_deviation: number | null;
+  directional_consistency: number | null;
+  rerating_intensity_penalty: number | null;
 }
 
 export interface SentimentResult {
   value: number | null;
+  band: SentimentBand | null;
   confidence: number | null;
   status: 'computed' | 'partial' | 'pending';
   signals: SentimentSignals;
+  components?: any; // Debug-only
 }
 
-export interface PerformanceRow {
-  window_code: string;
-  return_percent: number;
+type MultipleKey = 'pe_ratio' | 'ev_ebitda' | 'price_to_fcf' | 'price_to_sales';
+
+interface DeviationsSummary {
+  deviations: number[];
+  has_long_history: boolean;
 }
 
-/**
- * Calculates the Sentiment dimension for FGOS.
- * 
- * Rules:
- * 1. Data Sources: 1M, 3M, 6M, 1Y, 3Y, 5Y from datos_performance.
- * 2. Signals:
- *    A) Relative Momentum (70%): (ShortTermAvg - LongTermAvg). Clamped [-50, 50].
- *       ShortTerm: Avg(1M, 3M, 6M)
- *       LongTerm: Avg(3Y, 5Y)
- *    B) Consistency Penalty (30%): StdDev(1M, 3M, 6M).
- * 3. Status:
- *    - >= 3Y history (has 3Y or 5Y data) -> 'computed' (Conf: 40)
- *    - 1-3Y history (has 1Y but no 3Y/5Y) -> 'partial' (Conf: 25)
- *    - < 1Y history -> 'pending' (Value: null, Conf: null)
- */
-export function calculateSentiment(
-  performanceRows: PerformanceRow[]
-): SentimentResult {
-  // Map rows to a dictionary for easy access
-  const perfMap: Record<string, number> = {};
-  performanceRows.forEach(row => {
-    if (row.return_percent !== null && row.return_percent !== undefined) {
-      perfMap[row.window_code] = row.return_percent;
-    }
-  });
+function collectDeviations(
+  timeline: SentimentValuationTimeline,
+  key: MultipleKey
+): DeviationsSummary {
+  const curr = timeline.TTM;
+  const h1 = timeline.TTM_1A;
+  const h3 = timeline.TTM_3A;
+  const h5 = timeline.TTM_5A;
 
-  // Check data availability
-  const has1M = perfMap['1M'] !== undefined;
-  const has3M = perfMap['3M'] !== undefined;
-  const has6M = perfMap['6M'] !== undefined;
-  const has1Y = perfMap['1Y'] !== undefined;
-  const has3Y = perfMap['3Y'] !== undefined;
-  const has5Y = perfMap['5Y'] !== undefined;
+  const values: { label: SentimentSnapshotLabel; value: number | null }[] = [
+    { label: 'TTM_1A', value: h1 ? h1[key] : null },
+    { label: 'TTM_3A', value: h3 ? h3[key] : null },
+    { label: 'TTM_5A', value: h5 ? h5[key] : null }
+  ];
 
-  // Determine Status
-  let status: 'computed' | 'partial' | 'pending' = 'pending';
-  if (has3Y || has5Y) {
-    status = 'computed';
-  } else if (has1Y) {
-    status = 'partial';
-  } else {
-    status = 'pending';
+  const deviations: number[] = [];
+
+  if (!curr) return { deviations, has_long_history: false };
+  const currVal = curr[key];
+
+  if (currVal == null || currVal <= 0) {
+    return { deviations, has_long_history: false };
   }
 
-  // If pending, return nulls (Strict Pending Policy)
-  if (status === 'pending') {
+  for (const v of values) {
+    if (v.value == null || v.value <= 0) continue;
+    const base = v.value;
+    if (base === 0) continue;
+    const deviation = (currVal - base) / base;
+    deviations.push(deviation);
+  }
+
+  const hasLong = (h3 && h3[key] != null) || (h5 && h5[key] != null);
+
+  return { deviations, has_long_history: hasLong };
+}
+
+function scoreMultipleDeviation(summary: DeviationsSummary): {
+  score: number | null;
+  directional_consistency: number | null;
+  intensity_penalty: number | null;
+  relative_deviation: number | null;
+} {
+  const { deviations } = summary;
+  if (!deviations.length) {
+    return {
+      score: null,
+      directional_consistency: null,
+      intensity_penalty: null,
+      relative_deviation: null
+    };
+  }
+
+  const CLAMP_DEV = 1.5;
+  const baseScores: number[] = [];
+  let sumDev = 0;
+
+  for (const d of deviations) {
+    const clamped = Math.max(-CLAMP_DEV, Math.min(CLAMP_DEV, d));
+    // Normalize: -1.5 -> 0, 0 -> 50, +1.5 -> 100
+    const normalized = 50 + (clamped / CLAMP_DEV) * 50;
+    baseScores.push(normalized);
+    sumDev += d;
+  }
+
+  const baseScore = baseScores.reduce((a, b) => a + b, 0) / baseScores.length;
+  const avgDeviation = sumDev / deviations.length;
+
+  let pos = 0;
+  let neg = 0;
+  for (const d of deviations) {
+    if (d > 0.05) pos++;
+    else if (d < -0.05) neg++;
+  }
+
+  let consistencyFactor = 1;
+  if (deviations.length === 1) {
+    consistencyFactor = 0.7;
+  } else if (pos > 0 && neg > 0) {
+    consistencyFactor = 0.4;
+  } else {
+    consistencyFactor = 1;
+  }
+
+  const consistencyScore = Math.round(consistencyFactor * 100);
+
+  // Pull score towards 50 if inconsistent
+  let scoreAfterConsistency = 50 + (baseScore - 50) * consistencyFactor;
+
+  let maxAbsDev = 0;
+  for (const d of deviations) {
+    const abs = Math.abs(d);
+    if (abs > maxAbsDev) maxAbsDev = abs;
+  }
+
+  const MIN_INTENSITY_FACTOR = 0.6;
+  let intensityFactor = 1;
+  if (maxAbsDev > 0.5) {
+    const capped = Math.min(maxAbsDev, 2.5);
+    const t = (capped - 0.5) / (2.5 - 0.5);
+    intensityFactor = 1 - t * (1 - MIN_INTENSITY_FACTOR);
+  }
+
+  const intensityPenaltyScore = Math.round(intensityFactor * 100);
+
+  // Dampen extreme scores if intensity is too high (volatility penalty)
+  const finalScore = 50 + (scoreAfterConsistency - 50) * intensityFactor;
+
+  return {
+    score: Math.max(0, Math.min(100, finalScore)),
+    directional_consistency: consistencyScore,
+    intensity_penalty: intensityPenaltyScore,
+    relative_deviation: avgDeviation
+  };
+}
+
+function determineBand(score: number): SentimentBand {
+  if (score >= 60) return 'optimistic';
+  if (score <= 40) return 'pessimistic';
+  return 'neutral';
+}
+
+export function calculateSentiment(
+  timeline: SentimentValuationTimeline | null | undefined
+): SentimentResult {
+  if (!timeline) {
     return {
       value: null,
+      band: null,
       confidence: null,
       status: 'pending',
       signals: {
-        relative_momentum: null,
-        consistency_penalty: null
+        relative_deviation: null,
+        directional_consistency: null,
+        rerating_intensity_penalty: null
       }
     };
   }
 
-  // --- Signal A: Relative Momentum (70%) ---
-  // Short Term Avg (1M, 3M, 6M)
-  // If some are missing, average the available ones. 
-  // Requirement says "ShortTermAvg = average(1M, 3M, 6M)". 
-  // We assume if status is not pending, we have at least 1Y, so we likely have short term data.
-  // But strict interpretation: use what's available? 
-  // User says "derived from prices_daily", so usually if we have 1Y we have 1M, 3M, 6M.
-  const shortTermValues = [perfMap['1M'], perfMap['3M'], perfMap['6M']].filter(v => v !== undefined);
-  const shortTermAvg = shortTermValues.length > 0 
-    ? shortTermValues.reduce((a, b) => a + b, 0) / shortTermValues.length 
-    : 0;
+  const resultByMultiple: {
+    key: MultipleKey;
+    score: number | null;
+    directional_consistency: number | null;
+    intensity_penalty: number | null;
+    relative_deviation: number | null;
+  }[] = [];
 
-  // Long Term Avg (3Y, 5Y)
-  // If status is partial (no 3Y/5Y), what do we do?
-  // User definition: "Relative Momentum = short_term_avg - long_term_avg".
-  // If long_term_avg is missing (partial status), we can't compute relative momentum exactly as defined.
-  // However, the user says "1-3Y history -> status = partial".
-  // If partial, maybe we compare against 0 or just use short term? 
-  // Or maybe we treat LongTermAvg as 0? 
-  // Let's look at "Interpretation: > 0 -> market re-rating".
-  // If we lack long term history, we can't measure re-rating vs long term.
-  // But we must return a score for 'partial'.
-  // Decision: For 'partial' status, we might only use ShortTermAvg (momentum vs 0) or treat LongTermAvg as 0.
-  // Let's use LongTermAvg = 0 if missing.
-  const longTermValues = [perfMap['3Y'], perfMap['5Y']].filter(v => v !== undefined);
-  const longTermAvg = longTermValues.length > 0
-    ? longTermValues.reduce((a, b) => a + b, 0) / longTermValues.length
-    : 0; // Fallback for partial status
+  const multiples: MultipleKey[] = ['pe_ratio', 'ev_ebitda', 'price_to_fcf', 'price_to_sales'];
 
-  let relative_momentum_raw = shortTermAvg - longTermAvg;
+  let hasLongHistory = false;
+  let totalDeviations = 0;
 
-  // Clamp to [-50%, +50%]
-  const MOMENTUM_CLAMP = 50;
-  let relative_momentum_clamped = Math.max(-MOMENTUM_CLAMP, Math.min(MOMENTUM_CLAMP, relative_momentum_raw));
-
-  // Normalize to 0-100
-  // Range [-50, 50] -> [0, 100]
-  // -50 -> 0, 0 -> 50, +50 -> 100
-  // Formula: (value + 50) * (100 / 100) = value + 50
-  const normalized_momentum = relative_momentum_clamped + MOMENTUM_CLAMP;
-
-
-  // --- Signal B: Consistency Penalty (30%) ---
-  // StdDev(1M, 3M, 6M)
-  // Higher dispersion = lower conviction = penalty.
-  // If fewer than 2 values, stddev is 0 (or undefined).
-  let stdDev = 0;
-  if (shortTermValues.length >= 2) {
-    const mean = shortTermValues.reduce((a, b) => a + b, 0) / shortTermValues.length;
-    const variance = shortTermValues.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / shortTermValues.length;
-    stdDev = Math.sqrt(variance);
+  for (const key of multiples) {
+    const summary = collectDeviations(timeline, key);
+    if (summary.has_long_history) hasLongHistory = true;
+    totalDeviations += summary.deviations.length;
+    const scored = scoreMultipleDeviation(summary);
+    if (scored.score != null) {
+      resultByMultiple.push({
+        key,
+        score: scored.score,
+        directional_consistency: scored.directional_consistency,
+        intensity_penalty: scored.intensity_penalty,
+        relative_deviation: scored.relative_deviation
+      });
+    }
   }
 
-  // Normalize Consistency
-  // How to map StdDev to 0-100?
-  // "Higher dispersion = lower conviction = penalty"
-  // So we want a "Consistency Score" where High StdDev -> Low Score.
-  // Let's assume a reasonable max StdDev for penalty. 
-  // If stocks move +/- 20% in a month, that's high volatility.
-  // Let's clamp StdDev at 30%?
-  // User didn't specify clamp for consistency, just "Normalize... to 0-100 scale".
-  // Let's assume 0 stddev = 100 score (perfect consistency).
-  // 30 stddev = 0 score.
-  const MAX_STD_DEV = 30;
-  const stdDevClamped = Math.min(MAX_STD_DEV, stdDev);
-  const normalized_consistency = 100 - (stdDevClamped / MAX_STD_DEV * 100);
+  if (!resultByMultiple.length) {
+    return {
+      value: null,
+      band: null,
+      confidence: null,
+      status: 'pending',
+      signals: {
+        relative_deviation: null,
+        directional_consistency: null,
+        rerating_intensity_penalty: null
+      }
+    };
+  }
 
-  // --- Final Score ---
-  // 0.7 * Momentum + 0.3 * Consistency
-  let sentiment_score = (0.7 * normalized_momentum) + (0.3 * normalized_consistency);
-  
-  // Clamp final score to [0, 100]
-  sentiment_score = Math.max(0, Math.min(100, sentiment_score));
+  let aggregateScore = 0;
+  let aggregateRelDev = 0;
+  let aggregateConsistency = 0;
+  let aggregateIntensity = 0;
 
-  // --- Confidence ---
-  // computed -> 40
-  // partial -> 25
-  const confidence = status === 'computed' ? 40 : 25;
+  for (const r of resultByMultiple) {
+    aggregateScore += r.score || 0;
+    if (r.relative_deviation != null) aggregateRelDev += r.relative_deviation;
+    if (r.directional_consistency != null) aggregateConsistency += r.directional_consistency;
+    if (r.intensity_penalty != null) aggregateIntensity += r.intensity_penalty;
+  }
+
+  const count = resultByMultiple.length;
+  const finalScoreRaw = aggregateScore / count;
+  const avgRelDev = aggregateRelDev / count;
+  const avgConsistency = aggregateConsistency / count;
+  const avgIntensity = aggregateIntensity / count;
+
+  let status: 'computed' | 'partial' | 'pending' = 'partial';
+  if (hasLongHistory && totalDeviations >= 2) {
+    status = 'computed';
+  } else {
+    status = 'partial';
+  }
+
+  const distinctHorizons = (() => {
+    let c = 0;
+    if (timeline.TTM_1A) c++;
+    if (timeline.TTM_3A) c++;
+    if (timeline.TTM_5A) c++;
+    return c;
+  })();
+
+  const maxSnapshots = 3;
+  const maxMultiples = multiples.length;
+  const snapshotFactor = Math.min(1, distinctHorizons / maxSnapshots);
+  const multipleFactor = Math.min(1, resultByMultiple.length / maxMultiples);
+
+  const baseConfidence = status === 'computed' ? 40 : 25;
+  const confidence = Math.round(baseConfidence * (0.5 * snapshotFactor + 0.5 * multipleFactor));
+
+  const finalScore = Math.round(Math.max(0, Math.min(100, finalScoreRaw)));
+  const band = determineBand(finalScore);
 
   return {
-    value: Math.round(sentiment_score),
+    value: finalScore,
+    band,
     confidence,
     status,
     signals: {
-      relative_momentum: relative_momentum_raw,
-      consistency_penalty: stdDev
-    }
+      relative_deviation: avgRelDev,
+      directional_consistency: isNaN(avgConsistency) ? null : Math.round(avgConsistency),
+      rerating_intensity_penalty: isNaN(avgIntensity) ? null : Math.round(avgIntensity)
+    },
+    components: resultByMultiple // Debug-only
   };
 }

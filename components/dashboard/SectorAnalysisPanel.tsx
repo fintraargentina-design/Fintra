@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { getAvailableSectors, getIndustriesForSector } from "@/lib/repository/fintra-db";
 import { Loader2 } from "lucide-react";
 import { FgosScoreCell } from "@/components/ui/FgosScoreCell";
+import { compareStocks, getValBadge, getFgosBandLabel, getMoatLabel, getRelativeReturnLabel, getStrategicStateLabel } from "./TableUtils";
 
 // Local interface definition to avoid importing from services that might depend on API clients
 interface EnrichedStockData {
@@ -17,13 +18,13 @@ interface EnrichedStockData {
   price: number | null;
   marketCap: number | null;
   ytd: number | null;
-  divYield: number | null;
-  estimation: number | null;
-  targetPrice: number | null;
   fgos: number;
   confidenceLabel?: string;
   valuation: string;
   ecosystem: number;
+  marketPosition: any;
+  strategicState: any;
+  relativeReturn: any;
 }
 
 export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?: (symbol: string) => void }) {
@@ -97,7 +98,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
       // Query fintra_market_state
       let query = supabase
         .from('fintra_market_state')
-        .select('ticker, price, market_cap, ytd_return, fgos_score, valuation_status, ecosystem_score, fgos_confidence_label')
+        .select('ticker, price, market_cap, ytd_return, fgos_score, valuation_status, ecosystem_score, fgos_confidence_label, market_position, strategic_state, relative_return')
         .eq('sector', selectedSector);
 
       if (currentIndustry && currentIndustry !== "Todas") {
@@ -133,8 +134,14 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
           fgos: row.fgos_score ?? 0,
           confidenceLabel: row.fgos_confidence_label,
           valuation: row.valuation_status || "N/A",
-          ecosystem: row.ecosystem_score ?? 50
+          ecosystem: row.ecosystem_score ?? 50,
+          marketPosition: row.market_position,
+          strategicState: row.strategic_state,
+          relativeReturn: row.relative_return
       }));
+
+      // Apply hierarchical sorting
+      enriched.sort(compareStocks);
 
       setStocks(prev => {
         if (isNewFetch) {
@@ -214,15 +221,6 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
     s >= 50 ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" : 
     "bg-red-500/10 text-red-400 border-red-500/20";
 
-  const getValBadge = (v: string) => {
-    if (!v) return <span className="text-gray-500 text-[10px]">-</span>;
-    const lowerV = v.toLowerCase();
-    if (lowerV.includes("under") || lowerV.includes("infra")) return <Badge className="text-green-400 bg-green-400/10 border-green-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Infravalorada</Badge>;
-    if (lowerV.includes("fair") || lowerV.includes("justa")) return <Badge className="text-yellow-400 bg-yellow-400/10 border-yellow-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Justa</Badge>;
-    if (lowerV === "n/a") return <span className="text-gray-500 text-[10px]">-</span>;
-    return <Badge className="text-red-400 bg-red-400/10 border-red-400 px-2 py-0.5 text-[9px] h-5 w-24 justify-center" variant="outline">Sobrevalorada</Badge>;
-  };
-
   if (loadingSectors) {
       return (
         <div className="w-full h-full flex items-center justify-center bg-tarjetas text-gray-400 text-xs">
@@ -286,18 +284,19 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
 
 			<div
 			  ref={scrollContainerRef}
-			  className="flex-1 relative p-0 border border-t-0 border-zinc-800 overflow-y-auto scrollbar-on-hover"
+			  className="flex-1 relative p-0 border border-t-0 border-zinc-800 overflow-y-auto"
 			  onScroll={handleScroll}
 			>
           <table className="w-full text-sm">
             <TableHeader className="sticky top-0 z-10 bg-[#1D1D1D]">
               <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[60px]">Ticker</TableHead>
-                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Rank. Sectorial IFS</TableHead>
-                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Val. Relativa al Sector</TableHead>
-                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[50px]">Ecosistema</TableHead>
-                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[60px]">Div. Yield</TableHead>
-                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[60px]">Estimación</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Ranking Sectorial (IFS)</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Valuación vs. Sector</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Calidad Fund. (Band)</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Est. Competitiva</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Res. Relativo</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Est. Estratégico</TableHead>
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[70px]">Precio EOD</TableHead>
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[60px]">YTD %</TableHead>
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[70px]">Mkt Cap</TableHead>
@@ -306,7 +305,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
             <TableBody>
               {loading ? (
                 <TableRow className="border-zinc-800">
-                  <TableCell colSpan={9} className="h-24 text-center">
+                  <TableCell colSpan={10} className="h-24 text-center">
                     <div className="flex justify-center items-center gap-2 text-gray-400 text-xs">
                        <Loader2 className="w-4 h-4 animate-spin" /> Cargando datos...
                     </div>
@@ -325,17 +324,17 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                   <TableCell className="text-center px-2 py-0.5">
                     {getValBadge(stock.valuation)}
                   </TableCell>
-                  <TableCell className="text-center px-2 py-0.5 text-[10px] text-blue-400 font-bold">
-                    {stock.ecosystem || '-'}
+                  <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
+                    {getFgosBandLabel(stock.fgos)}
                   </TableCell>
                   <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
-                    {stock.divYield != null ? `${stock.divYield.toFixed(2)}%` : '-'}
+                    {getMoatLabel(stock.marketPosition)}
                   </TableCell>
-                  <TableCell 
-                    className="text-center px-2 py-0.5 text-[10px] font-medium text-white"
-                    style={{ backgroundColor: stock.estimation ? getHeatmapColor(stock.estimation) : 'transparent' }}
-                  >
-                    {stock.estimation != null ? `${stock.estimation > 0 ? '+' : ''}${stock.estimation.toFixed(1)}%` : '-'}
+                  <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
+                    {getRelativeReturnLabel(stock.relativeReturn)}
+                  </TableCell>
+                  <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
+                    {getStrategicStateLabel(stock.strategicState)}
                   </TableCell>
                   <TableCell className="text-right px-2 py-0.5 text-xs font-mono text-white">
                     {stock.price != null ? `$${Number(stock.price).toFixed(2)}` : '-'}
@@ -353,7 +352,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
               ))}
               {isFetchingMore && (
                 <TableRow className="border-zinc-800">
-                  <TableCell colSpan={9} className="h-12 text-center text-gray-400 text-xs">
+                  <TableCell colSpan={10} className="h-12 text-center text-gray-400 text-xs">
                      <div className="flex justify-center items-center gap-2">
                         <Loader2 className="w-3 h-3 animate-spin" /> Cargando más...
                      </div>
@@ -362,7 +361,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
               )}
               {!loading && !isFetchingMore && stocks.length === 0 && (
                  <TableRow className="border-zinc-800">
-                  <TableCell colSpan={9} className="h-24 text-center text-gray-500 text-xs">
+                  <TableCell colSpan={10} className="h-24 text-center text-gray-500 text-xs">
                     No se encontraron resultados.
                   </TableCell>
                 </TableRow>

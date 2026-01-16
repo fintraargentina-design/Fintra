@@ -91,7 +91,7 @@ const METRIC_EXPLANATIONS: Record<string, { description: string; examples: strin
 };
 
 
-export default function ValoracionCard({ symbol, scrollRef, peerTicker, highlightedMetrics }: { symbol: string; scrollRef?: React.RefObject<HTMLDivElement | null>; peerTicker?: string | null; highlightedMetrics?: string[] | null }) {
+export default function ValoracionCard({ symbol, scrollRef, peerTicker, highlightedMetrics, defaultExpanded = false, hideExpandButton = false }: { symbol: string; scrollRef?: React.RefObject<HTMLDivElement | null>; peerTicker?: string | null; highlightedMetrics?: string[] | null; defaultExpanded?: boolean; hideExpandButton?: boolean }) {
   const [data, setData] = useState<TimelineResponse | null>(null);
   const [peerData, setPeerData] = useState<TimelineResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,7 +99,7 @@ export default function ValoracionCard({ symbol, scrollRef, peerTicker, highligh
     isOpen: false,
     selectedMetric: null
   });
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
 
   // Fetch peer data when selected
   useEffect(() => {
@@ -176,12 +176,12 @@ export default function ValoracionCard({ symbol, scrollRef, peerTicker, highligh
 		  <Table className="min-w-max text-sm border-collapse">
             <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
               <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
-                <TableHead className="px-2 text-gray-300 text-[12px] h-6 w-[150px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D]">Valoración</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-5 w-[150px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D]">Valoración</TableHead>
                 {data?.years?.map((year, yearIdx) => (
                   year.columns.flatMap(col => [
                     <TableHead 
                       key={col} 
-                      className={`px-2 text-[10px] h-6 text-center whitespace-nowrap ${
+                      className={`px-2 text-[10px] h-5 text-center whitespace-nowrap ${
                         col === 'TTM' ? 'font-bold text-blue-400' : 
                         col === 'FY' ? 'font-bold text-green-400' : 'text-gray-300'
                       } ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
@@ -191,7 +191,7 @@ export default function ValoracionCard({ symbol, scrollRef, peerTicker, highligh
                     peerTicker && (
                         <TableHead
                           key={`${col}-peer`}
-                          className={`px-2 text-[#FFA028] font-bold text-[10px] h-6 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                          className={`px-2 text-[#FFA028] font-bold text-[10px] h-5 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                         >
                           {`(${peerTicker}) ${col}`}
                         </TableHead>
@@ -216,7 +216,7 @@ export default function ValoracionCard({ symbol, scrollRef, peerTicker, highligh
                     className={`border-zinc-800 border-b cursor-pointer group transition-all duration-300 ${isHighlighted ? 'bg-[#FFA028]/10 border-l-2 border-l-[#FFA028] shadow-[inset_0_0_20px_rgba(255,160,40,0.05)]' : 'hover:bg-white/5 border-l-2 border-l-transparent'}`}
                     onClick={() => setExplanationModal({ isOpen: true, selectedMetric: metric.label })}
                   >
-                  <TableCell className="font-bold text-gray-200 px-2 py-0.5 text-xs w-[120px] border-r border-zinc-800 group-hover:text-blue-400 transition-colors sticky left-0 z-10 bg-[#1D1D1D]">
+                  <TableCell className="font-bold text-gray-200 px-2 py-0 text-[10px] h-6 w-[120px] border-r border-zinc-800 group-hover:text-blue-400 transition-colors sticky left-0 z-10 bg-[#1D1D1D]">
                     {metric.label}
                   </TableCell>
                     {data?.years?.map((year, yearIdx) => (
@@ -233,7 +233,7 @@ export default function ValoracionCard({ symbol, scrollRef, peerTicker, highligh
                           return [
                               <TableCell 
                                   key={col}
-                                  className={`text-center px-2 py-0.5 text-[10px] font-medium text-white h-8 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                                  className={`text-center px-2 py-0 text-[10px] font-medium text-white h-6 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                                   style={{ backgroundColor: getHeatmapColor(cellData?.normalized ?? null, direction) }}
                               >
                                   {cellData?.display ?? "-"}
@@ -241,7 +241,7 @@ export default function ValoracionCard({ symbol, scrollRef, peerTicker, highligh
                               peerTicker && (
                                   <TableCell 
                                       key={`${col}-peer`}
-                                      className={`text-center px-2 py-0.5 text-[10px] font-bold text-[#FFFFFF] h-8 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                                      className={`text-center px-2 py-0 text-[10px] font-bold text-[#FFFFFF] h-6 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                                       style={{ backgroundColor: getHeatmapColor(peerCellData?.normalized ?? null, direction) }}
                                   >
                                       {peerCellData?.display ?? "-"}
@@ -259,6 +259,7 @@ export default function ValoracionCard({ symbol, scrollRef, peerTicker, highligh
 			</div>
         
         {/* Toggle Button */}
+      {!hideExpandButton && (
         <div className="bg-transparent border-t-0 border-zinc-800 p-1 flex justify-center shrink-0">
           <button
             onClick={() => setExpanded(!expanded)}
@@ -275,7 +276,8 @@ export default function ValoracionCard({ symbol, scrollRef, peerTicker, highligh
             )}
           </button>
         </div>
-      </div>
+      )}
+    </div>
 
       {/* MODAL DE EXPLICACIÓN */}
       {explanationModal.isOpen && explanationModal.selectedMetric && METRIC_EXPLANATIONS[explanationModal.selectedMetric] && (

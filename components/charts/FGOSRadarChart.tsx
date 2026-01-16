@@ -1,5 +1,6 @@
 "use client";
-
+// FGOS Radar Chart Component
+// Fintra/components/charts/FGOSRadarChart.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import * as echarts from 'echarts/core';

@@ -47,12 +47,12 @@ export default function FgosAnalysisBlock({
   } else {
     // --- Legacy Path (Inference) ---
     // TODO: Remove this block once all consumers use fgosState
-    if (fgosScore === null) return null;
+    if (fgosScore == null) return null;
 
     // 1. Normalize Status
     const status = fgosStatus || "Incomplete";
     const label = confidenceLabel || "Low"; 
-    const percent = confidencePercent !== null ? `${Math.round(confidencePercent)}%` : "N/A";
+    const percent = typeof confidencePercent === 'number' ? `${Math.round(confidencePercent)}%` : "N/A";
 
     displayScore = fgosScore;
     displayConfidence = `${label} (${percent})`;

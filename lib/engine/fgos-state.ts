@@ -75,14 +75,13 @@ export function buildFGOSState(input: FgosInput): FgosState {
     { key: 'Profitability', status: getSimpleDimensionStatus(fgos_components.profitability) },
     { key: 'Efficiency', status: getSimpleDimensionStatus(fgos_components.efficiency) },
     { key: 'Solvency', status: getSimpleDimensionStatus(fgos_components.solvency) },
-    { key: 'Moat', status: getComplexDimensionStatus(fgos_components.moat) },
-    { key: 'Sentiment', status: getComplexDimensionStatus(fgos_components.sentiment) },
+    { key: 'Moat', status: getSimpleDimensionStatus(fgos_components.moat) },
+    { key: 'Sentiment', status: getSimpleDimensionStatus(fgos_components.sentiment) },
   ];
 
   const total_dimensions = 6;
   const computedCount = dimensions.filter(d => d.status === 'computed').length;
   const missingDimensions = dimensions.filter(d => d.status !== 'computed').map(d => d.key);
-  const partialDimensions = dimensions.filter(d => d.status === 'partial').map(d => d.key);
   const pendingDimensions = dimensions.filter(d => d.status === 'pending').map(d => d.key);
 
   // --- 2. Stage Determination ---
@@ -131,9 +130,6 @@ export function buildFGOSState(input: FgosInput): FgosState {
     if (pendingDimensions.length > 0) {
       parts.push(`${pendingDimensions.join(', ')} data is missing.`);
     }
-    if (partialDimensions.length > 0) {
-      parts.push(`${partialDimensions.join(', ')} analysis is partial.`);
-    }
     confidenceReason = parts.join(' ');
   }
   
@@ -141,7 +137,7 @@ export function buildFGOSState(input: FgosInput): FgosState {
   if (!confidenceReason) confidenceReason = 'Analysis coverage is complete.';
 
   // --- 5. Context (Sentiment) ---
-  const sentimentVal = fgos_components.sentiment?.value;
+  const sentimentVal = fgos_components.sentiment;
   let sentimentContext: 'supportive' | 'neutral' | 'hostile' | 'unknown';
   let sentimentReason = '';
 

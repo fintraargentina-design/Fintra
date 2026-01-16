@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { calculateRelativeReturn, RelativeReturnTimeline } from "@/lib/engine/relative-return";
 
 /**
  * CORE LOGIC: Market State Bulk
@@ -243,6 +244,73 @@ export async function runMarketStateBulk(targetTicker?: string, limit?: number) 
                 }
             }
 
+            // --- Market Position ---
+            // If not in snapshot, we leave it null or try to construct from FGOS
+            let market_position = snap?.market_position || null;
+
+            // --- Strategic State ---
+            // Derived from Moat (market_position or fgos) + Sentiment
+            let strategic_state = null;
+            if (snap?.fgos_breakdown) {
+                const bd = snap.fgos_breakdown;
+                // Moat Score: Strong=3, Defendable=2, Weak=1
+                let moatScore = 1;
+                const moatBand = bd.competitive_advantage?.band;
+                if (moatBand === 'strong') moatScore = 3;
+                else if (moatBand === 'defendable') moatScore = 2;
+                
+                // Also check market_position summary if available
+                if (market_position?.summary) {
+                    const s = market_position.summary.toLowerCase();
+                    if (s === 'leader' || s === 'strong') moatScore = 3;
+                    else if (s === 'average' || s === 'defendable') moatScore = 2;
+                }
+
+                // Sentiment Score: Optimistic=3, Neutral=2, Pessimistic=1
+                let sentimentScore = 2;
+                const sentBand = bd.sentiment_details?.band;
+                if (sentBand === 'optimistic') sentimentScore = 3;
+                else if (sentBand === 'pessimistic') sentimentScore = 1;
+
+                const diff = moatScore - sentimentScore;
+                if (diff === 0) strategic_state = 'Alineado';
+                else if (diff > 0) strategic_state = 'En tensión'; // High quality, low sentiment
+                else strategic_state = 'Desfasado'; // Low quality, high sentiment
+            }
+
+            // --- Relative Return ---
+            // Needs Performance + Benchmarks
+            let relative_return = null;
+            if (tData.sector) {
+                const sectorBench = benchmarkMap.get(tData.sector);
+                // We need RETURN_1Y, RETURN_3Y, RETURN_5Y from benchmarks
+                // Assuming benchmark map has these keys.
+                
+                const timeline: RelativeReturnTimeline = {
+                    '1Y': {
+                        asset_return: perf['1Y'] ?? null,
+                        benchmark_return: sectorBench?.['RETURN_1Y']?.p50 ?? null // Use p50 (median) as benchmark return
+                    },
+                    '3Y': {
+                        asset_return: perf['3Y'] ?? null,
+                        benchmark_return: sectorBench?.['RETURN_3Y']?.p50 ?? null
+                    },
+                    '5Y': {
+                        asset_return: perf['5Y'] ?? null,
+                        benchmark_return: sectorBench?.['RETURN_5Y']?.p50 ?? null
+                    }
+                };
+
+                const rrResult = calculateRelativeReturn(timeline);
+                if (rrResult && rrResult.band) {
+                    relative_return = {
+                        score: rrResult.score,
+                        band: rrResult.band,
+                        confidence: rrResult.confidence
+                    };
+                }
+            }
+
             rowsToUpsert.push({
                 ticker,
                 // Profile
@@ -275,6 +343,9 @@ export async function runMarketStateBulk(targetTicker?: string, limit?: number) 
                 valuation_status,
                 ecosystem_score,
                 verdict_text,
+                market_position,
+                strategic_state,
+                relative_return,
                 // sector_percentiles, // JSONB
 
                 source: 'market_state_cron',

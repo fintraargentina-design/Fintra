@@ -1,354 +1,188 @@
 "use client";
+// Fintra/components/tabs/EstimacionTab.tsx
 
-import React, { useMemo, useState, useEffect } from "react";
-import dynamic from "next/dynamic";
-import { fmp } from "@/lib/fmp/client";
-import type { 
-  ValuationResponse, 
-  RatiosResponse, 
-  GrowthResponse, 
-  ProfileResponse, 
-  InstitutionalHoldersResponse 
-} from "@/lib/fmp/types";
+import React from "react";
 
-// ECharts imports
-import * as echarts from "echarts/core";
-import { LineChart } from "echarts/charts";
-import {
-  GridComponent,
-  TooltipComponent,
-  LegendComponent,
-  TitleComponent,
-  DatasetComponent, // Added DatasetComponent
-} from "echarts/components";
-import { CanvasRenderer } from "echarts/renderers";
+type SensitivityLevel = "Low" | "Medium" | "High";
 
-// Register ECharts components
-echarts.use([
-  LineChart,
-  GridComponent,
-  TooltipComponent,
-  LegendComponent,
-  TitleComponent,
-  DatasetComponent, // Added DatasetComponent
-  CanvasRenderer,
-]);
-
-const ReactECharts = dynamic(() => import("echarts-for-react/lib/core"), { ssr: false });
+interface SensitivityItem {
+  label: string;
+  level: SensitivityLevel;
+}
 
 interface EstimacionTabProps {
   selectedStock?: any;
+  aiAnalysis?: string;
+  marketScenarios?: string[];
+  sensitivities?: SensitivityItem[];
 }
 
-export default function EstimacionTab({ selectedStock }: EstimacionTabProps) {
-  const [loading, setLoading] = useState(false);
-  const [apiData, setApiData] = useState<{
-    valuation: ValuationResponse | null;
-    ratios: RatiosResponse | null;
-    growth: GrowthResponse | null;
-    profile: ProfileResponse | null;
-    holders: InstitutionalHoldersResponse | null;
-  }>({
-    valuation: null,
-    ratios: null,
-    growth: null,
-    profile: null,
-    holders: null
-  });
+function mapLevelToLabel(level: SensitivityLevel): string {
+  if (level === "Low") return "Baja";
+  if (level === "High") return "Alta";
+  return "Media";
+}
 
-  const symbol = selectedStock?.symbol || "AAPL";
-  const currentPrice = selectedStock?.price || apiData.profile?.[0]?.price || 0;
+function mapLevelToClass(level: SensitivityLevel): string {
+  if (level === "Low") return "bg-emerald-900/60 text-emerald-100 border border-emerald-500/40";
+  if (level === "High") return "bg-rose-900/60 text-rose-100 border border-rose-500/40";
+  return "bg-amber-900/60 text-amber-100 border border-amber-500/40";
+}
 
-  useEffect(() => {
-    if (!symbol) return;
-    
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [valuation, ratios, growth, profile, holders] = await Promise.all([
-          fmp.valuation(symbol).catch((e) => { console.warn(e); return null; }),
-          fmp.ratios(symbol, { limit: 1 }).catch((e) => { console.warn(e); return null; }),
-          fmp.growth(symbol, { limit: 1 }).catch((e) => { console.warn(e); return null; }),
-          fmp.profile(symbol).catch((e) => { console.warn(e); return null; }),
-          fmp.institutionalHolders(symbol).catch((e) => { console.warn(e); return null; })
-        ]);
-        setApiData({ valuation, ratios, growth, profile, holders });
-      } catch (e) {
-        console.error("Error fetching estimation data", e);
-      } finally {
-        setLoading(false);
-      }
-    };
+function renderAiParagraphs(text: string): string[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  const paragraphs = trimmed.split(/\n{2,}/).map((p) => p.trim());
+  return paragraphs.filter((p) => p.length > 0);
+}
 
-    fetchData();
-  }, [symbol]);
+export default function EstimacionTab({
+  selectedStock,
+  aiAnalysis,
+  marketScenarios,
+  sensitivities,
+}: EstimacionTabProps) {
+  const symbol =
+    typeof selectedStock === "string"
+      ? selectedStock
+      : selectedStock?.symbol || "";
 
-  // Derived Data Calculation
-  const derivedData = useMemo(() => {
-    // 1. Target Price Calculation
-    let targetPrice = 0;
-    let recommendation = "N/A";
-    
-    if (apiData.valuation && currentPrice) {
-        // Use pre-calculated consensus upside/downside if available
-        if (apiData.valuation.discountVsPt !== null) {
-            targetPrice = currentPrice * (1 + apiData.valuation.discountVsPt / 100);
-        } else {
-            // Fallback to growth-based projection
-            const growthRate = apiData.growth?.[0]?.revenueGrowth || 0.05; // default 5%
-            targetPrice = currentPrice > 0 ? currentPrice * (1 + growthRate) : 100 * (1 + growthRate);
-        }
-        
-        // Recommendation logic
-        const upside = currentPrice > 0 ? (targetPrice - currentPrice) / currentPrice : 0;
-        if (upside > 0.15) recommendation = "Compra Fuerte";
-        else if (upside > 0.05) recommendation = "Compra";
-        else if (upside > -0.05) recommendation = "Mantener";
-        else recommendation = "Esperar a corrección";
-    }
+  const analysisText =
+    aiAnalysis && aiAnalysis.trim().length > 0
+      ? aiAnalysis
+      : "Aún no hay una síntesis de IA disponible para este activo. Cuando esté disponible, esta sección ofrecerá una lectura estructurada del negocio, su posición relativa y los principales vectores que explican su estado actual, sin emitir recomendaciones de compra o venta ni proyecciones de precio.";
 
-    // 2. Hedge Funds
-    const topHolders = apiData.holders?.slice(0, 3).map((h: any) => h.holder) || [];
+  const analysisParagraphs = renderAiParagraphs(analysisText);
 
-    // 3. Projections for Chart
-    // Create quarters for next 2 years (8 quarters)
-    const quarters = [];
-    const projectionA = [];
-    const projectionB = [];
-    
-    const baseVal = currentPrice || 100;
-    const growthRate = (apiData.growth?.[0]?.revenueGrowth || 5) / 100;
-    const volatility = 0.05;
-
-    const currentYear = new Date().getFullYear();
-    const startYear = currentYear + 1;
-
-    // Generate 9 points (start to end of 2 years)
-    for (let i = 0; i < 9; i++) {
-        const yearOffset = Math.floor(i / 4);
-        const qOffset = (i % 4) + 1;
-        const yearLabel = i === 0 || i === 4 || i === 8 ? `${startYear + yearOffset}` : `${startYear + yearOffset}-Q${qOffset}`;
-        quarters.push(yearLabel);
-
-        // Simple projection logic
-        const timeFactor = i / 4; // years
-        const valA = baseVal * Math.pow(1 + growthRate, timeFactor) * (1 + (Math.random() * volatility - volatility/2));
-        const valB = baseVal * Math.pow(1 + growthRate * 0.8, timeFactor) * (1 + (Math.random() * volatility - volatility/2)); // More conservative
-        
-        projectionA.push(parseFloat(valA.toFixed(2)));
-        projectionB.push(parseFloat(valB.toFixed(2)));
-    }
-
-    return {
-        targetPrice,
-        recommendation,
-        hedgeFunds: topHolders,
-        chart: {
-            categories: quarters,
-            seriesA: projectionA,
-            seriesB: projectionB
-        }
-    };
-  }, [apiData, currentPrice]);
-
-  // Static placeholders: evitamos contenido financiero simulado
-  const staticData = {
-    drivers: [] as string[],
-    risks: [] as string[],
-    aiSummary: ''
-  };
-
-  const chartOption = useMemo(() => {
-    // Debug log to verify data
-    console.log("Chart Data:", derivedData.chart);
-    
-    return {
-      backgroundColor: 'transparent',
-      textStyle: {
-        fontFamily: 'Inter, sans-serif'
-      },
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: { type: 'line' },
-        backgroundColor: 'rgba(20, 20, 20, 0.9)',
-        borderColor: '#333',
-        textStyle: { color: '#fff' }
-      },
-      legend: {
-        show: true,
-        textStyle: { color: '#ccc' },
-        top: 0
-      },
-      grid: {
-        top: 40,
-        right: 20,
-        bottom: 20,
-        left: 40,
-        containLabel: true
-      },
-      xAxis: {
-        type: 'category',
-        data: derivedData.chart.categories,
-        axisLine: { show: true, lineStyle: { color: '#444' } },
-        axisLabel: { color: '#9ca3af', fontSize: 10 },
-        splitLine: { show: false }
-      },
-      yAxis: {
-        type: 'value',
-        axisLine: { show: false },
-        axisLabel: { color: '#9ca3af', fontSize: 10 },
-        splitLine: { show: true, lineStyle: { color: '#333', type: 'dashed' } }
-      },
-      series: [
-        {
-          name: 'Proyección Optimista',
-          type: 'line',
-          data: derivedData.chart.seriesA,
-          symbol: 'circle',
-          symbolSize: 6,
-          itemStyle: { color: '#6366f1' }, // Indigo
-          lineStyle: { width: 2 },
-          smooth: true
-        },
-        {
-          name: 'Proyección Conservadora',
-          type: 'line',
-          data: derivedData.chart.seriesB,
-          symbol: 'circle',
-          symbolSize: 6,
-          itemStyle: { color: '#a855f7' }, // Purple
-          lineStyle: { width: 2 },
-          smooth: true
-        }
-      ]
-    };
-  }, [derivedData.chart]);
+  const hasScenarios = Array.isArray(marketScenarios) && marketScenarios.length > 0;
+  const hasSensitivities = Array.isArray(sensitivities) && sensitivities.length > 0;
 
   return (
-    <div className="flex flex-col gap-1 bg-[#0a0a0a] min-h-[600px] text-white p-1">
-      
-      {/* Top Section: Drivers/Risks & Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-1 h-auto lg:h-[350px]">
-        
-        {/* Left Column: Drivers & Risks */}
-        <div className="flex flex-col gap-1 h-full">
-          
-          {/* Drivers */}
-          <div className="flex-1 bg-[#1A1B1D] border-l-4 border-green-600 flex flex-col">
-            <div className="bg-[#1A1B1D] py-2 px-4 text-center border-b border-gray-800">
-              <span className="text-gray-200 font-medium">Drivers de crecimiento</span>
-            </div>
-            <div className="p-4 flex flex-col justify-center gap-4 flex-1">
-              {staticData.drivers.map((driver, idx) => (
-                <div key={idx} className="flex items-center gap-3">
-                  <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[10px] border-b-green-500 shrink-0" />
-                  <span className="text-green-100 text-sm lg:text-base font-light tracking-wide">{driver}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Risks */}
-          <div className="flex-1 bg-[#1A1B1D] border-l-4 border-red-800 flex flex-col">
-            <div className="bg-[#1A1B1D] py-2 px-4 text-center border-b border-gray-800">
-              <span className="text-gray-200 font-medium">Factores de riesgo</span>
-            </div>
-            <div className="p-4 flex flex-col justify-center gap-4 flex-1">
-              {staticData.risks.map((risk, idx) => (
-                <div key={idx} className="flex items-center gap-3">
-                  <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[10px] border-t-red-600 shrink-0" />
-                  <span className="text-red-100 text-sm lg:text-base font-light tracking-wide">{risk}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-        </div>
-
-        {/* Right Column: Chart */}
-        <div className="bg-[#1A1B1D] flex flex-col h-full">
-          <div className="py-2 text-center">
-            <span className="text-gray-200 font-medium">Estimación a 2 años</span>
-          </div>
-          <div className="flex-1 w-full min-h-[300px] h-[300px] lg:h-auto">
-            {loading ? (
-                <div className="flex items-center justify-center h-full text-gray-500">Cargando gráfico...</div>
-            ) : (
-                <ReactECharts 
-                echarts={echarts}
-                option={chartOption} 
-                style={{ height: '100%', width: '100%', minHeight: '300px' }}
-                opts={{ renderer: 'canvas' }}
-                notMerge={true}
-                lazyUpdate={true}
-                />
+    <div className="flex flex-col gap-3 bg-[#0a0a0a] min-h-[600px] text-white p-4">
+      {/* A) Síntesis y Análisis IA */}
+      <section className="bg-[#111827] border border-zinc-800 rounded-lg overflow-hidden">
+        <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold tracking-wide text-zinc-100 uppercase">
+              Síntesis y Análisis IA
+            </h2>
+            {symbol && (
+              <p className="text-[11px] text-zinc-400 mt-0.5">
+                Lectura contextual generada a partir del estado actual de {symbol} en Fintra.
+              </p>
             )}
           </div>
+          <span className="text-[10px] uppercase text-zinc-500 tracking-[0.18em]">
+            Capa explicativa
+          </span>
+        </div>
+        <div className="px-5 py-4 space-y-3 text-sm leading-relaxed text-zinc-100">
+          {analysisParagraphs.map((paragraph, idx) => (
+            <p key={idx} className="text-justify text-[13px] text-zinc-100/90">
+              {paragraph}
+            </p>
+          ))}
+        </div>
+      </section>
+
+      {/* B) Escenarios de Mercado (no numéricos) */}
+      <section className="bg-[#111827] border border-zinc-800 rounded-lg overflow-hidden">
+        <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold tracking-wide text-zinc-100 uppercase">
+              Escenarios de Mercado
+            </h2>
+            <p className="text-[11px] text-zinc-400 mt-0.5">
+              Escenarios cualitativos de régimen de mercado y cómo podrían interactuar con el
+              posicionamiento relativo de la compañía.
+            </p>
+          </div>
+          <span className="text-[10px] uppercase text-zinc-500 tracking-[0.18em]">
+            Escenarios IA
+          </span>
         </div>
 
-      </div>
-
-      {/* Middle Section: Consensus */}
-      <div className="bg-[#1A1B1D] mt-1">
-        <div className="bg-[#1e293b] py-1 text-center border-b border-gray-700">
-          <span className="text-gray-300 text-sm font-medium">Consenso de Analistas y Hedge Funds</span>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-700 border-t border-gray-700">
-          
-          {/* Price Target */}
-          <div className="bg-[#0e7490] p-4 flex flex-col items-center justify-center text-center h-24">
-            <div className="text-cyan-100 text-xs uppercase mb-1">Precio objetivo promedio de compra</div>
-            <div className="text-white text-2xl font-bold">
-                {loading ? "..." : derivedData.targetPrice.toFixed(2)}
+        <div className="px-5 py-4">
+          {hasScenarios ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {marketScenarios!.map((scenario, idx) => (
+                <div
+                  key={idx}
+                  className="bg-[#020617] border border-zinc-800/70 rounded-md px-4 py-3 flex flex-col justify-between min-h-[120px]"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] uppercase tracking-[0.16em] text-zinc-500">
+                      Escenario {idx + 1}
+                    </span>
+                  </div>
+                  <p className="text-[13px] leading-relaxed text-zinc-100/90 text-justify">
+                    {scenario}
+                  </p>
+                </div>
+              ))}
             </div>
-          </div>
-
-          {/* Recommendation */}
-          <div className="bg-[#0e7490] p-4 flex flex-col items-center justify-center text-center h-24">
-            <div className="text-cyan-100 text-xs uppercase mb-1">Recomendación</div>
-            <div className="text-white font-medium leading-tight">
-                {loading ? "..." : derivedData.recommendation}
+          ) : (
+            <div className="text-[13px] text-zinc-500">
+              No hay escenarios de mercado configurados aún para este activo. Cuando estén
+              disponibles, se presentarán como descripciones cualitativas de diferentes
+              regímenes (expansión de múltiplos, compresión, rotación sectorial, etc.), sin
+              precios ni líneas de tiempo.
             </div>
-          </div>
-
-          {/* Analysts */}
-          <div className="bg-[#0e7490] p-4 flex flex-col items-center justify-center text-center h-24">
-            <div className="text-cyan-100 text-xs uppercase mb-1">Analistas</div>
-            <div className="text-white text-2xl font-bold">12</div>
-          </div>
-
-          {/* Hedge Funds */}
-          <div className="bg-[#0e7490] p-4 flex flex-col justify-center h-24 pl-6">
-            <div className="text-cyan-100 text-xs uppercase mb-1 text-center md:text-left">Hedge funds</div>
-            <ul className="text-cyan-50 text-xs space-y-0.5 list-none">
-              {loading ? (
-                <li>Cargando...</li>
-              ) : (
-                derivedData.hedgeFunds.map((fund: string, i: number) => (
-                    <li key={i} className="flex items-center gap-1">
-                    <span className="w-2 h-[1px] bg-cyan-300"></span>
-                    {fund}
-                    </li>
-                ))
-              )}
-            </ul>
-          </div>
-
+          )}
         </div>
-      </div>
+      </section>
 
-      {/* Bottom Section: AI Summary */}
-      <div className="bg-[#1A1B1D] mt-1">
-        <div className="bg-[#1e293b] py-1 text-center border-b border-gray-700">
-          <span className="text-gray-300 text-sm font-medium uppercase">Resumen IA de {symbol}</span>
+      {/* C) Matriz de Sensibilidad y Contexto */}
+      <section className="bg-[#111827] border border-zinc-800 rounded-lg overflow-hidden">
+        <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold tracking-wide text-zinc-100 uppercase">
+              Matriz de Sensibilidad y Contexto
+            </h2>
+            <p className="text-[11px] text-zinc-400 mt-0.5">
+              Lectura cualitativa de la sensibilidad del caso de inversión a distintos
+              factores de entorno, sin puntuaciones numéricas ni proyecciones.
+            </p>
+          </div>
+          <span className="text-[10px] uppercase text-zinc-500 tracking-[0.18em]">
+            Sensibilidad
+          </span>
         </div>
-        <div className="p-6 bg-[#0e7490]">
-          <p className="text-cyan-50 text-sm leading-relaxed text-justify">
-            {staticData.aiSummary}
-          </p>
-        </div>
-      </div>
 
+        <div className="px-5 py-4">
+          {hasSensitivities ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {sensitivities!.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between bg-[#020617] border border-zinc-800/70 rounded-md px-4 py-3"
+                >
+                  <div className="flex-1 pr-3">
+                    <p className="text-[13px] text-zinc-100/90 leading-snug">
+                      {item.label}
+                    </p>
+                  </div>
+                  <div
+                    className={
+                      "text-[11px] px-3 py-1 rounded-full font-medium tracking-wide " +
+                      mapLevelToClass(item.level)
+                    }
+                  >
+                    {mapLevelToLabel(item.level)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-[13px] text-zinc-500">
+              Aún no se ha definido una matriz de sensibilidad para este activo. Cuando exista,
+              aquí se resumirá la dependencia relativa frente a la valoración sectorial,
+              desempeño de la industria, drivers estructurales y exposición a drawdowns, en
+              términos cualitativos.
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

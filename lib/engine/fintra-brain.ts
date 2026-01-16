@@ -9,7 +9,7 @@ import { fmp } from '@/lib/fmp/client';
 
 import { calculateConfidenceLayer, calculateDimensionalConfidence, type ConfidenceInputs } from './confidence';
 import { calculateMoat, type FinancialHistoryRow } from './moat';
-import { calculateSentiment, type PerformanceRow } from './sentiment';
+import { calculateSentiment, type SentimentValuationTimeline } from './sentiment';
 
 /* ================================
    Helpers
@@ -140,7 +140,7 @@ export async function calculateFGOSFromData(
   confidenceInputs: Omit<ConfidenceInputs, 'missing_core_metrics'> | null,
   _quote: any,
   financialHistory: FinancialHistoryRow[] | null,
-  performanceRows: PerformanceRow[] | null,
+  _valuationTimeline: SentimentValuationTimeline | null,
   snapshotDate: string
 ): Promise<FgosResult | null> {
   try {
@@ -280,8 +280,7 @@ export async function calculateFGOSFromData(
 
     const confidenceResult = calculateConfidenceLayer(confInputs);
 
-    // [SENTIMENT]
-    const sentimentResult = calculateSentiment(performanceRows || []);
+    const sentimentResult = calculateSentiment(null);
 
     // [AUDIT] Override confidence with Dimensional Completeness logic (User Requirement)
     const tempBreakdown = {
@@ -449,8 +448,8 @@ export async function calculateFGOS(ticker: string): Promise<FgosResult | null> 
     {},
     confidenceInputs,
     {},
-    null, // financialHistory
-    null, // performanceRows
+    null,
+    null,
     new Date().toISOString().slice(0, 10)
   );
 }

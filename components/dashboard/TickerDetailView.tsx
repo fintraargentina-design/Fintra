@@ -16,6 +16,7 @@ import PeersAnalysisPanel from '@/components/dashboard/PeersAnalysisPanel';
 import EstimacionTab from '@/components/tabs/EstimacionTab';
 import ResumenTab from '@/components/tabs/ResumenTab';
 import { getLatestSnapshot, getEcosystemDetailed } from '@/lib/repository/fintra-db';
+import TickerExpandidoModal from '@/components/dashboard/TickerExpandidoModal';
 
 export type TabKey = 'resumen' | 'competidores' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'indices' | 'horarios' | 'empresa';
 
@@ -34,6 +35,7 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<TabKey>('empresa');
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
+  const [isExpandedOpen, setIsExpandedOpen] = useState(false);
 
   // Estados para FundamentalCard (Prop Drilling)
   const [stockRatios, setStockRatios] = useState<any>(null);
@@ -228,13 +230,13 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
 
   return (
     <div className="w-full h-full flex flex-col bg-[#0A0A0A]">
-        {/* Overview Section - Always visible */}
         <div className="shrink-0 w-full border-zinc-800 h-[6%] overflow-hidden py-0 bg-tarjetas">
             <OverviewCard
             selectedStock={stockBasicData || ticker}
             onStockSearch={buscarDatosAccion}
             isParentLoading={isLoading}
             analysisData={stockAnalysis}
+            onExpandVerdict={() => setIsExpandedOpen(true)}
             />
         </div>
 
@@ -264,7 +266,7 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
             </div>
 
             {/* Charts Section - Fixed Height 30% - Only visible for 'empresa' and 'datos' */}
-            {(activeTab === 'empresa' || activeTab === 'datos') && (
+            {(activeTab === 'empresa' /* || activeTab === 'datos' */) && (
                 <div className="flex flex-col lg:flex-row w-full h-[35%] gap-1 shrink-0 border-t border-zinc-800 pt-1">
                     <div className="w-full lg:w-3/5 h-full border-t-0 border-zinc-800 bg-tarjetas overflow-hidden">
                         <ChartsTabHistoricos
@@ -285,6 +287,22 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
                 </div>
             )}
         </div>
+        <TickerExpandidoModal
+          open={isExpandedOpen}
+          onOpenChange={setIsExpandedOpen}
+          ticker={ticker}
+          selectedCompetitor={selectedCompetitor}
+          setSelectedCompetitor={setSelectedCompetitor}
+          stockBasicData={stockBasicData}
+          stockAnalysis={stockAnalysis}
+          stockPerformance={stockPerformance}
+          stockEcosystem={stockEcosystem}
+          stockRatios={stockRatios}
+          stockMetrics={stockMetrics}
+          isLoading={isLoading}
+          isActive={isActive}
+          onStockSearch={buscarDatosAccion}
+        />
     </div>
   );
 }
