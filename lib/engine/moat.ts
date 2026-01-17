@@ -21,6 +21,15 @@ export function calculateMoat(
   history: FinancialHistoryRow[],
   benchmarks: { roic?: { p50: number }; gross_margin?: { p50: number } }
 ): MoatResult {
+  // 0. Safety check
+  if (!history || !Array.isArray(history)) {
+    return {
+      score: null,
+      status: 'pending',
+      confidence: null
+    };
+  }
+
   // 1. Filter and Sort History (FY only, strict)
   // Assumes history passed is already FY filtered if needed, but we double check or assume caller handles it.
   // We sort descending by date to get latest 5.

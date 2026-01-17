@@ -227,7 +227,7 @@ function bandFromScore(score: number | null): DividendQualityBand | null {
 }
 
 export function calculateDividendQuality(rows: DividendQualityYearRow[]): DividendQualityResult {
-  if (!rows || rows.length === 0) {
+  if (!rows || !Array.isArray(rows) || rows.length === 0) {
     return {
       score: null,
       band: null,

@@ -13,6 +13,7 @@ import { Loader2 } from "lucide-react";
 interface EnrichedStockData {
   ticker: string;
   sectorRank: number | null;
+  sectorRankTotal: number | null;
   sectorValuationStatus: string | null;
   fgosBand: string | null;
   competitiveStructureBand: string | null;
@@ -220,18 +221,20 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
         const financialScores = profileStructural.financial_scores || {};
         const fgosComponents = row.fgos_components || {};
         const competitiveAdvantage = fgosComponents.competitive_advantage || {};
+        const marketPosition = row.market_position || {};
 
         return {
           ticker: row.ticker,
-          sectorRank: row.sector_rank ?? null,
-          sectorValuationStatus: row.sector_valuation_status ?? valuation.canonical_status ?? valuation.valuation_status ?? null,
-          fgosBand: row.fgos_band ?? null,
+          sectorRank: marketPosition.sector_rank ?? null,
+          sectorRankTotal: marketPosition.sector_total_count ?? null,
+          sectorValuationStatus: valuation.valuation_status ?? null,
+          fgosBand: row.fgos_category ?? null,
           competitiveStructureBand: competitiveAdvantage.band ?? null,
           relativeResultBand: row.relative_return?.band ?? null,
-          strategyState: row.strategy_state ?? null,
-          priceEod: row.price_eod ?? marketSnapshot.price ?? null,
-          ytdReturn: row.ytd_return ?? marketSnapshot.ytd_percent ?? null,
-          marketCap: row.market_cap ?? marketSnapshot.market_cap ?? financialScores.marketCap ?? null,
+          strategyState: row.investment_verdict?.verdict_label ?? null,
+          priceEod: marketSnapshot.price ?? marketSnapshot.price_eod ?? null,
+          ytdReturn: marketSnapshot.ytd_percent ?? null,
+          marketCap: marketSnapshot.market_cap ?? financialScores.marketCap ?? null,
         } as EnrichedStockData;
       });
 
@@ -413,7 +416,11 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
                 >
                   <TableCell className="font-bold text-white px-2 py-0.5 text-xs">{stock.ticker}</TableCell>
                   <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-200 font-mono">
-                    {stock.sectorRank != null ? `#${stock.sectorRank}` : "—"}
+                    {stock.sectorRank != null
+                      ? stock.sectorRankTotal != null
+                        ? `#${stock.sectorRank} / ${stock.sectorRankTotal}`
+                        : `#${stock.sectorRank}`
+                      : "—"}
                   </TableCell>
                   <TableCell className="text-center px-2 py-0.5">
                     <ValuationStatusBadge status={stock.sectorValuationStatus} />

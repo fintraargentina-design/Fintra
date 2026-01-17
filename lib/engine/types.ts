@@ -219,6 +219,11 @@ export interface FinancialSnapshot {
   snapshot_date: string;
   engine_version: string;
   sector: string | null;
+  classification?: {
+    status: 'full' | 'partial' | 'missing';
+    sector: string | null;
+    industry: string | null;
+  };
   profile_structural: ProfileStructural | { status: 'pending'; reason: string; [key: string]: any };
   market_snapshot: {
     price: number | null;

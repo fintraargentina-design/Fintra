@@ -1,3 +1,5 @@
+// Prices Daily Bulk core.ts
+// This script downloads daily prices for all active tickers in the universe.
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import dayjs from 'dayjs';
 import Papa from 'papaparse';

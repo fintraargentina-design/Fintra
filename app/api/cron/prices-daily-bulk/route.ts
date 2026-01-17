@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runPricesDailyBulk } from '@/app/api/cron/prices-daily-bulk/core';
-
+// Prices Daily Bulk route.ts
+// This script downloads daily prices for all active tickers in the universe.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes

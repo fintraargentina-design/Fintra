@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { fetchAllFmpData } from './fetchBulk';
-import { buildSnapshot } from './buildSnapshots';
+import { buildSnapshot, SNAPSHOT_ENGINE_VERSION } from './buildSnapshots';
 import { upsertSnapshots } from './upsertSnapshots';
 import { getActiveStockTickers } from '@/lib/repository/active-stocks';
 import { fetchFinancialHistory, computeGrowthRows, fetchPerformanceHistory, fetchValuationHistory } from './fetchGrowthData';
@@ -17,6 +17,7 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
   const tStart = performance.now();
 
   try {
+    console.log(`📌 Snapshot Engine Version: ${SNAPSHOT_ENGINE_VERSION}`);
     // ─────────────────────────────────────────
     // CURSOR (Data-based Idempotency)
     // ─────────────────────────────────────────
@@ -97,6 +98,8 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
     // Map tickers to buildSnapshot calls
     const BATCH_SIZE = 10; // Reduced to 10 to prevent Access Violation / Memory issues
     const snapshots: any[] = [];
+    let relativeReturnNonNullCount = 0;
+    let strategicStateNonNullCount = 0;
 
     console.log(`🏗️ Building Snapshots for ${tickers.length} tickers in batches of ${BATCH_SIZE}...`);
 
@@ -152,6 +155,16 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
         // Wait for current batch to finish before starting next
         const batchResults = await Promise.all(batchPromises);
         const validSnapshots = batchResults.filter(s => s !== null);
+
+        for (const snap of validSnapshots) {
+          if (snap.relative_return && (snap.relative_return.score != null || snap.relative_return.band != null)) {
+            relativeReturnNonNullCount += 1;
+          }
+          if (snap.strategic_state != null) {
+            strategicStateNonNullCount += 1;
+          }
+        }
+
         snapshots.push(...validSnapshots);
         
         // FLUSH to DB every 500 snapshots to prevent memory overflow and data loss on stop
@@ -169,6 +182,7 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
     }
 
     console.log(`💾 Upserting ${snapshots.length} snapshots...`);
+    console.log(`📊 Hydration summary [${SNAPSHOT_ENGINE_VERSION}]: relative_return!=null=${relativeReturnNonNullCount}, strategic_state!=null=${strategicStateNonNullCount}`);
     
     // UPSERT
     const result = await upsertSnapshots(supabase, snapshots);

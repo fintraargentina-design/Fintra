@@ -9,6 +9,7 @@ import { resolveInvestmentVerdict } from '@/lib/engine/resolveInvestmentVerdict'
 import { rollingFYGrowth } from '@/lib/utils/rollingGrowth';
 import { getBenchmarksForSector } from '@/lib/engine/benchmarks';
 import { buildValuationState } from '@/lib/engine/resolveValuationFromSector';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import type { FinancialSnapshot, FmpProfile, FmpRatios, FmpMetrics, FmpQuote } from '@/lib/engine/types';
 
 // Hydration Imports
@@ -16,6 +17,8 @@ import { calculateDividendQuality } from '@/lib/engine/dividend-quality';
 import { calculateRelativeReturn, type RelativeReturnTimeline, type RelativeReturnWindow } from '@/lib/engine/relative-return';
 import { resolveFintraVerdict } from '@/lib/engine/fintra-verdict';
 import type { SentimentValuationTimeline, SentimentSnapshotLabel, SentimentValuationSnapshot } from '@/lib/engine/sentiment';
+
+export const SNAPSHOT_ENGINE_VERSION = 'v3.2-full-hydration';
 
 /* ================================
    Helpers
@@ -148,12 +151,36 @@ export async function buildSnapshot(
   const today = new Date().toISOString().slice(0, 10);
 
   /* --------------------------------
-     SECTOR (FUENTE ÚNICA)
+     CLASIFICACIÓN (READ-ONLY)
   -------------------------------- */
-  const sector =
-    profile?.sector ??
-    profile?.Sector ??
-    null;
+  let sector: string | null = null;
+  let industry: string | null = null;
+  let classificationStatus: 'full' | 'partial' | 'missing' = 'missing';
+
+  try {
+    const { data: assetMap } = await supabaseAdmin
+      .from('asset_industry_map')
+      .select('industry_id, sector')
+      .eq('ticker', sym)
+      .maybeSingle();
+
+    if (assetMap && assetMap.industry_id) {
+      sector = assetMap.sector || null;
+
+      const { data: ind } = await supabaseAdmin
+        .from('industry_classification')
+        .select('industry')
+        .eq('industry_id', assetMap.industry_id)
+        .maybeSingle();
+
+      industry = ind?.industry ?? null;
+      classificationStatus = sector ? 'full' : 'partial';
+    } else {
+      classificationStatus = 'partial';
+    }
+  } catch {
+    classificationStatus = 'partial';
+  }
 
   if (!sector) {
     console.warn('⚠️ SECTOR MISSING', sym);
@@ -283,13 +310,7 @@ export async function buildSnapshot(
   -------------------------------- */
 
   // 1. Dividend Quality
-  const dividendQuality = calculateDividendQuality({
-    dividendYield: ratios?.dividendYieldTTM ?? null,
-    payoutRatio: ratios?.payoutRatioTTM ?? null,
-    fcfPayoutRatio: ratios?.cashFlowCoverageRatiosTTM ? 1 / ratios.cashFlowCoverageRatiosTTM : null, // Approx if inverse
-    dividendGrowth: null, // Need growth history
-    consecutiveGrowthYears: 0 // Need history
-  });
+  const dividendQuality = calculateDividendQuality([]);
 
   // 2. Relative Return
   const relativeReturnTimeline = buildRelativeReturnTimeline(performanceRows, benchmarkRows);
@@ -351,10 +372,15 @@ export async function buildSnapshot(
   return {
     ticker: sym,
     snapshot_date: today,
-    engine_version: 'v2.1', // Bump version
+    engine_version: SNAPSHOT_ENGINE_VERSION,
 
     // 🔴 Persistencia explícita
     sector,
+    classification: {
+      status: classificationStatus,
+      sector,
+      industry,
+    },
 
     profile_structural: profileStructural,
     market_snapshot: performance ?? null,
