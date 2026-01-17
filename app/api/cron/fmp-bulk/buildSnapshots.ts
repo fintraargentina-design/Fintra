@@ -187,6 +187,49 @@ export async function buildSnapshot(
   }
 
   /* --------------------------------
+     SECTOR PERFORMANCE (READ-ONLY)
+  -------------------------------- */
+  const SECTOR_WINDOW_CODES = ['1D', '1W', '1M', '3M', '6M', 'YTD', '1Y', '3Y', '5Y'] as const;
+  type SectorWindowCode = (typeof SECTOR_WINDOW_CODES)[number];
+
+  let sectorPerformanceStatus: 'full' | 'partial' | 'missing' = 'missing';
+  const sectorPerformanceData: { [K in SectorWindowCode]?: number | null } = {};
+
+  if (sector) {
+    try {
+      const { data: sectorRows } = await supabaseAdmin
+        .from('sector_performance')
+        .select('window_code, return_percent')
+        .eq('sector', sector)
+        .eq('performance_date', today);
+
+      if (sectorRows && sectorRows.length > 0) {
+        let presentCount = 0;
+
+        for (const row of sectorRows as any[]) {
+          const rawCode = row.window_code as string | null;
+          if (!rawCode) continue;
+          const code = SECTOR_WINDOW_CODES.find((c) => c === rawCode) as SectorWindowCode | undefined;
+          if (!code) continue;
+
+          sectorPerformanceData[code] = typeof row.return_percent === 'number' ? row.return_percent : row.return_percent ?? null;
+          presentCount += 1;
+        }
+
+        if (presentCount === 0) {
+          sectorPerformanceStatus = 'missing';
+        } else if (presentCount === SECTOR_WINDOW_CODES.length) {
+          sectorPerformanceStatus = 'full';
+        } else {
+          sectorPerformanceStatus = 'partial';
+        }
+      }
+    } catch {
+      sectorPerformanceStatus = 'partial';
+    }
+  }
+
+  /* --------------------------------
      PROFILE STRUCTURAL (TOLERANTE)
   -------------------------------- */
   const profileStructural =
@@ -380,6 +423,11 @@ export async function buildSnapshot(
       status: classificationStatus,
       sector,
       industry,
+    },
+
+    sector_performance: {
+      status: sectorPerformanceStatus,
+      data: sectorPerformanceData,
     },
 
     profile_structural: profileStructural,
