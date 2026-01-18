@@ -238,6 +238,22 @@ export interface FinancialSnapshot {
       '5Y'?: number | null;
     };
   };
+  industry_performance?: {
+    status: 'full' | 'partial' | 'missing';
+    data: {
+      '1D'?: number | null;
+      '1W'?: number | null;
+      '1M'?: number | null;
+      'YTD'?: number | null;
+      '1Y'?: number | null;
+      '3Y'?: number | null;
+      '5Y'?: number | null;
+    };
+  };
+  sector_pe?: {
+    status: 'full' | 'partial' | 'missing';
+    value: number | null;
+  };
   profile_structural: ProfileStructural | { status: 'pending'; reason: string; [key: string]: any };
   market_snapshot: {
     price: number | null;

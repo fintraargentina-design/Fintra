@@ -389,11 +389,11 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
               <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[60px]">Ticker</TableHead>
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Ranking Sectorial (IFS)</TableHead>
-                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Valuación vs. Sector</TableHead>
-                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Calidad Fund. (Band)</TableHead>
-                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Est. Competitiva</TableHead>
-                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Res. Relativo</TableHead>
-                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Est. Estratégico</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Valuación Relativa al Sector</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Calidad Fundamental</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Estructura Competitiva</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Resultado Relativo</TableHead>
+                <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Estado Estratégico</TableHead>
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[70px]">Precio EOD</TableHead>
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[60px]">YTD %</TableHead>
                 <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[70px]">Mkt Cap</TableHead>

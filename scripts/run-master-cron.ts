@@ -18,66 +18,99 @@ if (fs.existsSync(envLocalPath)) {
 }
 
 async function main() {
-    // Dynamic imports to ensure env vars are loaded first
-    const { runSyncUniverse } = await import('@/app/api/cron/sync-universe/core');
-    const { runPricesDailyBulk } = await import('@/app/api/cron/prices-daily-bulk/core');
-    const { runFinancialsBulk } = await import('@/app/api/cron/financials-bulk/core');
-    const { runFmpBulk } = await import('@/app/api/cron/fmp-bulk/core');
-    const { runCompanyProfileBulk } = await import('@/app/api/cron/company-profile-bulk/core');
-    const { runValuationBulk } = await import('@/app/api/cron/valuation-bulk/core');
-    const { runSectorBenchmarks } = await import('@/app/api/cron/sector-benchmarks/core');
-    const { runPerformanceBulk } = await import('@/app/api/cron/performance-bulk/core');
-    const { runMarketStateBulk } = await import('@/app/api/cron/market-state-bulk/core');
-    const { runDividendsBulkV2 } = await import('@/app/api/cron/dividends-bulk-v2/core');
+	// Dynamic imports to ensure env vars are loaded first
+	const { runSyncUniverse } = await import('@/app/api/cron/sync-universe/core');
+	const { runIndustryClassificationSync } = await import('@/app/api/cron/industry-classification-sync/core');
+	const { runPricesDailyBulk } = await import('@/app/api/cron/prices-daily-bulk/core');
+	const { runFinancialsBulk } = await import('@/app/api/cron/financials-bulk/core');
+	const { runCompanyProfileBulk } = await import('@/app/api/cron/company-profile-bulk/core');
+	const { runIndustryPerformanceAggregator } = await import('@/app/api/cron/industry-performance-aggregator/core');
+	const { runSectorPerformanceAggregator } = await import('@/app/api/cron/sector-performance-aggregator/core');
+	const { runSectorPerformanceWindowsAggregator } = await import('@/app/api/cron/sector-performance-windows-aggregator/core');
+	const { runIndustryPerformanceWindowsAggregator } = await import('@/app/api/cron/industry-performance-windows-aggregator/core');
+	const { runIndustryPeAggregator } = await import('@/app/api/cron/industry-pe-aggregator/core');
+	const { runSectorBenchmarks } = await import('@/app/api/cron/sector-benchmarks/core');
+	const { runPerformanceBulk } = await import('@/app/api/cron/performance-bulk/core');
+	const { runMarketStateBulk } = await import('@/app/api/cron/market-state-bulk/core');
+	const { runDividendsBulkV2 } = await import('@/app/api/cron/dividends-bulk-v2/core');
+	const { runFmpBulk } = await import('@/app/api/cron/fmp-bulk/core');
+	const { GET: runHealthcheckFmpBulk } = await import('@/app/api/cron/healthcheck-fmp-bulk/route');
 
     // Parse limit from CLI args, default to 0 (ALL)
-    const args = process.argv.slice(2);
-    const limitArg = args[0] ? parseInt(args[0], 10) : 0;
-    const LIMIT = isNaN(limitArg) ? 0 : limitArg;
+	const args = process.argv.slice(2);
+	const limitArg = args[0] ? parseInt(args[0], 10) : 0;
+	const LIMIT = isNaN(limitArg) ? 0 : limitArg;
 
-    console.log(`🚀 [Script] Starting Master Cron with LIMIT=${LIMIT === 0 ? 'ALL' : LIMIT}...`);
+	console.log(`🚀 [Script] Starting Master Cron (ALL) with LIMIT=${LIMIT === 0 ? 'ALL' : LIMIT}...`);
 
     try {
-        // 1. Sync Universe
-        console.log('\n--- 1. Sync Universe ---');
-        await runSyncUniverse();
+		// 1. Sync Universe
+		console.log('\n--- 1. Sync Universe ---');
+		await runSyncUniverse();
 
-        // 2. Prices Daily
-        console.log('\n--- 2. Prices Daily ---');
-        await runPricesDailyBulk({ limit: LIMIT });
+		// 2. Industry Classification Sync
+		console.log('\n--- 2. Industry Classification Sync ---');
+		await runIndustryClassificationSync();
 
-        // 3. Financials
-        console.log('\n--- 3. Financials Bulk ---');
-        await runFinancialsBulk(undefined, LIMIT);
+		// 3. Prices Daily Bulk
+		console.log('\n--- 3. Prices Daily Bulk ---');
+		await runPricesDailyBulk({ limit: LIMIT });
 
-        // 4. Snapshots
-        console.log('\n--- 4. FMP Bulk (Snapshots) ---');
-        await runFmpBulk(undefined, LIMIT);
+		// 4. Financials Bulk
+		console.log('\n--- 4. Financials Bulk ---');
+		await runFinancialsBulk(undefined, LIMIT);
 
-        // 4.5 Company Profile
-        console.log('\n--- 4.5 Company Profile ---');
-        await runCompanyProfileBulk(LIMIT);
+		// 5. Company Profile Bulk
+		console.log('\n--- 5. Company Profile Bulk ---');
+		await runCompanyProfileBulk(LIMIT);
 
-        // 5. Valuation
-        console.log('\n--- 5. Valuation Bulk ---');
-        await runValuationBulk({ debugMode: false, limit: LIMIT });
+		// 6. Industry Performance Aggregator (1D)
+		console.log('\n--- 6. Industry Performance Aggregator (1D) ---');
+		await runIndustryPerformanceAggregator();
 
-        // 6. Sector Benchmarks
-        console.log('\n--- 6. Sector Benchmarks ---');
-        await runSectorBenchmarks();
+		// 7. Sector Performance Aggregator (1D)
+		console.log('\n--- 7. Sector Performance Aggregator (1D) ---');
+		await runSectorPerformanceAggregator();
 
-        // 7. Performance
-        console.log('\n--- 7. Performance Bulk ---');
-        await runPerformanceBulk(undefined, LIMIT);
+		// 8. Sector Performance Windows Aggregator
+		console.log('\n--- 8. Sector Performance Windows Aggregator ---');
+		await runSectorPerformanceWindowsAggregator();
 
-        // 8. Market State
-        console.log('\n--- 8. Market State Bulk ---');
-        await runMarketStateBulk(undefined, LIMIT);
+		// 9. Industry Performance Windows Aggregator
+		console.log('\n--- 9. Industry Performance Windows Aggregator ---');
+		await runIndustryPerformanceWindowsAggregator();
 
-        console.log('\n--- 9. Dividends Bulk (V2) ---');
-        await runDividendsBulkV2();
+		// 10. Sector PE Aggregator (ya existente fuera de script, se omite aquí si no hay core dedicado)
 
-        console.log('\n✅ Master Cron Finished Successfully');
+		// 11. Industry PE Aggregator
+		console.log('\n--- 11. Industry PE Aggregator ---');
+		await runIndustryPeAggregator();
+
+		// 12. Sector Benchmarks
+		console.log('\n--- 12. Sector Benchmarks ---');
+		await runSectorBenchmarks();
+
+		// 13. Performance Bulk (ticker)
+		console.log('\n--- 13. Performance Bulk (ticker) ---');
+		await runPerformanceBulk(undefined, LIMIT);
+
+		// 14. Market State Bulk
+		console.log('\n--- 14. Market State Bulk ---');
+		await runMarketStateBulk(undefined, LIMIT);
+
+		// 15. Dividends Bulk V2
+		console.log('\n--- 15. Dividends Bulk (V2) ---');
+		await runDividendsBulkV2();
+
+		// 16. FMP Bulk Snapshots (buildSnapshots)
+		console.log('\n--- 16. FMP Bulk (Snapshots) ---');
+		await runFmpBulk(undefined, LIMIT);
+
+		// 17. Healthcheck Snapshots
+		console.log('\n--- 17. Healthcheck Snapshots ---');
+		await runHealthcheckFmpBulk();
+
+		console.log('\n✅ Master Cron (ALL) Finished Successfully');
     } catch (error) {
         console.error('\n❌ Master Cron Failed:', error);
         process.exit(1);

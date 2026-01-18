@@ -230,6 +230,106 @@ export async function buildSnapshot(
   }
 
   /* --------------------------------
+     SECTOR PE (READ-ONLY)
+  -------------------------------- */
+  let sectorPeStatus: 'full' | 'partial' | 'missing' = 'missing';
+  let sectorPeValue: number | null = null;
+
+  if (sector) {
+    try {
+      const { data: peRows } = await supabaseAdmin
+        .from('sector_pe')
+        .select('pe_date, pe')
+        .eq('sector', sector)
+        .lte('pe_date', today)
+        .order('pe_date', { ascending: false })
+        .limit(1);
+
+      if (peRows && peRows.length > 0) {
+        const row = peRows[0] as any;
+        const rowDate = row.pe_date as string | null;
+        const rawPe = row.pe as number | string | null | undefined;
+
+        if (typeof rawPe === 'number') {
+          sectorPeValue = Number.isFinite(rawPe) ? rawPe : null;
+        } else if (typeof rawPe === 'string') {
+          const parsed = parseFloat(rawPe);
+          sectorPeValue = Number.isFinite(parsed) ? parsed : null;
+        } else {
+          sectorPeValue = null;
+        }
+
+        if (rowDate === today) {
+          sectorPeStatus = 'full';
+        } else {
+          sectorPeStatus = 'partial';
+        }
+      }
+    } catch {
+      sectorPeStatus = 'partial';
+    }
+  }
+
+  /* --------------------------------
+     INDUSTRY PERFORMANCE (READ-ONLY)
+  -------------------------------- */
+  const INDUSTRY_WINDOW_CODES = ['1D', '1W', '1M', 'YTD', '1Y', '3Y', '5Y'] as const;
+  type IndustryWindowCode = (typeof INDUSTRY_WINDOW_CODES)[number];
+
+  let industryPerformanceStatus: 'full' | 'partial' | 'missing' = 'missing';
+  const industryPerformanceData: { [K in IndustryWindowCode]?: number | null } = {};
+
+  if (industry) {
+    try {
+      // Strategy: Parallel queries per window to ensure we get the latest row for EACH window
+      // regardless of data density or sparsity. This avoids the "limit 100" trap.
+      const promises = INDUSTRY_WINDOW_CODES.map(async (code) => {
+        const { data } = await supabaseAdmin
+          .from('industry_performance')
+          .select('return_percent, performance_date')
+          .eq('industry', industry)
+          .eq('window_code', code)
+          .lte('performance_date', today)
+          .order('performance_date', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        return { code, data };
+      });
+
+      const results = await Promise.all(promises);
+
+      let presentCount = 0;
+      let allUsedAreToday = true;
+
+      for (const { code, data } of results) {
+        if (data) {
+           industryPerformanceData[code] = typeof data.return_percent === 'number' 
+             ? data.return_percent 
+             : data.return_percent ?? null;
+           presentCount += 1;
+           
+           if (data.performance_date !== today) {
+             allUsedAreToday = false;
+           }
+        } else {
+           allUsedAreToday = false; 
+        }
+      }
+
+      if (presentCount === 0) {
+        industryPerformanceStatus = 'missing';
+      } else if (presentCount === INDUSTRY_WINDOW_CODES.length && allUsedAreToday) {
+        industryPerformanceStatus = 'full';
+      } else {
+        industryPerformanceStatus = 'partial';
+      }
+    } catch (err) {
+      console.warn(`⚠️ INDUSTRY PERFORMANCE ERROR [${sym}]:`, err);
+      industryPerformanceStatus = 'partial'; 
+    }
+  }
+
+  /* --------------------------------
      PROFILE STRUCTURAL (TOLERANTE)
   -------------------------------- */
   const profileStructural =
@@ -428,6 +528,16 @@ export async function buildSnapshot(
     sector_performance: {
       status: sectorPerformanceStatus,
       data: sectorPerformanceData,
+    },
+
+    industry_performance: {
+      status: industryPerformanceStatus,
+      data: industryPerformanceData,
+    },
+
+    sector_pe: {
+      status: sectorPeStatus,
+      value: sectorPeValue,
     },
 
     profile_structural: profileStructural,
