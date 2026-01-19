@@ -6,7 +6,8 @@ export async function upsertDatosFinancieros(client: SupabaseClient, rows: any[]
   const { error } = await client
     .from('datos_financieros')
     .upsert(rows, {
-      onConflict: 'ticker,period_type,period_label'
+      onConflict: 'ticker,period_type,period_label',
+      ignoreDuplicates: true
     });
 
   if (error) {

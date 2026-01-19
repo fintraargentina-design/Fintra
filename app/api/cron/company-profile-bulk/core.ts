@@ -78,7 +78,7 @@ export async function runCompanyProfileBulk(limit?: number) {
     
     const { error } = await supabaseAdmin
       .from('company_profile')
-      .upsert(batch, { onConflict: 'ticker' });
+      .upsert(batch, { onConflict: 'ticker', ignoreDuplicates: true });
 
     if (error) {
       console.error(`❌ Upsert error batch ${i}:`, error);

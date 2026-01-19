@@ -235,7 +235,8 @@ export async function runDividendsBulkV2(): Promise<CronResult> {
       for (let i = 0; i < rowsToUpsert.length; i += CHUNK_SIZE) {
         const chunk = rowsToUpsert.slice(i, i + CHUNK_SIZE);
         const { error } = await supabaseAdmin.from('datos_dividendos').upsert(chunk, {
-          onConflict: 'ticker,year'
+          onConflict: 'ticker,year',
+          ignoreDuplicates: true
         });
         if (error) {
           console.error(`Error inserting chunk ${i}:`, error);
