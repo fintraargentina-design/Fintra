@@ -279,6 +279,11 @@ export interface FinancialSnapshot {
   valuation: ValuationResult | null;
   market_position: MarketPosition | null;
   investment_verdict: any | null;
+  ifs?: {
+    short_term: 'leader' | 'follower' | 'laggard' | null;
+    mid_term: 'leader' | 'follower' | 'laggard' | null;
+    long_term: 'leader' | 'follower' | 'laggard' | null;
+  } | null;
   strategic_state?: any | null; // New field for persisted verdict result
   relative_return?: any | null; // New field for relative return result
   data_confidence: {
@@ -373,6 +378,11 @@ export interface FintraSnapshotDB {
   calculated_at?: string;
   profile_structural?: ProfileStructural | null;
   investment_verdict?: any;
+  ifs?: {
+    short_term: 'leader' | 'follower' | 'laggard' | null;
+    mid_term: 'leader' | 'follower' | 'laggard' | null;
+    long_term: 'leader' | 'follower' | 'laggard' | null;
+  } | null;
   [key: string]: any;
 }
 
