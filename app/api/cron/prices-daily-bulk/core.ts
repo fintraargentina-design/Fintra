@@ -117,7 +117,7 @@ export async function runPricesDailyBulk(opts: PricesDailyBulkOptions) {
         
         const { error } = await supabaseAdmin
             .from('prices_daily')
-            .upsert(rowsToInsert, { onConflict: 'ticker,price_date' });
+            .upsert(rowsToInsert, { onConflict: 'ticker,price_date', ignoreDuplicates: true });
             
         if (error) {
             log.push(`Batch upsert error: ${error.message}`);
