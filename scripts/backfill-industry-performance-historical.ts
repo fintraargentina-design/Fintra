@@ -9,7 +9,7 @@ if (fs.existsSync(envLocalPath)) {
   dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 }
 
-const THROTTLE_MS = 850;
+const THROTTLE_MS = 200;
 const WINDOW_CODE = '1D';
 const SOURCE = 'fmp_historical';
 
@@ -234,4 +234,3 @@ main().catch((err) => {
   console.error('💥 Unhandled error in backfill-industry-performance-historical:', err);
   process.exit(1);
 });
-

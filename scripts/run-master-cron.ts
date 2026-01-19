@@ -28,13 +28,14 @@ async function main() {
 	const { runSectorPerformanceAggregator } = await import('@/app/api/cron/sector-performance-aggregator/core');
 	const { runSectorPerformanceWindowsAggregator } = await import('@/app/api/cron/sector-performance-windows-aggregator/core');
 	const { runIndustryPerformanceWindowsAggregator } = await import('@/app/api/cron/industry-performance-windows-aggregator/core');
+	const { runSectorPeAggregator } = await import('@/app/api/cron/sector-pe-aggregator/core');
 	const { runIndustryPeAggregator } = await import('@/app/api/cron/industry-pe-aggregator/core');
 	const { runSectorBenchmarks } = await import('@/app/api/cron/sector-benchmarks/core');
 	const { runPerformanceBulk } = await import('@/app/api/cron/performance-bulk/core');
 	const { runMarketStateBulk } = await import('@/app/api/cron/market-state-bulk/core');
 	const { runDividendsBulkV2 } = await import('@/app/api/cron/dividends-bulk-v2/core');
 	const { runFmpBulk } = await import('@/app/api/cron/fmp-bulk/core');
-	const { GET: runHealthcheckFmpBulk } = await import('@/app/api/cron/healthcheck-fmp-bulk/route');
+	const { checkSnapshotsHealth } = await import('@/app/api/cron/healthcheck-fmp-bulk/core');
 
     // Parse limit from CLI args, default to 0 (ALL)
 	const args = process.argv.slice(2);
@@ -80,7 +81,9 @@ async function main() {
 		console.log('\n--- 9. Industry Performance Windows Aggregator ---');
 		await runIndustryPerformanceWindowsAggregator();
 
-		// 10. Sector PE Aggregator (ya existente fuera de script, se omite aquí si no hay core dedicado)
+		// 10. Sector PE Aggregator
+		console.log('\n--- 10. Sector PE Aggregator ---');
+		await runSectorPeAggregator();
 
 		// 11. Industry PE Aggregator
 		console.log('\n--- 11. Industry PE Aggregator ---');
@@ -108,7 +111,7 @@ async function main() {
 
 		// 17. Healthcheck Snapshots
 		console.log('\n--- 17. Healthcheck Snapshots ---');
-		await runHealthcheckFmpBulk();
+		await checkSnapshotsHealth();
 
 		console.log('\n✅ Master Cron (ALL) Finished Successfully');
     } catch (error) {
