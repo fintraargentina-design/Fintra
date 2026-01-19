@@ -21,7 +21,7 @@ async function main() {
     }
 
     // Default: Last 10 years
-    let start = dayjs().subtract(10, 'year');
+    let start = dayjs().subtract(20, 'year');
     let end = dayjs();
 
     // Optional override via args

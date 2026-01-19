@@ -249,7 +249,7 @@ export default function MercadosTab() {
   const isLoading = loadingQuotes || loadingHours;
 
 	return (
-		<div className="h-full flex flex-col bg-[#0A0A0A] overflow-hidden">
+		<div className="h-full flex flex-col bg-[#0A0A0A]">
       {/* Header General */}
       <div className="relative flex items-center justify-center px-1 py-1 border-b border-zinc-800 bg-white/[0.02] shrink-0">
         <h4 className="text-xs font-medium text-gray-400 text-center">
@@ -266,7 +266,7 @@ export default function MercadosTab() {
         </Button>
       </div>
 
-			<div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-on-hover p-0 pb-2">
+			<div className="flex-1 overflow-y-auto scrollbar-thin p-0 pb-2">
         <div className="flex flex-col xl:flex-row h-full">
           {/* 1. Cotizaciones de Indices (Columna Izquierda - 5 columnas internas) */}
           <div className="flex-1 p-0.5 min-w-0">
