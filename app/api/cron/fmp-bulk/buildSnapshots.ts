@@ -156,26 +156,39 @@ export async function buildSnapshot(
   let sector: string | null = null;
   let industry: string | null = null;
   let classificationStatus: 'full' | 'partial' | 'missing' = 'missing';
+  let sectorSource: 'canonical' | 'profile_fallback' | undefined;
 
   try {
+    // 1. PRIMARY (canonical source)
     const { data: assetMap } = await supabaseAdmin
       .from('asset_industry_map')
       .select('industry_id, sector')
       .eq('ticker', sym)
       .maybeSingle();
 
-    if (assetMap && assetMap.industry_id) {
-      sector = assetMap.sector || null;
+    if (assetMap && assetMap.sector) {
+      sector = assetMap.sector;
+      sectorSource = 'canonical';
 
-      const { data: ind } = await supabaseAdmin
-        .from('industry_classification')
-        .select('industry')
-        .eq('industry_id', assetMap.industry_id)
-        .maybeSingle();
+      if (assetMap.industry_id) {
+        const { data: ind } = await supabaseAdmin
+          .from('industry_classification')
+          .select('industry')
+          .eq('industry_id', assetMap.industry_id)
+          .maybeSingle();
 
-      industry = ind?.industry ?? null;
-      classificationStatus = sector ? 'full' : 'partial';
-    } else {
+        industry = ind?.industry ?? null;
+      }
+      classificationStatus = 'full';
+    } 
+    // 2. FALLBACK (company_profile)
+    else if (profile && profile.sector) {
+      sector = profile.sector;
+      industry = profile.industry || null;
+      sectorSource = 'profile_fallback';
+      classificationStatus = 'full';
+    }
+    else {
       classificationStatus = 'partial';
     }
   } catch {
@@ -523,6 +536,7 @@ export async function buildSnapshot(
       status: classificationStatus,
       sector,
       industry,
+      source: sectorSource,
     },
 
     sector_performance: {

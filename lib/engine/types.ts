@@ -223,6 +223,7 @@ export interface FinancialSnapshot {
     status: 'full' | 'partial' | 'missing';
     sector: string | null;
     industry: string | null;
+    source?: 'canonical' | 'profile_fallback';
   };
   sector_performance?: {
     status: 'full' | 'partial' | 'missing';
