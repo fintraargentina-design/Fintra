@@ -18,8 +18,39 @@ type HistoricalIndustryPeRecord = {
   pe: number | null;
 };
 
-function sleep(ms: number) {
+async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  retries = 3,
+  delayMs = 1000
+): Promise<T> {
+  let lastError: any;
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await operation();
+    } catch (err: any) {
+      lastError = err;
+      // Check if it's a network/connection error or a 5xx server error
+      const isNetworkError =
+        err?.code === 'ECONNRESET' ||
+        err?.message?.includes('fetch failed') ||
+        err?.message?.includes('network') ||
+        (err?.status && err.status >= 500);
+
+      if (!isNetworkError && i < retries - 1) {
+         // If it's not a clear network error, we might still want to retry just in case,
+         // but maybe with less confidence. For now, let's retry everything except known bad requests.
+      }
+
+      console.warn(`    ⚠️ Operation failed (attempt ${i + 1}/${retries}). Retrying in ${delayMs}ms...`);
+      await sleep(delayMs);
+      delayMs *= 2; // Exponential backoff
+    }
+  }
+  throw lastError;
 }
 
 function buildMonthlySegments(startYear: number, endYear: number) {
@@ -136,20 +167,27 @@ async function main() {
 
         let existingPk = new Set<string>();
         if (uniqueDates.length > 0) {
-          const { data: existingRows, error: existingError } = await supabaseAdmin
-            .from('industry_pe')
-            .select('pe_date')
-            .eq('industry', industry)
-            .in('pe_date', uniqueDates);
+          try {
+            const { data: existingRows, error: existingError } = await withRetry(async () => {
+              return await supabaseAdmin
+                .from('industry_pe')
+                .select('pe_date')
+                .eq('industry', industry)
+                .in('pe_date', uniqueDates);
+            });
 
-          if (existingError) {
-            console.error('    ❌ Error checking existing PKs:', existingError);
-            process.exit(1);
+            if (existingError) {
+              console.error('    ❌ Error checking existing PKs (skipped segment):', existingError);
+              continue; // Skip this segment, don't crash
+            }
+
+            existingPk = new Set(
+              (existingRows || []).map((r: any) => `${industry}|${r.pe_date}`),
+            );
+          } catch (err) {
+             console.error('    ❌ Retry failed for checking existing PKs:', err);
+             continue;
           }
-
-          existingPk = new Set(
-            (existingRows || []).map((r: any) => `${industry}|${r.pe_date}`),
-          );
         }
 
         const insertBuffer: any[] = [];
@@ -175,17 +213,24 @@ async function main() {
         }
 
         if (insertBuffer.length > 0) {
-          const { error: insertError } = await supabaseAdmin
-            .from('industry_pe')
-            .insert(insertBuffer);
+          try {
+            const { error: insertError } = await withRetry(async () => {
+              return await supabaseAdmin
+                .from('industry_pe')
+                .insert(insertBuffer);
+            });
 
-          if (insertError) {
-            console.error('    ❌ Error inserting rows:', insertError);
-            process.exit(1);
+            if (insertError) {
+              console.error('    ❌ Error inserting rows (skipped segment):', insertError);
+              continue; // Skip this segment, don't crash
+            }
+
+            insertedThisSeg = insertBuffer.length;
+            totalInserted += insertedThisSeg;
+          } catch (err) {
+            console.error('    ❌ Retry failed for inserting rows:', err);
+            continue;
           }
-
-          insertedThisSeg = insertBuffer.length;
-          totalInserted += insertedThisSeg;
         }
 
         totalSkippedExisting += skippedExistingThisSeg;
@@ -207,7 +252,8 @@ async function main() {
             `    ❌ Unexpected error for industry=${industry} range=${seg.from}→${seg.to}:`,
             msg,
           );
-          process.exit(1);
+          // Don't exit on unexpected errors (like network blips), just skip this segment
+          // process.exit(1);
         }
       }
 

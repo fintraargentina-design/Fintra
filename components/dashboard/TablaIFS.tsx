@@ -1,4 +1,5 @@
 "use client";
+
 import React from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +13,11 @@ export interface EnrichedStockData {
   sectorRankTotal: number | null;
   sectorValuationStatus: string | null;
   fgosBand: string | null;
+  fgosScore?: number | null;
+  ifs?: {
+    position: "leader" | "follower" | "laggard";
+    pressure: number;
+  } | null;
   competitiveStructureBand: string | null;
   relativeResultBand: string | null;
   strategyState: string | null;
@@ -72,24 +78,6 @@ export const sortStocksBySnapshot = (a: EnrichedStockData, b: EnrichedStockData)
   return a.ticker.localeCompare(b.ticker);
 };
 
-const formatFgosBand = (band: string | null) => {
-  if (!band) return "—";
-  const lower = band.toLowerCase();
-  if (lower === "strong") return "Fuerte";
-  if (lower === "defendable") return "Defendible";
-  if (lower === "weak") return "Débil";
-  return band;
-};
-
-const formatRelativeResult = (band: string | null) => {
-  if (!band) return "—";
-  const lower = band.toLowerCase();
-  if (lower === "outperformer") return "Supera al benchmark";
-  if (lower === "neutral") return "En línea con el benchmark";
-  if (lower === "underperformer") return "Por debajo del benchmark";
-  return band;
-};
-
 const formatStrategyState = (state: string | null) => {
   if (!state) return "—";
   return state.charAt(0).toUpperCase() + state.slice(1);
@@ -111,6 +99,49 @@ const ValuationStatusBadge = ({ status }: { status: string | null }) => {
     >
       {label}
     </Badge>
+  );
+};
+
+// --- IFS Visual Component ---
+// Internal helper to strictly follow visual semantics
+const IFSVisual = ({ ifs }: { ifs?: EnrichedStockData["ifs"] }) => {
+  // 9 segments total
+  const segments = Array.from({ length: 9 });
+
+  // If null, render neutral gray empty bar
+  if (!ifs) {
+    return (
+      <div className="flex gap-[1px] items-center justify-center">
+        {segments.map((_, i) => (
+          <div key={i} className="w-1 h-2.5 bg-zinc-700/30" />
+        ))}
+      </div>
+    );
+  }
+
+  const { position, pressure } = ifs;
+  const p = Math.max(0, Math.min(9, pressure)); // clamp 0-9
+
+  // Color mapping based on position ONLY
+  let activeColorClass = "bg-zinc-500"; // fallback
+  if (position === "leader") activeColorClass = "bg-emerald-500";
+  else if (position === "follower") activeColorClass = "bg-yellow-500";
+  else if (position === "laggard") activeColorClass = "bg-red-500";
+
+  return (
+    <div className="flex gap-[1px] items-center justify-center">
+      {segments.map((_, i) => {
+        const isFilled = i < p;
+        return (
+          <div
+            key={i}
+            className={`w-1 h-2.5 ${
+              isFilled ? activeColorClass : "bg-zinc-700/30"
+            }`}
+          />
+        );
+      })}
+    </div>
   );
 };
 
@@ -146,10 +177,9 @@ export default function TablaIFS({
           <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
             <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[60px]">Ticker</TableHead>
             <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Ranking Sectorial (IFS)</TableHead>
-            <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Valuación Relativa al Sector</TableHead>
+            <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[80px]">IFS</TableHead>
+            <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Valuación Relativa</TableHead>
             <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Calidad Fundamental</TableHead>
-            <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Estructura Competitiva</TableHead>
-            <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Resultado Relativo</TableHead>
             <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Estado Estratégico</TableHead>
             <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[70px]">Precio EOD</TableHead>
             <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[60px]">YTD %</TableHead>
@@ -159,7 +189,7 @@ export default function TablaIFS({
         <TableBody>
           {isLoading ? (
             <TableRow className="border-zinc-800">
-              <TableCell colSpan={10} className="h-24 text-center">
+              <TableCell colSpan={9} className="h-24 text-center">
                 <div className="flex justify-center items-center gap-2 text-gray-400 text-xs">
                   <Loader2 className="w-4 h-4 animate-spin" /> Cargando datos...
                 </div>
@@ -167,7 +197,7 @@ export default function TablaIFS({
             </TableRow>
           ) : data.length === 0 ? (
             <TableRow className="border-zinc-800">
-              <TableCell colSpan={10} className="text-center text-gray-500 py-8 text-xs">
+              <TableCell colSpan={9} className="text-center text-gray-500 py-8 text-xs">
                 {emptyMessage}
               </TableCell>
             </TableRow>
@@ -191,16 +221,13 @@ export default function TablaIFS({
                       : "—"}
                   </TableCell>
                   <TableCell className="text-center px-2 py-0.5">
+                    <IFSVisual ifs={stock.ifs} />
+                  </TableCell>
+                  <TableCell className="text-center px-2 py-0.5">
                     <ValuationStatusBadge status={stock.sectorValuationStatus} />
                   </TableCell>
-                  <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
-                    {formatFgosBand(stock.fgosBand)}
-                  </TableCell>
-                  <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
-                    {formatFgosBand(stock.competitiveStructureBand)}
-                  </TableCell>
-                  <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
-                    {formatRelativeResult(stock.relativeResultBand)}
+                  <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300 font-mono">
+                    {stock.fgosScore != null ? stock.fgosScore.toFixed(0) : "—"}
                   </TableCell>
                   <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
                     {formatStrategyState(stock.strategyState)}
@@ -224,7 +251,7 @@ export default function TablaIFS({
           )}
           {isFetchingMore && (
             <TableRow className="border-zinc-800">
-              <TableCell colSpan={10} className="h-12 text-center text-gray-400 text-xs">
+              <TableCell colSpan={9} className="h-12 text-center text-gray-400 text-xs">
                 <div className="flex justify-center items-center gap-2">
                   <Loader2 className="w-3 h-3 animate-spin" /> Cargando más...
                 </div>
