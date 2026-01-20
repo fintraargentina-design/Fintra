@@ -45,7 +45,8 @@ export async function runPerformanceBulk(targetTicker?: string, limit?: number) 
 
   // 2. Process Tickers
   // Chunking to control memory/concurrency
-  const CONCURRENCY = 10;
+  // LOWERED CONCURRENCY to avoid "statement timeout" in Postgres (heavy window functions)
+  const CONCURRENCY = 3;
   
   for (let i = 0; i < activeTickers.length; i += CONCURRENCY) {
     const chunk = activeTickers.slice(i, i + CONCURRENCY);
