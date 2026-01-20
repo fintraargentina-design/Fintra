@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getResumenData, ResumenData } from "@/lib/repository/fintra-db";
 import FintraStructuralProfile from "./FintraStructuralProfile";
+import FgosAnalysisBlock from "../dashboard/FgosAnalysisBlock";
+import SectorValuationBlock from "../dashboard/SectorValuationBlock";
 
 interface ResumenCardProps {
   symbol: string;
@@ -282,6 +284,11 @@ export default function ResumenCard({
               relativeValuation={getRelativeValuation(resumen?.valuation?.canonical_status)}
               attentionState={resumen?.attention_state || "inconclusive"}
             />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FgosAnalysisBlock fgosState={resumen?.fgos_state} />
+              <SectorValuationBlock valuation={resumen?.valuation} />
+            </div>
           </div>
         )}
 
