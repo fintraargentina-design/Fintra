@@ -106,6 +106,15 @@ export type ResumenData = {
   fgos_confidence_percent: number | null
   fgos_state: FgosState | null
   valuation: CanonicalValuationState | null
+
+  // Structural Profile
+  ifs: {
+    position: 'leader' | 'follower' | 'laggard';
+    pressure: number;
+  } | null;
+  sector_rank: number | null;
+  sector_rank_total: number | null;
+  attention_state: "structural_compounder" | "quality_in_favor" | "quality_misplaced" | "structural_headwind" | "inconclusive" | null;
 }
 
 export type CanonicalValuationState = {
@@ -199,26 +208,31 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
     // Analysis
     altman_z: scores.altman_z ?? null,
     piotroski_score: scores.piotroski_score ?? null,
-    total_assets: scores.total_assets ?? null,
-    total_liabilities: scores.total_liabilities ?? null,
-    revenue: scores.revenue ?? null,
-    ebit: scores.ebit ?? null,
-    working_capital: scores.working_capital ?? null,
+    total_assets: metrics.totalAssets ?? null,
+    total_liabilities: metrics.totalLiabilities ?? null,
+    revenue: metrics.revenue ?? null,
+    ebit: metrics.ebit ?? null,
+    working_capital: metrics.workingCapital ?? null,
 
-    // FGOS Analysis
-    fgos_score: m.fgos_score ?? null,
-    fgos_confidence_label: m.fgos_confidence_label ?? null,
-    fgos_status: s.fgos_maturity ?? null,
-    fgos_confidence_percent: s.fgos_confidence_percent ?? null,
-    fgos_state: s ? buildFGOSState({
-      fgos_score: m.fgos_score ?? null,
-      fgos_components: s.fgos_components ?? null,
-      fgos_confidence_percent: s.fgos_confidence_percent ?? null,
-      fgos_confidence_label: m.fgos_confidence_label ?? null,
-      fgos_status: s.fgos_status,
-      fgos_maturity: s.fgos_maturity
+    // FGOS
+    fgos_score: m.fgos_score || s.fgos_score || null,
+    fgos_confidence_label: m.fgos_confidence_label || null,
+    fgos_status: s.fgos_status || null,
+    fgos_confidence_percent: s.fgos_confidence_percent || null,
+    fgos_state: (s.fgos_components || s.fgos_breakdown) ? buildFGOSState({
+        fgos_score: m.fgos_score || s.fgos_score || null,
+        fgos_components: (s.fgos_components || s.fgos_breakdown) as any,
+        fgos_confidence_percent: s.fgos_confidence_percent || null,
+        fgos_confidence_label: m.fgos_confidence_label || null,
+        fgos_status: s.fgos_status || null
     }) : null,
-    valuation: s.valuation || null
+    valuation: s.valuation || null,
+
+    // Structural
+    ifs: s.ifs || null,
+    sector_rank: s.sector_rank || null,
+    sector_rank_total: s.sector_rank_total || null,
+    attention_state: ps?.attention_state || null
   };
   return result;
 }

@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
 import { getAvailableSectors, getIndustriesForSector } from "@/lib/repository/fintra-db";
 import { Loader2 } from "lucide-react";
-import TablaIFS, { EnrichedStockData, sortStocksBySnapshot } from "./TablaIFS";
+import TablaIFS, { EnrichedStockData, sortStocksBySnapshot, mapSnapshotToStockData } from "./TablaIFS";
 
 export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?: (symbol: string) => void }) {
   const [sectors, setSectors] = useState<string[]>([]);
@@ -104,29 +104,9 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
         return industry === currentIndustry;
       });
 
-      const enriched: EnrichedStockData[] = filteredByIndustry.map((row: any) => {
-        const marketSnapshot = row.market_snapshot || {};
-        const valuation = row.valuation || {};
-        const profileStructural = row.profile_structural || {};
-        const financialScores = profileStructural.financial_scores || {};
-        const fgosComponents = row.fgos_components || {};
-        const competitiveAdvantage = fgosComponents.competitive_advantage || {};
-        const marketPosition = row.market_position || {};
+      console.log("🔍 [DEBUG] Raw Supabase Snapshots (first 3):", filteredByIndustry.slice(0, 3));
 
-        return {
-          ticker: row.ticker,
-          sectorRank: marketPosition.sector_rank ?? null,
-          sectorRankTotal: marketPosition.sector_total_count ?? null,
-          sectorValuationStatus: valuation.valuation_status ?? null,
-          fgosBand: row.fgos_category ?? null,
-          competitiveStructureBand: competitiveAdvantage.band ?? null,
-          relativeResultBand: row.relative_return?.band ?? null,
-          strategyState: row.investment_verdict?.verdict_label ?? null,
-          priceEod: marketSnapshot.price ?? marketSnapshot.price_eod ?? null,
-          ytdReturn: marketSnapshot.ytd_percent ?? null,
-          marketCap: marketSnapshot.market_cap ?? financialScores.marketCap ?? null,
-        } as EnrichedStockData;
-      });
+      const enriched: EnrichedStockData[] = filteredByIndustry.map(mapSnapshotToStockData);
 
       // Deduplicate enriched based on ticker (keep the first one encountered)
       const uniqueEnrichedMap = new Map<string, EnrichedStockData>();

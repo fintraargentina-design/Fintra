@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { subDays, subMonths, subYears, startOfYear, format } from "date-fns";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,16 +39,41 @@ type ResponseContract = {
   metrics: Metric[];
 };
 
-const WINDOW_ORDER = ["1D", "1W", "1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y", "10Y", "MAX"] as const;
+const WINDOWS = [
+  { code: "1D", days: 1 },
+  { code: "1W", days: 7 },
+  { code: "1M", months: 1 },
+  { code: "3M", months: 3 },
+  { code: "6M", months: 6 },
+  { code: "YTD", isYTD: true },
+  { code: "1Y", years: 1 },
+  { code: "3Y", years: 3 },
+  { code: "5Y", years: 5 },
+  { code: "10Y", years: 10 },
+] as const;
 
-function formatDisplay(value: number | null): string | null {
-  if (value === null || value === undefined) return null;
-  return `${value.toFixed(2)}%`;
+function subtractDate(dateStr: string, opts: { days?: number; months?: number; years?: number; isYTD?: boolean }): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d); // Construct date in local time
+
+  let result = date;
+  if (opts.isYTD) {
+    result = startOfYear(date);
+  } else if (opts.days) {
+    result = subDays(date, opts.days);
+  } else if (opts.months) {
+    result = subMonths(date, opts.months);
+  } else if (opts.years) {
+    result = subYears(date, opts.years);
+  }
+  
+  return format(result, 'yyyy-MM-dd');
 }
 
-function normalize(val: number, min: number, max: number): number {
-  if (max === min) return 0.5;
-  return (val - min) / (max - min);
+function formatDisplay(value: number | null): string | null {
+  if (value === null || value === undefined) return "—";
+  const sign = value > 0 ? "+" : ""; 
+  return `${sign}${value.toFixed(2)}%`;
 }
 
 export async function GET(req: Request) {
@@ -59,90 +85,70 @@ export async function GET(req: Request) {
   }
 
   try {
-    const { data: perfData, error: perfError } = await supabase
-      .from("datos_performance")
-      .select("*")
+    // Fetch prices_daily (limit 4000 to cover >10 years of trading days)
+    const { data: prices, error } = await supabase
+      .from("prices_daily")
+      .select("price_date, adj_close")
       .eq("ticker", ticker)
-      .order("performance_date", { ascending: true });
+      .order("price_date", { ascending: false })
+      .limit(4000);
 
-    if (perfError) {
-      throw new Error(`Performance error for ${ticker}: ${perfError.message}`);
-    }
+    if (error) throw new Error(error.message);
 
-    const performance = perfData || [];
-
-    if (performance.length === 0) {
-      const empty: ResponseContract = {
+    const priceHistory = prices || [];
+    
+    if (priceHistory.length === 0) {
+      return NextResponse.json({
         ticker,
         currency: "USD",
         years: [],
         metrics: [],
-      };
-      return NextResponse.json(empty);
-    }
-
-    const latestDate = performance.reduce((acc: string, curr: any) =>
-      curr.performance_date > acc ? curr.performance_date : acc,
-      ""
-    );
-
-    const latestPerf = performance.filter((p: any) => p.performance_date === latestDate);
-
-    const columns = latestPerf
-      .map((p: any) => p.window_code as string)
-      .filter((w) => !!w && WINDOW_ORDER.includes(w as any))
-      .sort((a, b) => WINDOW_ORDER.indexOf(a as any) - WINDOW_ORDER.indexOf(b as any));
-
-    const uniqueColumns = Array.from(new Set(columns));
-
-    const years: YearGroup[] = uniqueColumns.length
-      ? [
-          {
-            year: 9999,
-            tone: "light",
-            columns: uniqueColumns,
-          },
-        ]
-      : [];
-
-    const valuesObj: Record<string, ValueItem> = {};
-    const rawValues: number[] = [];
-
-    uniqueColumns.forEach((windowCode) => {
-      const row = latestPerf.find((p: any) => p.window_code === windowCode);
-      if (!row) return;
-
-      const raw = row.return_percent;
-      if (raw === null || raw === undefined) return;
-
-      const val = Number(raw);
-      if (isNaN(val)) return;
-
-      rawValues.push(val);
-      valuesObj[windowCode] = {
-        value: val,
-        display: formatDisplay(val),
-        normalized: null,
-        period_type: null,
-        period_end_date: row.performance_date,
-      };
-    });
-
-    if (rawValues.length > 0) {
-      const min = Math.min(...rawValues);
-      const max = Math.max(...rawValues);
-
-      Object.keys(valuesObj).forEach((col) => {
-        const item = valuesObj[col];
-        if (item.value !== null) {
-          item.normalized = normalize(item.value, min, max);
-        }
       });
     }
 
+    const latest = priceHistory[0];
+    const latestDate = latest.price_date;
+    const latestPrice = Number(latest.adj_close);
+
+    const valuesObj: Record<string, ValueItem> = {};
+    const columns: string[] = [];
+
+    for (const w of WINDOWS) {
+        const targetDate = subtractDate(latestDate, w);
+        
+        // Find closest previous trading day: first row where date <= targetDate
+        const startRow = priceHistory.find(p => p.price_date <= targetDate);
+        
+        columns.push(w.code);
+
+        if (startRow && startRow.adj_close !== null) {
+            const startPrice = Number(startRow.adj_close);
+            if (startPrice !== 0) {
+                const ret = ((latestPrice / startPrice) - 1) * 100;
+                valuesObj[w.code] = {
+                    value: ret,
+                    display: formatDisplay(ret),
+                    normalized: null, // Neutral color
+                    period_type: null,
+                    period_end_date: latestDate
+                };
+            } else {
+                 valuesObj[w.code] = { value: null, display: "—", normalized: null, period_type: null };
+            }
+        } else {
+             valuesObj[w.code] = { value: null, display: "—", normalized: null, period_type: null };
+        }
+    }
+
+    const years: YearGroup[] = [{
+        year: 9999,
+        tone: "light",
+        columns: columns
+    }];
+
     const metric: Metric = {
       key: "return_percent",
-      label: "Total Return",
+      label: "Retorno Absoluto",
       unit: "%",
       category: "performance",
       priority: "A",
@@ -153,14 +159,13 @@ export async function GET(req: Request) {
       values: valuesObj,
     };
 
-    const response: ResponseContract = {
+    return NextResponse.json({
       ticker,
       currency: "USD",
       years,
-      metrics: rawValues.length ? [metric] : [],
-    };
+      metrics: [metric],
+    });
 
-    return NextResponse.json(response);
   } catch (err: any) {
     console.error("Performance Timeline API Error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });

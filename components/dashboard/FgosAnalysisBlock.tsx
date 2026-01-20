@@ -22,25 +22,37 @@ export default function FgosAnalysisBlock({
   // Render Guard: Must have either new state or legacy score
   if (!fgosState && fgosScore === null) return null;
 
-  let displayScore: string | number = "N/A";
-  let displayConfidence = "Low (0%)";
-  let displayStatus = "Pending";
-  let displayVerdict = "N/A";
-  let displayNarrative = "Insufficient data.";
+  let displayScore: string | number = "N/D";
+  let displayConfidence = "Baja (0%)";
+  let displayStatus = "Pendiente";
+  let displayVerdict = "N/D";
+  let displayNarrative = "Datos insuficientes.";
 
   if (fgosState) {
     // --- New Path (Canonical State) ---
-    displayScore = fgosState.quality.score !== null ? fgosState.quality.score : "N/A";
+    displayScore = fgosState.quality.score !== null ? fgosState.quality.score : "N/D";
     
-    displayConfidence = `${fgosState.confidence.label} (${Math.round(fgosState.confidence.percent)}%)`;
+    // Translate confidence label
+    const confLabel = fgosState.confidence.label === 'High' ? 'Alta' 
+      : fgosState.confidence.label === 'Medium' ? 'Media' 
+      : 'Baja';
+    displayConfidence = `${confLabel} (${Math.round(fgosState.confidence.percent)}%)`;
     
     // Format stage: pending -> PENDING, partial -> PARTIAL
     displayStatus = fgosState.stage.toUpperCase();
+    if (displayStatus === 'PENDING') displayStatus = 'PENDIENTE';
+    if (displayStatus === 'PARTIAL') displayStatus = 'PARCIAL';
+    if (displayStatus === 'COMPUTED') displayStatus = 'CALCULADO';
     
     // Map bucket to Verdict-like string
-    displayVerdict = fgosState.quality.bucket !== 'unknown' 
-      ? fgosState.quality.bucket.toUpperCase() 
-      : "N/A";
+    const bucketMap: Record<string, string> = {
+      'elite': 'ELITE',
+      'strong': 'FUERTE',
+      'average': 'PROMEDIO',
+      'weak': 'DÉBIL',
+      'unknown': 'N/D'
+    };
+    displayVerdict = bucketMap[fgosState.quality.bucket] || "N/D";
 
     displayNarrative = fgosState.explanation;
 
@@ -52,20 +64,21 @@ export default function FgosAnalysisBlock({
     // 1. Normalize Status
     const status = fgosStatus || "Incomplete";
     const label = confidenceLabel || "Low"; 
-    const percent = typeof confidencePercent === 'number' ? `${Math.round(confidencePercent)}%` : "N/A";
+    const translatedLabel = label === 'High' ? 'Alta' : label === 'Medium' ? 'Media' : 'Baja';
+    const percent = typeof confidencePercent === 'number' ? `${Math.round(confidencePercent)}%` : "N/D";
 
     displayScore = fgosScore;
-    displayConfidence = `${label} (${percent})`;
+    displayConfidence = `${translatedLabel} (${percent})`;
     displayStatus = status;
 
     // 2. Verdict Derivation
     const getVerdict = (s: string) => {
       switch (s) {
-        case "Mature": return "Actionable";
-        case "Developing": return "Use with caution";
-        case "Early-stage": return "Informational only";
-        case "Incomplete": return "Not comparable";
-        default: return "Not comparable";
+        case "Mature": return "Accionable";
+        case "Developing": return "Usar con precaución";
+        case "Early-stage": return "Solo informativo";
+        case "Incomplete": return "No comparable";
+        default: return "No comparable";
       }
     };
     displayVerdict = getVerdict(status);
@@ -74,15 +87,15 @@ export default function FgosAnalysisBlock({
     const getNarrative = (s: string) => {
       switch (s) {
         case "Mature":
-          return "The company exhibits strong and consistent business quality across multiple financial cycles. The FGOS score is considered highly reliable.";
+          return "La empresa muestra una calidad fundamental sólida y consistente a través de múltiples ciclos financieros. El score FGOS se considera altamente confiable.";
         case "Developing":
-          return "The company shows solid business fundamentals, though some metrics lack long-term consistency. The FGOS assessment should be interpreted with moderate confidence.";
+          return "La empresa muestra fundamentos de negocio sólidos, aunque algunas métricas carecen de consistencia a largo plazo. La evaluación FGOS debe interpretarse con confianza moderada.";
         case "Early-stage":
-          return "The business demonstrates promising operational quality, but its public financial history is too short to reliably assess long-term performance. This FGOS score should be considered informational.";
+          return "El negocio demuestra una calidad operativa prometedora, pero su historia financiera pública es demasiado corta para evaluar el rendimiento a largo plazo de manera confiable. Este score FGOS debe considerarse informativo.";
         case "Incomplete":
-          return "Insufficient or missing financial data prevents a reliable FGOS assessment at this time.";
+          return "La falta de datos financieros impide una evaluación FGOS confiable en este momento.";
         default:
-          return "Insufficient or missing financial data prevents a reliable FGOS assessment at this time.";
+          return "La falta de datos financieros impide una evaluación FGOS confiable en este momento.";
       }
     };
     displayNarrative = getNarrative(status);
@@ -98,21 +111,21 @@ export default function FgosAnalysisBlock({
           <Table>
             <TableBody>
               <TableRow className="border-zinc-800/50 hover:bg-transparent">
-                <TableCell className="py-2 text-xs text-zinc-500 font-medium">Business Quality</TableCell>
+                <TableCell className="py-2 text-xs text-zinc-500 font-medium">Calidad Fundamental</TableCell>
                 <TableCell className="py-2 text-xs text-zinc-200 text-right font-mono">{displayScore} / 100</TableCell>
               </TableRow>
               <TableRow className="border-zinc-800/50 hover:bg-transparent">
-                <TableCell className="py-2 text-xs text-zinc-500 font-medium">Confidence</TableCell>
+                <TableCell className="py-2 text-xs text-zinc-500 font-medium">Confianza</TableCell>
                 <TableCell className="py-2 text-xs text-zinc-200 text-right font-mono">
                   {displayConfidence}
                 </TableCell>
               </TableRow>
               <TableRow className="border-zinc-800/50 hover:bg-transparent">
-                <TableCell className="py-2 text-xs text-zinc-500 font-medium">FGOS Status</TableCell>
+                <TableCell className="py-2 text-xs text-zinc-500 font-medium">Estado FGOS</TableCell>
                 <TableCell className="py-2 text-xs text-zinc-200 text-right font-mono">{displayStatus}</TableCell>
               </TableRow>
               <TableRow className="border-none hover:bg-transparent">
-                <TableCell className="py-2 text-xs text-zinc-500 font-medium">Verdict</TableCell>
+                <TableCell className="py-2 text-xs text-zinc-500 font-medium">Veredicto</TableCell>
                 <TableCell className="py-2 text-xs text-zinc-200 text-right font-medium">{displayVerdict}</TableCell>
               </TableRow>
             </TableBody>

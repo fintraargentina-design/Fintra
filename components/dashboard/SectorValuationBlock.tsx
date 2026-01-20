@@ -72,7 +72,7 @@ export default function SectorValuationBlock({ valuation }: SectorValuationBlock
           
           {/* 4. Confidence Display */}
           <div className="text-[10px] text-zinc-500 pl-4.5">
-            Confianza: {valuation.confidence.label} ({Math.round(valuation.confidence.percent)}%)
+            Confianza: {valuation.confidence.label === 'High' ? 'Alta' : valuation.confidence.label === 'Medium' ? 'Media' : 'Baja'} ({Math.round(valuation.confidence.percent)}%)
           </div>
         </div>
 

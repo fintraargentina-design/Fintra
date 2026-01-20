@@ -15,11 +15,13 @@ export default function NavigationBar({
   orientation = 'horizontal'
 }: NavigationBarProps) {
   const tabs = [
-    { key: 'empresa', label: 'Snapshot' },
+    { key: 'empresa', label: 'Perfil' },
     /* { key: 'competidores', label: 'Competidores' }, */
+    { key: 'snapshot', label: 'Snapshot Técnico' },
     { key: 'datos', label: 'Datos Financieros' },
-    { key: 'ecosistema', label: 'Ecosistema' },
-    { key: 'estimacion', label: 'Escenarios y Conclusión Fintra IA' },
+    { key: 'ecosistema', label: 'Resiliencia Geopolítica' },
+    { key: 'escenarios', label: 'Escenarios' },
+    { key: 'conclusion', label: 'Conclusión Fintra IA' },
   ];
 
   if (orientation === 'vertical') {

@@ -1,7 +1,9 @@
-
-import { backfillSectorStatsForDate } from '../app/api/cron/backfill/backfillSectorStats';
+import * as dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
 
 async function main() {
+  const { backfillSectorStatsForDate } = await import('../app/api/cron/backfill/backfillSectorStats');
+
   const today = new Date().toISOString().slice(0, 10);
   console.log(`Running sector_stats backfill for ${today}...`);
   try {

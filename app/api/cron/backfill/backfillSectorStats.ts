@@ -13,20 +13,41 @@ const METRICS = [
 ];
 
 export async function backfillSectorStatsForDate(date: string) {
+  // 1. Obtener lista de sectores (Fetch all and unique in JS to be safe)
+  const { data: allRows, error: sectorsError } = await supabaseAdmin
+    .from('fintra_universe')
+    .select('sector')
+    .not('sector', 'is', null);
+
+  if (sectorsError) throw sectorsError;
+  
+  // Unique sectors
+  const sectors = [...new Set((allRows || []).map((r: any) => r.sector))].sort();
+  console.log(`Found ${sectors.length} sectors to process.`);
+
   for (const metric of METRICS) {
-    const query = `
+    console.log(`Processing metric: ${metric}`);
+    
+    for (const sector of sectors) {
+        const safeSector = sector.replace(/'/g, "''");
+
+        const query = `
 with latest_data as (
-  select distinct on (df.ticker)
-    df.ticker,
+  select
     c.sector,
-    df.${metric} as val
-  from datos_financieros df
-  join fintra_universe c on c.ticker = df.ticker
-  where df.period_type in ('TTM','FY')
-    and df.period_end_date <= '${date}'::date
-    and df.${metric} is not null
-    and c.sector is not null
-  order by df.ticker, df.period_end_date desc
+    l.val
+  from fintra_universe c
+  cross join lateral (
+    select df.${metric} as val
+    from datos_financieros df
+    where df.ticker = c.ticker
+      and df.period_type in ('TTM','FY')
+      and df.period_end_date <= '${date}'::date
+      and df.${metric} is not null
+    order by df.period_end_date desc
+    limit 1
+  ) l
+  where c.sector = '${safeSector}'
 )
 insert into sector_stats (
   sector,
@@ -67,11 +88,14 @@ do update set
   sample_size = excluded.sample_size;
 `;
 
+      const { error } = await supabaseAdmin.rpc('execute_sql', {
+        sql: query
+      });
 
-    const { error } = await supabaseAdmin.rpc('execute_sql', {
-      sql: query
-    });
-
-    if (error) throw error;
+      if (error) {
+          console.error(`Error in sector ${sector} metric ${metric}:`, error);
+          throw error;
+      }
+    }
   }
 }

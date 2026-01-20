@@ -231,28 +231,20 @@ export async function buildSnapshot(
   let sectorSource: 'canonical' | 'profile_fallback' | undefined;
 
   try {
-    // 1. PRIMARY (canonical source)
-    const { data: assetMap } = await supabaseAdmin
-      .from('asset_industry_map')
-      .select('industry_id, sector')
+    // 1. PRIMARY (fintra_universe) - New Source of Truth
+    // asset_industry_map is currently empty and has schema issues, so we use universe.
+    const { data: universeRow } = await supabaseAdmin
+      .from('fintra_universe')
+      .select('sector, industry')
       .eq('ticker', sym)
       .maybeSingle();
 
-    if (assetMap && assetMap.sector) {
-      sector = assetMap.sector;
+    if (universeRow && universeRow.sector) {
+      sector = universeRow.sector;
+      industry = universeRow.industry || null;
       sectorSource = 'canonical';
-
-      if (assetMap.industry_id) {
-        const { data: ind } = await supabaseAdmin
-          .from('industry_classification')
-          .select('industry')
-          .eq('industry_id', assetMap.industry_id)
-          .maybeSingle();
-
-        industry = ind?.industry ?? null;
-      }
       classificationStatus = 'full';
-    } 
+    }
     // 2. FALLBACK (company_profile)
     else if (profile && profile.sector) {
       sector = profile.sector;

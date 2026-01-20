@@ -4,15 +4,18 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { StockEcosystem } from '@/lib/fmp/types';
 import { StockData, StockAnalysis, StockPerformance, searchStockData } from '@/lib/stockQueries';
 import NavigationBar from '@/components/layout/NavigationBar';
-import DatosTab from '@/components/tabs/DatosTab';
+import DatosFinancierosTab from '@/components/tabs/DatosFinancierosTab';
+import SnapshotTab from '@/components/tabs/SnapshotTab';
 import ChartsTabHistoricos from '@/components/tabs/ChartsTabHistoricos';
 import { registerStockSearch } from '@/lib/supabase';
 import { fmp } from '@/lib/fmp/client';
 import EcosystemCard from '@/components/cards/EcosystemCard';
 import OverviewCard from '@/components/cards/OverviewCard';
-import EstimacionTab from '@/components/tabs/EstimacionTab';
+import ScenariosTab from '@/components/tabs/ScenariosTab';
+import ConclusionTab from '@/components/tabs/ConclusionTab';
 import ResumenTab from '@/components/tabs/ResumenTab';
 import { getLatestSnapshot, getEcosystemDetailed } from '@/lib/repository/fintra-db';
+import { buildFGOSState } from '@/lib/engine/fgos-state';
 import TickerExpandidoModal from '@/components/dashboard/TickerExpandidoModal';
 import type { TabKey } from '@/components/dashboard/StockTerminal';
 
@@ -103,13 +106,25 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
 
           if (snapshot) {
              console.log("Fintra DB Snapshot found:", snapshot);
-             // Aquí podríamos actualizar stockAnalysis con datos de la DB si se prefiere
-             if (snapshot.fgos_breakdown) {
-                setStockAnalysis((prev: any) => ({
-                    ...prev,
-                    fgos_breakdown: snapshot.fgos_breakdown
-                }));
-             }
+             
+             // Build FGOS State
+             const fgosState = buildFGOSState({
+                 fgos_score: snapshot.fgos_score,
+                 fgos_components: (snapshot as any).fgos_components || (snapshot as any).fgos_breakdown,
+                 fgos_confidence_percent: snapshot.fgos_confidence_percent,
+                 fgos_confidence_label: null, 
+                 fgos_status: snapshot.fgos_status
+             });
+
+             setStockAnalysis((prev: any) => ({
+                 ...prev,
+                 fgos_score: snapshot.fgos_score,
+                 fgos_status: snapshot.fgos_status,
+                 fgos_confidence_percent: snapshot.fgos_confidence_percent,
+                 valuation: snapshot.valuation,
+                 fgos_breakdown: (snapshot as any).fgos_components || (snapshot as any).fgos_breakdown,
+                 fgos_state: fgosState
+             }));
           }
 
           // 2. Obtener Ecosistema Detallado
@@ -184,13 +199,25 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
             clients={stockEcosystem?.clients}
           />
         );
-      case 'datos':
+      case 'snapshot':
         return (
-          <DatosTab
+          <SnapshotTab
             stockAnalysis={stockAnalysis}
             stockPerformance={stockPerformance}
             stockBasicData={stockBasicData}
             symbol={ticker}
+            ratios={stockRatios}
+            metrics={stockMetrics}
+            peerTicker={selectedCompetitor}
+          />
+        );
+      case 'datos':
+        return (
+          <DatosFinancierosTab
+            stockAnalysis={stockAnalysis}
+            stockPerformance={stockPerformance}
+            stockBasicData={stockBasicData}
+            ticker={ticker}
             ratios={stockRatios}
             metrics={stockMetrics}
             peerTicker={selectedCompetitor}
@@ -205,10 +232,19 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
             isActive={isActive}
           />
         );
-      case 'estimacion':
+      case 'escenarios':
         return (
-          <EstimacionTab 
+          <ScenariosTab 
+            marketScenarios={(stockAnalysis as any)?.market_scenarios}
+            sensitivities={(stockAnalysis as any)?.sensitivities}
+          />
+        );
+      case 'conclusion':
+        return (
+          <ConclusionTab 
             selectedStock={stockBasicData || { symbol: ticker }}
+            stockAnalysis={stockAnalysis}
+            aiAnalysis={(stockAnalysis as any)?.ai_analysis_text}
           />
         );
       default:
@@ -241,9 +277,7 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
         </div>
 
         <div
-          className={`w-full flex-1 border-r border-l border-zinc-800 ${
-            activeTab === 'datos' ? 'overflow-hidden' : 'overflow-y-auto scrollbar-on-hover'
-          }`}
+          className="w-full flex-1 border-r border-l border-zinc-800 overflow-y-auto scrollbar-on-hover"
         >
           {renderTabContent()}
         </div>

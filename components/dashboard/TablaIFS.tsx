@@ -26,6 +26,34 @@ export interface EnrichedStockData {
   marketCap: number | null;
 }
 
+// Helper to map raw Supabase snapshot to EnrichedStockData
+export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
+  const marketSnapshot = row.market_snapshot || {};
+  const valuation = row.valuation || {};
+  const fgosComponents = row.fgos_components || {};
+  const competitiveAdvantage = fgosComponents.competitive_advantage || {};
+  const marketPosition = row.market_position || {};
+
+  // Debug specific fields mapping if needed
+  // console.log(`Mapping ${row.ticker}:`, { fgos: row.fgos_score, ifs: row.ifs });
+
+  return {
+    ticker: row.ticker,
+    sectorRank: marketPosition.sector_rank ?? null,
+    sectorRankTotal: marketPosition.sector_total_count ?? null,
+    sectorValuationStatus: valuation.valuation_status ?? null,
+    fgosBand: row.fgos_category ?? row.fgos_band ?? null,
+    fgosScore: row.fgos_score ?? null,
+    ifs: row.ifs ? { position: row.ifs.position, pressure: row.ifs.pressure } : null,
+    competitiveStructureBand: competitiveAdvantage.band ?? null,
+    relativeResultBand: row.relative_return?.band ?? null,
+    strategyState: row.investment_verdict?.verdict_label ?? null,
+    priceEod: marketSnapshot.price_eod ?? marketSnapshot.price ?? null,
+    ytdReturn: marketSnapshot.ytd_percent ?? null,
+    marketCap: marketSnapshot.market_cap ?? null,
+  };
+};
+
 // Helper Constants & Functions
 const FGOS_BAND_ORDER: Record<string, number> = {
   strong: 1,
@@ -166,6 +194,13 @@ export default function TablaIFS({
   scrollRef,
   emptyMessage = "No se encontraron resultados."
 }: TablaIFSProps) {
+  // Debug logging
+  React.useEffect(() => {
+    if (data && data.length > 0) {
+      console.log("📊 [DEBUG] TablaIFS Received Data (first 3):", data.slice(0, 3));
+    }
+  }, [data]);
+
   return (
     <div
       ref={scrollRef}
@@ -179,7 +214,7 @@ export default function TablaIFS({
             <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Ranking Sectorial (IFS)</TableHead>
             <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[80px]">IFS</TableHead>
             <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Valuación Relativa</TableHead>
-            <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Calidad Fundamental</TableHead>
+            <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Calidad Fundamental</TableHead>
             <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Estado Estratégico</TableHead>
             <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[70px]">Precio EOD</TableHead>
             <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[60px]">YTD %</TableHead>

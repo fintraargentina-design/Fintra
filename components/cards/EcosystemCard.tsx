@@ -367,7 +367,7 @@ export default function EcosystemCard({
       <CardHeader className="p-0 m-0 space-y-0 shrink-0 w-full border-b border-zinc-800 bg-transparent z-10">
         <div className="flex items-center justify-between w-full h-10 px-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-zinc-400">Ecosystem Risk Map</span>
+            <span className="text-xs font-medium text-zinc-400">Geopolítica de la Cadena de Suministro</span>
             <Button
               variant="ghost" size="icon" onClick={fetchEcosystemData} disabled={loading}
               className="h-6 w-6 text-zinc-500 hover:text-zinc-200"

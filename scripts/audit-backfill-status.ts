@@ -180,10 +180,15 @@ async function checkCoverage(table: string, dateCol: string, entityCol: string, 
 
 async function checkPricesDaily() {
     const table = 'prices_daily';
-    // Use head:true to check if empty
-    const { count, error } = await supabase.from(table).select('*', { count: 'exact', head: true });
+    // Use limit(1) to check if empty (faster than count(*))
+    const { data: oneRow, error: emptyCheckError } = await supabase.from(table).select('ticker').limit(1);
     
-    if (error || !count || count === 0) {
+    if (emptyCheckError) {
+        addAlert('critical', 'SCRIPT_RAN_BUT_NO_ROWS', table, `Error checking emptiness: ${emptyCheckError.message}`);
+        return;
+    }
+    
+    if (!oneRow || oneRow.length === 0) {
         addAlert('critical', 'SCRIPT_RAN_BUT_NO_ROWS', table, 'prices_daily is empty');
         return;
     }
@@ -211,14 +216,18 @@ async function checkPricesDaily() {
 
     // Proxy: Count rows in last 5 days
     const cutoff = dayjs().subtract(5, 'day').format('YYYY-MM-DD');
-    const { count: recentRows } = await supabase.from(table)
+    const { count: recentRows, error: recentError } = await supabase.from(table)
         .select('*', { count: 'exact', head: true })
         .gte('price_date', cutoff);
     
-    const expectedRows = universe.length * 3; // Approx 3 trading days
-    // If recent rows is very low, it implies we stopped writing for many tickers
-    if ((recentRows || 0) < expectedRows * 0.5) {
-        addAlert('high', 'PARTIAL_WRITE', table, `Recent rows ${recentRows} << Expected ~${expectedRows}. Many tickers missing recent data.`);
+    if (recentError) {
+        addAlert('warning', 'CHECK_FAILED', table, `Failed to count recent rows: ${recentError.message}`);
+    } else {
+        const expectedRows = universe.length * 3; // Approx 3 trading days
+        // If recent rows is very low, it implies we stopped writing for many tickers
+        if ((recentRows || 0) < expectedRows * 0.5) {
+            addAlert('high', 'PARTIAL_WRITE', table, `Recent rows ${recentRows} << Expected ~${expectedRows}. Many tickers missing recent data.`);
+        }
     }
 }
 

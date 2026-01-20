@@ -8,7 +8,7 @@ import Footer from '@/components/layout/Footer';
 import LeftPanel from '@/components/dashboard/LeftPanel';
 import TabManager from '@/components/dashboard/TabManager';
 
-export type TabKey = 'resumen' | 'competidores' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'noticias' | 'twits' | 'ecosistema' | 'indices' | 'horarios' | 'empresa';
+export type TabKey = 'resumen' | 'competidores' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'escenarios' | 'conclusion' | 'noticias' | 'twits' | 'ecosistema' | 'indices' | 'horarios' | 'empresa' | 'snapshot';
 
 export default function StockTerminal() {
   const pathname = usePathname();
