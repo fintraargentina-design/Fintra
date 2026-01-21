@@ -113,6 +113,74 @@ async function main() {
 		console.log('\n--- 17. Healthcheck Snapshots ---');
 		await checkSnapshotsHealth();
 
+		// 18. Recompute FGOS (Final Step)
+		console.log('\n--- 18. Recompute FGOS (Final Step) ---');
+		const { supabaseAdmin } = await import('@/lib/supabase-admin');
+		const { recomputeFGOSForTicker } = await import('@/lib/engine/fgos-recompute');
+
+		const today = new Date().toISOString().slice(0, 10);
+		console.log(`🚀 Starting FGOS Recompute for ALL sectors (Date: ${today})`);
+
+		// Fetch all tickers with snapshots today
+		console.log('📥 Fetching snapshots...');
+		let allTickers: string[] = [];
+		let page = 0;
+		const PAGE_SIZE = 1000;
+
+		while (true) {
+			const { data, error } = await supabaseAdmin
+				.from('fintra_snapshots')
+				.select('ticker')
+				.eq('snapshot_date', today)
+				.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+			if (error) {
+				console.error('Error fetching snapshots:', error);
+				// Don't exit process, just log error and continue to finish script
+				break;
+			}
+
+			if (!data || data.length === 0) break;
+
+			data.forEach(d => allTickers.push(d.ticker));
+			
+			if (data.length < PAGE_SIZE) break;
+			page++;
+		}
+
+		console.log(`📋 Found ${allTickers.length} snapshots for today.`);
+
+		if (allTickers.length > 0) {
+			let success = 0;
+			let pending = 0;
+			let failed = 0;
+
+			const CHUNK_SIZE = 25;
+			const TOTAL = allTickers.length;
+
+			for (let i = 0; i < TOTAL; i += CHUNK_SIZE) {
+				const chunk = allTickers.slice(i, i + CHUNK_SIZE);
+				
+				await Promise.all(chunk.map(async (ticker) => {
+					try {
+						const res: any = await recomputeFGOSForTicker(ticker, today);
+						const status = res.fgos_status || res.status;
+						if (status === 'computed') success++;
+						else pending++;
+					} catch (err) {
+						failed++;
+					}
+				}));
+
+				const progress = Math.min(i + CHUNK_SIZE, TOTAL);
+				const percent = ((progress / TOTAL) * 100).toFixed(1);
+				process.stdout.write(`\rProcessing: ${progress}/${TOTAL} (${percent}%) | ✅ OK: ${success} | ⏳ Pending: ${pending} | ❌ Fail: ${failed}`);
+			}
+			console.log('\n✅ FGOS Recompute Finished.');
+		} else {
+			console.log('⚠️ No snapshots found for FGOS recompute.');
+		}
+
 		console.log('\n✅ Master Cron (ALL) Finished Successfully');
     } catch (error) {
         console.error('\n❌ Master Cron Failed:', error);

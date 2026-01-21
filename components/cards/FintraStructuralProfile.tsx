@@ -123,7 +123,7 @@ export default function FintraStructuralProfile({
       </div>
 
       {/* Level 1: Context (Dominant) */}
-      <div className="flex flex-col items-center justify-center gap-3">
+      {/* <div className="flex flex-col items-center justify-center gap-3">
         <IFSVisual position={ifsPosition} pressure={ifsPressure} size="lg" />
         <div className="flex flex-col items-center gap-0.5">
           <span className="text-zinc-500 text-[10px] uppercase tracking-wider">
@@ -133,10 +133,22 @@ export default function FintraStructuralProfile({
             {getIfsLabel(ifsPosition)}
           </span>
         </div>
-      </div>
+      </div> */}
 
       {/* Level 2: Attributes (Secondary) */}
-      <div className="grid grid-cols-2 gap-4 w-full pt-2">
+      <div className="grid grid-cols-4 gap-2 w-full pt-2">
+        <div className="flex flex-col items-center gap-2">
+          
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-zinc-500 text-[10px] uppercase tracking-wider">
+              Score Fintra de Industria
+            </span>
+            <IFSVisual position={ifsPosition} pressure={ifsPressure} size="lg" />
+            <span className="text-white text-base font-medium tracking-wide">
+              {getIfsLabel(ifsPosition)}
+            </span>
+          </div>
+        </div>
         <div className="flex flex-col items-center text-center gap-1.5">
           <span className="text-zinc-500 text-[10px] uppercase tracking-wider">
             Calidad Fundamental
@@ -153,11 +165,6 @@ export default function FintraStructuralProfile({
             {getValuationLabel(relativeValuation)}
           </span>
         </div>
-      </div>
-
-      {/* Level 3: Closure (Final) */}
-      <div className="flex flex-col items-center gap-3 pt-2">
-        <div className="w-16 h-[1px] bg-zinc-800/80" />
         <div className="flex flex-col items-center gap-1">
           <span className="text-zinc-500 text-[10px] uppercase tracking-wider">
             Estado Estratégico
@@ -167,6 +174,19 @@ export default function FintraStructuralProfile({
           </span>
         </div>
       </div>
+
+      {/* Level 3: Closure (Final) */}
+      {/* <div className="flex flex-col items-center gap-3 pt-2">
+        <div className="w-16 h-[1px] bg-zinc-800/80" />
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-zinc-500 text-[10px] uppercase tracking-wider">
+            Estado Estratégico
+          </span>
+          <span className="text-white text-lg font-semibold tracking-wide">
+            {getAttentionLabel(attentionState)}
+          </span>
+        </div>
+      </div> */}
     </div>
   );
 }

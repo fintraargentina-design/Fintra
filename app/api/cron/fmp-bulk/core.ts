@@ -3,7 +3,7 @@ import { fetchAllFmpData } from './fetchBulk';
 import { buildSnapshot, SNAPSHOT_ENGINE_VERSION } from './buildSnapshots';
 import { upsertSnapshots } from './upsertSnapshots';
 import { getActiveStockTickers } from '@/lib/repository/active-stocks';
-import { fetchFinancialHistory, computeGrowthRows, fetchPerformanceHistory, fetchValuationHistory } from './fetchGrowthData';
+import { fetchFinancialHistory, computeGrowthRows, fetchPerformanceHistory, fetchValuationHistory, fetchSectorPerformanceHistory } from './fetchGrowthData';
 
 export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
   const fmpKey = process.env.FMP_API_KEY!;
@@ -95,6 +95,9 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
     const scoresMap = new Map<string, any>(bulk.scores.map((s: any) => [s.symbol, s]));
 
     // BUILD SNAPSHOTS
+    // Fetch Sector Performance (Global for the run)
+    const sectorPerformanceMap = await fetchSectorPerformanceHistory(supabase);
+
     // Map tickers to buildSnapshot calls
     const BATCH_SIZE = 10; // Reduced to 10 to prevent Access Violation / Memory issues
     const snapshots: any[] = [];
@@ -144,7 +147,8 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
                     history,    // Full financial history for Moat
                     performanceRows, // Performance history for Relative Return
                     valuationRows, // Valuation history for Sentiment
-                    benchmarkRows // Benchmark performance (SPY)
+                    benchmarkRows, // Benchmark performance (SPY)
+                    sectorPerformanceMap // Sector Performance for Relative Return
                 );
             } catch (err: any) {
                 console.error(`❌ CRITICAL ERROR building snapshot for ${ticker}:`, err.message);

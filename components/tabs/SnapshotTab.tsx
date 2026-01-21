@@ -22,11 +22,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { FinancialSnapshot } from "@/lib/engine/types";
 
 // --- TYPES ---
 
 interface SnapshotTabProps {
-  stockAnalysis: any; // Contains snapshot data (relative_return, scores, etc.)
+  stockAnalysis: FinancialSnapshot | any; // Contains snapshot data (relative_return, scores, etc.)
   stockPerformance?: any;
   stockBasicData?: any; // Contains market_cap, etc.
   symbol: string;
@@ -228,8 +229,14 @@ export default function SnapshotTab({
             </TableHeader>
             <TableBody>
               {relativeRows.map((row) => {
-                const sectorVal = relativeReturn?.[row.key]?.sector;
-                const marketVal = relativeReturn?.[row.key]?.market;
+                // Construct property names for explicit columns
+                // e.g. relative_vs_sector_1w
+                const sectorKey = `relative_vs_sector_${row.key}` as keyof FinancialSnapshot;
+                const marketKey = `relative_vs_market_${row.key}` as keyof FinancialSnapshot;
+
+                const sectorVal = stockAnalysis?.[sectorKey] as number | null | undefined;
+                const marketVal = stockAnalysis?.[marketKey] as number | null | undefined;
+
                 return (
                   <TableRow key={row.key} className="border-zinc-800/30 hover:bg-transparent">
                     <TableCell className="py-1 text-[11px] font-mono text-zinc-400">{row.label}</TableCell>
@@ -296,35 +303,7 @@ export default function SnapshotTab({
         </div>
       </section>
 
-      {/* 3) SCORECARD INTEGRADO */}
-      <section className="mt-4">
-          <div className="border-t border-zinc-800 bg-black/40 px-4 py-3">
-          <SectionHeader title="Ratios Técnicos" />
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
-                  {[
-                      { label: "Altman Z", value: ratios.altman, kind: "altman" },
-                      { label: "Piotroski", value: ratios.piotroski, kind: "piotroski" },
-                      { label: "Activos", value: financialMetrics.assets?.value, kind: "money" },
-                      { label: "Pasivos", value: financialMetrics.liabilities?.value, kind: "money" },
-                      { label: "Ingresos", value: financialMetrics.revenue?.value, kind: "money" },
-                      { label: "EBIT", value: ebitValue, kind: "money" },
-                      { label: "Mkt Cap", value: stockBasicData?.market_cap, kind: "money" },
-                      { label: "Working Cap", value: (financialMetrics.assets?.value && financialMetrics.liabilities?.value) ? (financialMetrics.assets.value - financialMetrics.liabilities.value) : null, kind: "money" },
-                  ].map((item, idx) => (
-                      <div key={idx} className="flex flex-col justify-center items-center border-r last:border-r-0 border-zinc-800 px-2">
-                          <span className="text-zinc-500 text-[9px] uppercase tracking-wider mb-0.5 whitespace-nowrap">{item.label}</span>
-                          <span className={`font-mono font-medium text-xs whitespace-nowrap ${
-                              item.kind === "altman" ? "text-green-400" : item.kind === "piotroski" ? "text-blue-400" : "text-zinc-300"
-                          }`}>
-                              {item.kind === "altman" && typeof item.value === 'number' && Number.isFinite(item.value) ? item.value.toFixed(2) :
-                               item.kind === "piotroski" && typeof item.value === 'number' && Number.isFinite(item.value) ? `${item.value}/9` :
-                               item.kind === "money" ? item.value ? formatCurrency(Number(item.value)) : "N/A" : "N/A"}
-                          </span>
-                      </div>
-                  ))}
-              </div>
-          </div>
-      </section>
+
       
       {/* Footer / Micro-copy */}
       <div className="pt-2 border-t border-zinc-900 mt-4">

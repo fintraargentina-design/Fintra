@@ -107,7 +107,7 @@ export async function fetchPerformanceHistory(
     .from('datos_performance')
     .select('ticker, window_code, return_percent, max_drawdown')
     .in('ticker', tickers)
-    .in('window_code', ['1Y', '3Y', '5Y']);
+    .in('window_code', ['1W', '1M', 'YTD', '1Y', '3Y', '5Y']);
 
   if (error) {
     console.error('❌ Error fetching performance history:', error);
@@ -119,6 +119,38 @@ export async function fetchPerformanceHistory(
   data?.forEach((row: any) => {
     if (!map.has(row.ticker)) map.set(row.ticker, []);
     map.get(row.ticker)!.push(row);
+  });
+
+  return map;
+}
+
+export async function fetchSectorPerformanceHistory(
+  supabase: SupabaseClient
+) {
+  // Fetch latest sector performance for all sectors and all windows
+  // Since we aggregate daily, we just take the latest one available.
+  // Ideally, we filter by today's date or just take the latest.
+  // Given the cron runs daily, filtering by date would be safer if we knew the exact date.
+  // But to be robust, let's fetch recent records.
+  
+  const today = new Date().toISOString().slice(0, 10);
+  
+  const { data, error } = await supabase
+    .from('sector_performance')
+    .select('sector, window_code, return_percent, performance_date')
+    .eq('performance_date', today)
+    .in('window_code', ['1W', '1M', 'YTD', '1Y', '3Y', '5Y']);
+
+  if (error) {
+    console.error('❌ Error fetching sector performance history:', error);
+    return new Map<string, any[]>();
+  }
+
+  // Group by sector
+  const map = new Map<string, any[]>();
+  data?.forEach((row: any) => {
+    if (!map.has(row.sector)) map.set(row.sector, []);
+    map.get(row.sector)!.push(row);
   });
 
   return map;

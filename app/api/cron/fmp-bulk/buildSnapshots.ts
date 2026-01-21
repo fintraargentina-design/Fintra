@@ -203,7 +203,8 @@ export async function buildSnapshot(
   financialHistory: any[] = [],
   performanceRows: any[] = [],
   valuationRows: any[] = [],
-  benchmarkRows: any[] = []
+  benchmarkRows: any[] = [],
+  allSectorPerformance: Map<string, any[]> = new Map()
 ): Promise<FinancialSnapshot> {
   console.log('🧪 SNAPSHOT START', sym);
 
@@ -599,6 +600,41 @@ export async function buildSnapshot(
   );
 
   /* --------------------------------
+     RELATIVE PERFORMANCE (Explicit Columns)
+  -------------------------------- */
+  const relPerf: any = {};
+  const relWindows = ['1W', '1M', 'YTD', '1Y', '3Y', '5Y'];
+
+  // Retrieve sector rows using the resolved sector
+  const sectorRows = sector ? allSectorPerformance.get(sector) || [] : [];
+  
+  for (const w of relWindows) {
+     const stockRow = performanceRows.find(r => r.window_code === w);
+     const marketRow = benchmarkRows.find(r => r.window_code === w); // SPY
+     const sectorRow = sectorRows.find(r => r.window_code === w);
+
+     const stockRet = stockRow?.return_percent;
+     const marketRet = marketRow?.return_percent;
+     const sectorRet = sectorRow?.return_percent;
+
+     const keySuffix = w.toLowerCase();
+
+     // Vs Market
+     if (typeof stockRet === 'number' && typeof marketRet === 'number') {
+        relPerf[`relative_vs_market_${keySuffix}`] = stockRet - marketRet;
+     } else {
+        relPerf[`relative_vs_market_${keySuffix}`] = null;
+     }
+
+     // Vs Sector
+     if (typeof stockRet === 'number' && typeof sectorRet === 'number') {
+        relPerf[`relative_vs_sector_${keySuffix}`] = stockRet - sectorRet;
+     } else {
+        relPerf[`relative_vs_sector_${keySuffix}`] = null;
+     }
+  }
+
+  /* --------------------------------
      SNAPSHOT FINAL
   -------------------------------- */
   return {
@@ -614,6 +650,9 @@ export async function buildSnapshot(
       industry,
       source: sectorSource,
     },
+
+    // Spread Relative Performance Fields
+    ...relPerf,
 
     sector_performance: {
       status: sectorPerformanceStatus,

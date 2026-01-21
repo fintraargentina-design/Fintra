@@ -79,11 +79,24 @@ export async function runPricesDailyBulk(opts: PricesDailyBulkOptions) {
     
     let nodeStream: Readable;
 
-    if (fs.existsSync(cacheFile)) {
+    // CACHE LOGIC UPDATE:
+    // If targetDate is TODAY, we should NOT trust the cache blindly, 
+    // because "Today" changes throughout the day (pre-market, open, close).
+    // If we cached an early "partial" file, we'd be stuck with it.
+    // So, if targetDate === today, we force a re-download (or ignore cache).
+    
+    const isToday = dayjs().format('YYYY-MM-DD') === targetDate;
+    
+    if (fs.existsSync(cacheFile) && !isToday) {
         log.push(`✅ CACHE HIT: Found local CSV at ${cacheFile}`);
         nodeStream = fs.createReadStream(cacheFile);
     } else {
-        log.push(`⬇️ CACHE MISS: Downloading EOD Bulk from FMP to ${cacheFile}...`);
+        if (isToday && fs.existsSync(cacheFile)) {
+             log.push(`🔄 TODAY DETECTED: Invalidating cache for ${targetDate} to fetch latest data...`);
+             try { fs.unlinkSync(cacheFile); } catch (e) {}
+        }
+
+        log.push(`⬇️ CACHE MISS (or Invalidated): Downloading EOD Bulk from FMP to ${cacheFile}...`);
         const url = `https://financialmodelingprep.com/stable/eod-bulk?date=${targetDate}&apikey=${apiKey}&datatype=csv`;
         
         const response = await fetch(url);
@@ -95,14 +108,21 @@ export async function runPricesDailyBulk(opts: PricesDailyBulkOptions) {
             throw new Error('FMP returned empty body');
         }
 
-        // Save to Disk first (Stream to file)
-        const fileStream = fs.createWriteStream(cacheFile);
-        // @ts-ignore
-        await pipeline(Readable.fromWeb(response.body), fileStream);
-        log.push(`✅ Download complete. Saved to ${cacheFile}`);
+        if (!isToday) {
+            // Save to Disk first (Stream to file)
+            const fileStream = fs.createWriteStream(cacheFile);
+            // @ts-ignore
+            await pipeline(Readable.fromWeb(response.body), fileStream);
+            log.push(`✅ Download complete. Saved to ${cacheFile}`);
 
-        // Read from the newly saved file
-        nodeStream = fs.createReadStream(cacheFile);
+            // Read from the newly saved file
+            nodeStream = fs.createReadStream(cacheFile);
+        } else {
+            // Stream directly without saving
+            log.push(`⚠️ TODAY DETECTED: Streaming directly without caching (to avoid partial EOD data)`);
+            // @ts-ignore
+            nodeStream = Readable.fromWeb(response.body);
+        }
     }
 
     // 4. Streaming Parse & Process

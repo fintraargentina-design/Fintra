@@ -286,6 +286,22 @@ export interface FinancialSnapshot {
   } | null;
   strategic_state?: any | null; // New field for persisted verdict result
   relative_return?: any | null; // New field for relative return result
+  
+  // Explicit Relative Performance Columns
+  relative_vs_sector_1w?: number | null;
+  relative_vs_sector_1m?: number | null;
+  relative_vs_sector_ytd?: number | null;
+  relative_vs_sector_1y?: number | null;
+  relative_vs_sector_3y?: number | null;
+  relative_vs_sector_5y?: number | null;
+
+  relative_vs_market_1w?: number | null;
+  relative_vs_market_1m?: number | null;
+  relative_vs_market_ytd?: number | null;
+  relative_vs_market_1y?: number | null;
+  relative_vs_market_3y?: number | null;
+  relative_vs_market_5y?: number | null;
+
   data_confidence: {
     has_profile: boolean;
     has_financials: boolean;

@@ -138,43 +138,80 @@ async function checkCoverage(table: string, dateCol: string, entityCol: string, 
 
   // 2. Entity Count (MISSING_ENTITIES)
   // Check count on MAX date
-  const { count, error: countError } = await getDistinctCount(table, entityCol, dateCol, max);
+  let { count, error: countError } = await getDistinctCount(table, entityCol, dateCol, max);
   
+  let checkDate = max;
+  let finalCount = count;
+
+  // If latest date has low count, check if it's potentially an incomplete "today"
+  const minExpected = entityType === 'sector' ? EXPECTED_SECTOR_COUNT : EXPECTED_INDUSTRY_MIN;
+  
+  if (count < minExpected) {
+      const today = dayjs().format('YYYY-MM-DD');
+      // If max date is today (or very recent), check previous date before screaming "Critical"
+      if (max === today) {
+          const { data: prevDateRows } = await supabase.from(table)
+              .select(dateCol)
+              .lt(dateCol, max)
+              .order(dateCol, { ascending: false })
+              .limit(1);
+          
+          const prevDate = (prevDateRows?.[0] as any)?.[dateCol];
+          if (prevDate) {
+              const { count: prevCount } = await getDistinctCount(table, entityCol, dateCol, prevDate);
+              
+              if (prevCount >= minExpected) {
+                  // Previous day is healthy. Today is just in-progress.
+                  addAlert('warning', 'PARTIAL_DATA_TODAY', table, `Latest date ${max} has ${count} entities (partial). Previous date ${prevDate} is healthy (${prevCount}).`);
+                  return; // Stop here, do not trigger critical alert
+              } else {
+                  // Previous day is ALSO bad. This is a real issue.
+                  checkDate = prevDate;
+                  finalCount = prevCount;
+              }
+          }
+      }
+  }
+
   if (entityType === 'sector') {
-      if (count < EXPECTED_SECTOR_COUNT) {
-          addAlert('critical', 'MISSING_ENTITIES', table, `Found ${count} sectors on ${max}, expected >= ${EXPECTED_SECTOR_COUNT}`);
+      if (finalCount < EXPECTED_SECTOR_COUNT) {
+          addAlert('critical', 'MISSING_ENTITIES', table, `Found ${finalCount} sectors on ${checkDate}, expected >= ${EXPECTED_SECTOR_COUNT}`);
       }
   } else if (entityType === 'industry') {
-      if (count < EXPECTED_INDUSTRY_MIN) {
-          addAlert('critical', 'MISSING_ENTITIES', table, `Found ${count} industries on ${max}, expected >= ${EXPECTED_INDUSTRY_MIN}`);
+      if (finalCount < EXPECTED_INDUSTRY_MIN) {
+          addAlert('critical', 'MISSING_ENTITIES', table, `Found ${finalCount} industries on ${checkDate}, expected >= ${EXPECTED_INDUSTRY_MIN}`);
       }
   }
 
   // 3. Gaps in Series (GAPS_IN_SERIES)
-  // Heuristic: Total days spanned vs Distinct Dates in table (for daily data)
-  // Or check distinct dates count.
-  // We can't easily fetch distinct dates for whole table if huge.
-  // But sector tables are small enough.
-  // Industry tables might be large.
-  // Let's rely on a simpler check: 
-  // If max - min > 365 days, do we have at least 200 distinct dates per year?
-  // We'll sample the LAST YEAR.
-  const oneYearAgo = dayjs().subtract(1, 'year').format('YYYY-MM-DD');
-  const { data: dates } = await supabase.from(table)
-    .select(dateCol)
-    .gte(dateCol, oneYearAgo);
-  
-  if (dates) {
-    const uniqueDates = new Set(dates.map((r: any) => r[dateCol]));
-    const daysInYear = 365;
-    const businessDays = 252;
-    const threshold = businessDays * 0.8; // Allow some missing
-    if (uniqueDates.size < threshold) {
-        // Only trigger if we have a full year of history
+  // Check time-series continuity for a sample entity instead of the whole table
+  // to avoid fetching millions of rows or hitting default limits (1000 rows).
+  const { data: sampleRow } = await supabase.from(table).select(entityCol).limit(1);
+  const sampleEntity = (sampleRow?.[0] as any)?.[entityCol];
+
+  if (sampleEntity) {
+      const oneYearAgo = dayjs().subtract(1, 'year').format('YYYY-MM-DD');
+      
+      // Fetch dates ONLY for this entity
+      const { data: dates } = await supabase.from(table)
+        .select(dateCol)
+        .eq(entityCol, sampleEntity)
+        .gte(dateCol, oneYearAgo)
+        .limit(1000); // ample buffer for 1 year (~252 trading days)
+      
+      if (dates) {
+        const uniqueDates = new Set(dates.map((r: any) => r[dateCol]));
+        const businessDays = 252;
+        const threshold = businessDays * 0.7; // Allow ~30% missing before flagging (holidays, etc)
+        
+        // Only trigger if we have a full year of history for this entity
+        // We use 'min' from the whole table as a proxy for history existence
         if (dayjs(min).isBefore(dayjs().subtract(1, 'year'))) {
-            addAlert('high', 'GAPS_IN_SERIES', table, `Only ${uniqueDates.size} distinct dates in last year (expected > ~200)`);
+            if (uniqueDates.size < threshold) {
+                addAlert('high', 'GAPS_IN_SERIES', table, `Sample entity '${sampleEntity}' has only ${uniqueDates.size} distinct dates in last year (expected > ~${Math.floor(threshold)})`);
+            }
         }
-    }
+      }
   }
 }
 

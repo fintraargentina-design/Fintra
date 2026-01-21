@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { getActiveStockTickers } from '@/lib/repository/active-stocks';
 
 // --- Main Core Function ---
 
@@ -12,24 +13,9 @@ export async function runPerformanceBulk(targetTicker?: string, limit?: number) 
     console.log(`[PerformanceBulk] Running for single ticker: ${targetTicker}`);
     activeTickers = [targetTicker];
   } else {
-    // We fetch all active tickers.
-    let page = 0;
-    const BATCH_SIZE = 1000;
-
-    while (true) {
-      const { data, error } = await supabaseAdmin
-        .from('fintra_universe')
-        .select('ticker')
-        .eq('is_active', true)
-        .range(page * BATCH_SIZE, (page + 1) * BATCH_SIZE - 1);
-
-      if (error) throw error;
-      if (!data || data.length === 0) break;
-
-      activeTickers.push(...data.map(t => t.ticker));
-      if (data.length < BATCH_SIZE) break;
-      page++;
-    }
+    // We fetch all active tickers using the central repository logic
+    console.log('[PerformanceBulk] Fetching active stocks from fintra_active_stocks...');
+    activeTickers = await getActiveStockTickers(supabaseAdmin);
   }
 
   // LIMIT (Benchmark Mode)

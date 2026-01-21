@@ -208,18 +208,35 @@ export default function ResumenCard({
                   <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Cap. Mercado</span>
                   <span className="text-white font-mono text-xs font-medium">{formatLargeNumber(data.marketCap)}</span>
                 </div>
+                
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Empleados</span>
-                  {renderField(
-                    Number.isFinite(Number(data.fullTimeEmployees))
-                      ? Number(data.fullTimeEmployees).toLocaleString()
-                      : undefined
-                  )}
+                  <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Activos</span>
+                  <span className="text-white font-mono text-xs font-medium">
+                    {resumen?.total_assets ? formatLargeNumber(resumen.total_assets) : "N/D"}
+                  </span>
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Beta</span>
+                  <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Pasivos</span>
                   <span className="text-white font-mono text-xs font-medium">
-                    {Number.isFinite(Number(data.beta)) ? Number(data.beta).toFixed(3) : "N/D"}
+                    {resumen?.total_liabilities ? formatLargeNumber(resumen.total_liabilities) : "N/D"}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Ingresos</span>
+                  <span className="text-white font-mono text-xs font-medium">
+                    {resumen?.revenue ? formatLargeNumber(resumen.revenue) : "N/D"}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-zinc-500 text-[10px] uppercase tracking-wider">EBIT</span>
+                  <span className="text-white font-mono text-xs font-medium">
+                    {resumen?.ebit ? formatLargeNumber(resumen.ebit) : "N/D"}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Working Cap</span>
+                  <span className="text-white font-mono text-xs font-medium">
+                    {resumen?.working_capital ? formatLargeNumber(resumen.working_capital) : "N/D"}
                   </span>
                 </div>
                 <div className="flex flex-col gap-0.5">
@@ -238,6 +255,26 @@ export default function ResumenCard({
                   <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Rango 52s</span>
                   <span className="text-zinc-300 font-mono text-[10px]">{data.range || "N/D"}</span>
                 </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Empleados</span>
+                  {renderField(
+                    Number.isFinite(Number(data.fullTimeEmployees))
+                      ? Number(data.fullTimeEmployees).toLocaleString()
+                      : undefined
+                  )}
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Altman Z</span>
+                  <span className="text-green-400 font-mono text-xs font-medium">
+                    {resumen?.altman_z && typeof resumen.altman_z === 'number' && Number.isFinite(resumen.altman_z) ? resumen.altman_z.toFixed(2) : "N/D"}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Piotroski</span>
+                  <span className="text-blue-400 font-mono text-xs font-medium">
+                    {resumen?.piotroski_score && typeof resumen.piotroski_score === 'number' && Number.isFinite(resumen.piotroski_score) ? `${resumen.piotroski_score}/9` : "N/D"}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -253,7 +290,7 @@ export default function ResumenCard({
                   </span>
                 </div>
               </div>
-              <div className="max-h-[160px] pr-2 overflow-y-auto">
+              <div className="max-h-[250px] pr-2 overflow-y-auto">
                 <p className="text-zinc-400 text-xs leading-relaxed text-justify font-mono">
                   {data.description || "Descripción no disponible."}
                 </p>

@@ -17,7 +17,7 @@ export default function NavigationBar({
   const tabs = [
     { key: 'empresa', label: 'Perfil' },
     /* { key: 'competidores', label: 'Competidores' }, */
-    { key: 'snapshot', label: 'Snapshot Técnico' },
+    { key: 'snapshot', label: 'Vs Mercado' },
     { key: 'datos', label: 'Datos Financieros' },
     { key: 'ecosistema', label: 'Resiliencia Geopolítica' },
     { key: 'escenarios', label: 'Escenarios' },
