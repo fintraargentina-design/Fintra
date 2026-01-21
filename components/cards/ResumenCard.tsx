@@ -65,6 +65,7 @@ export default function ResumenCard({
 
         return {
             symbol: str(resumen.ticker) || currentSymbol,
+            logo_url: `https://financialmodelingprep.com/image-stock/${(str(resumen.ticker) || currentSymbol).toUpperCase()}.png`,
             companyName: str(resumen.name),
             sector: str(resumen.sector),
             industry: str(resumen.industry),
@@ -88,12 +89,14 @@ export default function ResumenCard({
       return {
         ...stockBasicData,
         symbol: (stockBasicData.symbol || currentSymbol || "").toUpperCase(),
+        logo_url: stockBasicData.image || stockBasicData.logo_url || `https://financialmodelingprep.com/image-stock/${(stockBasicData.symbol || currentSymbol || "").toUpperCase()}.png`,
       };
     }
 
     // 3. Default Empty
     return {
       symbol: currentSymbol,
+      logo_url: currentSymbol ? `https://financialmodelingprep.com/image-stock/${currentSymbol.toUpperCase()}.png` : null,
       companyName: "",
       sector: "",
       industry: "",
@@ -167,6 +170,29 @@ export default function ResumenCard({
             <div className="lg:col-span-3 flex flex-col p-4 bg-tarjetas border-r border-zinc-800 gap-4">
               <h3 className="text-[#FFA028] text-xs font-bold uppercase tracking-wider">Perfil Corporativo</h3>
               <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3 pb-2 border-b border-zinc-800/50 mb-1">
+                  <div className="relative h-10 w-10 flex items-center justify-center overflow-hidden rounded-md shrink-0 bg-zinc-900/50">
+                    {data.logo_url ? (
+                      <img 
+                        src={data.logo_url} 
+                        alt={data.symbol || "Logo"} 
+                        className="w-full h-full object-contain p-1"
+                        onError={(e: any) => {
+                           e.currentTarget.style.display = 'none';
+                           const span = e.currentTarget.parentElement?.querySelector('.fallback-text') as HTMLElement;
+                           if (span) span.style.display = 'block';
+                        }}
+                      />
+                    ) : null}
+                    <span className="fallback-text text-zinc-500 font-bold text-xs" style={{ display: data.logo_url ? 'none' : 'block' }}>
+                      {(data.symbol || currentSymbol)?.slice(0, 2) || "??"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col min-w-0 justify-center">
+                     <span className="text-zinc-200 text-sm font-bold leading-tight">{data.symbol}</span>
+                     <span className="text-zinc-500 text-[10px] truncate max-w-[120px] leading-tight">{data.companyName}</span>
+                  </div>
+                </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Sector</span>
                   {renderField(data.sector)}

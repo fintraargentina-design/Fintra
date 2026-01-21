@@ -106,27 +106,11 @@ export default function OverviewCard({
   return (
     <Card className="bg-tarjetas border-none shadow-lg w-full h-full flex flex-col group relative overflow-hidden rounded-none">
       <CardContent className="p-0 flex flex-col h-full">
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_.5fr] gap-0 items-center border-b border-zinc-800 bg-[#1D1D1D] h-full">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-0 items-center border-b border-zinc-800 bg-[#1D1D1D] h-full">
             
             {/* 1. STOCK: Logo, Ticker, Nombre */}
-            <div className="flex items-center gap-1 px-0.5 h-full">
-                  <div className="relative h-full aspect-square flex items-center justify-center overflow-hidden border-none rounded-none shrink-0">
-                    {d.logo_url ? (
-                      <img 
-                        src={d.logo_url} 
-                        alt={d.ticker || "Logo"} 
-                        className="w-10 h-10 object-contain p-0"
-                        onError={(e: any) => {
-                           e.currentTarget.style.display = 'none';
-                           const span = e.currentTarget.parentElement?.querySelector('.fallback-text') as HTMLElement;
-                           if (span) span.style.display = 'block';
-                        }}
-                      />
-                    ) : null}
-                    <span className="fallback-text text-white font-bold text-xs" style={{ display: d.logo_url ? 'none' : 'block' }}>
-                      {(d.ticker || currentSymbol)?.slice(0, 2) || "??"}
-                    </span>
-                  </div>
+            <div className="flex items-center gap-1 px-2 h-full">
+
                 <div className="flex flex-col min-w-0 justify-center">
                     <span className="text-gray-400 text-[12px] leading-tight font-medium truncate max-w-[150px]" title={d.name || ""}>
                         {d.name || (loading || isParentLoading ? "Cargando..." : "N/A")}
@@ -134,62 +118,7 @@ export default function OverviewCard({
                 </div>
             </div>
 
-            {/* 2. PRECIO */}
-            <div className="flex flex-col items-center justify-center px-1 py-1 h-full">
-                <div className="text-base text-white leading-none">
-                  {Number.isFinite(Number(d.price)) ? `$${Number(d.price).toFixed(2)}` : "N/A"}
-                </div>
-                <span className="text-[10px] uppercase text-zinc-500 font-bold">Precio</span>
-                {/* <div className={`text-[10px] font-medium ${Number(d.change_percentage ?? 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
-                  {Number(d.change_percentage ?? 0) >= 0 ? "+" : ""}{Number.isFinite(Number(d.change_percentage)) ? Number(d.change_percentage).toFixed(2) : "0.00"}%
-                </div> */}
-            </div>
 
-            {/* 3. FGOS */}
-            <div className="flex flex-col items-center justify-center px-1 h-full">
-                
-                {Number.isFinite(d.fgos_score) ? (
-                  <FgosScoreCell score={d.fgos_score as number} confidenceLabel={undefined} />
-                ) : loading ? (
-                  <Skeleton className="h-6 w-10 bg-white/10 rounded-sm" />
-                ) : (
-                  <div className="text-lg font-black leading-none text-zinc-700">-</div>
-                )}
-                <span className="text-[10px] uppercase text-zinc-500 font-bold">I.F.S.</span>
-
-            </div>
-
-            {/* 4. VALUACIÓN */}
-            <div className="flex flex-col items-center justify-center px-1 h-full">
-                
-                {d.valuation_status ? (
-                   getValBadge(d.valuation_status)
-                ) : loading ? (
-                  <Skeleton className="h-5 w-30 bg-white/10 rounded-full" />
-                ) : (
-                   getValBadge(null)
-                )}
-                <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest ">Valuación Sectorial</span>
-            </div>
-
-            
-            {/* 5. Resultado relativo */}
-            <div className="flex flex-col items-center justify-center px-1 h-full">
-                {d.relative_return ? (
-                   <div className="flex flex-col items-center">
-                      <div className="text-[10px] text-gray-300 font-medium leading-none text-center">
-                        {getRelativeReturnLabel(d.relative_return)}
-                      </div>
-                   </div>
-                ) : loading ? (
-                  <Skeleton className="h-6 w-16 bg-white/10 rounded-sm" />
-                ) : (
-                   <div className="text-lg font-mono text-zinc-700 font-bold leading-none">-</div>
-                )}
-                <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest flex items-center gap-1 mb-0.5">
-                    RESULTADO RELATIVO
-                </span>
-            </div>
 
             {/* 5. VER DATOS DETALLADOS */}
             <div className="flex flex-col items-center justify-center px-2 h-full text-center">
@@ -201,12 +130,13 @@ export default function OverviewCard({
                   size="icon"
                   className="p-1 h-5 w-5 text-zinc-500 hover:text-zinc-300 transition-colors bg-transparent"
                 >
-                  <Maximize2 className="w-3 h-3" />
+                  <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest flex items-center gap-1 mb-0.5">
+                     Panel de Datos
+                </span>
+                  
                 </Button>
               )}
-              <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest flex items-center gap-1 mb-0.5">
-                     EXPANDIR
-                </span>
+              
             </div>
         </div>
       </CardContent>

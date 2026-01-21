@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+
 import { FgosState } from '@/lib/engine/fgos-state';
 
 interface FgosAnalysisBlockProps {
@@ -105,31 +105,25 @@ export default function FgosAnalysisBlock({
     <div className="w-full mt-4 border-t border-zinc-800 pt-4">
       <h3 className="text-sm font-medium text-zinc-400 mb-3">Análisis IFS</h3>
       
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_1.5fr] gap-4">
+      <div className="flex flex-col gap-4">
         {/* Summary Table */}
         <div className="border border-zinc-800 rounded-md overflow-hidden bg-zinc-900/30">
-          <Table>
-            <TableBody>
-              <TableRow className="border-zinc-800/50 hover:bg-transparent">
-                <TableCell className="py-2 text-xs text-zinc-500 font-medium">Calidad Fundamental</TableCell>
-                <TableCell className="py-2 text-xs text-zinc-200 text-right font-mono">{displayScore} / 100</TableCell>
-              </TableRow>
-              <TableRow className="border-zinc-800/50 hover:bg-transparent">
-                <TableCell className="py-2 text-xs text-zinc-500 font-medium">Confianza</TableCell>
-                <TableCell className="py-2 text-xs text-zinc-200 text-right font-mono">
-                  {displayConfidence}
-                </TableCell>
-              </TableRow>
-              <TableRow className="border-zinc-800/50 hover:bg-transparent">
-                <TableCell className="py-2 text-xs text-zinc-500 font-medium">Estado FGOS</TableCell>
-                <TableCell className="py-2 text-xs text-zinc-200 text-right font-mono">{displayStatus}</TableCell>
-              </TableRow>
-              <TableRow className="border-none hover:bg-transparent">
-                <TableCell className="py-2 text-xs text-zinc-500 font-medium">Veredicto</TableCell>
-                <TableCell className="py-2 text-xs text-zinc-200 text-right font-medium">{displayVerdict}</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
+          <div className="flex items-center justify-between p-3 divide-x divide-zinc-800/50">
+            <div className="flex flex-col items-center flex-1 px-2">
+              <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-1">Confianza</span>
+              <span className="text-xs text-zinc-200 font-mono">{displayConfidence}</span>
+            </div>
+            
+            <div className="flex flex-col items-center flex-1 px-2">
+              <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-1">Estado FGOS</span>
+              <span className="text-xs text-zinc-200 font-mono">{displayStatus}</span>
+            </div>
+
+            <div className="flex flex-col items-center flex-1 px-2">
+              <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-1">Veredicto</span>
+              <span className="text-xs text-zinc-200 font-medium">{displayVerdict}</span>
+            </div>
+          </div>
         </div>
 
         {/* Narrative */}

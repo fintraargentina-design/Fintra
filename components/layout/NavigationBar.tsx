@@ -52,10 +52,10 @@ export default function NavigationBar({
     );
   }
   return (
-    <div className="w-full border-b border-zinc-800 bg-transparent z-10 shrink-0">
+    <div className="w-full border-b-none border-zinc-800 bg-transparent z-10 shrink-0">
       <div className="w-full overflow-x-auto whitespace-nowrap">
         {/* Desktop Navigation */}
-        <div className="hidden md:flex bg-transparent h-auto p-0 flex-nowrap items-center justify-start min-w-full w-max gap-0.5 border-b-2 border-black">
+        <div className="hidden md:flex bg-transparent h-auto p-1 flex-nowrap items-center justify-start min-w-full w-max gap-1 ">
           {tabs.map((tab) => (
             <button
               key={tab.key}
