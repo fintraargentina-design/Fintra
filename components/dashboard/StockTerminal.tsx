@@ -47,7 +47,7 @@ export default function StockTerminal() {
             <div className="grid grid-cols-1 xl:grid-cols-[50fr_50fr] gap-0 md:gap-1 items-start h-full">
               {/* Panel izquierdo */}
               <div className="w-full xl:w-auto flex flex-col gap-1 min-h-0 h-full overflow-hidden">
-                <LeftPanel onStockSelect={handleTopStockClick} />
+                <LeftPanel onStockSelect={handleTopStockClick} selectedTicker={selectedSymbol} />
 
                 <div className="w-full h-[40%] grid grid-cols-2 gap-1 min-h-0 pb-1">
                   <div className="h-full w-full overflow-hidden border border-zinc-800 bg-[#0A0A0A] relative">

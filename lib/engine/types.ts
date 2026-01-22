@@ -49,6 +49,8 @@ export interface FgosBreakdown {
   };
 }
 
+export type FgosStatus = 'Mature' | 'Developing' | 'Early-stage' | 'Incomplete' | 'partial';
+
 export interface FgosResult {
   ticker: string;
   fgos_score: number | null;
@@ -56,7 +58,7 @@ export interface FgosResult {
   fgos_breakdown: FgosBreakdown;
   confidence: number;
   confidence_label?: 'High' | 'Medium' | 'Low';
-  fgos_status?: 'Mature' | 'Developing' | 'Early-stage' | 'Incomplete' | 'partial';
+  fgos_status?: FgosStatus;
   quality_warnings?: string[];
   calculated_at: string;
 }

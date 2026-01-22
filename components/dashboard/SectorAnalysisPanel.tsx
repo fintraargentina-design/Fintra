@@ -7,7 +7,7 @@ import { getAvailableSectors, getIndustriesForSector } from "@/lib/repository/fi
 import { Loader2 } from "lucide-react";
 import TablaIFS, { EnrichedStockData, sortStocksBySnapshot, mapSnapshotToStockData } from "./TablaIFS";
 
-export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?: (symbol: string) => void }) {
+export default function SectorAnalysisPanel({ onStockSelect, selectedTicker }: { onStockSelect?: (symbol: string) => void; selectedTicker?: string }) {
   const [sectors, setSectors] = useState<string[]>([]);
   const [selectedSector, setSelectedSector] = useState("");
   
@@ -210,6 +210,8 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
     setSelectedSector(val);
   };
 
+  const selectedStockData = stocks.find(s => s.ticker === selectedTicker);
+
   if (loadingSectors) {
       return (
         <div className="w-full h-full flex items-center justify-center bg-tarjetas text-gray-400 text-xs">
@@ -241,7 +243,13 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
 
         <div className="py-1 bg-white/[0.02] shrink-0 border border-t-0 border-b-0 border-zinc-800">
           <h4 className="text-xs font-medium text-gray-400 text-center">
-            <span>Acciones del sector <span className="text-[#FFA028]">{selectedSector}</span> ({stocks.length})</span>
+            {selectedStockData && selectedStockData.sectorRank != null ? (
+               <span className="text-white font-mono">
+                 #{selectedStockData.sectorRank} {selectedStockData.sectorRankTotal ? `/ ${selectedStockData.sectorRankTotal}` : ""}
+               </span>
+            ) : (
+               <span>Acciones del sector <span className="text-[#FFA028]">{selectedSector}</span> ({stocks.length})</span>
+            )}
           </h4>
         </div>
 
@@ -276,6 +284,7 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
             isLoading={loading}
             isFetchingMore={isFetchingMore}
             onRowClick={onStockSelect}
+            selectedTicker={selectedTicker}
             onScroll={handleScroll}
             scrollRef={scrollContainerRef}
         />

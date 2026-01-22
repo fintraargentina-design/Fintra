@@ -2,7 +2,7 @@
 
 import React, { memo, useState, useEffect } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import FintraLogo from '@/public/6.png';
+import FintraLogo from '@/public/fav.webp';
 import SectorAnalysisPanel from '@/components/dashboard/SectorAnalysisPanel';
 import TickerSearchPanel from '@/components/dashboard/TickerSearchPanel';
 import GlobalSearchInput from '@/components/dashboard/GlobalSearchInput';
@@ -10,11 +10,12 @@ import MercadosTab from '@/components/tabs/MercadosTab';
 
 interface LeftPanelProps {
   onStockSelect: (symbol: string) => void;
+  selectedTicker?: string;
 }
 
 const STORAGE_KEY = 'fintra_left_panel_tab';
 
-const LeftPanel = memo(({ onStockSelect }: LeftPanelProps) => {
+const LeftPanel = memo(({ onStockSelect, selectedTicker }: LeftPanelProps) => {
   const [activeTab, setActiveTab] = useState("mercados");
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -80,7 +81,7 @@ const LeftPanel = memo(({ onStockSelect }: LeftPanelProps) => {
         </div>
         
         <TabsContent value="sector_score" className="flex-1 min-h-0 mt-0 bg-[#0A0A0A]">
-          <SectorAnalysisPanel onStockSelect={onStockSelect} />
+          <SectorAnalysisPanel onStockSelect={onStockSelect} selectedTicker={selectedTicker} />
         </TabsContent>
         
         <TabsContent value="ticker_search" className="flex-1 min-h-0 mt-0 bg-[#0A0A0A]">

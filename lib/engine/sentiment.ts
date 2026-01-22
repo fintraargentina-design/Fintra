@@ -70,7 +70,7 @@ function collectDeviations(
 
   const hasLong = (h3 && h3[key] != null) || (h5 && h5[key] != null);
 
-  return { deviations, has_long_history: hasLong };
+  return { deviations, has_long_history: !!hasLong };
 }
 
 function scoreMultipleDeviation(summary: DeviationsSummary): {

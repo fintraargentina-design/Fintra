@@ -244,15 +244,15 @@ export default function TablaIFS({
       <table className="w-full text-sm">
         <TableHeader className="sticky top-0 z-10 bg-[#1D1D1D]">
           <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
-            <TableHead className="px-2 text-gray-300 text-[10px] h-6 w-[60px]">Ticker</TableHead>
-            <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Ranking Sectorial (IFS)</TableHead>
-            <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[80px]">IFS</TableHead>
-            <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Valuación Relativa</TableHead>
-            <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[120px]">Calidad Fundamental</TableHead>
-            <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-center w-[100px]">Estado Estratégico</TableHead>
-            <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[70px]">Precio EOD</TableHead>
-            <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[60px]">YTD %</TableHead>
-            <TableHead className="px-2 text-gray-300 text-[10px] h-6 text-right w-[70px]">Mkt Cap</TableHead>
+            <TableHead className="px-2 text-gray-300 text-[12px] h-6 w-[60px]">Ticker</TableHead>
+            <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-center w-[120px]">Ranking Sectorial (IFS)</TableHead>
+            <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-center w-[80px]">IFS</TableHead>
+            <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-center w-[120px]">Valuación Relativa</TableHead>
+            <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-center w-[120px]">Calidad Fundamental</TableHead>
+            <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-center w-[100px]">Estado Estratégico</TableHead>
+            <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-right w-[70px]">Precio EOD</TableHead>
+            <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-right w-[60px]">YTD %</TableHead>
+            <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-right w-[70px]">Mkt Cap</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -282,7 +282,7 @@ export default function TablaIFS({
                   onClick={() => onRowClick?.(stock.ticker)}
                 >
                   <TableCell className="font-bold text-white px-2 py-0.5 text-xs">{stock.ticker}</TableCell>
-                  <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-200 font-mono">
+                  <TableCell className="text-center px-2 py-0.5 text-[12px] text-gray-200 font-mono">
                     {stock.sectorRank != null
                       ? stock.sectorRankTotal != null
                         ? `#${stock.sectorRank} / ${stock.sectorRankTotal}`
@@ -295,24 +295,24 @@ export default function TablaIFS({
                   <TableCell className="text-center px-2 py-0.5">
                     <ValuationStatusBadge status={stock.sectorValuationStatus} />
                   </TableCell>
-                  <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300 font-mono">
+                  <TableCell className="text-center px-2 py-0.5 text-[12px] text-gray-300 font-mono">
                     {stock.fgosScore != null ? stock.fgosScore.toFixed(0) : "—"}
                   </TableCell>
-                  <TableCell className="text-center px-2 py-0.5 text-[10px] text-gray-300">
+                  <TableCell className="text-center px-2 py-0.5 text-[12px] text-gray-300">
                     {formatStrategyState(stock.strategyState)}
                   </TableCell>
                   <TableCell className="text-right px-2 py-0.5 text-xs font-mono text-white">
                     {stock.priceEod != null ? `$${Number(stock.priceEod).toFixed(2)}` : "—"}
                   </TableCell>
                   <TableCell
-                    className="text-center px-2 py-0.5 text-[10px] font-medium text-gray-300"
+                    className="text-center px-2 py-0.5 text-[12px] font-medium text-gray-300"
                     style={{ backgroundColor: getYtdHeatmapColor(stock.ytdReturn) }}
                   >
                     {stock.ytdReturn != null
                       ? `${stock.ytdReturn >= 0 ? "+" : ""}${Number(stock.ytdReturn).toFixed(1)}%`
                       : "—"}
                   </TableCell>
-                  <TableCell className="text-right px-2 py-0.5 text-[10px] text-gray-400">
+                  <TableCell className="text-right px-2 py-0.5 text-[12px] text-[#FFFFFF]">
                     {stock.marketCap != null ? formatMarketCap(Number(stock.marketCap)) : "—"}
                   </TableCell>
                 </TableRow>
