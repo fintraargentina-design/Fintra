@@ -109,7 +109,7 @@ export default function FintraStructuralProfile({
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full">
+    <div className="flex flex-col gap-2 w-full">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-[#FFA028] text-xs font-bold uppercase tracking-wider">
@@ -136,7 +136,7 @@ export default function FintraStructuralProfile({
       </div> */}
 
       {/* Level 2: Attributes (Secondary) */}
-      <div className="grid grid-cols-4 gap-2 w-full pt-2">
+      <div className="grid grid-cols-4 gap-2 w-full pt-2 pb-6">
         <div className="flex flex-col items-center gap-2">
           
           <div className="flex flex-col items-center gap-0.5">

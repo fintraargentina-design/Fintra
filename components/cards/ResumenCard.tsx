@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getResumenData, ResumenData } from "@/lib/repository/fintra-db";
 import FintraStructuralProfile from "./FintraStructuralProfile";
+import ChartsTabHistoricos from "@/components/tabs/ChartsTabHistoricos";
+import FGOSRadarChart from "@/components/charts/FGOSRadarChart";
 import FgosAnalysisBlock from "../dashboard/FgosAnalysisBlock";
 import SectorValuationBlock from "../dashboard/SectorValuationBlock";
 
@@ -81,16 +83,6 @@ export default function ResumenCard({
             ipoDate: str(resumen.ipo_date),
             exchange: str(resumen.exchange),
             description: str(resumen.description),
-            
-            // Financials
-            revenue: num(resumen.revenue),
-            netIncome: num(resumen.netIncome),
-            assets: num(resumen.total_assets),
-            liabilities: num(resumen.total_liabilities),
-            fcf: num(resumen.fcf),
-            debt: num(resumen.debt),
-            operatingMargin: num(resumen.operatingMargin),
-            ebitda: num(resumen.ebitda),
         };
     }
 
@@ -347,7 +339,7 @@ export default function ResumenCard({
         )}
 
         {hasData && (
-          <div className="border-t border-zinc-800 bg-zinc-900/40 p-6">
+          <div className="border-t border-zinc-800 bg-zinc-900/40 p-4">
             <FintraStructuralProfile
               ifsPosition={resumen?.ifs?.position || 'not_classified'}
               ifsPressure={resumen?.ifs?.pressure}
@@ -358,10 +350,27 @@ export default function ResumenCard({
               attentionState={resumen?.attention_state || "inconclusive"}
             />
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FgosAnalysisBlock fgosState={resumen?.fgos_state} />
-              <SectorValuationBlock valuation={resumen?.valuation} />
-            </div>
+            <div className="grid grid-cols-[60%_40%] gap-1 h-[330px]">
+                {/* Charts */}
+                 <div className="bg-tarjetas border border-zinc-800 h-full">
+                   <ChartsTabHistoricos
+                     symbol={currentSymbol}
+                     companyName={data.companyName}
+                     comparedSymbols={[]}
+                     isActive={true}
+                   />
+                 </div>
+
+                 {/* FGOS */}
+                 <div className="bg-tarjetas border border-zinc-800 h-full">
+                   <FGOSRadarChart
+                     symbol={currentSymbol}
+                     data={resumen?.fgos_components}
+                     comparedSymbol={null}
+                     isActive={true}
+                   />
+                 </div>
+             </div>
           </div>
         )}
 

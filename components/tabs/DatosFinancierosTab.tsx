@@ -222,7 +222,7 @@ function GenericTimelineTable({
                     peerTicker && (
                       <TableHead
                         key={`${year.year}-${col}-peer`}
-                        className={`px-2 text-[#ffffff] border-x border-[#002D72] font-bold text-[10px] h-5 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-[#002D72]' : 'bg-[#002D72]'}`}
+                        className={`px-2 text-[#ffffff] border-x border-[#002D72] font-light text-[10px] h-5 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-[#002D72]' : 'bg-[#002D72]'}`}
                       >
                         {`${peerTicker}_${col.replace('_FY', '')}`}
                       </TableHead>
@@ -280,7 +280,7 @@ function GenericTimelineTable({
                           peerTicker && (
                             <TableCell
                               key={`${year.year}-${col}-peer`}
-                              className={`text-center px-2 py-0 text-[10px] font-bold text-[#FFFFFF] h-6 border-x border-[#002D72] ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                              className={`text-center px-2 py-0 text-[10px] font-light text-[#FFFFFF] h-6 border-x border-[#002D72] ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                               style={{ backgroundColor: getHeatmapColor(peerCellData?.normalized ?? null, direction) }}
                             >
                               {peerCellData?.display ?? "-"}

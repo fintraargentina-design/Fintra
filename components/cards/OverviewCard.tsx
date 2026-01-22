@@ -131,7 +131,7 @@ export default function OverviewCard({
                   className="p-1 h-5 w-5 bg-transparent"
                 >
                   <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest flex items-center gap-1 hover:text-zinc-300">
-                     Panel de Datos
+                     Panel de Datos y Peers
                 </span>
                   
                 </Button>

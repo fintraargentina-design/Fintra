@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { FintraSnapshotDB, EcosystemRelationDB, EcosystemDataJSON, EcoNodeJSON, EcosystemReportDB } from '@/lib/engine/types';
+import { FintraSnapshotDB, EcosystemRelationDB, EcosystemDataJSON, EcoNodeJSON, EcosystemReportDB, FgosBreakdown } from '@/lib/engine/types';
 import { getIntradayPrice } from "@/lib/services/market-data-service";
 import { buildFGOSState, FgosState } from '@/lib/engine/fgos-state';
 
@@ -112,6 +112,7 @@ export type ResumenData = {
   fgos_status: string | null
   fgos_confidence_percent: number | null
   fgos_state: FgosState | null
+  fgos_components: FgosBreakdown | null
   valuation: CanonicalValuationState | null
 
   // Structural Profile
@@ -253,6 +254,7 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
         fgos_confidence_label: m.fgos_confidence_label || null,
         fgos_status: s.fgos_status || null
     }) : null,
+    fgos_components: (s.fgos_components || s.fgos_breakdown) || null,
     valuation: s.valuation || null,
 
     // Structural
