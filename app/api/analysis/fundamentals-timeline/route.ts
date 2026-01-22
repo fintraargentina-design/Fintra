@@ -1,51 +1,15 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { 
+  PeriodType, 
+  ValueItem, 
+  Metric, 
+  YearGroup, 
+  FundamentalsTimelineResponse 
+} from "@/lib/engine/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-// --- Types ---
-
-type PeriodType = "Q" | "TTM" | "FY" | null;
-
-type ValueItem = {
-  value: number | null;
-  display: string | null;
-  normalized: number | null;
-  period_type: PeriodType;
-  period_end_date?: string;
-  derived_from?: string[];
-};
-
-type Metric = {
-  key: string;
-  label: string;
-  unit: string;
-  category: "quality" | "solvency" | "growth";
-  priority: "A" | "B" | "C";
-  heatmap: {
-    direction: "higher_is_better" | "lower_is_better";
-    scale: "relative_row";
-  };
-  values: Record<string, ValueItem>;
-  meta?: {
-    description: string;
-    formula: string;
-  };
-};
-
-type YearGroup = {
-  year: number;
-  tone: "light" | "dark";
-  columns: string[];
-};
-
-type ResponseContract = {
-  ticker: string;
-  currency: string;
-  years: YearGroup[];
-  metrics: Metric[];
-};
 
 // --- Config ---
 
@@ -282,7 +246,7 @@ export async function GET(req: Request) {
     }
 
     // 6. Construct Final Response
-    const response: ResponseContract = {
+    const response: FundamentalsTimelineResponse = {
       ticker,
       currency: "USD",
       years: yearsList,

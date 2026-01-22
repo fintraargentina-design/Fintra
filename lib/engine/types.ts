@@ -280,9 +280,8 @@ export interface FinancialSnapshot {
   market_position: MarketPosition | null;
   investment_verdict: any | null;
   ifs?: {
-    short_term: 'leader' | 'follower' | 'laggard' | null;
-    mid_term: 'leader' | 'follower' | 'laggard' | null;
-    long_term: 'leader' | 'follower' | 'laggard' | null;
+    position: 'leader' | 'follower' | 'laggard';
+    pressure: number;
   } | null;
   strategic_state?: any | null; // New field for persisted verdict result
   relative_return?: any | null; // New field for relative return result
@@ -301,6 +300,9 @@ export interface FinancialSnapshot {
   relative_vs_market_1y?: number | null;
   relative_vs_market_3y?: number | null;
   relative_vs_market_5y?: number | null;
+
+  sector_rank?: number | null;
+  sector_rank_total?: number | null;
 
   data_confidence: {
     has_profile: boolean;
@@ -395,10 +397,11 @@ export interface FintraSnapshotDB {
   profile_structural?: ProfileStructural | null;
   investment_verdict?: any;
   ifs?: {
-    short_term: 'leader' | 'follower' | 'laggard' | null;
-    mid_term: 'leader' | 'follower' | 'laggard' | null;
-    long_term: 'leader' | 'follower' | 'laggard' | null;
+    position: 'leader' | 'follower' | 'laggard';
+    pressure: number;
   } | null;
+  sector_rank?: number | null;
+  sector_rank_total?: number | null;
   [key: string]: any;
 }
 
@@ -420,3 +423,46 @@ export interface EcosystemReportDB {
   report_md: string;
   created_at?: string;
 }
+
+// --- Fundamentals Timeline Types ---
+
+export type PeriodType = "Q" | "TTM" | "FY" | null;
+
+export type ValueItem = {
+  value: number | null;
+  display: string | null;
+  normalized: number | null;
+  period_type: PeriodType;
+  period_end_date?: string;
+  derived_from?: string[];
+};
+
+export type Metric = {
+  key: string;
+  label: string;
+  unit: string;
+  category: "quality" | "solvency" | "growth";
+  priority: "A" | "B" | "C";
+  heatmap: {
+    direction: "higher_is_better" | "lower_is_better";
+    scale: "relative_row";
+  };
+  values: Record<string, ValueItem>;
+  meta?: {
+    description: string;
+    formula: string;
+  };
+};
+
+export type YearGroup = {
+  year: number;
+  tone: "light" | "dark";
+  columns: string[];
+};
+
+export type FundamentalsTimelineResponse = {
+  ticker: string;
+  currency: string;
+  years: YearGroup[];
+  metrics: Metric[];
+};

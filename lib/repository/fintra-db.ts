@@ -98,6 +98,13 @@ export type ResumenData = {
   revenue: number | null
   ebit: number | null
   working_capital: number | null
+  
+  // Added metrics
+  netIncome: number | null
+  fcf: number | null
+  debt: number | null
+  operatingMargin: number | null
+  ebitda: number | null
 
   // FGOS Analysis
   fgos_score: number | null
@@ -157,26 +164,40 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
   // 4. Analysis (fintra_snapshots)
   const snapshotQuery = supabase
     .from('fintra_snapshots')
-    .select('profile_structural, fgos_maturity, fgos_confidence_percent, fgos_components, fgos_status, valuation')
+    .select('profile_structural, fgos_maturity, fgos_confidence_percent, fgos_components, fgos_status, valuation, ifs, market_snapshot, fundamentals_growth, sector_rank, sector_rank_total')
     .eq('ticker', upperTicker)
     .order('snapshot_date', { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  const [universeRes, profileRes, marketRes, snapshotRes] = await Promise.all([
+  // 5. Financials (datos_financieros)
+  const financialsQuery = supabase
+    .from('datos_financieros')
+    .select('revenue, net_income, free_cash_flow, total_debt, operating_margin, ebitda, total_assets, total_liabilities')
+    .eq('ticker', upperTicker)
+    .order('period_end_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const [universeRes, profileRes, marketRes, snapshotRes, financialsRes] = await Promise.all([
     universeQuery,
     profileQuery,
     marketQuery,
-    snapshotQuery
+    snapshotQuery,
+    financialsQuery
   ]);
 
   const u: any = universeRes.data || {};
   const p: any = profileRes.data || {};
   const m: any = marketRes.data || {};
   const s: any = snapshotRes.data || {};
+  const f: any = financialsRes.data || {};
   
   // Extract financial scores from snapshot if available
   const ps = s.profile_structural as any;
+  const marketSnapshot = s.market_snapshot as any; // From snapshot
+  const fundamentalsGrowth = s.fundamentals_growth as any; // From snapshot
+
   const scores = ps?.financial_scores || {};
   const metrics = ps?.metrics || {};
   const identity = ps?.identity || {};
@@ -195,11 +216,11 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
     description: p.description || identity.description || null,
 
     // Market
-    price: m.price || metrics.price || null,
-    market_cap: m.market_cap || metrics.marketCap || null,
-    change_percentage: m.change_percentage || metrics.changePercentage || null,
-    ytd_return: m.ytd_return || null,
-    volume: m.volume || metrics.volume || null,
+    price: m.price || marketSnapshot?.price || metrics.price || null,
+    market_cap: m.market_cap || marketSnapshot?.market_cap || metrics.marketCap || null,
+    change_percentage: m.change_percentage || marketSnapshot?.change_percent || metrics.changePercentage || null,
+    ytd_return: m.ytd_return || marketSnapshot?.ytd_percent || null,
+    volume: m.volume || marketSnapshot?.volume || metrics.volume || null,
     beta: m.beta || metrics.beta || null,
     last_dividend: metrics.lastDividend || null,
     range: metrics.range || null,
@@ -208,11 +229,17 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
     // Analysis
     altman_z: scores.altman_z ?? null,
     piotroski_score: scores.piotroski_score ?? null,
-    total_assets: metrics.totalAssets ?? null,
-    total_liabilities: metrics.totalLiabilities ?? null,
-    revenue: metrics.revenue ?? null,
-    ebit: metrics.ebit ?? null,
-    working_capital: metrics.workingCapital ?? null,
+    total_assets: f.total_assets ?? scores.total_assets ?? null,
+    total_liabilities: f.total_liabilities ?? scores.total_liabilities ?? null,
+    revenue: f.revenue ?? scores.revenue ?? null,
+    ebit: scores.ebit ?? null,
+    working_capital: scores.working_capital ?? null,
+
+    netIncome: f.net_income ?? null,
+    fcf: f.free_cash_flow ?? null,
+    debt: f.total_debt ?? null,
+    operatingMargin: f.operating_margin ?? null,
+    ebitda: f.ebitda ?? null,
 
     // FGOS
     fgos_score: m.fgos_score || s.fgos_score || null,

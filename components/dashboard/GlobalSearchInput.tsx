@@ -44,7 +44,24 @@ export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: st
       setOpen(true);
       try {
         const data = await searchStocks(query);
-        setResults(data);
+        
+        // Sort to prioritize US markets (NASDAQ, NYSE, AMEX)
+        const sorted = [...data].sort((a, b) => {
+           const isUS = (ex: string) => {
+              if (!ex) return false;
+              const U = ex.toUpperCase();
+              return U.includes("NASDAQ") || U.includes("NYSE") || U.includes("AMEX") || U.includes("NEW YORK");
+           };
+           
+           const usA = isUS(a.exchange);
+           const usB = isUS(b.exchange);
+           
+           if (usA && !usB) return -1;
+           if (!usA && usB) return 1;
+           return 0;
+        });
+
+        setResults(sorted);
       } catch (e) {
         console.error(e);
       } finally {

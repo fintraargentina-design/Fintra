@@ -8,6 +8,7 @@ import { calculateConfidenceLayer, calculateDimensionalConfidence, type Confiden
 import { calculateMoat } from './moat';
 import { calculateSentiment, type SentimentValuationTimeline } from './sentiment';
 import { calculateCompetitiveAdvantage, type CompetitiveAdvantageHistoryRow } from './competitive-advantage';
+import { calculateIFS, type RelativePerformanceInputs } from './ifs';
 
 type BenchMap = Record<string, SectorBenchmark>;
 
@@ -336,9 +337,23 @@ export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: stri
   const date = snapshotDate || new Date().toISOString().slice(0, 10);
   
   // 1. Load Snapshot (Strictly persisted fields)
+  // [IFS UPDATE] Fetching relative performance columns for IFS calculation
   const { data: snap } = await supabaseAdmin
     .from('fintra_snapshots')
-    .select('ticker,snapshot_date,sector,profile_structural,valuation,fundamentals_growth')
+    .select(`
+        ticker,
+        snapshot_date,
+        sector,
+        profile_structural,
+        valuation,
+        fundamentals_growth,
+        relative_vs_sector_1w,
+        relative_vs_sector_1m,
+        relative_vs_sector_ytd,
+        relative_vs_sector_1y,
+        relative_vs_sector_3y,
+        relative_vs_sector_5y
+    `)
     .eq('ticker', ticker)
     .eq('snapshot_date', date)
     .maybeSingle();
@@ -546,6 +561,17 @@ export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: stri
 
   const result = computeFGOS(ticker, snapshotRow, ratios, metrics, growth, benchmarks, confidenceInputs, history, valuationTimeline);
 
+  // [IFS CALCULATION]
+  const ifsInputs: RelativePerformanceInputs = {
+    relative_vs_sector_1w: (snap as any).relative_vs_sector_1w,
+    relative_vs_sector_1m: (snap as any).relative_vs_sector_1m,
+    relative_vs_sector_ytd: (snap as any).relative_vs_sector_ytd,
+    relative_vs_sector_1y: (snap as any).relative_vs_sector_1y,
+    relative_vs_sector_3y: (snap as any).relative_vs_sector_3y,
+    relative_vs_sector_5y: (snap as any).relative_vs_sector_5y
+  };
+  const ifsResult = calculateIFS(ifsInputs);
+
   // 7. Persist
   await supabaseAdmin
     .from('fintra_snapshots')
@@ -557,7 +583,8 @@ export async function recomputeFGOSForTicker(ticker: string, snapshotDate?: stri
         fgos_status: result.fgos_status, // Persist the actual Dimensional Status (Mature, Partial, etc.)
         fgos_confidence_label: result.fgos_confidence_label,
         fgos_maturity: result.fgos_status, // Redundant but keeping for backward compatibility if used
-        engine_version: 'v3.1-confidence-layer' 
+        engine_version: 'v3.1-confidence-layer',
+        ifs: ifsResult // [IFS PERSISTENCE]
     } as any)
     .eq('ticker', ticker)
     .eq('snapshot_date', date);

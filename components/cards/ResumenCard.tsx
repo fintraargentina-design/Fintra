@@ -81,6 +81,16 @@ export default function ResumenCard({
             ipoDate: str(resumen.ipo_date),
             exchange: str(resumen.exchange),
             description: str(resumen.description),
+            
+            // Financials
+            revenue: num(resumen.revenue),
+            netIncome: num(resumen.netIncome),
+            assets: num(resumen.total_assets),
+            liabilities: num(resumen.total_liabilities),
+            fcf: num(resumen.fcf),
+            debt: num(resumen.debt),
+            operatingMargin: num(resumen.operatingMargin),
+            ebitda: num(resumen.ebitda),
         };
     }
 

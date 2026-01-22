@@ -18,8 +18,6 @@ export interface EnrichedStockData {
     position: "leader" | "follower" | "laggard";
     pressure: number;
   } | null;
-  competitiveStructureBand: string | null;
-  relativeResultBand: string | null;
   strategyState: string | null;
   priceEod: number | null;
   ytdReturn: number | null;
@@ -28,29 +26,57 @@ export interface EnrichedStockData {
 
 // Helper to map raw Supabase snapshot to EnrichedStockData
 export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
-  const marketSnapshot = row.market_snapshot || {};
-  const valuation = row.valuation || {};
-  const fgosComponents = row.fgos_components || {};
-  const competitiveAdvantage = fgosComponents.competitive_advantage || {};
-  const marketPosition = row.market_position || {};
+  // Strict mapping from fintra_snapshots flat columns or JSONB structures
+  
+  // IFS Construction
+  // Handle both flat columns (legacy/view) and JSONB 'ifs' column
+  const rawIfs = row.ifs || {};
+  const position = rawIfs.position || row.ifs_position;
+  const pressure = rawIfs.pressure ?? row.ifs_pressure ?? 0;
 
-  // Debug specific fields mapping if needed
-  // console.log(`Mapping ${row.ticker}:`, { fgos: row.fgos_score, ifs: row.ifs });
+  let ifsData = null;
+  if (position) {
+    ifsData = {
+      position: position,
+      pressure: pressure
+    };
+  }
+
+  // Robust extraction for other fields (JSONB vs Flat)
+  const marketPosition = row.market_position || {};
+  const valuation = row.valuation || {};
+  const marketSnapshot = row.market_snapshot || {};
+  const marketState = row.market_state || {};
+  const profileStructural = row.profile_structural || {};
+  const financialScores = profileStructural.financial_scores || {};
+  
+  // FGOS Band: Check fgos_category (Table) and fgos_band (Legacy/View)
+  const fgosBand = row.fgos_category || row.fgos_band || null;
+  
+  // Sector Rank
+  const sectorRank = row.sector_rank ?? marketPosition.sector_rank ?? null;
+  const sectorRankTotal = row.sector_rank_total ?? marketPosition.sector_total_count ?? null;
+  
+  // Valuation Status
+  const sectorValuationStatus = row.sector_valuation_status ?? valuation.valuation_status ?? null;
+
+  // Price & Return
+  const priceEod = row.price_eod ?? marketSnapshot.price ?? marketSnapshot.price_eod ?? null;
+  const ytdReturn = marketState.ytd_return ?? row.return_ytd ?? marketSnapshot.ytd_percent ?? null;
+  const marketCap = marketState.market_cap ?? row.market_cap ?? marketSnapshot.market_cap ?? financialScores.marketCap ?? null;
 
   return {
     ticker: row.ticker,
-    sectorRank: marketPosition.sector_rank ?? null,
-    sectorRankTotal: marketPosition.sector_total_count ?? null,
-    sectorValuationStatus: valuation.valuation_status ?? null,
-    fgosBand: row.fgos_category ?? row.fgos_band ?? null,
+    sectorRank,
+    sectorRankTotal,
+    sectorValuationStatus,
+    fgosBand,
     fgosScore: row.fgos_score ?? null,
-    ifs: row.ifs ? { position: row.ifs.position, pressure: row.ifs.pressure } : null,
-    competitiveStructureBand: competitiveAdvantage.band ?? null,
-    relativeResultBand: row.relative_return?.band ?? null,
-    strategyState: row.investment_verdict?.verdict_label ?? null,
-    priceEod: marketSnapshot.price_eod ?? marketSnapshot.price ?? null,
-    ytdReturn: marketSnapshot.ytd_percent ?? null,
-    marketCap: marketSnapshot.market_cap ?? null,
+    ifs: ifsData,
+    strategyState: row.strategy_state ?? row.investment_verdict?.verdict_label ?? null,
+    priceEod,
+    ytdReturn,
+    marketCap,
   };
 };
 
@@ -61,16 +87,13 @@ const FGOS_BAND_ORDER: Record<string, number> = {
   weak: 3,
 };
 
-const RELATIVE_RESULT_ORDER: Record<string, number> = {
-  outperformer: 1,
-  neutral: 2,
-  underperformer: 3,
-};
-
 const VALUATION_ORDER: Record<string, number> = {
   undervalued: 1,
+  cheap_sector: 1,
   fairly_valued: 2,
+  fair_sector: 2,
   overvalued: 3,
+  expensive_sector: 3,
 };
 
 const getRankValue = (val: number | null | undefined) =>
@@ -82,6 +105,25 @@ const getOrderValue = (val: string | null | undefined, map: Record<string, numbe
   return map[key] ?? Number.MAX_SAFE_INTEGER - 1;
 };
 
+const getYtdHeatmapColor = (ytd: number | null) => {
+  if (ytd === null || ytd === undefined) return "transparent";
+
+  if (ytd >= 0) {
+    if (ytd < 5) return "#001A00"; // Marginal
+    if (ytd < 15) return "#003300"; // Leve
+    if (ytd < 30) return "#004D00"; // Moderada
+    if (ytd < 50) return "#006600"; // Fuerte
+    return "#008000"; // Muy fuerte
+  } else {
+    const absYtd = Math.abs(ytd);
+    if (absYtd < 5) return "#1A0000"; // Marginal
+    if (absYtd < 15) return "#330000"; // Leve
+    if (absYtd < 30) return "#4D0000"; // Moderada
+    if (absYtd < 50) return "#660000"; // Fuerte
+    return "#800000"; // Muy fuerte
+  }
+};
+
 export const sortStocksBySnapshot = (a: EnrichedStockData, b: EnrichedStockData) => {
   const srA = getRankValue(a.sectorRank);
   const srB = getRankValue(b.sectorRank);
@@ -90,14 +132,6 @@ export const sortStocksBySnapshot = (a: EnrichedStockData, b: EnrichedStockData)
   const fbA = getOrderValue(a.fgosBand, FGOS_BAND_ORDER);
   const fbB = getOrderValue(b.fgosBand, FGOS_BAND_ORDER);
   if (fbA !== fbB) return fbA - fbB;
-
-  const csA = getOrderValue(a.competitiveStructureBand, FGOS_BAND_ORDER);
-  const csB = getOrderValue(b.competitiveStructureBand, FGOS_BAND_ORDER);
-  if (csA !== csB) return csA - csB;
-
-  const rrA = getOrderValue(a.relativeResultBand, RELATIVE_RESULT_ORDER);
-  const rrB = getOrderValue(b.relativeResultBand, RELATIVE_RESULT_ORDER);
-  if (rrA !== rrB) return rrA - rrB;
 
   const valA = getOrderValue(a.sectorValuationStatus, VALUATION_ORDER);
   const valB = getOrderValue(b.sectorValuationStatus, VALUATION_ORDER);
@@ -272,6 +306,7 @@ export default function TablaIFS({
                   </TableCell>
                   <TableCell
                     className="text-center px-2 py-0.5 text-[10px] font-medium text-gray-300"
+                    style={{ backgroundColor: getYtdHeatmapColor(stock.ytdReturn) }}
                   >
                     {stock.ytdReturn != null
                       ? `${stock.ytdReturn >= 0 ? "+" : ""}${Number(stock.ytdReturn).toFixed(1)}%`

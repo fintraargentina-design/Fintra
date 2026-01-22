@@ -2,7 +2,7 @@
 // Fintra/components/dashboard/PeersAnalysisPanel.tsx
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import TablaIFS, { EnrichedStockData, sortStocksBySnapshot } from "./TablaIFS";
+import TablaIFS, { EnrichedStockData, sortStocksBySnapshot, mapSnapshotToStockData } from "./TablaIFS";
 
 interface PeersAnalysisPanelProps {
   symbol: string;
@@ -90,29 +90,25 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
 
         const snapshotsArray = (snapshots || []) as any[];
 
-        const enriched: EnrichedStockData[] = snapshotsArray.map((row: any) => {
-          const marketSnapshot = row.market_snapshot || {};
-          const valuation = row.valuation || {};
-          const profileStructural = row.profile_structural || {};
-          const financialScores = profileStructural.financial_scores || {};
-          const fgosComponents = row.fgos_components || {};
-          const competitiveAdvantage = fgosComponents.competitive_advantage || {};
-          const marketPosition = row.market_position || {};
+        // Fetch Market State for these tickers
+        const tickers = snapshotsArray.map(s => s.ticker);
+        const { data: marketData } = await supabase
+          .from('fintra_market_state')
+          .select('ticker, ytd_return, market_cap')
+          .in('ticker', tickers);
 
-          return {
-            ticker: row.ticker,
-            sectorRank: marketPosition.sector_rank ?? null,
-            sectorRankTotal: marketPosition.sector_total_count ?? null,
-            sectorValuationStatus: valuation.valuation_status ?? null,
-            fgosBand: row.fgos_category ?? null,
-            competitiveStructureBand: competitiveAdvantage.band ?? null,
-            relativeResultBand: row.relative_return?.band ?? null,
-            strategyState: row.investment_verdict?.verdict_label ?? null,
-            priceEod: marketSnapshot.price ?? marketSnapshot.price_eod ?? null,
-            ytdReturn: marketSnapshot.ytd_percent ?? null,
-            marketCap: marketSnapshot.market_cap ?? financialScores.marketCap ?? null,
-          } as EnrichedStockData;
-        });
+        const marketMap = new Map<string, any>();
+        if (marketData) {
+          marketData.forEach((m: any) => marketMap.set(m.ticker, m));
+        }
+
+        // Merge Market State into Snapshots
+        const mergedSnapshots = snapshotsArray.map(s => ({
+          ...s,
+          market_state: marketMap.get(s.ticker)
+        }));
+
+        const enriched: EnrichedStockData[] = mergedSnapshots.map(mapSnapshotToStockData);
 
         // Deduplicate enriched based on ticker (keep the first one encountered = latest date)
         const uniqueEnrichedMap = new Map<string, EnrichedStockData>();

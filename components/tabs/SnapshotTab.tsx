@@ -208,6 +208,8 @@ export default function SnapshotTab({
   };
 
   const snapshotDate = stockAnalysis?.snapshot_date || new Date().toISOString().split('T')[0];
+  const sectorRank = stockAnalysis?.sector_rank;
+  const sectorRankTotal = stockAnalysis?.sector_rank_total;
 
   return (
     <div className="flex flex-col gap-4 p-2 bg-transparent min-h-screen text-zinc-200 font-sans">
@@ -216,7 +218,7 @@ export default function SnapshotTab({
       <section>
         <SectionHeader 
           title="Resultado Relativo" 
-          subtitle={`Datos al snapshot: ${snapshotDate}`} 
+          subtitle={`Datos al snapshot: ${snapshotDate}${sectorRank && sectorRankTotal ? ` • Rank Sectorial: #${sectorRank} de ${sectorRankTotal}` : ''}`} 
         />
         <div className="border border-zinc-800 rounded-sm bg-zinc-900/20">
           <Table>

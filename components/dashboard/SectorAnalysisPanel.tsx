@@ -96,7 +96,25 @@ export default function SectorAnalysisPanel({ onStockSelect }: { onStockSelect?:
 
       const snapshotsArray = (snapshots || []) as any[];
 
-      const filteredByIndustry = snapshotsArray.filter((row) => {
+      // Fetch Market State for these tickers
+      const tickers = snapshotsArray.map(s => s.ticker);
+      const { data: marketData } = await supabase
+        .from('fintra_market_state')
+        .select('ticker, ytd_return, market_cap')
+        .in('ticker', tickers);
+
+      const marketMap = new Map<string, any>();
+      if (marketData) {
+        marketData.forEach((m: any) => marketMap.set(m.ticker, m));
+      }
+
+      // Merge Market State into Snapshots
+      const mergedSnapshots = snapshotsArray.map(s => ({
+        ...s,
+        market_state: marketMap.get(s.ticker)
+      }));
+
+      const filteredByIndustry = mergedSnapshots.filter((row) => {
         if (!currentIndustry || currentIndustry === "Todas") return true;
         const ps = row.profile_structural || {};
         const classification = ps.classification || {};

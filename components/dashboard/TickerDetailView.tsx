@@ -123,7 +123,9 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
                  fgos_confidence_percent: snapshot.fgos_confidence_percent,
                  valuation: snapshot.valuation,
                  fgos_breakdown: (snapshot as any).fgos_components || (snapshot as any).fgos_breakdown,
-                 fgos_state: fgosState
+                 fgos_state: fgosState,
+                 sector_rank: snapshot.sector_rank,
+                 sector_rank_total: snapshot.sector_rank_total
              }));
           }
 

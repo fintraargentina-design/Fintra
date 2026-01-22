@@ -18,6 +18,8 @@ import { calculateRelativeReturn, type RelativeReturnTimeline, type RelativeRetu
 import { resolveFintraVerdict } from '@/lib/engine/fintra-verdict';
 import type { SentimentValuationTimeline, SentimentSnapshotLabel, SentimentValuationSnapshot } from '@/lib/engine/sentiment';
 
+import { calculateIFS, type RelativePerformanceInputs } from '@/lib/engine/ifs';
+
 export const SNAPSHOT_ENGINE_VERSION = 'v3.2-full-hydration';
 
 /* ================================
@@ -115,76 +117,9 @@ function buildRelativeReturnTimeline(
 }
 
 /* ================================
-   IFS LOGIC
+   IFS LOGIC (DEPRECATED - REMOVED)
 ================================ */
-type IFSState = 'leader' | 'follower' | 'laggard';
-type IFSResult = {
-  short_term: IFSState | null;
-  mid_term: IFSState | null;
-  long_term: IFSState | null;
-};
-
-async function resolveIFS(
-  industry: string,
-  snapshotDate: string
-): Promise<IFSResult | null> {
-  const { data } = await supabaseAdmin
-    .from('industry_benchmarks')
-    .select('window_code, alpha_percent, performance_date')
-    .eq('industry', industry)
-    .eq('benchmark_type', 'industry')
-    .lte('performance_date', snapshotDate)
-    .order('performance_date', { ascending: false })
-    .limit(100);
-
-  if (!data || data.length === 0) return null;
-
-  const latestByWindow = new Map<string, number>();
-  for (const row of data) {
-    // Only take the first occurrence (latest date) for each window
-    if (!latestByWindow.has(row.window_code) && typeof row.alpha_percent === 'number') {
-      latestByWindow.set(row.window_code, row.alpha_percent);
-    }
-  }
-
-  const horizons = {
-    short_term: ['1W', '1M'],
-    mid_term: ['3M', '6M', 'YTD'],
-    long_term: ['1Y', '3Y', '5Y']
-  };
-
-  const calculateState = (windows: string[]): IFSState | null => {
-    let positives = 0;
-    let negatives = 0;
-    let count = 0;
-
-    for (const w of windows) {
-      const val = latestByWindow.get(w);
-      if (val !== undefined) {
-        count++;
-        if (val > 0) positives++;
-        else if (val < 0) negatives++;
-      }
-    }
-
-    if (count === 0) return null;
-
-    if (positives > count / 2) return 'leader';
-    if (negatives > count / 2) return 'laggard';
-    return 'follower';
-  };
-
-  const result: IFSResult = {
-    short_term: calculateState(horizons.short_term),
-    mid_term: calculateState(horizons.mid_term),
-    long_term: calculateState(horizons.long_term)
-  };
-
-  // If all horizons are null, return null
-  if (!result.short_term && !result.mid_term && !result.long_term) return null;
-
-  return result;
-}
+// Logic moved to @/lib/engine/ifs.ts
 
 /* ================================
    SNAPSHOT BUILDER
@@ -416,16 +351,10 @@ export async function buildSnapshot(
       : pending('Profile not available in bulk');
 
   /* --------------------------------
-     IFS (READ-ONLY)
+     IFS (READ-ONLY) - REMOVED
   -------------------------------- */
-  let ifs: IFSResult | null = null;
-  if (industry) {
-      try {
-          ifs = await resolveIFS(industry, today);
-      } catch (err) {
-          console.warn(`⚠️ IFS ERROR [${sym}]:`, err);
-      }
-  }
+  // Old logic removed. New logic is below relative performance calculation.
+
 
   /* --------------------------------
      PERFORMANCE (TOLERANTE)
@@ -633,6 +562,20 @@ export async function buildSnapshot(
         relPerf[`relative_vs_sector_${keySuffix}`] = null;
      }
   }
+
+  /* --------------------------------
+     IFS (MAJORITY VOTING)
+  -------------------------------- */
+  const ifsInputs: RelativePerformanceInputs = {
+    relative_vs_sector_1w: relPerf.relative_vs_sector_1w ?? null,
+    relative_vs_sector_1m: relPerf.relative_vs_sector_1m ?? null,
+    relative_vs_sector_ytd: relPerf.relative_vs_sector_ytd ?? null,
+    relative_vs_sector_1y: relPerf.relative_vs_sector_1y ?? null,
+    relative_vs_sector_3y: relPerf.relative_vs_sector_3y ?? null,
+    relative_vs_sector_5y: relPerf.relative_vs_sector_5y ?? null
+  };
+  
+  const ifs = calculateIFS(ifsInputs);
 
   /* --------------------------------
      SNAPSHOT FINAL

@@ -10,6 +10,21 @@ export interface UnifiedSearchResult {
   is_active?: boolean;
 }
 
+function isPriorityExchange(exchange: string): boolean {
+  if (!exchange) return false;
+  const ex = exchange.toUpperCase();
+  return (
+    ex.includes('NYSE') ||
+    ex.includes('NASDAQ') ||
+    ex.includes('AMEX') ||
+    ex.includes('NEW YORK') ||
+    ex.includes('NMS') ||
+    ex.includes('TSX') ||
+    ex.includes('TORONTO') ||
+    ex.includes('CBOE')
+  );
+}
+
 function rankSearchResults(results: UnifiedSearchResult[], query: string): UnifiedSearchResult[] {
   const q = query.toLowerCase();
   const queryStartsWithLetter = /^[a-z]/i.test(q);
@@ -32,16 +47,21 @@ function rankSearchResults(results: UnifiedSearchResult[], query: string): Unifi
       return -50;
     }
 
-    let base = 5;
+    let base = 50;
 
     if (t === q) base = 0;
-    else if (t.startsWith(q)) base = 1;
-    else if (n.startsWith(q)) base = 2;
-    else if (n.includes(q) || (nNormalized && nNormalized.includes(normalizedQuery))) base = 3;
-    else if (t.includes(q)) base = 4;
+    else if (t.startsWith(q)) base = 10;
+    else if (n.startsWith(q)) base = 20;
+    else if (n.includes(q) || (nNormalized && nNormalized.includes(normalizedQuery))) base = 30;
+    else if (t.includes(q)) base = 40;
 
     if (queryStartsWithLetter && tickerStartsWithDigit) {
-      base += 2;
+      base += 20;
+    }
+
+    // Boost priority exchanges (US/Canada) by penalizing others
+    if (!isPriorityExchange(item.exchange)) {
+      base += 5;
     }
 
     return base;
