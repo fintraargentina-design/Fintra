@@ -1,43 +1,15 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { subDays, subMonths, subYears, startOfYear, format } from "date-fns";
+import { 
+  PerformanceTimelineResponse, 
+  Metric, 
+  ValueItem, 
+  YearGroup 
+} from "@/lib/engine/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type ValueItem = {
-  value: number | null;
-  display: string | null;
-  normalized: number | null;
-  period_type: null;
-  period_end_date?: string;
-};
-
-type Metric = {
-  key: string;
-  label: string;
-  unit: string;
-  category: "performance";
-  priority: "A";
-  heatmap: {
-    direction: "higher_is_better" | "lower_is_better";
-    scale: "relative_row";
-  };
-  values: Record<string, ValueItem>;
-};
-
-type YearGroup = {
-  year: number;
-  tone: "light" | "dark";
-  columns: string[];
-};
-
-type ResponseContract = {
-  ticker: string;
-  currency: string;
-  years: YearGroup[];
-  metrics: Metric[];
-};
 
 const WINDOWS = [
   { code: "1D", days: 1 },

@@ -22,7 +22,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FinancialSnapshot } from "@/lib/engine/types";
+import { 
+  FinancialSnapshot, 
+  FundamentalsTimelineResponse, 
+  PerformanceTimelineResponse 
+} from "@/lib/engine/types";
 
 // --- TYPES ---
 
@@ -83,8 +87,8 @@ export default function SnapshotTab({
   ratios: ratiosProp,
   metrics: metricsProp,
 }: SnapshotTabProps) {
-  const [timelineData, setTimelineData] = useState<any>(null);
-  const [performanceData, setPerformanceData] = useState<any>(null);
+  const [timelineData, setTimelineData] = useState<FundamentalsTimelineResponse | null>(null);
+  const [performanceData, setPerformanceData] = useState<PerformanceTimelineResponse | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(true);
 
   // 1. Fetch Fundamentals Timeline (for Financial Metrics)
@@ -144,17 +148,17 @@ export default function SnapshotTab({
     if (!performanceData || !performanceData.years) return [];
     // Transform API structure to Recharts friendly array
     // We'll extract "Total Return" metric
-    const totalReturnMetric = performanceData.metrics?.find((m: any) => m.key === "total_return" || m.label === "Total Return");
+    const totalReturnMetric = performanceData.metrics?.find((m) => m.key === "total_return" || m.label === "Total Return");
     if (!totalReturnMetric) return [];
 
     // Map years to data points
-    return performanceData.years.map((y: any) => {
+    return performanceData.years.map((y) => {
       const valObj = totalReturnMetric.values[y.year.toString()] || {};
       return {
         year: y.year.toString(),
         value: valObj.value,
       };
-    }).sort((a: any, b: any) => parseInt(a.year) - parseInt(b.year));
+    }).sort((a, b) => parseInt(a.year) - parseInt(b.year));
   }, [performanceData]);
 
   // C) Financial Metrics (Latest TTM or FY)
@@ -163,7 +167,7 @@ export default function SnapshotTab({
     
     // Helper to find by fuzzy label
     const findByLabel = (labelPart: string) => {
-       return timelineData.metrics?.find((m: any) => m.label.toLowerCase().includes(labelPart.toLowerCase()));
+       return timelineData.metrics?.find((m) => m.label.toLowerCase().includes(labelPart.toLowerCase()));
     };
 
     const extract = (labelPart: string) => {

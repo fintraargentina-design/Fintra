@@ -441,7 +441,7 @@ export type Metric = {
   key: string;
   label: string;
   unit: string;
-  category: "quality" | "solvency" | "growth";
+  category: "quality" | "solvency" | "growth" | "performance";
   priority: "A" | "B" | "C";
   heatmap: {
     direction: "higher_is_better" | "lower_is_better";
@@ -466,3 +466,5 @@ export type FundamentalsTimelineResponse = {
   years: YearGroup[];
   metrics: Metric[];
 };
+
+export type PerformanceTimelineResponse = FundamentalsTimelineResponse;

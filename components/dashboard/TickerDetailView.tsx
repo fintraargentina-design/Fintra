@@ -118,14 +118,9 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
 
              setStockAnalysis((prev: any) => ({
                  ...prev,
-                 fgos_score: snapshot.fgos_score,
-                 fgos_status: snapshot.fgos_status,
-                 fgos_confidence_percent: snapshot.fgos_confidence_percent,
-                 valuation: snapshot.valuation,
+                 ...snapshot, // Propagate all snapshot fields (relative_vs_*, snapshot_date, etc.)
                  fgos_breakdown: (snapshot as any).fgos_components || (snapshot as any).fgos_breakdown,
-                 fgos_state: fgosState,
-                 sector_rank: snapshot.sector_rank,
-                 sector_rank_total: snapshot.sector_rank_total
+                 fgos_state: fgosState
              }));
           }
 
@@ -256,8 +251,8 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
 
   return (
     <div className="w-full h-full flex flex-col bg-[#0A0A0A]">
-      <div className="shrink-0 w-full h-[2.8%] flex items-center bg-tarjetas border-b border-zinc-800">
-        <div className="w-[30%] h-full border-r border-zinc-800 overflow-hidden py-0">
+      <div className="shrink-0 w-full h-[45px] flex flex-col bg-tarjetas border-b border-zinc-800">
+        <div className="w-full border-b border-zinc-800 overflow-hidden py-0">
           <OverviewCard
             selectedStock={stockBasicData || ticker}
             onStockSearch={buscarDatosAccion}
@@ -267,7 +262,7 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
           />
         </div>
         
-        <div className="flex-1 h-full flex items-center px-4">
+        <div className="w-full flex items-center px-1 pt-1">
           <NavigationBar
             orientation="horizontal"
             activeTab={activeTab}
@@ -276,6 +271,7 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
           />
         </div>
       </div>
+      
 
       <div className="flex-1 flex flex-col min-h-0 mt-3">
         <div
