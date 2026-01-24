@@ -16,65 +16,90 @@ export interface RelativePerformanceInputs {
 /**
  * Calculates Industry Fit Score (IFS) based on relative performance against sector.
  * 
- * IFS is derived by MAJORITY VOTING across windows.
- * Windows: 1W, 1M, YTD, 1Y, 3Y, 5Y
+ * IFS v1.1: BLOCK-BASED MAJORITY VOTING
  * 
- * POSITION RULE:
- * - Majority POSITIVE (>0) → "leader"
- * - Majority NEGATIVE (<0) → "laggard"
- * - Otherwise → "follower"
+ * Windows are grouped into 3 Blocks:
+ * - Short: 1W, 1M
+ * - Mid: YTD, 1Y
+ * - Long: 3Y, 5Y
  * 
- * PRESSURE RULE (Structural Reinforcement):
- * - If leader: pressure = count of positive windows
- * - If laggard: pressure = count of negative windows
- * - If follower: pressure = max(positive_windows, negative_windows)
+ * BLOCK VOTING:
+ * Each block casts a single vote:
+ * - +1 if majority of its valid windows are POSITIVE
+ * - -1 if majority of its valid windows are NEGATIVE
+ * -  0 if tie or no valid data
+ * 
+ * FINAL POSITION:
+ * - Leader: Positive Blocks > Negative Blocks
+ * - Laggard: Negative Blocks > Positive Blocks
+ * - Follower: Tie
  * 
  * VALIDITY:
- * - If fewer than 3 valid windows exist → NULL
+ * - Requires at least 2 non-zero block votes to be valid.
+ *   If fewer than 2 blocks emit a non-zero vote → returns NULL.
+ * 
+ * PRESSURE:
+ * - Number of blocks that support the final position.
+ * - For Follower (Tie), pressure is the max intensity (max of pos/neg blocks).
  */
 export function calculateIFS(inputs: RelativePerformanceInputs): IFSResult | null {
-  const windows = [
-    inputs.relative_vs_sector_1w,
-    inputs.relative_vs_sector_1m,
-    inputs.relative_vs_sector_ytd,
-    inputs.relative_vs_sector_1y,
-    inputs.relative_vs_sector_3y,
-    inputs.relative_vs_sector_5y
-  ];
+  // 1. Group Windows into Blocks
+  const blocks = {
+    short: [inputs.relative_vs_sector_1w, inputs.relative_vs_sector_1m],
+    mid: [inputs.relative_vs_sector_ytd, inputs.relative_vs_sector_1y],
+    long: [inputs.relative_vs_sector_3y, inputs.relative_vs_sector_5y]
+  };
 
-  let positiveCount = 0;
-  let negativeCount = 0;
-  let validCount = 0;
+  // 2. Compute Block Votes
+  const votes: number[] = []; // +1, -1, 0
 
-  for (const w of windows) {
-    if (w !== null && w !== undefined) {
-      validCount++;
-      if (w > 0) positiveCount++;
-      else if (w < 0) negativeCount++;
+  for (const group of Object.values(blocks)) {
+    let pos = 0;
+    let neg = 0;
+    let valid = 0;
+
+    for (const w of group) {
+      if (w !== null && w !== undefined) {
+        valid++;
+        if (w > 0) pos++;
+        else if (w < 0) neg++;
+      }
+    }
+
+    if (valid === 0) {
+      votes.push(0);
+    } else if (pos > neg) {
+      votes.push(1);
+    } else if (neg > pos) {
+      votes.push(-1);
+    } else {
+      votes.push(0); // Tie within block or empty
     }
   }
 
-  // If fewer than 3 valid windows exist: ifs = NULL (do NOT fabricate)
-  if (validCount < 3) {
+  // 3. Count Block Votes
+  const positiveBlocks = votes.filter(v => v === 1).length;
+  const negativeBlocks = votes.filter(v => v === -1).length;
+  const nonZeroBlocks = positiveBlocks + negativeBlocks;
+
+  // 4. Validity Rule: Need at least 2 non-zero block votes
+  if (nonZeroBlocks < 2) {
     return null;
   }
 
-  // POSITION & PRESSURE RULES
+  // 5. Determine Position & Pressure
   let position: IFSResult['position'] = 'follower';
   let pressure = 0;
-  
-  if (positiveCount > negativeCount) {
+
+  if (positiveBlocks > negativeBlocks) {
     position = 'leader';
-    pressure = positiveCount;
-  } else if (negativeCount > positiveCount) {
+    pressure = positiveBlocks;
+  } else if (negativeBlocks > positiveBlocks) {
     position = 'laggard';
-    pressure = negativeCount;
+    pressure = negativeBlocks;
   } else {
-    // Tie -> follower
-    // Pressure for follower is the max intensity of either side (though they are tied or close)
-    // Actually per requirement: max(positives, negatives)
     position = 'follower';
-    pressure = Math.max(positiveCount, negativeCount);
+    pressure = Math.max(positiveBlocks, negativeBlocks);
   }
 
   return {

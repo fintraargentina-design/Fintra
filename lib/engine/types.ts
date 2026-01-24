@@ -64,9 +64,11 @@ export interface FgosResult {
 }
 
 export type CanonicalValuationStatus =
+  | 'very_cheap_sector'
   | 'cheap_sector'
   | 'fair_sector'
   | 'expensive_sector'
+  | 'very_expensive_sector'
   | 'pending';
 
 export type LegacyValuationStatus = 'undervalued' | 'overvalued' | 'fair' | 'pending';
