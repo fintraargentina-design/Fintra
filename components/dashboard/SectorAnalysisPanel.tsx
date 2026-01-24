@@ -241,8 +241,8 @@ export default function SectorAnalysisPanel({ onStockSelect, selectedTicker }: {
           </div>
         </div>
 
-        <div className="py-1 bg-white/[0.02] shrink-0 border border-t-0 border-b-0 border-zinc-800">
-          <h4 className="text-xs font-medium text-gray-400 text-center">
+        <div className="py-0 bg-white/[0.02] shrink-0 border border-t-0 border-b-0 border-zinc-800">
+          {/* <h4 className="text-xs font-medium text-gray-400 text-center">
             {selectedStockData && selectedStockData.sectorRank != null ? (
                <span className="text-white font-mono">
                  #{selectedStockData.sectorRank} {selectedStockData.sectorRankTotal ? `/ ${selectedStockData.sectorRankTotal}` : ""}
@@ -250,17 +250,17 @@ export default function SectorAnalysisPanel({ onStockSelect, selectedTicker }: {
             ) : (
                <span>Acciones del sector <span className="text-[#FFA028]">{selectedSector}</span> ({stocks.length})</span>
             )}
-          </h4>
+          </h4> */}
         </div>
 
         {industries.length > 0 && (
 			<div className="w-full border-b border-zinc-800 bg-[#0A0A0A] shrink-0">
              <Tabs value={selectedIndustry} onValueChange={handleIndustryChange} className="w-full">
 					<div className="w-full overflow-x-auto whitespace-nowrap scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent ">
-                  <TabsList className="bg-transparent h-auto p-0 flex min-w-full w-max gap-0.5">
+                  <TabsList className="bg-[#002D72]/20 h-auto p-0 flex min-w-full w-max gap-0.5 border-b-2 border-black">
                       <TabsTrigger 
                         value="Todas" 
-                        className="rounded-none border-transparent data-[state=active]:bg-[#002D72] data-[state=active]:text-[#FFFFFF] text-[10px] px-3 py-1.5 text-gray-500 hover:text-gray-300 transition-colors"
+                        className="rounded-none border-transparent data-[state=active]:bg-[#002D72] data-[state=active]:text-[#FFFFFF] text-[12px] px-1 py-0 text-white hover:text-gray-300 transition-colors"
                       >
                         Todas
                       </TabsTrigger>
@@ -268,7 +268,7 @@ export default function SectorAnalysisPanel({ onStockSelect, selectedTicker }: {
                           <TabsTrigger 
                             key={ind} 
                             value={ind} 
-                            className="rounded-none border-transparent data-[state=active]:bg-[#002D72] data-[state=active]:text-[#FFFFFF] text-[10px] px-3 py-1.5 text-gray-500 hover:text-gray-300 transition-colors" 
+                            className="rounded-none font-light border-transparent data-[state=active]:bg-[#002D72] data-[state=active]:text-[#FFFFFF] text-[12px] px-1 py-1 text-gray-300 hover:text-white hover:bg-[#002D72]/60 transition-colors" 
                           >
                               {ind}
                           </TabsTrigger>

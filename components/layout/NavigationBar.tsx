@@ -62,7 +62,7 @@ export default function NavigationBar({
               onClick={() => setActiveTab(tab.key as TabKey)}
               data-state={activeTab === tab.key ? 'active' : 'inactive'}
               className={`
-                bg-zinc-900 rounded-none border-b-0 data-[state=active]:bg-[#002D72] data-[state=active]:text-white text-sm px-2 py-0 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors font-medium 
+                bg-zinc-900 rounded-none border-b-0 data-[state=active]:bg-[#002D72] data-[state=active]:text-white text-[12px] px-2 py-0 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors font-medium 
               `}
             >
               {tab.label}

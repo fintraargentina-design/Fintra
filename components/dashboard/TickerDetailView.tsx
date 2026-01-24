@@ -275,7 +275,7 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
 
       <div className="flex-1 flex flex-col min-h-0 mt-3">
         <div
-          className="w-full flex-1 border-r border-l border-zinc-800 overflow-y-auto scrollbar-on-hover"
+          className="w-full flex-1 border-r border-l border-zinc-800 overflow-y-auto"
         >
           {renderTabContent()}
         </div>

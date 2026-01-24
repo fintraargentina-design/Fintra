@@ -205,7 +205,7 @@ export default function NoticiasTicker({
             const minutes = Math.floor(diffInHours * 60);
             return `${minutes}m ago`;
         }
-        return `${Math.floor(diffInHours)}h ago`;
+        return `${Math.floor(diffInHours)}h`;
       }
 
       return date.toLocaleDateString('en-US', {
@@ -433,7 +433,7 @@ export default function NoticiasTicker({
         </div>
 
 			{/* News List */}
-			<div className="flex-1 overflow-y-auto p-0 scrollbar-on-hover">
+			<div className="flex-1 overflow-y-auto p-0 ">
           {filteredNews.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-zinc-500 space-y-2">
               <MessageSquare className="w-8 h-8 opacity-20" />
@@ -453,68 +453,37 @@ export default function NoticiasTicker({
                 return (
                   <div key={idx} className="group p-1 hover:bg-zinc-800/30 transition-colors cursor-default">
                     <div className="flex gap-4">
-                        {/* Image Placeholder or Actual Image */}
-                        {/* <div className="w-14 h-14 flex-shrink-0 bg-zinc-800 rounded-lg overflow-hidden relative hidden sm:block">
-                            {item.banner_image ? (
-                                <img src={item.banner_image} alt="" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-zinc-700">
-                                    <span className="text-xs font-bold">{item.source.substring(0,2).toUpperCase()}</span>
-                                </div>
-                            )}
-                        </div> */}
-
+                       
                         {/* Content */}
                         <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2 mb-1">
-                                <div className="flex items-center gap-2 text-xs text-zinc-400">
-                                    <span className="font-semibold text-[#FFA028]">{item.source}</span>
-                                    <span>•</span>
-                                    <span className="flex items-center gap-1">
+                            <div className="flex items-start mb-1">
+                                <div className="flex w-full items-start justify-between gap-2 text-xs text-zinc-400"> 
+                                  <div>                                   
+                                    <h3 className="text-zinc-100 font-light text-[11px] leading-snug mb-2 transition-colors line-clamp-2">
+                                      <button 
+                                        onClick={(e) => { e.preventDefault(); openNewsModal(item.url, item.title); }} 
+                                        className="text-left hover:underline hover:text-[#FFA028] focus:outline-none"
+                                      >
+                                        {item.title}
+                                      </button>
+                                    </h3>
+                                    </div>
+                                    <div className="flex items-end gap-1">
+                                      <span className="flex items-center gap-1">
                                         <Clock className="w-3 h-3" />
                                         {formatDate(item.time_published)}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <h3 className="text-zinc-100 font-medium text-xs leading-snug mb-2 group-hover:text-[#FFA028] transition-colors line-clamp-2">
-                                <button 
-                                    onClick={(e) => { e.preventDefault(); openNewsModal(item.url, item.title); }} 
-                                    className="text-left hover:underline focus:outline-none"
-                                >
-                                    {item.title}
-                                </button>
-                            </h3>
-                            
-                            {/* <p className="text-zinc-400 text-xs line-clamp-2 mb-3 leading-relaxed">
-                                {item.summary}
-                            </p> */}
-
-                            <div className="flex items-center justify-between">
-                                <div className="flex gap-2">
-                                    {item.topics?.slice(0, 2).map((t, i) => (
-                                        <span key={i} className="text-[10px] px-2 py-0.5 bg-zinc-800 text-zinc-400 border border-zinc-700">
-                                            {t.topic}
-                                        </span>
-                                    ))}
-                                </div>
-                                
-                                <div className="flex gap-2">
+                                      </span>
+                                    </div>
+                                    <div>
                                     <button 
                                         onClick={() => handleAnalyzeNews(item)}
-                                        className="flex items-center gap-1.5 px-3 py-1 bg-[#FFA028]/10 text-[#FFA028] hover:bg-[#FFA028]/20 border border-[#FFA028]/20 text-xs transition-all"
-                                    >
-                                        {/* <Brain className="w-3 h-3" /> */}
-                                        AI Insight
+                                        className="flex items-center font-light uppercase gap-1.5 px-3 py-1 bg-[#0056FF]/50 text-[#FFFFFF] hover:bg-[#0056FF] text-[10px] transition-all"
+                                    >                                        
+                                        Analizar
                                     </button>
-                                    {/* <button 
-                                        onClick={() => openNewsModal(item.url, item.title)}
-                                        className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
-                                    >
-                                        <ExternalLink className="w-4 h-4" />
-                                    </button> */}
+                                    </div> 
                                 </div>
-                            </div>
+                            </div>                                             
                         </div>
                     </div>
                   </div>

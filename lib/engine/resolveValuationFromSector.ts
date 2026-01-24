@@ -28,13 +28,45 @@ export interface ValuationInput {
   price_to_fcf?: number | null;
 }
 
-function getApproximatePercentile(value: number, stats: SectorBenchmarkMetric): number {
-  if (value <= stats.p10) return 5;
-  if (value <= stats.p25) return 17.5;
-  if (value <= stats.p50) return 37.5;
-  if (value <= stats.p75) return 62.5;
-  if (value <= stats.p90) return 82.5;
-  return 95;
+function resolvePercentile(value: number, stats: SectorBenchmarkMetric): number | null {
+  const points = [
+    { p: 10, v: stats.p10 },
+    { p: 25, v: stats.p25 },
+    { p: 50, v: stats.p50 },
+    { p: 75, v: stats.p75 },
+    { p: 90, v: stats.p90 }
+  ].filter((point) => Number.isFinite(point.v)) as { p: number; v: number }[];
+
+  if (points.length < 2) return null;
+
+  const sorted = points.slice().sort((a, b) => a.v - b.v);
+  const min = sorted[0];
+  const max = sorted[sorted.length - 1];
+
+  const interpolate = (a: { p: number; v: number }, b: { p: number; v: number }) => {
+    if (a.v === b.v) return a.p;
+    return a.p + ((value - a.v) * (b.p - a.p)) / (b.v - a.v);
+  };
+
+  let percentile: number;
+
+  if (value <= min.v) {
+    percentile = interpolate(min, sorted[1]);
+  } else if (value >= max.v) {
+    percentile = interpolate(sorted[sorted.length - 2], max);
+  } else {
+    let idx = 0;
+    for (let i = 0; i < sorted.length - 1; i += 1) {
+      if (value >= sorted[i].v && value <= sorted[i + 1].v) {
+        idx = i;
+        break;
+      }
+    }
+    percentile = interpolate(sorted[idx], sorted[idx + 1]);
+  }
+
+  if (!Number.isFinite(percentile)) return null;
+  return Math.min(100, Math.max(0, percentile));
 }
 
 export function buildValuationState(
@@ -66,37 +98,25 @@ export function buildValuationState(
     const percentiles: number[] = [];
     
     // 2. SECTOR NORMALIZATION & PERCENTILE MAPPING
-    // Rule: Use P50 median ONLY.
-    // Logic:
-    // - If metric < P50 -> "Cheap" (Proxy Percentile: 25)
-    // - If metric > P50 -> "Expensive" (Proxy Percentile: 75)
-    // - If metric == P50 -> "Fair" (Proxy Percentile: 50)
+    // Rule: Use sector distribution percentiles (p10, p25, p50, p75, p90)
+    // Logic: Interpolate the real percentile for each metric vs sector benchmarks.
     
-    const resolveProxyPercentile = (val: number, benchmarkKey: string) => {
+    const resolveMetricPercentile = (val: number, benchmarkKey: string) => {
         const bench = sectorBenchmarks[benchmarkKey];
         if (!bench) return null;
-        
-        // We strictly use p50 (median)
-        const median = bench.p50;
-        
-        // If benchmark is invalid? (Shouldn't happen if type is correct)
-        if (median === undefined || median === null) return null;
-
-        if (val < median) return 25; // Below median -> Cheap
-        if (val > median) return 75; // Above median -> Expensive
-        return 50; // Exact match
+        return resolvePercentile(val, bench);
     };
 
     if (pe !== null) {
-        const p = resolveProxyPercentile(pe, 'pe_ratio');
+        const p = resolveMetricPercentile(pe, 'pe_ratio');
         if (p !== null) percentiles.push(p);
     }
     if (ev !== null) {
-        const p = resolveProxyPercentile(ev, 'ev_ebitda');
+        const p = resolveMetricPercentile(ev, 'ev_ebitda');
         if (p !== null) percentiles.push(p);
     }
     if (pfcf !== null) {
-        const p = resolveProxyPercentile(pfcf, 'price_to_fcf');
+        const p = resolveMetricPercentile(pfcf, 'price_to_fcf');
         if (p !== null) percentiles.push(p);
     }
     
@@ -115,7 +135,15 @@ export function buildValuationState(
     }
 
     // Confidence
-    const confidencePercent = Math.round((valid_count / 3) * 100);
+    const coveragePercent = Math.round((valid_count / 3) * 100);
+    let dispersionRange = 0;
+    if (valid_count >= 2) {
+      const minP = Math.min(...percentiles);
+      const maxP = Math.max(...percentiles);
+      dispersionRange = maxP - minP;
+    }
+    const dispersionPenalty = Math.round((dispersionRange / 100) * 40);
+    const confidencePercent = Math.max(0, Math.min(100, coveragePercent - dispersionPenalty));
     let confidenceLabel: 'Low' | 'Medium' | 'High' = 'Low';
     if (confidencePercent < 40) {
       confidenceLabel = 'Low';
@@ -139,12 +167,16 @@ export function buildValuationState(
       }
 
       // 4. CANONICAL STATES
-      if (medianPercentile <= 35) {
+      if (medianPercentile <= 20) {
+        valuation_status = 'very_cheap_sector';
+      } else if (medianPercentile <= 40) {
         valuation_status = 'cheap_sector';
-      } else if (medianPercentile >= 66) {
+      } else if (medianPercentile <= 60) {
+        valuation_status = 'fair_sector';
+      } else if (medianPercentile < 80) {
         valuation_status = 'expensive_sector';
       } else {
-        valuation_status = 'fair_sector';
+        valuation_status = 'very_expensive_sector';
       }
     } else {
       valuation_status = 'pending';
@@ -159,10 +191,14 @@ export function buildValuationState(
        // Logic for explanation text...
        // Keep existing explanation logic but adapted if needed.
        // The existing logic seems fine.
-       if (valuation_status === 'cheap_sector') {
-          explanation = 'La empresa cotiza a múltiplos inferiores a la mediana de su sector (Cheap).';
+       if (valuation_status === 'very_cheap_sector') {
+          explanation = 'La empresa cotiza a múltiplos muy inferiores a su sector (Very Cheap).';
+       } else if (valuation_status === 'cheap_sector') {
+          explanation = 'La empresa cotiza a múltiplos inferiores a su sector (Cheap).';
        } else if (valuation_status === 'expensive_sector') {
-          explanation = 'La empresa cotiza a múltiplos superiores a la mediana de su sector (Expensive).';
+          explanation = 'La empresa cotiza a múltiplos superiores a su sector (Expensive).';
+       } else if (valuation_status === 'very_expensive_sector') {
+          explanation = 'La empresa cotiza a múltiplos muy superiores a su sector (Very Expensive).';
        } else {
           explanation = 'La empresa cotiza en línea con la mediana de su sector (Fair).';
        }
@@ -205,18 +241,20 @@ export function resolveValuationFromSector(
   const state = buildValuationState(input, sectorBenchmarks);
 
   const canonicalToLegacy: Record<CanonicalValuationStatus, LegacyValuationStatus> = {
+    very_cheap_sector: 'undervalued',
     cheap_sector: 'undervalued',
     fair_sector: 'fair',
     expensive_sector: 'overvalued',
+    very_expensive_sector: 'overvalued',
     pending: 'pending'
   };
 
   let score: number | null = null;
   // Allow score for both 'computed' and 'partial' as long as it's not pending
   if (state.valuation_status !== 'pending') {
-    if (state.valuation_status === 'cheap_sector') score = 80;
+    if (state.valuation_status === 'very_cheap_sector' || state.valuation_status === 'cheap_sector') score = 80;
     else if (state.valuation_status === 'fair_sector') score = 50;
-    else if (state.valuation_status === 'expensive_sector') score = 20;
+    else if (state.valuation_status === 'expensive_sector' || state.valuation_status === 'very_expensive_sector') score = 20;
   }
 
   const legacyStatus: LegacyValuationStatus = canonicalToLegacy[state.valuation_status];

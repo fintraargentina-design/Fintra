@@ -362,7 +362,7 @@ export default function TickerSearchPanel({ onStockSelect }: { onStockSelect?: (
         </div>
 
 			{/* Results Table */}
-			<div className="flex-1 overflow-auto relative bg-[#0A0A0A] scrollbar-on-hover">
+			<div className="flex-1 overflow-auto relative bg-[#0A0A0A] scrollbar-thin">
            <Table>
               <TableHeader className="sticky top-0 bg-[#1D1D1D] z-10 shadow-sm">
                  <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] border-b-0">

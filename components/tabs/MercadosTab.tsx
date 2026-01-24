@@ -337,7 +337,7 @@ export default function MercadosTab() {
                <span className="text-[12px] text-zinc-500 font-mono">{now ? now.toLocaleTimeString() : '--:--:--'}</span>
             </div>
             
-					<div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-on-hover p-0.5">
+					<div className="flex-1 overflow-y-auto scrollbar-thin p-0.5">
                {loadingHours && marketHours.length === 0 ? (
                  <div className="grid grid-cols-2 gap-0.5">
                    {[...Array(10)].map((_, i) => (

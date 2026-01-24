@@ -453,9 +453,9 @@ export async function buildSnapshot(
         stage: valState.stage,
         // Canonical status stored separately; legacy field kept for compat
         valuation_status:
-          valState.valuation_status === 'cheap_sector'
+          valState.valuation_status === 'very_cheap_sector' || valState.valuation_status === 'cheap_sector'
             ? 'undervalued'
-            : valState.valuation_status === 'expensive_sector'
+            : valState.valuation_status === 'very_expensive_sector' || valState.valuation_status === 'expensive_sector'
             ? 'overvalued'
             : valState.valuation_status === 'fair_sector'
             ? 'fair'

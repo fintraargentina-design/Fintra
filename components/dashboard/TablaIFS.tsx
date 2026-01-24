@@ -245,12 +245,12 @@ export default function TablaIFS({
         <TableHeader className="sticky top-0 z-10 bg-[#1D1D1D]">
           <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
             <TableHead className="px-2 text-gray-300 text-[12px] h-6 w-[60px]">Ticker</TableHead>
-            <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-center w-[120px]">Ranking Sectorial (IFS)</TableHead>
+            <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-center w-[120px]">Ranking Sectorial</TableHead>
             <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-center w-[80px]">IFS</TableHead>
             <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-center w-[120px]">Valuación Relativa</TableHead>
-            <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-center w-[120px]">Calidad Fundamental</TableHead>
-            <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-center w-[100px]">Estado Estratégico</TableHead>
-            <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-right w-[70px]">Precio EOD</TableHead>
+            <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-center w-[120px]">FGOS</TableHead>
+            <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-center w-[100px]">Estado</TableHead>
+            <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-right w-[70px]">EOD</TableHead>
             <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-right w-[60px]">YTD %</TableHead>
             <TableHead className="px-2 text-gray-300 text-[12px] h-6 text-right w-[70px]">Mkt Cap</TableHead>
           </TableRow>

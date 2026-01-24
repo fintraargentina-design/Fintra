@@ -91,7 +91,7 @@ export default function TickerExpandidoView({
       </div>
 
       {/* Main Scrollable Content */}
-      <div className="flex-1 overflow-y-auto scrollbar-on-hover grid grid-cols-1 xl:grid-cols-2 gap-1 p-1">
+      <div className="flex-1 overflow-y-auto scrollbar-thin grid grid-cols-1 xl:grid-cols-2 gap-1 p-1">
           
           {/* 2. Remaining Grid of Medium Cards - Peers top, Charts/FGOS bottom split */}
           <div className="grid grid-cols-1 grid-rows-2 gap-1 h-full">

@@ -49,9 +49,9 @@ describe('buildValuationState (Canonical Algorithm)', () => {
     });
 
     it('should return partial/computed if 2 metrics available', () => {
-        // PE: 18 (<20 -> 25)
-        // EV: 18 (<20 -> 25)
-        // Median(25, 25) = 25 -> cheap_sector
+        // PE: 18 -> percentile ~40
+        // EV: 18 -> percentile ~40
+        // Median(40, 40) = 40 -> cheap_sector
         
         const input: ValuationInput = { 
             sector: 'Tech', 
@@ -66,11 +66,11 @@ describe('buildValuationState (Canonical Algorithm)', () => {
     });
 
     it('should calculate median correctly (All Cheap)', () => {
-        // P/E: 5 (<20 -> 25)
-        // EV: 12 (<20 -> 25)
-        // FCF: 18 (<20 -> 25)
-        // Median(25, 25, 25) = 25.
-        // 25 <= 35 -> cheap_sector.
+        // P/E: 5 -> percentile ~0
+        // EV: 12 -> percentile ~16
+        // FCF: 18 -> percentile ~40
+        // Median(0, 16, 40) = 16.
+        // 16 <= 20 -> very_cheap_sector.
         
         const input: ValuationInput = { 
             sector: 'Tech', 
@@ -80,16 +80,16 @@ describe('buildValuationState (Canonical Algorithm)', () => {
         };
         const result = buildValuationState(input, mockBenchmarks);
         expect(result.stage).toBe('computed');
-        expect(result.valuation_status).toBe('cheap_sector');
+        expect(result.valuation_status).toBe('very_cheap_sector');
         expect(result.confidence.label).toBe('High'); // 3 metrics
     });
 
     it('should calculate median correctly (All Expensive)', () => {
-        // P/E: 35 (>20 -> 75)
-        // EV: 28 (>20 -> 75)
-        // FCF: 22 (>20 -> 75)
-        // Median(75, 75, 75) = 75.
-        // 75 >= 66 -> expensive_sector.
+        // P/E: 35 -> percentile ~100
+        // EV: 28 -> percentile ~84
+        // FCF: 22 -> percentile ~60
+        // Median(100, 84, 60) = 84.
+        // 84 >= 80 -> very_expensive_sector.
         
         const input: ValuationInput = { 
             sector: 'Tech', 
@@ -98,15 +98,15 @@ describe('buildValuationState (Canonical Algorithm)', () => {
             price_to_fcf: 22
         };
         const result = buildValuationState(input, mockBenchmarks);
-        expect(result.valuation_status).toBe('expensive_sector');
+        expect(result.valuation_status).toBe('very_expensive_sector');
     });
     
     it('should calculate median correctly (Mixed -> Fair)', () => {
-        // P/E: 20 (==20 -> 50)
-        // EV: 22 (>20 -> 75)
-        // Percentiles: [50, 75].
-        // Median: (50 + 75) / 2 = 62.5.
-        // 35 < 62.5 < 66 -> fair_sector.
+        // P/E: 20 -> percentile 50
+        // EV: 22 -> percentile ~60
+        // Percentiles: [50, 60].
+        // Median: (50 + 60) / 2 = 55.
+        // 40 < 55 <= 60 -> fair_sector.
         
         const input: ValuationInput = { 
             sector: 'Tech', 
@@ -118,11 +118,11 @@ describe('buildValuationState (Canonical Algorithm)', () => {
     });
 
     it('should handle mixed cheap/expensive signals (Majority Vote)', () => {
-        // P/E: 10 (<20 -> 25)
-        // EV: 10 (<20 -> 25)
-        // FCF: 30 (>20 -> 75)
-        // Percentiles: [25, 25, 75]. Median = 25.
-        // 25 <= 35 -> cheap_sector.
+        // P/E: 10 -> percentile 10
+        // EV: 10 -> percentile 10
+        // FCF: 30 -> percentile 90
+        // Percentiles: [10, 10, 90]. Median = 10.
+        // 10 <= 20 -> very_cheap_sector.
 
         const input: ValuationInput = { 
             sector: 'Tech', 
@@ -131,7 +131,18 @@ describe('buildValuationState (Canonical Algorithm)', () => {
             price_to_fcf: 30
         };
         const result = buildValuationState(input, mockBenchmarks);
-        expect(result.valuation_status).toBe('cheap_sector');
+        expect(result.valuation_status).toBe('very_cheap_sector');
+    });
+
+    it('should penalize confidence when percentiles are dispersed', () => {
+        const input: ValuationInput = { 
+            sector: 'Tech', 
+            pe_ratio: 10,
+            ev_ebitda: 30
+        };
+        const result = buildValuationState(input, mockBenchmarks);
+        expect(result.confidence.percent).toBe(35);
+        expect(result.confidence.label).toBe('Low');
     });
 });
 
@@ -154,8 +165,8 @@ describe('resolveValuationFromSector (Legacy Support)', () => {
     it('should map cheap_sector to undervalued/80', () => {
         const input: ValuationInput = { 
            sector: 'Tech', 
-           pe_ratio: 5,
-           ev_ebitda: 5 // Added second metric to satisfy min threshold
+           pe_ratio: 18,
+           ev_ebitda: 18
        };
        const result = resolveValuationFromSector(input, mockBenchmarks);
        

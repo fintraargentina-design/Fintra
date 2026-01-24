@@ -64,7 +64,7 @@ const LeftPanel = memo(({ onStockSelect, selectedTicker }: LeftPanelProps) => {
                 value="sector_score"
                 className="bg-zinc-900 rounded-none border-b-0 data-[state=active]:bg-[#002D72] data-[state=active]:text-white text-xs px-4 py-1 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors w-auto"
               >
-                Clasificación Fintra - IFS
+                Stock Sectors & Industries
               </TabsTrigger>
               <TabsTrigger 
                 value="ticker_search"

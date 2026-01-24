@@ -195,7 +195,7 @@ export default function NoticiasTab({
             const minutes = Math.floor(diffInHours * 60);
             return `${minutes}m ago`;
         }
-        return `${Math.floor(diffInHours)}h ago`;
+        return `${Math.floor(diffInHours)}h`;
       }
 
       return date.toLocaleDateString('en-US', {
@@ -344,7 +344,7 @@ export default function NoticiasTab({
         </div>
 
 			{/* News List */}
-			<div className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-on-hover">
+			<div className="flex-1 overflow-y-auto p-0 scrollbar-thin">
           {filteredNews.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-zinc-500 space-y-2">
               <MessageSquare className="w-8 h-8 opacity-20" />
@@ -354,53 +354,28 @@ export default function NoticiasTab({
             <div className="divide-y divide-zinc-800">
               {filteredNews.map((item, idx) => {
                 return (
-                  <div key={idx} className="group p-1 hover:bg-zinc-800/30 transition-colors cursor-default scrollbar-thin">
+                  <div key={idx} className="group p-1 hover:bg-zinc-800/30 transition-colors cursor-default ">
                     <div className="flex gap-4">
                        
                         {/* Content */}
                         <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2 mb-1">
-                                <div className="flex items-center gap-2 text-xs text-zinc-400">
-                                    <span className="font-semibold text-[#FFA028]">{item.source}</span>
-                                    <span>•</span>
+                            <div className="flex items-start mb-1">
+                                <div className="flex w-full items-start justify-between gap-2 text-xs text-zinc-400">
+                                    
+                                    <h3 className="text-zinc-100 font-light text-[11px] leading-snug mb-1 transition-colors line-clamp-2">
+                                      <button 
+                                        onClick={(e) => { e.preventDefault(); openNewsModal(item.url, item.title); }} 
+                                        className="text-left hover:underline hover:text-[#FFA028] focus:outline-none"
+                                      >
+                                        {item.title}
+                                      </button>
+                                    </h3>
                                     <span className="flex items-center font-mono  gap-1">
                                         <Clock className="w-3 h-3" />
                                         {formatDate(item.time_published)}
                                     </span>
-                                </div>
-                                <div className="flex items-center gap-2" />
-                            </div>
-
-                            <h3 className="text-zinc-100 font-medium text-xs leading-snug mb-2 group-hover:text-[#FFA028] transition-colors line-clamp-2">
-                                <button 
-                                    onClick={(e) => { e.preventDefault(); openNewsModal(item.url, item.title); }} 
-                                    className="text-left hover:underline focus:outline-none"
-                                >
-                                    {item.title}
-                                </button>
-                            </h3>
-                            
-            
-                            <div className="flex items-center justify-between">
-                                <div className="flex gap-2">
-                                    {item.topics?.slice(0, 2).map((t, i) => (
-                                        <span key={i} className="text-[10px] px-2 py-0.5 font-mono  bg-zinc-800 text-zinc-400 border border-zinc-700">
-                                            {t.topic}
-                                        </span>
-                                    ))}
-                                </div>
-                                
-                                <div className="flex gap-2">
-                                    <button 
-                                        onClick={() => handleAnalyzeNews(item)}
-                                        className="flex items-center font-mono  gap-1.5 px-3 py-1 bg-[#FFA028]/10 text-[#FFA028] hover:bg-[#FFA028]/20 border border-[#FFA028]/20 text-xs transition-all"
-                                    >
-                                        {/* <Brain className="w-3 h-3" /> */}
-                                        AI Insight
-                                    </button>
-                                    
-                                </div>
-                            </div>
+                                </div>                                
+                            </div>                                                                               
                         </div>
                     </div>
                   </div>

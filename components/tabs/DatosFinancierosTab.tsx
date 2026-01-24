@@ -203,7 +203,7 @@ function GenericTimelineTable({
       <div className="w-full flex flex-col bg-tarjetas rounded-none overflow-hidden border border-zinc-800">
         <div
           ref={scrollRef}
-          className="flex-1 p-0 overflow-x-auto overflow-y-hidden scrollbar-on-hover"
+          className="flex-1 p-0 overflow-x-auto overflow-y-hidden scrollbar-thin"
         >
           <Table className="min-w-max text-sm border-collapse">
             <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10 border-2 border-zinc-800">

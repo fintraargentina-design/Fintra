@@ -112,9 +112,9 @@ export default function FintraStructuralProfile({
     <div className="flex flex-col gap-2 w-full">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-[#FFA028] text-xs font-bold uppercase tracking-wider">
+        {/* <h3 className="text-[#FFA028] text-xs font-bold uppercase tracking-wider">
           Perfil Estructural Fintra
-        </h3>
+        </h3> */}
         {sectorRank && sectorRankTotal ? (
           <span className="text-[10px] text-zinc-400 font-mono">
             Ranking Sectorial {sectorRank} de {sectorRankTotal}
@@ -136,15 +136,15 @@ export default function FintraStructuralProfile({
       </div> */}
 
       {/* Level 2: Attributes (Secondary) */}
-      <div className="grid grid-cols-4 gap-2 w-full pt-2 pb-6">
+      <div className="grid grid-cols-4 gap-2 w-full pt-2 pb-3">
         <div className="flex flex-col items-center gap-2">
           
-          <div className="flex flex-col items-center gap-0.5">
+          <div className="flex flex-col items-center gap-1">
             <span className="text-zinc-500 text-[10px] uppercase tracking-wider">
               Score Fintra de Industria
             </span>
             <IFSVisual position={ifsPosition} pressure={ifsPressure} size="lg" />
-            <span className="text-white text-base font-medium tracking-wide">
+            <span className="text-white text-sm font-light tracking-wide">
               {getIfsLabel(ifsPosition)}
             </span>
           </div>
@@ -153,7 +153,7 @@ export default function FintraStructuralProfile({
           <span className="text-zinc-500 text-[10px] uppercase tracking-wider">
             Calidad Fundamental
           </span>
-          <span className="text-zinc-200 text-sm font-medium">
+          <span className="text-zinc-200 text-sm font-light tracking-wide">
             {getQualityLabel(fgosBand)}
           </span>
         </div>
@@ -161,7 +161,7 @@ export default function FintraStructuralProfile({
           <span className="text-zinc-500 text-[10px] uppercase tracking-wider">
             Valuación Relativa
           </span>
-          <span className="text-zinc-200 text-sm font-medium">
+          <span className="text-zinc-200 text-sm font-light tracking-wide">
             {getValuationLabel(relativeValuation)}
           </span>
         </div>
@@ -169,7 +169,7 @@ export default function FintraStructuralProfile({
           <span className="text-zinc-500 text-[10px] uppercase tracking-wider">
             Estado Estratégico
           </span>
-          <span className="text-white text-lg font-semibold tracking-wide">
+          <span className="text-white text-sm font-light tracking-wide">
             {getAttentionLabel(attentionState)}
           </span>
         </div>

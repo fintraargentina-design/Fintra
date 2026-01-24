@@ -127,7 +127,7 @@ export type ResumenData = {
 
 export type CanonicalValuationState = {
   stage: 'pending' | 'partial' | 'computed';
-  canonical_status: 'cheap_sector' | 'fair_sector' | 'expensive_sector' | 'pending';
+  canonical_status: 'very_cheap_sector' | 'cheap_sector' | 'fair_sector' | 'expensive_sector' | 'very_expensive_sector' | 'pending';
   confidence: {
     label: 'Low' | 'Medium' | 'High';
     percent: number;

@@ -43,7 +43,7 @@ export default function TabManager({ requestedTicker, onActiveTickerChange }: Ta
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-transparent">
       {/* Custom Tab Bar */}
-			<div className="h-[27px] flex w-full overflow-x-auto border-b border-zinc-800 bg-transparent scrollbar-on-hover ">
+			<div className="h-[27px] flex w-full overflow-x-auto border-b border-zinc-800 bg-transparent ">
         {Array.from(new Set(openTickers)).map(ticker => {
           const isActive = ticker === activeTicker;
           return (
