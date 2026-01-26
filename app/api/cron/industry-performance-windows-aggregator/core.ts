@@ -1,10 +1,14 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
 const WINDOW_CONFIG: { code: string; days?: number }[] = [
-  { code: '1W', days: 5 },
+  // Excluded from structural calculations by canonical window policy (Phase 9)
+  // { code: '1W', days: 5 },
   { code: '1M', days: 21 },
-  { code: 'YTD' },
+  { code: '3M', days: 63 },
+  { code: '6M', days: 126 },
+  // { code: 'YTD' }, // Excluded (Phase 9)
   { code: '1Y', days: 252 },
+  { code: '2Y', days: 504 },
   { code: '3Y', days: 756 },
   { code: '5Y', days: 1260 },
 ];
@@ -171,38 +175,7 @@ export async function runIndustryPerformanceWindowsAggregator(): Promise<Aggrega
           `[industry-performance-windows] Industry=${industry} history_len=${history.length} valid_1d=${totalValid}`,
         );
 
-        const asOfYear = asOfDate.slice(0, 4);
-        const ytdStart = `${asOfYear}-01-01`;
-        const ytdHistory = history.filter(
-          (h) => h.performance_date >= ytdStart && h.performance_date <= asOfDate,
-        );
-
         for (const cfg of WINDOW_CONFIG) {
-          if (cfg.code === 'YTD') {
-            const ytdReturns = ytdHistory.map((d) => d.return_percent);
-            const ytdValid = ytdReturns.filter(
-              (r) => typeof r === 'number' && Number.isFinite(r),
-            ).length;
-            const val = computeCompoundedPercent(ytdReturns, 10, 'all');
-            if (val == null || !Number.isFinite(val)) {
-              console.warn(
-                `[industry-performance-windows] Skipping YTD for industry=${industry}: ytd_len=${ytdHistory.length} valid=${ytdValid} min=10`,
-              );
-              windowsSkipped++;
-              continue;
-            }
-
-            upserts.push({
-              industry,
-              window_code: 'YTD',
-              performance_date: asOfDate,
-              return_percent: val,
-              source: 'derived_from_1d',
-            });
-            windowsWritten++;
-            continue;
-          }
-
           if (!cfg.days) {
             continue;
           }

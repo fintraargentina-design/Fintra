@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
-type WindowCode = '1Y' | '3Y' | '5Y';
+type WindowCode = '1M' | '3M' | '6M' | '1Y' | '2Y' | '3Y' | '5Y';
 
 interface PerformanceRow {
   ticker: string;
@@ -25,7 +25,7 @@ interface PerformanceWindowRow {
 }
 
 const CRON_NAME = 'performance_windows_aggregator';
-const WINDOW_CODES: WindowCode[] = ['1Y', '3Y', '5Y'];
+const WINDOW_CODES: WindowCode[] = ['1M', '3M', '6M', '1Y', '2Y', '3Y', '5Y'];
 
 type UniverseRow = {
   ticker: string;

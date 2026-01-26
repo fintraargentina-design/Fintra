@@ -2,6 +2,9 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { calculateFGOSFromData } from '@/lib/engine/fintra-brain';
 import { calculateIFS, type RelativePerformanceInputs } from '@/lib/engine/ifs';
+import { calculateFundamentalsMaturity } from '@/lib/engine/fundamentals-maturity';
+import { getIndustryTemporalMap, resolveIndustryProfile } from '@/lib/engine/industry-metadata';
+import { buildLayerStatus } from '@/lib/engine/layer-status';
 import { calculateMarketPosition } from '@/lib/engine/market-position';
 import { normalizeProfileStructural } from '@/app/api/cron/fmp-bulk/normalizeProfileStructural';
 import type { FmpProfile, FmpRatios, FmpMetrics } from '@/lib/engine/types';
@@ -58,6 +61,16 @@ export async function buildSnapshotFromLocalData(ticker: string, date: string) {
     .limit(1)
     .maybeSingle();
 
+  // 1b. Fetch Financial History for Maturity (All FY rows)
+  const { data: historyRows } = await supabaseAdmin
+    .from('datos_financieros')
+    .select('period_end_date, period_type, period_label, revenue, net_income, free_cash_flow')
+    .eq('ticker', ticker)
+    .eq('period_type', 'FY')
+    .order('period_end_date', { ascending: false });
+
+  const maturityResult = calculateFundamentalsMaturity(historyRows || []);
+
   const sector = universeData?.sector ?? fin?.sector;
   
   if (!sector) {
@@ -80,8 +93,8 @@ export async function buildSnapshotFromLocalData(ticker: string, date: string) {
     .maybeSingle();
 
   // 3. Fetch Performance Windows (for IFS)
-  // We need 1W, 1M, YTD, 1Y, 3Y, 5Y
-  const windows = ['1W', '1M', 'YTD', '1Y', '3Y', '5Y'];
+  // We need 1W, 1M, 3M, 6M, YTD, 1Y, 2Y, 3Y, 5Y
+  const windows = ['1W', '1M', '3M', '6M', 'YTD', '1Y', '2Y', '3Y', '5Y'];
   const { data: perfData } = await supabaseAdmin
     .from('performance_windows')
     .select('window_code, asset_return, benchmark_return')
@@ -102,17 +115,66 @@ export async function buildSnapshotFromLocalData(ticker: string, date: string) {
       });
   }
 
+  /* --------------------------------
+     INDUSTRY TEMPORAL METADATA (CONTEXT)
+  -------------------------------- */
+  const industry = universeData?.industry ?? fin?.industry;
+  const industryMap = await getIndustryTemporalMap();
+  const industryProfile = resolveIndustryProfile(industry, industryMap);
+  const interpretationContext = {
+    industry_cadence: industryProfile.cadence,
+    structural_horizon_min_years: industryProfile.structural_horizon_min_years,
+    dominant_horizons_used: industryProfile.dominant_horizons
+  };
+
   // 4. Compute IFS
   const ifsInputs: RelativePerformanceInputs = {
       relative_vs_sector_1w: perfMap.get('1W') ?? null,
       relative_vs_sector_1m: perfMap.get('1M') ?? null,
+      relative_vs_sector_3m: perfMap.get('3M') ?? null,
+      relative_vs_sector_6m: perfMap.get('6M') ?? null,
       relative_vs_sector_ytd: perfMap.get('YTD') ?? null,
       relative_vs_sector_1y: perfMap.get('1Y') ?? null,
+      relative_vs_sector_2y: perfMap.get('2Y') ?? null,
       relative_vs_sector_3y: perfMap.get('3Y') ?? null,
       relative_vs_sector_5y: perfMap.get('5Y') ?? null,
   };
 
-  const ifs = calculateIFS(ifsInputs);
+  const ifs = calculateIFS(ifsInputs, interpretationContext.dominant_horizons_used);
+
+  // 4b. Layer Status (Phase 8)
+  let ifsMissingHorizonsCount = 0;
+  for (const horizon of interpretationContext.dominant_horizons_used) {
+    const key = `relative_vs_sector_${horizon.toLowerCase()}` as keyof RelativePerformanceInputs;
+    if (ifsInputs[key] === null) {
+      ifsMissingHorizonsCount++;
+    }
+  }
+
+  // Construct proxy fundamentals growth for status check
+  const fundamentalsGrowthProxy = {
+    revenue_cagr: fin?.revenue_cagr ? Number(fin.revenue_cagr) : null,
+    earnings_cagr: fin?.earnings_cagr ? Number(fin.earnings_cagr) : null,
+    fcf_cagr: fin?.fcf_cagr ? Number(fin.fcf_cagr) : null,
+    status: 'computed',
+    confidence: 'medium' as const,
+    reasons: [],
+    coverage: {
+      valid_windows: maturityResult.fundamentals_years_count,
+      required_windows: interpretationContext.structural_horizon_min_years
+    }
+  };
+
+  const layerStatus = buildLayerStatus({
+    fgos_maturity: maturityResult.fgos_maturity,
+    ifs_result: ifs,
+    missing_horizons_count: ifsMissingHorizonsCount,
+    industry_cadence: interpretationContext.industry_cadence,
+    growth_result: fundamentalsGrowthProxy,
+    valuation_result: valuation ?? null,
+    sector_available: !!sector,
+    industry_performance_status: 'missing'
+  });
 
   // 5. Compute FGOS
   let fgos = null;
@@ -165,7 +227,7 @@ export async function buildSnapshotFromLocalData(ticker: string, date: string) {
   const { profile: fmpProfile, ratios: fmpRatios, metrics: fmpMetrics } = mapDbToFmp(fin, universeData);
 
   const snapshot = {
-      ticker,
+    ticker,
       snapshot_date: date,
       engine_version: ENGINE_VERSION,
       sector: sector,
@@ -196,6 +258,7 @@ export async function buildSnapshotFromLocalData(ticker: string, date: string) {
       fgos_confidence_percent: fgos?.confidence ?? 0,
       fgos_confidence_label: fgos?.confidence_label ?? 'Low',
       fgos_category: fgos?.fgos_category ?? 'Pending',
+      fgos_maturity: maturityResult.fgos_maturity,
 
       // Valuation
       valuation: valuation ? {
@@ -217,11 +280,16 @@ export async function buildSnapshotFromLocalData(ticker: string, date: string) {
       // Metadata / Confidence
       data_confidence: {
           snapshot_source: SNAPSHOT_SOURCE,
+          layer_status: layerStatus,
           has_financials: !!fin,
           has_valuation: !!valuation,
           has_performance: !!perfData && perfData.length > 0,
           has_fgos: !!fgos,
-          has_ifs: !!ifs
+          has_ifs: !!ifs,
+          interpretation_context: interpretationContext,
+          fundamentals_years_count: maturityResult.fundamentals_years_count,
+          fundamentals_first_year: maturityResult.fundamentals_first_year,
+          fundamentals_last_year: maturityResult.fundamentals_last_year
       }
   };
 

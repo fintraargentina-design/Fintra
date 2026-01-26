@@ -69,6 +69,9 @@ export type CanonicalValuationStatus =
   | 'fair_sector'
   | 'expensive_sector'
   | 'very_expensive_sector'
+  | 'potentially_cheap'
+  | 'potentially_expensive'
+  | 'descriptive_only'
   | 'pending';
 
 export type LegacyValuationStatus = 'undervalued' | 'overvalued' | 'fair' | 'pending';
@@ -308,13 +311,48 @@ export interface FinancialSnapshot {
   sector_rank?: number | null;
   sector_rank_total?: number | null;
 
-  data_confidence: {
-    has_profile: boolean;
-    has_financials: boolean;
-    has_valuation: boolean;
-    has_performance: boolean;
-    has_fgos: boolean;
+  data_confidence: StructuralCoverage;
+}
+
+export type LayerState = 'computed' | 'pending_recalculation' | 'structurally_unavailable';
+
+export interface LayerStatusDetail {
+  state: LayerState;
+  version?: string;
+  blocking_reason?: string;
+}
+
+export interface LayerStatusMap {
+  ifs: LayerStatusDetail;
+  fundamentals_growth: LayerStatusDetail;
+  valuation: LayerStatusDetail;
+  industry_performance: LayerStatusDetail;
+}
+
+export interface StructuralCoverage {
+  confidence_level: 'low' | 'medium' | 'high';
+  coverage: {
+    valid_windows: number;
+    required_windows: number;
+    valid_metrics: number;
+    required_metrics: number;
   };
+  maturity: string;
+  industry_cadence: string;
+  limiting_factor: string;
+  
+  layer_status?: LayerStatusMap;
+
+  // Legacy / Context fields
+  has_profile?: boolean;
+  has_financials?: boolean;
+  has_valuation?: boolean;
+  has_performance?: boolean;
+  has_fgos?: boolean;
+  interpretation_context?: any;
+  fundamentals_years_count?: number;
+  fundamentals_first_year?: number;
+  fundamentals_last_year?: number;
 }
 
 // FMP Partial Types for inputs

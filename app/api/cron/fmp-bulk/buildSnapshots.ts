@@ -10,6 +10,9 @@ import { rollingFYGrowth } from '@/lib/utils/rollingGrowth';
 import { getBenchmarksForSector } from '@/lib/engine/benchmarks';
 import { buildValuationState } from '@/lib/engine/resolveValuationFromSector';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { calculateFundamentalsGrowth } from '@/lib/engine/fundamentals-growth';
+import { resolveValuationFromSector } from '@/lib/engine/resolveValuationFromSector';
+import { buildStructuralCoverage } from '@/lib/engine/structural-coverage';
 import type { FinancialSnapshot, FmpProfile, FmpRatios, FmpMetrics, FmpQuote } from '@/lib/engine/types';
 
 // Hydration Imports
@@ -19,6 +22,9 @@ import { resolveFintraVerdict } from '@/lib/engine/fintra-verdict';
 import type { SentimentValuationTimeline, SentimentSnapshotLabel, SentimentValuationSnapshot } from '@/lib/engine/sentiment';
 
 import { calculateIFS, type RelativePerformanceInputs } from '@/lib/engine/ifs';
+import { calculateFundamentalsMaturity } from '@/lib/engine/fundamentals-maturity';
+import { getIndustryTemporalMap, resolveIndustryProfile } from '@/lib/engine/industry-metadata';
+import { buildLayerStatus } from '@/lib/engine/layer-status';
 
 export const SNAPSHOT_ENGINE_VERSION = 'v3.2-full-hydration';
 
@@ -368,13 +374,29 @@ export async function buildSnapshot(
   );
 
   /* --------------------------------
+     CONTEXT: INDUSTRY & MATURITY
+  -------------------------------- */
+  const industryMap = await getIndustryTemporalMap();
+  const industryProfile = resolveIndustryProfile(industry, industryMap);
+  const interpretationContext = {
+    industry_cadence: industryProfile.cadence,
+    structural_horizon_min_years: industryProfile.structural_horizon_min_years,
+    dominant_horizons_used: industryProfile.dominant_horizons
+  };
+
+  const maturityResult = calculateFundamentalsMaturity(financialHistory || []);
+
+  /* --------------------------------
      GROWTH REAL (BULK)
   -------------------------------- */
-  const fundamentalsGrowth = {
-    revenue_cagr: rollingFYGrowth(incomeGrowthRows, 'growthRevenue'),
-    earnings_cagr: rollingFYGrowth(incomeGrowthRows, 'growthNetIncome'),
-    fcf_cagr: rollingFYGrowth(cashflowGrowthRows, 'growthFreeCashFlow')
-  };
+  const fundamentalsGrowth = calculateFundamentalsGrowth(
+    incomeGrowthRows,
+    cashflowGrowthRows,
+    {
+        fgos_maturity: maturityResult.fgos_maturity,
+        interpretation_context: interpretationContext
+    }
+  );
 
   /* --------------------------------
      FGOS (NUNCA DESCARTA SNAPSHOT)
@@ -434,38 +456,72 @@ export async function buildSnapshot(
       : 'pending';
 
   /* --------------------------------
-     VALUATION
+     VALUATION (MATURITY-AWARE)
   -------------------------------- */
   let valuation = normalizeValuation(ratios, profile);
+  let valuationResult: any = null; // Store canonical result for coverage
 
   if (valuation && sector) {
     const sectorBenchmarks = await getBenchmarksForSector(sector, today);
     if (sectorBenchmarks) {
-      const valState = buildValuationState({
-        sector,
-        pe_ratio: valuation.pe_ratio,
-        ev_ebitda: valuation.ev_ebitda,
-        price_to_fcf: valuation.price_to_fcf
-      }, sectorBenchmarks as any);
+      // Use NEW buildValuationState logic (Canonical)
+      const state = buildValuationState(
+        {
+          sector: sector,
+          pe_ratio: valuation.pe_ratio,
+          ev_ebitda: valuation.ev_ebitda,
+          price_to_fcf: valuation.price_to_fcf
+        },
+        sectorBenchmarks as any,
+        {
+          fgos_maturity: maturityResult.fgos_maturity,
+          interpretation_context: interpretationContext
+        }
+      );
+      
+      valuationResult = state;
+
+      // Map Canonical Status to Legacy Status for backward compatibility
+      let legacyStatus: 'undervalued' | 'overvalued' | 'fair' | 'pending' = 'pending';
+      const s = state.valuation_status;
+      if (s === 'very_cheap_sector' || s === 'cheap_sector' || s === 'potentially_cheap') {
+        legacyStatus = 'undervalued';
+      } else if (s === 'expensive_sector' || s === 'very_expensive_sector' || s === 'potentially_expensive') {
+        legacyStatus = 'overvalued';
+      } else if (s === 'fair_sector') {
+        legacyStatus = 'fair';
+      }
 
       valuation = {
-        ...valuation,
-        stage: valState.stage,
-        // Canonical status stored separately; legacy field kept for compat
-        valuation_status:
-          valState.valuation_status === 'very_cheap_sector' || valState.valuation_status === 'cheap_sector'
-            ? 'undervalued'
-            : valState.valuation_status === 'very_expensive_sector' || valState.valuation_status === 'expensive_sector'
-            ? 'overvalued'
-            : valState.valuation_status === 'fair_sector'
-            ? 'fair'
-            : 'pending',
-        canonical_status: valState.valuation_status,
-        confidence: valState.confidence,
-        explanation: valState.explanation
+        ...valuation, // Keep price_to_sales, market_cap, etc.
+        stage: state.stage,
+        valuation_status: legacyStatus,
+        canonical_status: state.valuation_status,
+        confidence: state.confidence,
+        explanation: state.explanation
       };
     }
   }
+
+  /* --------------------------------
+     STRUCTURAL COVERAGE
+  -------------------------------- */
+  // Count valid valuation metrics
+  let validValuationMetrics = 0;
+  if (valuation) {
+      if (typeof valuation.pe_ratio === 'number') validValuationMetrics++;
+      if (typeof valuation.ev_ebitda === 'number') validValuationMetrics++;
+      if (typeof valuation.price_to_fcf === 'number') validValuationMetrics++;
+  }
+
+  const structuralCoverage = buildStructuralCoverage({
+      fgos_maturity: maturityResult.fgos_maturity,
+      industry_cadence: interpretationContext.industry_cadence,
+      valid_windows_count: fundamentalsGrowth.coverage.valid_windows,
+      required_windows_count: fundamentalsGrowth.coverage.required_windows,
+      valid_metrics_count: validValuationMetrics,
+      required_metrics_count: 3 // PE, EV/EBITDA, P/FCF
+  });
 
   /* --------------------------------
      ADDITIONAL ENGINES (Hydration)
@@ -529,15 +585,24 @@ export async function buildSnapshot(
   );
 
   /* --------------------------------
-     RELATIVE PERFORMANCE (Explicit Columns)
+     INDUSTRY TEMPORAL METADATA (CONTEXT)
+  -------------------------------- */
+  // Context already resolved at the top of the function
+
+
+  /* --------------------------------
+     RELATIVE PERFORMANCE (Explicit Columns + IFS Inputs)
   -------------------------------- */
   const relPerf: any = {};
-  const relWindows = ['1W', '1M', 'YTD', '1Y', '3Y', '5Y'];
+  const ifsInputsMap: any = {};
+  
+  const dbWindows = ['1W', '1M', 'YTD', '1Y', '3Y', '5Y']; // Persisted columns
+  const allWindows = ['1W', '1M', '3M', '6M', 'YTD', '1Y', '2Y', '3Y', '5Y']; // All for IFS
 
   // Retrieve sector rows using the resolved sector
   const sectorRows = sector ? allSectorPerformance.get(sector) || [] : [];
   
-  for (const w of relWindows) {
+  for (const w of allWindows) {
      const stockRow = performanceRows.find(r => r.window_code === w);
      const marketRow = benchmarkRows.find(r => r.window_code === w); // SPY
      const sectorRow = sectorRows.find(r => r.window_code === w);
@@ -548,18 +613,25 @@ export async function buildSnapshot(
 
      const keySuffix = w.toLowerCase();
 
-     // Vs Market
+     // Vs Market (Only for DB windows usually, but let's calculate for all just in case, but filter for persistence)
+     let vsMarket = null;
      if (typeof stockRet === 'number' && typeof marketRet === 'number') {
-        relPerf[`relative_vs_market_${keySuffix}`] = stockRet - marketRet;
-     } else {
-        relPerf[`relative_vs_market_${keySuffix}`] = null;
+        vsMarket = stockRet - marketRet;
      }
 
      // Vs Sector
+     let vsSector = null;
      if (typeof stockRet === 'number' && typeof sectorRet === 'number') {
-        relPerf[`relative_vs_sector_${keySuffix}`] = stockRet - sectorRet;
-     } else {
-        relPerf[`relative_vs_sector_${keySuffix}`] = null;
+        vsSector = stockRet - sectorRet;
+     }
+
+     // Store in IFS Map
+     ifsInputsMap[`relative_vs_sector_${keySuffix}`] = vsSector;
+
+     // Store in RelPerf ONLY if it's a DB window
+     if (dbWindows.includes(w)) {
+         relPerf[`relative_vs_market_${keySuffix}`] = vsMarket;
+         relPerf[`relative_vs_sector_${keySuffix}`] = vsSector;
      }
   }
 
@@ -567,15 +639,45 @@ export async function buildSnapshot(
      IFS (MAJORITY VOTING)
   -------------------------------- */
   const ifsInputs: RelativePerformanceInputs = {
-    relative_vs_sector_1w: relPerf.relative_vs_sector_1w ?? null,
-    relative_vs_sector_1m: relPerf.relative_vs_sector_1m ?? null,
-    relative_vs_sector_ytd: relPerf.relative_vs_sector_ytd ?? null,
-    relative_vs_sector_1y: relPerf.relative_vs_sector_1y ?? null,
-    relative_vs_sector_3y: relPerf.relative_vs_sector_3y ?? null,
-    relative_vs_sector_5y: relPerf.relative_vs_sector_5y ?? null
+    relative_vs_sector_1w: ifsInputsMap.relative_vs_sector_1w ?? null,
+    relative_vs_sector_1m: ifsInputsMap.relative_vs_sector_1m ?? null,
+    relative_vs_sector_3m: ifsInputsMap.relative_vs_sector_3m ?? null,
+    relative_vs_sector_6m: ifsInputsMap.relative_vs_sector_6m ?? null,
+    relative_vs_sector_ytd: ifsInputsMap.relative_vs_sector_ytd ?? null,
+    relative_vs_sector_1y: ifsInputsMap.relative_vs_sector_1y ?? null,
+    relative_vs_sector_2y: ifsInputsMap.relative_vs_sector_2y ?? null,
+    relative_vs_sector_3y: ifsInputsMap.relative_vs_sector_3y ?? null,
+    relative_vs_sector_5y: ifsInputsMap.relative_vs_sector_5y ?? null
   };
   
-  const ifs = calculateIFS(ifsInputs);
+  const ifs = calculateIFS(ifsInputs, interpretationContext.dominant_horizons_used);
+
+  /* --------------------------------
+     LAYER STATUS (PHASE 8)
+  -------------------------------- */
+  let ifsMissingHorizonsCount = 0;
+  for (const horizon of interpretationContext.dominant_horizons_used) {
+    const key = `relative_vs_sector_${horizon.toLowerCase()}` as keyof RelativePerformanceInputs;
+    if (ifsInputs[key] === null) {
+      ifsMissingHorizonsCount++;
+    }
+  }
+
+  const layerStatus = buildLayerStatus({
+    fgos_maturity: maturityResult.fgos_maturity,
+    ifs_result: ifs,
+    missing_horizons_count: ifsMissingHorizonsCount,
+    industry_cadence: interpretationContext.industry_cadence,
+    growth_result: fundamentalsGrowth,
+    valuation_result: valuation ?? null,
+    sector_available: !!sector,
+    industry_performance_status: industryPerformanceStatus
+  });
+
+  /* --------------------------------
+     FUNDAMENTALS MATURITY
+  -------------------------------- */
+  // Already calculated (Line 386)
 
   /* --------------------------------
      SNAPSHOT FINAL
@@ -622,7 +724,7 @@ export async function buildSnapshot(
     fgos_category: fgos?.fgos_category ?? null,
     fgos_confidence_percent: fgos?.confidence ?? null,
     fgos_confidence_label: fgos?.confidence_label ?? null,
-    fgos_maturity: fgos?.fgos_status ?? null,
+    fgos_maturity: maturityResult.fgos_maturity,
     peers: null, // Pending implementation
 
     valuation: valuation ?? {
@@ -649,11 +751,18 @@ export async function buildSnapshot(
     relative_return: relativeReturn,
 
     data_confidence: {
+      ...structuralCoverage,
+      layer_status: layerStatus,
+      // Legacy compatibility flags
       has_profile: !!profile,
       has_financials: !!ratios || !!metrics,
       has_valuation: !!valuation,
       has_performance: !!performance,
-      has_fgos: fgosStatus === 'computed'
+      has_fgos: fgosStatus === 'computed',
+      interpretation_context: interpretationContext,
+      fundamentals_years_count: maturityResult.fundamentals_years_count,
+      fundamentals_first_year: maturityResult.fundamentals_first_year,
+      fundamentals_last_year: maturityResult.fundamentals_last_year
     }
   };
 }

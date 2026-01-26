@@ -69,9 +69,17 @@ function resolvePercentile(value: number, stats: SectorBenchmarkMetric): number 
   return Math.min(100, Math.max(0, percentile));
 }
 
+export interface ValuationContext {
+  fgos_maturity: string | null;
+  interpretation_context: {
+    dominant_horizons_used: string[];
+  };
+}
+
 export function buildValuationState(
   input: ValuationInput,
-  sectorBenchmarks: SectorBenchmarkMap
+  sectorBenchmarks: SectorBenchmarkMap,
+  context?: ValuationContext
 ): ValuationState {
     // 1. HARD METRIC VALIDATION
     // A metric is VALID only if:
@@ -188,9 +196,6 @@ export function buildValuationState(
       explanation =
         'La valoración no puede determinarse aún por falta de métricas comparables suficientes dentro del sector.';
     } else {
-       // Logic for explanation text...
-       // Keep existing explanation logic but adapted if needed.
-       // The existing logic seems fine.
        if (valuation_status === 'very_cheap_sector') {
           explanation = 'La empresa cotiza a múltiplos muy inferiores a su sector (Very Cheap).';
        } else if (valuation_status === 'cheap_sector') {
@@ -208,7 +213,54 @@ export function buildValuationState(
        }
     }
 
-    if (confidenceLabel === 'Low' && stage !== 'pending') {
+    // 5. MATURITY AWARENESS LOGIC
+    if (context) {
+        const { fgos_maturity, interpretation_context } = context;
+        const dominant_horizons = interpretation_context?.dominant_horizons_used || [];
+
+        if (fgos_maturity === 'early') {
+             // EARLY: Status descriptive_only.
+             // Allow percentiles and raw comparables (we keep metrics and percentiles)
+             // MUST NOT emit cheap/fair/expensive labels
+             valuation_status = 'descriptive_only';
+             explanation = 'Empresa en etapa temprana (Early). Se muestran métricas descriptivas sin veredicto de valoración.';
+             // Stage remains computed/partial to show we have data, but status is descriptive
+        } else if (fgos_maturity === 'developing') {
+             // DEVELOPING
+             // Requirements: >= 2 valid metrics, Low dispersion, >= 1 dominant horizon >= 1A
+             const hasLongHorizon = dominant_horizons.some(h => {
+                  if (h.endsWith('Y') || h.endsWith('A')) {
+                      const num = parseInt(h);
+                      return num >= 1;
+                  }
+                  return false;
+             });
+
+             // "Low dispersion" - reusing dispersionPenalty.
+             // dispersionPenalty maps 0-100 range to 0-40 penalty.
+             // If range is large (e.g. 50 percentile points), penalty is 20.
+             // Let's strict check: dispersionPenalty < 20 means range < 50 percentile points.
+             const isLowDispersion = dispersionPenalty < 20;
+
+             if (valid_count < 2 || !isLowDispersion || !hasLongHorizon) {
+                 valuation_status = 'pending';
+                 stage = 'pending';
+                 explanation = 'Requisitos de madurez (Developing) no cumplidos: se requiere historial >1A y baja dispersión de métricas.';
+             } else {
+                 // Allowed states: potentially_cheap, potentially_expensive, fair
+                 if (medianPercentile <= 40) valuation_status = 'potentially_cheap';
+                 else if (medianPercentile >= 60) valuation_status = 'potentially_expensive';
+                 else valuation_status = 'fair_sector';
+                 
+                 // Confidence MUST NOT exceed medium
+                 if (confidenceLabel === 'High') confidenceLabel = 'Medium';
+                 
+                 explanation = `Valoración preliminar (Developing). ${explanation}`;
+             }
+        }
+    }
+
+    if (confidenceLabel === 'Low' && stage !== 'pending' && valuation_status !== 'descriptive_only') {
       explanation += ' Cautela: cobertura limitada de métricas.';
     }
 
@@ -231,14 +283,15 @@ export function buildValuationState(
  */
 export function resolveValuationFromSector(
   input: ValuationInput,
-  sectorBenchmarks: SectorBenchmarkMap
+  sectorBenchmarks: SectorBenchmarkMap,
+  context?: ValuationContext
 ): {
   valuation_score: number | null;
   valuation_status: ValuationResult['valuation_status'];
   confidence: number;
   warnings: string[];
 } {
-  const state = buildValuationState(input, sectorBenchmarks);
+  const state = buildValuationState(input, sectorBenchmarks, context);
 
   const canonicalToLegacy: Record<CanonicalValuationStatus, LegacyValuationStatus> = {
     very_cheap_sector: 'undervalued',
@@ -246,15 +299,18 @@ export function resolveValuationFromSector(
     fair_sector: 'fair',
     expensive_sector: 'overvalued',
     very_expensive_sector: 'overvalued',
+    potentially_cheap: 'undervalued',
+    potentially_expensive: 'overvalued',
+    descriptive_only: 'pending',
     pending: 'pending'
   };
 
   let score: number | null = null;
   // Allow score for both 'computed' and 'partial' as long as it's not pending
-  if (state.valuation_status !== 'pending') {
-    if (state.valuation_status === 'very_cheap_sector' || state.valuation_status === 'cheap_sector') score = 80;
+  if (state.valuation_status !== 'pending' && state.valuation_status !== 'descriptive_only') {
+    if (state.valuation_status === 'very_cheap_sector' || state.valuation_status === 'cheap_sector' || state.valuation_status === 'potentially_cheap') score = 80;
     else if (state.valuation_status === 'fair_sector') score = 50;
-    else if (state.valuation_status === 'expensive_sector' || state.valuation_status === 'very_expensive_sector') score = 20;
+    else if (state.valuation_status === 'expensive_sector' || state.valuation_status === 'very_expensive_sector' || state.valuation_status === 'potentially_expensive') score = 20;
   }
 
   const legacyStatus: LegacyValuationStatus = canonicalToLegacy[state.valuation_status];

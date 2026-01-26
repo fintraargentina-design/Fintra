@@ -27,11 +27,20 @@ async function main() {
     const today = new Date().toISOString().slice(0, 10);
   console.log(`📅 Target Date: ${today}`);
 
-  // Check for limit argument
-  const limitArg = process.argv.find(arg => arg.startsWith('--limit='));
-  const limit = limitArg ? parseInt(limitArg.split('=')[1], 10) : tickers.length;
+  // Check for ticker argument
+  const tickerArg = process.argv.find(arg => arg.startsWith('--ticker='));
+  const specificTicker = tickerArg ? tickerArg.split('=')[1] : null;
+
+  let tickersToProcess = [];
+  if (specificTicker) {
+      tickersToProcess = [specificTicker];
+  } else {
+      // Check for limit argument
+      const limitArg = process.argv.find(arg => arg.startsWith('--limit='));
+      const limit = limitArg ? parseInt(limitArg.split('=')[1], 10) : tickers.length;
+      tickersToProcess = tickers.slice(0, limit);
+  }
   
-  const tickersToProcess = tickers.slice(0, limit);
   console.log(`Processing ${tickersToProcess.length} tickers...`);
 
   let stats = {
