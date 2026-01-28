@@ -454,6 +454,7 @@ export async function saveEcosystemReport(input: {
   suppliers: EcoNodeJSON[];
   clients: EcoNodeJSON[];
   report: string;
+  structural_signals?: any;
 }): Promise<{ score: number }> {
   const ticker = input.mainTicker.toUpperCase();
   
@@ -466,7 +467,8 @@ export async function saveEcosystemReport(input: {
     date: new Date().toISOString(),
     data: {
       suppliers: input.suppliers,
-      clients: input.clients
+      clients: input.clients,
+      structural_signals: input.structural_signals
     },
     ecosystem_score: calculatedScore,
     report_md: input.report

@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from "react";
 import { ExternalLink, TrendingUp, TrendingDown, Minus, Brain, X, Clock, Share2, MessageSquare, Filter } from "lucide-react";
 import { 
   analyzeNewsWithAI, 
-  getImpactColor, 
+  getDirectionColor,
+  getConfidenceColor,
   initialAnalysisState,
   type NewsAnalysisData,
   type AnalysisState 
@@ -71,6 +72,7 @@ export default function NoticiasTab({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [analysisModal, setAnalysisModal] = useState<AnalysisState>(initialAnalysisState);
+  const [selectedNewsTitle, setSelectedNewsTitle] = useState<string | null>(null);
   
   // Filter State
   const [activeCategory, setActiveCategory] = useState("Stock News");
@@ -221,8 +223,10 @@ export default function NoticiasTab({
       source: newsItem.source,
       symbol: symbol,
       sentiment: newsItem.overall_sentiment_label || "Neutral",
-      relevance: 0
+      relevance: 0,
+      url: newsItem.url
     };
+    setSelectedNewsTitle(newsItem.title);
 
     setAnalysisModal({
       isOpen: true,
@@ -433,25 +437,28 @@ export default function NoticiasTab({
                 </div>
               ) : analysisModal.data ? (
                 <div className="space-y-6">
-                  {/* Impact Score */}
-                  <div className="bg-zinc-800/50 rounded-xl p-4 border border-zinc-700/50">
-                    <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Market Impact</h3>
-                    <div className="flex items-center gap-3">
-                        <div className={`text-3xl font-bold ${getImpactColor(analysisModal.data.impacto)}`}>
-                            {analysisModal.data.impacto}
-                        </div>
-                        <div className="h-8 w-[1px] bg-zinc-700"></div>
-                        <div className="text-xs text-zinc-400 max-w-[200px]">
-                            Based on sentiment analysis and historical market correlation.
-                        </div>
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-zinc-100 truncate">{selectedNewsTitle ?? ''}</h3>
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="px-2 py-0.5 bg-zinc-800 text-zinc-300 border border-zinc-700 rounded-md">
+                        {analysisModal.data?.news_type ?? '—'}
+                      </span>
+                      <span className={`text-sm font-semibold ${getDirectionColor(analysisModal.data?.direction ?? '')}`}>
+                        {analysisModal.data?.direction ?? '—'}
+                      </span>
+                      <span className={`${getConfidenceColor(analysisModal.data?.confidence ?? '')}`}>
+                        {analysisModal.data?.confidence ?? '—'}
+                      </span>
                     </div>
-                  </div>
-
-                  {/* Analysis Text */}
-                  <div>
-                    <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3">Strategic Analysis</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {(analysisModal.data?.narrative_vector ?? []).slice(0,2).map((tag, idx) => (
+                        <span key={idx} className="px-2 py-0.5 bg-zinc-800 text-zinc-300 border border-zinc-700 rounded-md text-xs">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
                     <div className="text-zinc-300 text-sm leading-relaxed space-y-4">
-                      {analysisModal.data.analisis.split('\n').map((paragraph, idx) => (
+                      {(analysisModal.data?.explanation ?? '').split('\n').map((paragraph, idx) => (
                         <p key={idx}>{paragraph}</p>
                       ))}
                     </div>

@@ -417,6 +417,18 @@ export interface EcoNodeJSON {
 export interface EcosystemDataJSON {
   suppliers: EcoNodeJSON[];
   clients: EcoNodeJSON[];
+  structural_signals?: {
+    source: string;
+    fiscal_year: number;
+    supplier_concentration: string | null;
+    single_source_dependency: boolean | null;
+    purchase_obligations: {
+      amount: number | null;
+      currency: string | null;
+    } | null;
+    geographic_exposure: string[] | null;
+    environmental_exposure: string | null;
+  };
 }
 
 export interface FintraSnapshotDB {

@@ -6,11 +6,15 @@ export interface NewsAnalysisData {
   symbol: string;
   sentiment: string;
   relevance: number;
+  url: string;
 }
 
 export interface AnalysisResponse {
-  impacto: string;
-  analisis: string;
+  news_type: "Hecho" | "Anuncio" | "Opinión" | "Análisis";
+  direction: "Positiva" | "Neutra" | "Negativa";
+  narrative_vector: string[];
+  confidence: "Alta" | "Media" | "Baja";
+  explanation: string;
 }
 
 export interface AnalysisState {
@@ -21,48 +25,71 @@ export interface AnalysisState {
 }
 
 /**
- * Envía una noticia al webhook de n8n para análisis con IA
+ * Envía una noticia a la API interna para análisis con IA
  * @param newsData - Datos de la noticia a analizar
  * @returns Promise con la respuesta del análisis
  */
 export async function analyzeNewsWithAI(data: NewsAnalysisData): Promise<AnalysisResponse> {
-  const webhookUrl = 'https://n8n.srv904355.hstgr.cloud/webhook/19d4e091-5368-4b5e-b4b3-71257abbd92d';//process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
+  const apiUrl = '/api/news/analyze';
   
-  if (!webhookUrl) {
-    throw new Error('URL del webhook no configurada');
-  }
+  // Construct payload with minimal data required by backend
+  const payload = {
+    title: data.title,
+    summary: data.summary,
+    date: data.date,
+    source: data.source,
+    symbol: data.symbol,
+    url: data.url
+  };
 
-  const response = await fetch(webhookUrl, {
+  const response = await fetch(apiUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    throw new Error(`Error en la solicitud: ${response.status}`);
+    let errorMessage = `Error en la solicitud: ${response.status}`;
+    try {
+      const errorData = await response.json();
+      if (errorData.error) {
+        errorMessage = errorData.error;
+      }
+    } catch (e) {
+      // Ignore JSON parse error
+    }
+    throw new Error(errorMessage);
   }
 
   const result = await response.json();
   return result;
 }
 
-/**
- * Obtiene el color CSS para el impacto del análisis
- * @param impacto - Tipo de impacto (Positivo, Neutro, Negativo)
- * @returns Clase CSS de Tailwind para el color
- */
-export function getImpactColor(impacto: string): string {
-  switch (impacto) {
-    case 'Positivo':
+export function getDirectionColor(direction: string): string {
+  switch (direction) {
+    case 'Positiva':
       return 'text-green-400';
-    case 'Neutro':
+    case 'Neutra':
       return 'text-yellow-400';
-    case 'Negativo':
+    case 'Negativa':
       return 'text-red-400';
     default:
       return 'text-gray-400';
+  }
+}
+
+export function getConfidenceColor(confidence: string): string {
+  switch (confidence) {
+    case 'Alta':
+      return 'text-green-400';
+    case 'Media':
+      return 'text-yellow-400';
+    case 'Baja':
+      return 'text-zinc-400';
+    default:
+      return 'text-zinc-400';
   }
 }
 

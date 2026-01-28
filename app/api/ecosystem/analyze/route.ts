@@ -8,6 +8,7 @@ export async function GET(req: Request) {
   // Extraer ticker de searchParams
   const { searchParams } = new URL(req.url);
   const ticker = searchParams.get('ticker');
+  const force = searchParams.get('force') === 'true';
 
   if (!ticker) {
     return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
@@ -15,7 +16,7 @@ export async function GET(req: Request) {
 
   try {
     // Llamar a ecosystemService.getOrAnalysisEcosystem(ticker)
-    const result = await getOrAnalysisEcosystem(ticker);
+    const result = await getOrAnalysisEcosystem(ticker, force);
     
     // Retornar JSON
     return NextResponse.json(result);

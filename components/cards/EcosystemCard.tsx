@@ -1,5 +1,5 @@
 "use client";
-
+// --- COMPONENTE: EcosystemCard ---
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -135,7 +135,7 @@ export default function EcosystemCard({
 }: EcosystemCardProps) {
   
   // --- STATE ---
-  const [localData, setLocalData] = useState<any | null>(data || TSLA_MOCK_DATA);
+  const [localData, setLocalData] = useState<any | null>(data || null); // No fallback to MOCK automatically
   const [loading, setLoading] = useState(initialLoading);
   
   useEffect(() => {
@@ -146,11 +146,12 @@ export default function EcosystemCard({
   const finalClients = localData?.clients || clients || [];
   
   // --- FETCHING ---
-  const fetchEcosystemData = useCallback(async () => {
+  const fetchEcosystemData = useCallback(async (force = false) => {
     if (!mainTicker) return;
     setLoading(true);
     try {
-      const response = await fetch(`/api/ecosystem/analyze?ticker=${mainTicker}`);
+      const url = `/api/ecosystem/analyze?ticker=${mainTicker}${force ? '&force=true' : ''}`;
+      const response = await fetch(url);
       if (!response.ok) throw new Error("Error fetching data");
       const result = await response.json();
       if (result.data) setLocalData(result.data);
@@ -160,6 +161,10 @@ export default function EcosystemCard({
       setLoading(false);
     }
   }, [mainTicker]);
+
+  const loadMock = useCallback(() => {
+    setLocalData(TSLA_MOCK_DATA);
+  }, []);
 
   // Auto-fetch si no hay datos al montar
   useEffect(() => {
@@ -183,7 +188,7 @@ export default function EcosystemCard({
     // 2. SANITIZACIÓN DE DATOS (Rellena huecos visuales)
     const sanitizeItem = (item: any) => {
         return {
-            name: item.n || item.name || item.ticker || item.id || "Unknown",
+            name: item.id || item.ticker || item.n || item.name || "Unknown",
             // Si dep es 0/null, damos un 5 visual para que el arco exista
             dep: (item.dep && item.dep > 0) ? item.dep : 5, 
             health: item.health_signal ?? item.financial_score ?? null,
@@ -344,10 +349,18 @@ export default function EcosystemCard({
   // Estado: Empty
   if (!loading && !hasData) {
     return (
-      <Card className="bg-tarjetas border-none shadow-lg h-full flex flex-col items-center justify-center p-6 text-gray-500">
+      <Card className="bg-tarjetas border-none shadow-lg h-full flex flex-col items-center justify-center p-6 text-gray-500 relative">
+        <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={loadMock} 
+            className="absolute top-2 right-2 text-[10px] text-zinc-600 hover:text-zinc-300 h-auto py-1 px-2"
+        >
+            Ver Mock
+        </Button>
         <Globe className="w-12 h-12 mb-4 opacity-20" />
         <h3 className="text-sm font-medium mb-2">Sin datos de ecosistema</h3>
-        <Button onClick={fetchEcosystemData} variant="outline" className="border-zinc-700 text-zinc-400">
+        <Button onClick={() => fetchEcosystemData(true)} variant="outline" className="border-zinc-700 text-zinc-400">
             <Zap className="w-4 h-4 mr-2" /> Analizar con IA
         </Button>
       </Card>
@@ -369,17 +382,22 @@ export default function EcosystemCard({
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-zinc-400">Geopolítica de la Cadena de Suministro</span>
             <Button
-              variant="ghost" size="icon" onClick={fetchEcosystemData} disabled={loading}
+              variant="ghost" size="icon" onClick={() => fetchEcosystemData(true)} disabled={loading}
               className="h-6 w-6 text-zinc-500 hover:text-zinc-200"
             >
                <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
           
-          {/* Leyenda Compacta */}
-          <div className="flex gap-3 text-[9px] text-zinc-500 uppercase tracking-wider font-medium">
-             <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span> Supply</div>
-             <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Revenue</div>
+          {/* Leyenda Compacta + Mock */}
+          <div className="flex items-center gap-3">
+             <div className="flex gap-3 text-[9px] text-zinc-500 uppercase tracking-wider font-medium">
+                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span> Supply</div>
+                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Revenue</div>
+             </div>
+             <Button variant="ghost" size="sm" onClick={loadMock} className="text-[9px] text-zinc-600 hover:text-zinc-300 h-5 px-1">
+               Mock
+             </Button>
           </div>
         </div>
       </CardHeader>
