@@ -471,7 +471,7 @@ export default function NoticiasTicker({
                                         {item.title}
                                       </button>
                                     </h3>
-                                    <p className="text-zinc-400 text-[8px] leading-snug line-clamp-2">
+                                    <p className="text-zinc-400 text-[10px] leading-snug line-clamp-2">
                                       {item.source}
                                     </p>
                                     </div>

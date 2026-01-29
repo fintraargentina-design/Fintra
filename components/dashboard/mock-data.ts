@@ -17,7 +17,7 @@ const WATCHLIST_MVP = [
 // Helper helpers to generate random data
 const getRandomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 const getRandomFloat = (min: number, max: number) => Math.random() * (max - min) + min;
-const getRandomItem = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+const getRandomItem = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
 const SECTOR_VALUATION_STATUSES = [
   "undervalued", "cheap_sector", 

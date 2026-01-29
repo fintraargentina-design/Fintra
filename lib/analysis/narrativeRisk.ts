@@ -1,4 +1,4 @@
-import { AnalysisResponse } from './AnalisisNotician8n';
+import { AnalysisResponse } from '../AnalisisNotician8n';
 
 export type NarrativeRiskLevel = 'Bajo' | 'Moderado' | 'Elevado';
 

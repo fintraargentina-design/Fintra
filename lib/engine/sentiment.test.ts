@@ -220,7 +220,12 @@ describe('sentiment valuation engine', () => {
         has_financials: true,
         has_valuation: false,
         has_performance: false,
-        has_fgos: false
+        has_fgos: false,
+        confidence_level: 'medium',
+        coverage: { valid_windows: 0, required_windows: 0, valid_metrics: 0, required_metrics: 0 },
+        maturity: 'unknown',
+        industry_cadence: 'unknown',
+        limiting_factor: 'none'
       }
     };
 
@@ -392,7 +397,12 @@ describe('sentiment valuation engine', () => {
         has_financials: true,
         has_valuation: true,
         has_performance: false,
-        has_fgos: false
+        has_fgos: false,
+        confidence_level: 'medium',
+        coverage: { valid_windows: 0, required_windows: 0, valid_metrics: 0, required_metrics: 0 },
+        maturity: 'unknown',
+        industry_cadence: 'unknown',
+        limiting_factor: 'none'
       }
     };
 

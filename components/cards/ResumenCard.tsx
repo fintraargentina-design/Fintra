@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getResumenData, ResumenData } from "@/lib/repository/fintra-db";
 import FintraStructuralProfile from "./FintraStructuralProfile";
 import ChartsTabHistoricos from "@/components/tabs/ChartsTabHistoricos";
-import FGOSRadarChart from "@/components/charts/FGOSRadarChart";
+import FinancialsHistoryChart from "@/components/charts/FinancialsHistoryChart";
 import FgosAnalysisBlock from "../dashboard/FgosAnalysisBlock";
 import SectorValuationBlock from "../dashboard/SectorValuationBlock";
 
@@ -350,23 +350,13 @@ export default function ResumenCard({
               attentionState={resumen?.attention_state || "inconclusive"}
             />
             
-            <div className="grid grid-cols-[60%_40%] gap-1 h-[330px]">
-                {/* Charts */}
-                 <div className="bg-tarjetas border border-zinc-800 h-full">
+            <div className="flex flex-col gap-1 h-[350px]">
+                {/* Price & Performance Chart */}
+                 <div className="bg-tarjetas border border-zinc-800 h-full overflow-hidden">
                    <ChartsTabHistoricos
                      symbol={currentSymbol}
                      companyName={data.companyName}
                      comparedSymbols={[]}
-                     isActive={true}
-                   />
-                 </div>
-
-                 {/* FGOS */}
-                 <div className="bg-tarjetas border border-zinc-800 h-full">
-                   <FGOSRadarChart
-                     symbol={currentSymbol}
-                     data={resumen?.fgos_components}
-                     comparedSymbol={null}
                      isActive={true}
                    />
                  </div>

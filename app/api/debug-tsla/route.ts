@@ -31,7 +31,7 @@ export async function GET() {
       data: adminData,
       error: adminError
     },
-    diagnosis: publicData?.length === 0 && adminData?.length > 0 
+    diagnosis: publicData?.length === 0 && (adminData?.length ?? 0) > 0 
       ? "RLS Issue: Backend sees it, Frontend doesn't." 
       : "Other Issue"
   });

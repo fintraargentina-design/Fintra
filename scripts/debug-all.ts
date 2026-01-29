@@ -23,7 +23,7 @@ async function main() {
   const { runPeersBulk: runFmpPeersBulk } = await import('@/app/api/cron/fmp-peers-bulk/core');
   const { runMarketStateBulk } = await import('@/app/api/cron/market-state-bulk/core');
   const { runSectorBenchmarks } = await import('@/app/api/cron/sector-benchmarks/core');
-  const { runDividendsBulkV2 } = await import('@/app/api/cron/dividends-bulk/core-v2');
+  const { runDividendsBulkV2 } = await import('@/app/api/cron/dividends-bulk-v2/core');
   const { runSyncUniverse } = await import('@/app/api/cron/sync-universe/core');
   const { runUpdateMvp } = await import('@/app/api/cron/update-mvp/core');
   const { runFmpBatch } = await import('@/app/api/cron/fmp-batch/core');
@@ -106,7 +106,7 @@ async function main() {
 
     // 8. Dividends
     console.log('\n--- 8. Dividends Bulk (V2) ---');
-    await runDividendsBulkV2({ targetTicker: TARGET_TICKER, mode: 'auto' });
+    await runDividendsBulkV2();
     console.log('✅ Dividends Bulk Done');
 
     // 9. Sync Universe

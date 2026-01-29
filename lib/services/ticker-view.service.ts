@@ -40,7 +40,7 @@ export async function getTickerFullView(ticker: string): Promise<TickerFullView>
   // If no snapshot, we might want to return null or try to fetch from FMP (but we want DB first)
   // For now, if no snapshot, we return what we have from market state
   
-  const ps = snapshot?.profile_structural || {};
+  const ps = snapshot?.profile_structural || {} as any;
   const metrics = ps.metrics || {};
   const identity = ps.identity || {};
   const scores = ps.financial_scores || {};

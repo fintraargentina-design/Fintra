@@ -205,10 +205,19 @@ export function createFmpClient(get: FetcherFunction) {
       });
     },
 
+    /** Balance Sheet Growth */
     balanceSheetGrowth(symbol: string, opts?: { period?: "annual" | "quarter"; limit?: number; cache?: CacheOpt }) {
       return get<BalanceSheetGrowthResponse>("/balance-sheet-growth", {
         params: { symbol, period: opts?.period || "annual", limit: opts?.limit || 5 },
         cache: opts?.cache,
+      });
+    },
+
+    /** Enterprise Values (Market Cap history, etc) */
+    enterpriseValues(symbol: string, opts?: { period?: "annual" | "quarter"; limit?: number; cache?: CacheOpt }) {
+      return get<any[]>("/enterprise-values/" + symbol, {
+        params: { period: opts?.period || "annual", limit: opts?.limit || 5 },
+        cache: opts?.cache ?? "force-cache",
       });
     },
 
