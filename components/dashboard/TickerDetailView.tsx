@@ -10,7 +10,6 @@ import ChartsTabHistoricos from '@/components/tabs/ChartsTabHistoricos';
 import { registerStockSearch } from '@/lib/supabase';
 import { fmp } from '@/lib/fmp/client';
 import EcosystemCard from '@/components/cards/EcosystemCard';
-import OverviewCard from '@/components/cards/OverviewCard';
 import ScenariosTab from '@/components/tabs/ScenariosTab';
 import ConclusionTab from '@/components/tabs/ConclusionTab';
 import ResumenTab from '@/components/tabs/ResumenTab';
@@ -252,15 +251,6 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
   return (
     <div className="w-full h-full flex flex-col bg-[#0A0A0A]">
       <div className="shrink-0 w-full h-[45px] flex flex-col bg-tarjetas border-b border-zinc-800">
-        <div className="w-full border-b border-zinc-800 overflow-hidden py-0">
-          <OverviewCard
-            selectedStock={stockBasicData || ticker}
-            onStockSearch={buscarDatosAccion}
-            isParentLoading={isLoading}
-            analysisData={stockAnalysis}
-            onExpandVerdict={() => setIsExpandedOpen(true)}
-          />
-        </div>
         
         <div className="w-full flex items-center px-1 pt-1">
           <NavigationBar
