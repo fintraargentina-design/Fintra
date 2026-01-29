@@ -110,9 +110,9 @@ export default function StockTerminal() {
           <div className="space-y-1 md:space-y-1 h-full">
 
             {/* Layout principal responsivo: 3 Columnas (Left 25% - Center 35% - Right 40%) */}
-            <div className="grid grid-cols-1 xl:grid-cols-[30fr_30fr_40fr] gap-0 md:gap-1 items-start h-full">
+            <div className="bg-[#0A0A0A] grid grid-cols-1 xl:grid-cols-[30fr_30fr_40fr] md:gap-2 items-start h-full pt-2 pl-2 pr-2">
               {/* Panel izquierdo */}
-              <div className="w-full xl:w-auto flex flex-col gap-1 min-h-0 h-full overflow-hidden">
+              <div className="w-full xl:w-auto flex flex-col gap-1 min-h-0 h-full border border-zinc-800 overflow-hidden">
                 <LeftPanel 
                   onStockSelect={handleTopStockClick} 
                   selectedTicker={selectedSymbol} 
@@ -125,12 +125,12 @@ export default function StockTerminal() {
               </div>
 
               {/* Panel Central */}
-              <div className="w-full xl:w-auto h-full flex flex-col overflow-hidden pb-1 pt-1 gap-1">
+              <div className="w-full xl:w-auto h-full flex flex-col overflow-hidden border border-zinc-800 pb-1 gap-1">
                   <CentralPanel selectedTicker={selectedSymbol} onStockSelect={handleTopStockClick} />
               </div>
 
               {/* Panel derecho */}
-              <div className="w-full xl:w-auto h-full flex flex-col overflow-hidden bg-[#0A0A0A] pb-1 pt-1 gap-1">
+              <div className="w-full xl:w-auto h-full flex flex-col overflow-hidden border border-zinc-800 pb-1 gap-1">
                  <div className="w-full h-full overflow-hidden">
                     <TabManager 
                        requestedTicker={selectedSymbol} 

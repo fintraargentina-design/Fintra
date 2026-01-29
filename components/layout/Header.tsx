@@ -66,7 +66,7 @@ export default function Header({
 
   return (
     <>
-      <header className="w-full h-[30px] border-b border-zinc-800 bg-[#0A0A0A] flex items-center px-3 gap-4">
+      <header className="w-full h-[40px] border-b border-zinc-800 bg-[#0A0A0A] flex items-center px-3 gap-4">
         {/* Logo Section */}
         <div className="flex items-center gap-2">
           <div className="relative w-5 h-5">
@@ -84,21 +84,19 @@ export default function Header({
         <div className="flex items-center gap-2 h-full py-0.5">
           <Button 
             variant="ghost" 
-            size="sm" 
-            className={`h-full text-[11px] px-2 gap-1.5 font-medium ${showMarkets ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+            size="lg" 
+            className={`h-full text-[14px] px-2 gap-1.5 font-medium ${showMarkets ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
             onClick={() => setShowMarkets(!showMarkets)}
           >
-            <BarChart3 className="w-3.5 h-3.5" />
             Markets
           </Button>
           
           <Button 
             variant="ghost" 
-            size="sm" 
-            className={`h-full text-[11px] px-2 gap-1.5 font-medium ${showNews ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+            size="lg" 
+            className={`h-full text-[14px] px-2 gap-1.5 font-medium ${showNews ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
             onClick={() => setShowNews(!showNews)}
-          >
-            <Newspaper className="w-3.5 h-3.5" />
+          >          
             News
           </Button>
 

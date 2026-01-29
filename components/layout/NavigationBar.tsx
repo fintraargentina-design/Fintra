@@ -34,7 +34,7 @@ export default function NavigationBar({
             data-state={activeTab === tab.key ? 'active' : 'inactive'}
             className={`
               relative group flex items-center justify-center w-8 h-8 rounded-none transition-colors
-              ${activeTab === tab.key ? 'bg-[#002D72] text-white' : 'bg-zinc-900 text-gray-400 hover:text-gray-200 hover:bg-white/5'}
+              ${activeTab === tab.key ? 'bg-[#103765] text-white' : 'bg-[#103765] text-gray-400 hover:text-gray-200 hover:bg-white/5'}
             `}
           >
             <span className="text-[10px]">{tab.label.substring(0, 2)}</span>
@@ -55,14 +55,14 @@ export default function NavigationBar({
     <div className="w-full border-b-none border-zinc-800 bg-transparent z-10 shrink-0">
       <div className="w-full overflow-x-auto whitespace-nowrap">
         {/* Desktop Navigation */}
-        <div className="hidden md:flex bg-transparent p-0 flex-nowrap items-center justify-start min-w-full w-max gap-0.5 ">
+        <div className="hidden md:flex bg-transparent p-0 flex-nowrap items-center w-full gap-0.5">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as TabKey)}
               data-state={activeTab === tab.key ? 'active' : 'inactive'}
               className={`
-                bg-zinc-900 rounded-none border-b-0 data-[state=active]:bg-[#002D72] data-[state=active]:text-white text-[12px] px-2 py-0 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors font-medium 
+                flex-1 h-[20px] flex items-center justify-center bg-[#103765] rounded-none border-b-0 data-[state=active]:bg-[#09203B] data-[state=active]:text-white text-[14px] px-2 text-[#FFFFFF] hover:text-[#FFFFFF] hover:bg-[#09203B] transition-colors font-medium 
               `}
             >
               {tab.label}
@@ -80,7 +80,7 @@ export default function NavigationBar({
               onClick={() => setActiveTab(tab.key as TabKey)}
               data-state={activeTab === tab.key ? 'active' : 'inactive'}
               className={`
-                bg-zinc-900 rounded-none border-b-0 data-[state=active]:bg-[#0056FF] data-[state=active]:text-white text-xs px-2 py-0 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors whitespace-nowrap flex-shrink-0 font-medium
+                bg-[#103765] rounded-none border-b-0 data-[state=active]:bg-[#0056FF] data-[state=active]:text-white text-xs px-2 py-0 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors whitespace-nowrap flex-shrink-0 font-medium
               `}
             >
               <span>{tab.label}</span>

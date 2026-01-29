@@ -110,6 +110,7 @@ export type ResumenData = {
   fgos_score: number | null
   fgos_confidence_label: string | null
   fgos_status: string | null
+  fgos_maturity: string | null
   fgos_confidence_percent: number | null
   fgos_state: FgosState | null
   fgos_components: FgosBreakdown | null
@@ -246,6 +247,7 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
     fgos_score: m.fgos_score || s.fgos_score || null,
     fgos_confidence_label: m.fgos_confidence_label || null,
     fgos_status: s.fgos_status || null,
+    fgos_maturity: s.fgos_maturity || null,
     fgos_confidence_percent: s.fgos_confidence_percent || null,
     fgos_state: (s.fgos_components || s.fgos_breakdown) ? buildFGOSState({
         fgos_score: m.fgos_score || s.fgos_score || null,

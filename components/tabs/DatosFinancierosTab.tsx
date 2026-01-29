@@ -200,15 +200,15 @@ function GenericTimelineTable({
 
   return (
     <>
-      <div className="w-full flex flex-col bg-tarjetas rounded-none overflow-hidden border border-zinc-800">
+      <div className="w-full flex flex-col bg-tarjetas">
         <div
           ref={scrollRef}
           className="flex-1 p-0 overflow-x-auto overflow-y-hidden scrollbar-thin"
         >
-          <Table className="min-w-max text-sm border-collapse">
-            <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10 border-2 border-zinc-800">
+          <Table className="min-w-max text-sm">
+            <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
               <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
-                <TableHead className="px-2 text-gray-300 text-[10px] h-5 w-[150px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D]">
+                <TableHead className="border-2 border-zinc-800 px-2 text-gray-300 text-[10px] h-5 w-[150px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D]">
                   {title}
                 </TableHead>
                 {years.map((year, yearIdx) => (

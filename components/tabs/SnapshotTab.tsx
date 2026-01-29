@@ -216,7 +216,7 @@ export default function SnapshotTab({
   const sectorRankTotal = stockAnalysis?.sector_rank_total;
 
   return (
-    <div className="flex flex-col gap-4 p-2 bg-transparent min-h-screen text-zinc-200 font-sans">
+    <div className="flex flex-col gap-1 p-1 bg-transparent min-h-screen text-zinc-200 font-sans">
       
       {/* 1) RESULTADO RELATIVO */}
       <section>
@@ -224,7 +224,7 @@ export default function SnapshotTab({
           title="Resultado Relativo" 
           subtitle={`Datos al snapshot: ${snapshotDate}${sectorRank && sectorRankTotal ? ` • Rank Sectorial: #${sectorRank} de ${sectorRankTotal}` : ''}`} 
         />
-        <div className="border border-zinc-800 rounded-sm bg-zinc-900/20">
+        <div className="bg-zinc-900/20">
           <Table>
             <TableHeader>
               <TableRow className="border-zinc-800 hover:bg-transparent">
@@ -263,7 +263,7 @@ export default function SnapshotTab({
       {/* 2) PERFORMANCE HISTÓRICA */}
       <section className="h-[300px] flex flex-col">
         <SectionHeader title="Performance Relativa vs Sector e Industria" />
-        <div className="flex-1 w-full border border-zinc-800 rounded-sm bg-zinc-900/20 p-2 relative">
+        <div className="flex-1 w-full bg-zinc-900/20 p-2 relative">
             {loadingHistory ? (
                 <div className="absolute inset-0 flex items-center justify-center">
                     <Loader2 className="w-5 h-5 animate-spin text-zinc-600" />
