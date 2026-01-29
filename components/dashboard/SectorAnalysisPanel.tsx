@@ -1,23 +1,33 @@
 "use client";
 // Fintra/components/dashboard/SectorAnalysisPanel.tsx
 import { useState, useEffect, useRef } from "react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
-import { getAvailableSectors, getIndustriesForSector } from "@/lib/repository/fintra-db";
 import { Loader2 } from "lucide-react";
 import TablaIFS, { EnrichedStockData, sortStocksBySnapshot, mapSnapshotToStockData } from "./TablaIFS";
+import { MOCK_DATA } from "./mock-data";
 
-export default function SectorAnalysisPanel({ onStockSelect, selectedTicker }: { onStockSelect?: (symbol: string) => void; selectedTicker?: string }) {
-  const [sectors, setSectors] = useState<string[]>([]);
-  const [selectedSector, setSelectedSector] = useState("");
-  
-  // Industry State
-  const [industries, setIndustries] = useState<string[]>([]);
-  const [selectedIndustry, setSelectedIndustry] = useState("Todas");
+interface SectorAnalysisPanelProps {
+  onStockSelect?: (symbol: string) => void;
+  selectedTicker?: string;
+  sectors?: string[];
+  selectedSector?: string;
+  industries?: string[];
+  selectedIndustry?: string;
+  selectedExchange?: string;
+}
+
+export default function SectorAnalysisPanel({ 
+  onStockSelect, 
+  selectedTicker,
+  sectors = [],
+  selectedSector,
+  industries = [],
+  selectedIndustry = "Todas",
+  selectedExchange
+}: SectorAnalysisPanelProps) {
 
   const [stocks, setStocks] = useState<EnrichedStockData[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadingSectors, setLoadingSectors] = useState(true);
   
   // Pagination State
   const [page, setPage] = useState(0);
@@ -28,41 +38,14 @@ export default function SectorAnalysisPanel({ onStockSelect, selectedTicker }: {
   // Scroll Ref
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // 1. Load sectors
-  useEffect(() => {
-    let mounted = true;
-    
-    const fetchMetadata = async () => {
-      setLoadingSectors(true);
-      try {
-        const availableSectors = await getAvailableSectors();
-        
-        if (mounted) {
-          if (availableSectors.length > 0) {
-            setSectors(availableSectors);
-            const defaultSector = availableSectors.find(s => s === "Technology") || availableSectors[0];
-            setSelectedSector(defaultSector);
-          } else {
-             setSectors([]);
-          }
-        }
-      } catch (err) {
-        console.error("Error loading metadata:", err);
-      } finally {
-        if (mounted) setLoadingSectors(false);
-      }
-    };
-    
-    fetchMetadata();
-    
-    return () => { mounted = false; };
-  }, []);
+  // MOCK MODE TOGGLE
+  const USE_MOCK = true;
 
-  // 2. Fetch Data Function
-  const fetchData = async (pageNum: number, isNewFetch: boolean, industryOverride?: string) => {
+  // Fetch Data Function
+  const fetchData = async (pageNum: number, isNewFetch: boolean) => {
     if (!selectedSector) return;
     
-    const currentIndustry = industryOverride !== undefined ? industryOverride : selectedIndustry;
+    const currentIndustry = selectedIndustry;
     
     if (isNewFetch) {
         setLoading(true);
@@ -71,6 +54,21 @@ export default function SectorAnalysisPanel({ onStockSelect, selectedTicker }: {
         setIsFetchingMore(true);
     }
     
+    // MOCK DATA RETURN
+    if (USE_MOCK) {
+        setTimeout(() => {
+            // Filter MOCK_DATA slightly to simulate different sectors if needed, 
+            // or just return all of it for demo purposes.
+            // Let's return all MOCK_DATA sorted by score for better visuals
+            const sortedMock = [...MOCK_DATA].sort((a, b) => (b.fgosScore || 0) - (a.fgosScore || 0));
+            setStocks(sortedMock);
+            setLoading(false);
+            setIsFetchingMore(false);
+            setHasMore(false);
+        }, 600);
+        return;
+    }
+
     try {
       const from = pageNum * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
@@ -115,11 +113,29 @@ export default function SectorAnalysisPanel({ onStockSelect, selectedTicker }: {
       }));
 
       const filteredByIndustry = mergedSnapshots.filter((row) => {
-        if (!currentIndustry || currentIndustry === "Todas") return true;
         const ps = row.profile_structural || {};
         const classification = ps.classification || {};
+        
+        // 1. Industry Filter
         const industry = row.industry || classification.industry || null;
-        return industry === currentIndustry;
+        const matchIndustry = (!currentIndustry || currentIndustry === "Todas") || industry === currentIndustry;
+
+        // 2. Exchange Filter
+        let matchExchange = true;
+        if (selectedExchange) {
+             const identity = ps.identity || {};
+             const exchange = identity.exchange || ps.exchange || null;
+             
+             if (!exchange) {
+                 matchExchange = false; 
+             } else {
+                 const exStr = String(exchange).toUpperCase();
+                 const selStr = selectedExchange.toUpperCase();
+                 matchExchange = exStr.includes(selStr);
+             }
+        }
+
+        return matchIndustry && matchExchange;
       });
 
       console.log("🔍 [DEBUG] Raw Supabase Snapshots (first 3):", filteredByIndustry.slice(0, 3));
@@ -156,43 +172,28 @@ export default function SectorAnalysisPanel({ onStockSelect, selectedTicker }: {
     }
   };
 
-  // 3. Effect: Sector Change -> Load Industries -> Load Data
+  // Effect: Filter Change -> Load Data
   useEffect(() => {
     if (!selectedSector) return;
     
     let mounted = true;
 
-    const loadIndustriesAndData = async () => {
-        // Reset stocks and show loading while switching sectors
+    const loadData = async () => {
         setStocks([]); 
         setLoading(true);
         setPage(0);
         setHasMore(true);
-        setSelectedIndustry("Todas");
-        
-        // Fetch industries
-        const inds = await getIndustriesForSector(selectedSector);
         
         if (mounted) {
-            setIndustries(inds);
-            // Now fetch data for "Todas"
-            fetchData(0, true, "Todas");
+            fetchData(0, true);
         }
     };
     
-    loadIndustriesAndData();
+    loadData();
     
     return () => { mounted = false; };
-  }, [selectedSector]);
+  }, [selectedSector, selectedIndustry, selectedExchange]); // Added selectedExchange dependency
 
-  // 4. Handle Industry Change
-  const handleIndustryChange = (val: string) => {
-      if (val === selectedIndustry) return;
-      setSelectedIndustry(val);
-      setPage(0);
-      setHasMore(true);
-      fetchData(0, true, val);
-  };
 
   const handleScroll = () => {
       if (scrollContainerRef.current) {
@@ -200,95 +201,58 @@ export default function SectorAnalysisPanel({ onStockSelect, selectedTicker }: {
           if (scrollTop + clientHeight >= scrollHeight - 50 && hasMore && !isFetchingMore && !loading) {
               const nextPage = page + 1;
               setPage(nextPage);
-              fetchData(nextPage, false, selectedIndustry);
+              fetchData(nextPage, false);
           }
       }
   };
 
-
-  const handleSectorChange = (val: string) => {
-    setSelectedSector(val);
-  };
-
-  const selectedStockData = stocks.find(s => s.ticker === selectedTicker);
-
-  if (loadingSectors) {
+  if (!selectedSector) {
       return (
         <div className="w-full h-full flex items-center justify-center bg-tarjetas text-gray-400 text-xs">
-            <Loader2 className="w-4 h-4 animate-spin mr-2" /> Cargando sectores...
+             Seleccione un sector...
         </div>
       );
   }
 
   return (
     <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden shadow-sm">
-
-
-		<Tabs value={selectedSector} onValueChange={handleSectorChange} className="w-full flex-1 flex flex-col min-h-0">
-        <div className="w-full border-b border-zinc-800 bg-transparent z-10 shrink-0">
-          <div className="w-full overflow-x-auto whitespace-nowrap">
-            <TabsList className="bg-transparent h-auto p-0 flex min-w-full w-max gap-0.5 border-b-2 border-black ">
-              {sectors.map((sector) => (
-                <TabsTrigger 
-                  key={sector} 
-                  value={sector} 
-                  className="bg-zinc-900 rounded-none border-b-0 data-[state=active]:bg-[#002D72] data-[state=active]:text-white text-xs px-2 py-1 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors flex-1"
-                >
-                  {sector}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
+        {/* Header showing current selection (Optional, can be removed if redundant with Header) */}
+        <div className="w-full py-1 bg-[#0A0A0A] border-b border-zinc-800 px-2 flex items-center justify-between shrink-0">
+             <div className="flex items-center gap-2 text-xs">
+                 <span className="text-zinc-400">Sector:</span>
+                 <span className="text-white font-medium">{selectedSector}</span>
+                 {selectedIndustry && selectedIndustry !== "Todas" && (
+                     <>
+                        <span className="text-zinc-600">/</span>
+                        <span className="text-zinc-400">Industry:</span>
+                        <span className="text-white font-medium">{selectedIndustry}</span>
+                     </>
+                 )}
+             </div>
         </div>
 
-        <div className="py-0 bg-white/[0.02] shrink-0 border border-t-0 border-b-0 border-zinc-800">
-          {/* <h4 className="text-xs font-medium text-gray-400 text-center">
-            {selectedStockData && selectedStockData.sectorRank != null ? (
-               <span className="text-white font-mono">
-                 #{selectedStockData.sectorRank} {selectedStockData.sectorRankTotal ? `/ ${selectedStockData.sectorRankTotal}` : ""}
-               </span>
-            ) : (
-               <span>Acciones del sector <span className="text-[#FFA028]">{selectedSector}</span> ({stocks.length})</span>
-            )}
-          </h4> */}
+        {/* Content Area */}
+        <div 
+          className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent min-h-0 relative"
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+        >
+          {loading && stocks.length === 0 ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
+            </div>
+          ) : (
+            <div className="min-w-full inline-block align-top">
+              <TablaIFS 
+                data={stocks} 
+                isLoading={loading}
+                isFetchingMore={isFetchingMore}
+                onRowClick={onStockSelect} 
+                selectedTicker={selectedTicker}
+              />
+            </div>
+          )}
         </div>
-
-        {industries.length > 0 && (
-			<div className="w-full border-b border-zinc-800 bg-[#0A0A0A] shrink-0">
-             <Tabs value={selectedIndustry} onValueChange={handleIndustryChange} className="w-full">
-					<div className="w-full overflow-x-auto whitespace-nowrap scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent ">
-                  <TabsList className="bg-[#002D72]/20 h-auto p-0 flex min-w-full w-max gap-0.5 border-b-2 border-black">
-                      <TabsTrigger 
-                        value="Todas" 
-                        className="rounded-none border-transparent data-[state=active]:bg-[#002D72] data-[state=active]:text-[#FFFFFF] text-[12px] px-1 py-0 text-white hover:text-gray-300 transition-colors"
-                      >
-                        Todas
-                      </TabsTrigger>
-                      {industries.map(ind => (
-                          <TabsTrigger 
-                            key={ind} 
-                            value={ind} 
-                            className="rounded-none font-light border-transparent data-[state=active]:bg-[#002D72] data-[state=active]:text-[#FFFFFF] text-[12px] px-1 py-1 text-gray-300 hover:text-white hover:bg-[#002D72]/60 transition-colors" 
-                          >
-                              {ind}
-                          </TabsTrigger>
-                      ))}
-                  </TabsList>
-                </div>
-             </Tabs>
-          </div>
-        )}
-
-        <TablaIFS 
-            data={stocks}
-            isLoading={loading}
-            isFetchingMore={isFetchingMore}
-            onRowClick={onStockSelect}
-            selectedTicker={selectedTicker}
-            onScroll={handleScroll}
-            scrollRef={scrollContainerRef}
-        />
-      </Tabs>
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { searchStocks, registerPendingStock, UnifiedSearchResult } from "@/lib/services/search-service";
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
 
-export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: string) => void }) {
+export default function GlobalSearchInput({ onSelect, className }: { onSelect?: (ticker: string) => void, className?: string }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UnifiedSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -31,6 +31,8 @@ export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: st
       }
     }
   }, [selectedIndex]);
+  
+  // ... existing logic ...
 
   useEffect(() => {
     const timer = setTimeout(async () => {
@@ -141,11 +143,11 @@ export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: st
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverAnchor asChild>
-        <div className="relative w-full max-w-[180px] pb-0">
-          <Search className="absolute left-2 top-1.5 h-3 w-3 text-gray-500" />
+        <div className={`relative w-full ${className || 'max-w-[300px]'} pb-0`}>
+          <Search className="absolute left-2 top-1.5 h-3 w-3 text-black/70" />
           <Input 
-            placeholder="Buscar ticker..." 
-            className="h-6 pl-7 text-[10px] bg-zinc-900 border-zinc-800 focus-visible:ring-0 focus-visible:ring-transparent placeholder:text-gray-600 text-gray-200 rounded-none"
+            placeholder="Search ..." 
+            className="h-[22px] pl-7 text-[11px] bg-[#F9A01B] border-none focus-visible:ring-0 focus-visible:ring-transparent placeholder:text-black/60 text-black font-medium rounded-full"
             value={query}
             onChange={e => {
                 setQuery(e.target.value);
@@ -154,12 +156,12 @@ export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: st
             onKeyDown={handleKeyDown}
             onFocus={() => query.length >= 2 && setOpen(true)}
           />
-          {loading && <Loader2 className="absolute right-2 top-1.5 h-3 w-3 animate-spin text-gray-500" />}
+          {loading && <Loader2 className="absolute right-2 top-1.5 h-3 w-3 animate-spin text-black/70" />}
         </div>
       </PopoverAnchor>
       
       <PopoverContent 
-        className="p-0 w-[500px] bg-[#121212] border-zinc-800 shadow-xl rounded-none" 
+        className="p-0 w-[300px] bg-[#121212] border-zinc-800 shadow-xl rounded-md mt-1" 
         align="start" 
         sideOffset={5}
         onOpenAutoFocus={(e) => e.preventDefault()}
@@ -187,16 +189,11 @@ export default function GlobalSearchInput({ onSelect }: { onSelect?: (ticker: st
                   >
                     <div className="min-w-0 flex-1 mr-2">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-light text-white text-xs font-mono">{stock.ticker}</span>
-                        {/* {stock.source === 'local' ? (
-                           <span className="text-[8px] bg-blue-500/10 text-blue-400 px-1 rounded-none border border-blue-500/20">DB</span>
-                        ) : (
-                           <span className="text-[8px] bg-yellow-500/10 text-yellow-400 px-1 rounded-none border border-blue-500/20">FMP</span>
-                        )} */}
+                        <span className="font-bold text-white text-xs font-mono">{stock.ticker}</span>
                       </div>
-                      <div className="text-[12px] text-gray-400 font-mono font-light truncate group-hover:text-white">{stock.name}</div>
+                      <div className="text-[11px] text-gray-400 font-medium truncate group-hover:text-white">{stock.name}</div>
                     </div>
-                    <div className="text-[10px] text-gray-400 font-mono shrink-0 border border-zinc-800 px-1 rounded-none bg-black/20">
+                    <div className="text-[9px] text-gray-500 font-mono shrink-0 px-1">
                         {stock.exchange}
                     </div>
                   </div>

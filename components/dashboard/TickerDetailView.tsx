@@ -32,7 +32,7 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
   const [stockEcosystem, setStockEcosystem] = useState<StockEcosystem | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<TabKey>('empresa');
+  const [activeTab, setActiveTab] = useState<TabKey>('snapshot');
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
   const [isExpandedOpen, setIsExpandedOpen] = useState(false);
 

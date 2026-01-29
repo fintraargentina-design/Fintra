@@ -15,7 +15,7 @@ export default function NavigationBar({
   orientation = 'horizontal'
 }: NavigationBarProps) {
   const tabs = [
-    { key: 'empresa', label: 'Perfil' },
+   
     /* { key: 'competidores', label: 'Competidores' }, */
     { key: 'snapshot', label: 'Vs. Mercado and Peers' },
     { key: 'datos', label: 'Datos Financieros' },

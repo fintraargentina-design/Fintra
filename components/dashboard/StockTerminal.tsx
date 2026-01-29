@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
-import NoticiasTab from '@/components/tabs/NoticiasTab';
-import NoticiasTicker from '@/components/tabs/NoticiasTicker';
+import { getAvailableSectors, getIndustriesForSector } from "@/lib/repository/fintra-db";
+import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import LeftPanel from '@/components/dashboard/LeftPanel';
+import CentralPanel from '@/components/dashboard/CentralPanel';
 import TabManager from '@/components/dashboard/TabManager';
 
 export type TabKey = 'resumen' | 'competidores' | 'datos' | 'chart' | 'informe' | 'estimacion' | 'escenarios' | 'conclusion' | 'noticias' | 'twits' | 'ecosistema' | 'indices' | 'horarios' | 'empresa' | 'snapshot';
@@ -20,6 +21,61 @@ export default function StockTerminal() {
     return 'AAPL';
   });
   const [activeTab, setActiveTab] = useState<TabKey>('empresa');
+
+  // Filter State (Lifted from SectorAnalysisPanel)
+  const [sectors, setSectors] = useState<string[]>([]);
+  const [selectedSector, setSelectedSector] = useState("Technology");
+  
+  const [industries, setIndustries] = useState<string[]>([]);
+  const [selectedIndustry, setSelectedIndustry] = useState("Todas");
+
+  const [selectedExchange, setSelectedExchange] = useState("NYSE");
+
+  // Load Sectors on Mount
+  useEffect(() => {
+    let mounted = true;
+    const fetchSectors = async () => {
+      const USE_MOCK = true;
+      if (USE_MOCK) {
+         if (mounted) {
+            setSectors(["Technology", "Financial Services", "Consumer Cyclical", "Healthcare", "Energy"]);
+         }
+      } else {
+         try {
+            const available = await getAvailableSectors();
+            if (mounted && available.length > 0) {
+               setSectors(available);
+               const defaultSector = available.find(s => s === "Technology") || available[0];
+               setSelectedSector(defaultSector);
+            }
+         } catch (e) { console.error(e); }
+      }
+    };
+    fetchSectors();
+    return () => { mounted = false; };
+  }, []);
+
+  // Load Industries when Sector changes
+  useEffect(() => {
+      let mounted = true;
+      const loadIndustries = async () => {
+          if (!selectedSector) return;
+          
+          // Reset industry to "Todas" when sector changes
+          // Only if the current selected industry is not valid for the new sector? 
+          // Simpler to just reset to "Todas" or keep if it exists (but likely won't).
+          setSelectedIndustry("Todas");
+          
+          try {
+             const inds = await getIndustriesForSector(selectedSector);
+             if (mounted) {
+                 setIndustries(inds);
+             }
+          } catch (e) { console.error(e); }
+      };
+      loadIndustries();
+      return () => { mounted = false; };
+  }, [selectedSector]);
 
 
   // símbolo actual (string) sin importar si selectedStock es string u objeto
@@ -36,28 +92,41 @@ export default function StockTerminal() {
 
   return (
     <div className="h-screen w-full flex flex-col bg-black overflow-hidden">
-
+      <Header 
+        sectors={sectors}
+        selectedSector={selectedSector}
+        onSectorChange={setSelectedSector}
+        industries={industries}
+        selectedIndustry={selectedIndustry}
+        onIndustryChange={setSelectedIndustry}
+        selectedExchange={selectedExchange}
+        onExchangeChange={setSelectedExchange}
+        onStockSelect={handleTopStockClick}
+      />
 
       {/* Contenedor principal responsivo - Ancho completo */}
       <div className="flex-1 w-full px-1 min-h-0 overflow-hidden relative">
         {selectedStock && (
           <div className="space-y-1 md:space-y-1 h-full">
 
-            {/* Layout principal responsivo */}
-            <div className="grid grid-cols-1 xl:grid-cols-[50fr_50fr] gap-0 md:gap-1 items-start h-full">
+            {/* Layout principal responsivo: 3 Columnas (Left 25% - Center 35% - Right 40%) */}
+            <div className="grid grid-cols-1 xl:grid-cols-[30fr_30fr_40fr] gap-0 md:gap-1 items-start h-full">
               {/* Panel izquierdo */}
               <div className="w-full xl:w-auto flex flex-col gap-1 min-h-0 h-full overflow-hidden">
-                <LeftPanel onStockSelect={handleTopStockClick} selectedTicker={selectedSymbol} />
+                <LeftPanel 
+                  onStockSelect={handleTopStockClick} 
+                  selectedTicker={selectedSymbol} 
+                  sectors={sectors}
+                  selectedSector={selectedSector}
+                  industries={industries}
+                  selectedIndustry={selectedIndustry}
+                  selectedExchange={selectedExchange}
+                />                
+              </div>
 
-                <div className="w-full h-[40%] grid grid-cols-2 gap-1 min-h-0 pb-1">
-                  <div className="h-full w-full overflow-hidden border border-zinc-800 bg-[#0A0A0A] relative">
-                      <NoticiasTab symbol={selectedSymbol} />
-                   </div>
-                  <div className="h-full w-full overflow-hidden border border-zinc-800 bg-[#0A0A0A] relative">
-                      <NoticiasTicker symbol={selectedSymbol} />
-                   </div>
-                   
-                </div>
+              {/* Panel Central */}
+              <div className="w-full xl:w-auto h-full flex flex-col overflow-hidden pb-1 pt-1 gap-1">
+                  <CentralPanel selectedTicker={selectedSymbol} onStockSelect={handleTopStockClick} />
               </div>
 
               {/* Panel derecho */}
