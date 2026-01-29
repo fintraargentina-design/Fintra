@@ -153,33 +153,27 @@ export default function FundamentalCard({
   }) || [];
 
   return (
-		<div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden mt-0">
-      {/* <div className="px-1 py-1 bg-white/[0.02] shrink-0">
-        <h4 className="text-xs font-medium text-gray-400 text-center">
-          Fundamentales de <span className="text-[#FFA028]">{symbol}</span>
-        </h4>
-      </div> */}
-
+		<div className="w-full h-full flex flex-col bg-tarjetas overflow-hidden">
 			<div
 				ref={scrollContainerRef}
-				className="flex-1 p-0 overflow-x-auto overflow-y-hidden scrollbar-on-hover"
+				className="flex-1 overflow-x-auto overflow-y-hidden"
 			>
-		<Table className="min-w-max text-sm border-collapse">
-          <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10 border-2 border-zinc-800">
-            <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
-              <TableHead className="px-2 text-gray-300 text-[10px] h-5 w-[150px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D]">Fundamentales</TableHead>
+		<Table className="min-w-max text-sm ">
+          <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
+            <TableRow className=" hover:bg-[#1D1D1D] bg-[#1D1D1D] ">
+              <TableHead className="border-2 border-zinc-800 px-0 text-gray-300 text-[10px] h-5 w-[150px] font-light font-nano text-left  left-0 z-20 bg-[#1D1D1D]">Fundamentales</TableHead>
               {sortedYears.map((year, yearIdx) => (
                 year.columns.flatMap(col => [
                   <TableHead
                     key={col}
-                    className={`px-2 text-gray-300 text-[10px] h-5 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                    className={`border-2 border-zinc-800 px-2 text-gray-300 text-[10px] h-5 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                   >
                     {col}
                   </TableHead>,
                   peerTicker && (
                     <TableHead
                       key={`${col}-peer`}
-                      className={`px-2 text-[#ffffff] border-x border-[#002D72] font-bold text-[10px] h-5 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-[#002D72]' : 'bg-[#002D72]'}`}
+                      className={`border-2 border-zinc-800 px-0 text-[#ffffff]  font-bold text-[10px] h-5 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-[#002D72]' : 'bg-[#002D72]'}`}
                     >
                       {`${peerTicker}_${col}`}
                     </TableHead>
@@ -201,9 +195,9 @@ export default function FundamentalCard({
                 return (
                   <TableRow 
                     key={metric.key} 
-                    className={`border-zinc-800 border-b transition-all duration-300 ${isHighlighted ? 'bg-[#FFA028]/10 border-l-2 border-l-[#FFA028] shadow-[inset_0_0_20px_rgba(255,160,40,0.05)]' : 'hover:bg-white/5 border-l-2 border-l-transparent'}`}
+                    className={`transition-all duration-300 ${isHighlighted ? 'bg-[#FFA028]/10 border-l-2 border-l-[#FFA028] ' : 'hover:bg-white/5 '}`}
                   >
-                  <TableCell className="font-bold text-gray-200 px-2 py-0 text-[10px] h-6 w-[100px] border border-zinc-800 sticky left-0 z-10 bg-[#1D1D1D]">
+                  <TableCell className="font-light text-gray-200 px-0 py-0 text-[10px] h-6 w-[100px] sticky left-0 z-10 bg-[#1D1D1D]">
                     {metric.label}
                   </TableCell>
                   {sortedYears.map((year, yearIdx) => (
@@ -220,7 +214,7 @@ export default function FundamentalCard({
                         return [
                             <TableCell 
                                 key={col}
-                                className={`text-center px-2 py-0 text-[10px] font-medium text-white h-6 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                                className={`text-center px-0 py-0 text-[10px] font-medium text-white h-6 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                                 style={{ backgroundColor: getHeatmapColor(cellData?.normalized ?? null, direction) }}
                             >
                                 {cellData?.display ?? "-"}
@@ -243,27 +237,7 @@ export default function FundamentalCard({
             )}
           </TableBody>
 			</Table>
-		  </div>
-      
-      {/* Toggle Button */}
-      {!hideExpandButton && (
-        <div className="bg-transparent border-t-0 border-zinc-800 p-1 flex justify-center shrink-0">
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-white transition-colors uppercase tracking-wider font-medium"
-          >
-            {expanded ? (
-              <>
-                <ChevronUp className="w-3 h-3" />
-              </>
-            ) : (
-              <>
-                Ver más Fundamentales <ChevronDown className="w-3 h-3" />
-              </>
-            )}
-          </button>
-        </div>
-      )}
+		  </div>     
     </div>
   );
 }

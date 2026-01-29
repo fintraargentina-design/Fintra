@@ -308,13 +308,13 @@ export default function TablaIFS({
       <table className="w-full text-sm border-collapse">
         <TableHeader className="sticky top-0 z-10 bg-[#585757]">
           <TableRow className="border-zinc-800 bg-[#585757] border-b border-zinc-800">
-            <TableHead className="px-3 text-zinc-400 font-medium text-[12px] h-8 text-left w-[80px]">Ticker</TableHead>
-            <TableHead className="px-1 text-zinc-400 font-medium text-[12px] h-8 text-left w-[40px]">V.R</TableHead>
-            <TableHead className="px-2 text-zinc-400 font-medium text-[12px] h-8 text-left w-[100px]">Stage</TableHead>
-            <TableHead className="px-2 text-zinc-400 font-medium text-[12px] h-8 text-right">FGOS</TableHead>
-            <TableHead className="px-1 text-zinc-400 font-medium text-[12px] h-8 text-center w-[50px]">IFS</TableHead>
-            <TableHead className="px-3 text-zinc-400 font-medium text-[12px] h-8 text-right w-[80px]">EOD</TableHead>
-            <TableHead className="px-3 text-zinc-400 font-medium text-[12px] h-8 text-right w-[80px]">Mkt Cap</TableHead>
+            <TableHead className="px-3 text-zinc-400 font-medium text-[12px] h-6 text-left w-[80px]">Ticker</TableHead>
+            <TableHead className="px-1 text-zinc-400 font-medium text-[12px] h-6 text-left w-[40px]">V.R</TableHead>
+            <TableHead className="px-2 text-zinc-400 font-medium text-[12px] h-6 text-left w-[100px]">Stage</TableHead>
+            <TableHead className="px-2 text-zinc-400 font-medium text-[12px] h-6 text-right">FGOS</TableHead>
+            <TableHead className="px-1 text-zinc-400 font-medium text-[12px] h-6 text-center w-[50px]">IFS</TableHead>
+            <TableHead className="px-3 text-zinc-400 font-medium text-[12px] h-6 text-right w-[80px]">EOD</TableHead>
+            <TableHead className="px-3 text-zinc-400 font-medium text-[12px] h-6 text-right w-[80px]">Mkt Cap</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -343,20 +343,20 @@ export default function TablaIFS({
                   }`}
                   onClick={() => onRowClick?.(stock.ticker)}
                 >
-                  <TableCell className="font-medium text-zinc-200 px-3 py-2 text-xs">{stock.ticker}</TableCell>
+                  <TableCell className="font-medium text-zinc-200 px-3 py-1 text-xs">{stock.ticker}</TableCell>
                   
                   {/* V.R */}
-                  <TableCell className="px-1 py-2 flex justify-center">
+                  <TableCell className="px-1 py-1 flex justify-center">
                     <ValuationSignal status={stock.sectorValuationStatus} />
                   </TableCell>
                   
                   {/* Stage */}
-                  <TableCell className="text-zinc-400 px-2 py-2 text-[11px]">
+                  <TableCell className="text-zinc-400 px-2 py-1 text-[11px]">
                     {stock.fgosStatus || "—"}
                   </TableCell>
                   
                   {/* FGOS */}
-                  <TableCell className="px-2 py-2">
+                  <TableCell className="px-2 py-1">
                     <FGOSCell 
                       score={stock.fgosScore} 
                       status={stock.fgosStatus} 
@@ -365,17 +365,17 @@ export default function TablaIFS({
                   </TableCell>
                   
                   {/* IFS */}
-                  <TableCell className="px-1 py-2 flex justify-center">
+                  <TableCell className="px-1 py-1 flex justify-center">
                     <IFSRadial ifs={stock.ifs} />
                   </TableCell>
                   
                   {/* EOD */}
-                  <TableCell className="text-right px-3 py-2 text-xs font-mono text-zinc-200">
+                  <TableCell className="text-right px-3 py-1 text-xs font-mono text-zinc-200">
                     {stock.priceEod != null ? stock.priceEod.toFixed(2) : "—"}
                   </TableCell>
                   
                   {/* Mkt Cap */}
-                  <TableCell className="text-right px-3 py-2 text-xs font-mono text-amber-500">
+                  <TableCell className="text-right px-3 py-1 text-xs font-mono text-amber-500">
                     {stock.marketCap != null ? formatMarketCap(Number(stock.marketCap)) : "—"}
                   </TableCell>
                 </TableRow>

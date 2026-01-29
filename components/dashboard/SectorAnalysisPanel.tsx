@@ -217,7 +217,7 @@ export default function SectorAnalysisPanel({
   return (
     <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden shadow-sm">
         {/* Header showing current selection (Optional, can be removed if redundant with Header) */}
-        <div className="w-full py-1 bg-[#0A0A0A] border-b border-zinc-800 px-2 flex items-center justify-between shrink-0">
+        <div className="w-full h-[20px] bg-[#103765] border-b border-zinc-800 px-2 flex items-center justify-between shrink-0">
              <div className="flex items-center gap-2 text-xs">
                  <span className="text-zinc-400">Sector:</span>
                  <span className="text-white font-medium">{selectedSector}</span>

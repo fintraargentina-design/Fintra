@@ -70,19 +70,17 @@ const saveToCache = (ticker: string, data: OHLC[]) => {
   }
 };
 
-type RangeKey = "1M" | "6M" | "1Y" | "5Y";
+type RangeKey = "1A" | "3A" | "5A" | "MAX";
 
 // Helper to filter data by range
 const applyRange = (data: OHLC[], range: RangeKey) => {
   if (!data?.length) return [];
+  if (range === "MAX") return data;
   const end = new Date(data[data.length - 1].date);
   const start = new Date(end);
-  
-  if (range === "1M") start.setMonth(start.getMonth() - 1);
-  else if (range === "6M") start.setMonth(start.getMonth() - 6);
-  else if (range === "1Y") start.setFullYear(start.getFullYear() - 1);
-  else if (range === "5Y") start.setFullYear(start.getFullYear() - 5);
-  
+  if (range === "1A") start.setFullYear(start.getFullYear() - 1);
+  if (range === "3A") start.setFullYear(start.getFullYear() - 3);
+  if (range === "5A") start.setFullYear(start.getFullYear() - 5);
   return data.filter((d) => new Date(d.date) >= start);
 };
 
@@ -97,13 +95,12 @@ type Props = {
   isActive?: boolean;
 };
 
-const METRIC_VIEWS = [
-    { key: "drawdown", label: "Drawdown" },
-    { key: "precio", label: "Price" },
-    { key: "vs_index", label: "Vs Index" },
+const VIEWS = [
+  { key: "precio", label: "Precio" },
+  { key: "rel", label: "Relativo" },
+  { key: "drawdown", label: "Drawdown" },
 ] as const;
-
-type View = typeof METRIC_VIEWS[number]["key"];
+type View = typeof VIEWS[number]["key"];
 
 const INDEX_NAMES: Record<string, string> = {
   '^GSPC': 'S&P 500',
@@ -138,7 +135,7 @@ export default function ChartsTabHistoricos({
   isActive = true, // Default to true if not provided (backwards compatibility)
 }: Props) {
   const { toast } = useToast();
-  const [range, setRange] = React.useState<RangeKey>("1Y");
+  const [range, setRange] = React.useState<RangeKey>("3A");
   const [view, setView] = React.useState<View>("precio");
   
   // Store all data: Main Symbol, Benchmark, and Peers
@@ -492,7 +489,7 @@ export default function ChartsTabHistoricos({
         });
       });
 
-    } else if (view === "vs_index") {
+    } else if (view === "rel") {
       // RELATIVO: Normalizamos usando la función robusta
       yAxis = {
         type: 'value',
@@ -612,18 +609,18 @@ export default function ChartsTabHistoricos({
 
   return (
     <div className="flex flex-col h-full bg-tarjetas overflow-hidden border-none shadow-none">
-      <div className="flex items-center justify-between w-full border-b border-zinc-800 bg-transparent shrink-0 z-10">
+      <div className="flex items-center justify-between w-full bg-transparent shrink-0 z-10">
         <div className="flex gap-0.5">
-          {(["1M", "6M", "1Y", "5Y"] as RangeKey[]).map((r) => (
+          {(["1A", "3A", "5A", "MAX"] as RangeKey[]).map((r) => (
             <button
               key={r}
               onClick={() => setRange(r)}
               className={`
-                rounded-none border-b-2 px-3 py-0 text-xs transition-colors font-medium
+                rounded-none px-3 py-0 text-xs transition-colors font-medium
                 ${
                   range === r
-                    ? 'bg-[#002D72] text-white border-b-[#FFA028]'
-                    : 'bg-zinc-900 border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
+                    ? 'bg-[#002D72] text-white'
+                    : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
                 }
               `}
             >
@@ -633,16 +630,16 @@ export default function ChartsTabHistoricos({
         </div>
 
         <div className="flex gap-0.5">
-          {METRIC_VIEWS.map((v) => (
+          {VIEWS.map((v) => (
             <button
               key={v.key}
               onClick={() => setView(v.key)}
               className={`
-                rounded-none border-b-2 px-3 py-0 text-xs transition-colors font-medium
+                rounded-none px-3 py-0 text-xs transition-colors font-medium
                 ${
                   view === v.key
-                    ? 'bg-[#002D72] text-white border-b-[#FFA028]'
-                    : 'bg-zinc-900 border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
+                    ? 'bg-[#002D72] text-white'
+                    : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'
                 }
               `}
             >
@@ -652,7 +649,7 @@ export default function ChartsTabHistoricos({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 relative w-full border border-t-0 border-zinc-800">
+      <div className="flex-1 min-h-0 flex items-center justify-center w-full">
         {renderChart()}
       </div>
     </div>
