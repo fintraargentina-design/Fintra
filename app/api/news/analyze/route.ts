@@ -11,6 +11,8 @@ interface AnalyzeRequest {
   source: string;
   symbol: string;
   url: string;
+  summary?: string;
+  useTestMode?: boolean;
 }
 
 interface LLMResponse {
@@ -23,6 +25,15 @@ interface LLMResponse {
 
 // Helper: Normalize Date to YYYY-MM-DD
 function normalizeDate(dateStr: string): string {
+  // Check for compact format: YYYYMMDDTHHMMSS
+  // e.g., 20240520T100000
+  const compactMatch = dateStr.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})$/);
+  if (compactMatch) {
+    const [_, year, month, day, hour, minute, second] = compactMatch;
+    // Construct ISO string: YYYY-MM-DDTHH:mm:ss
+    dateStr = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+  }
+
   // Handle ISO strings or simple dates
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) {
@@ -111,11 +122,11 @@ export async function POST(req: Request) {
   try {
     // 1. Validate input
     const body = await req.json();
-    const { title, date, source, symbol, url } = body as AnalyzeRequest;
+    const { title, date, source, symbol, url, summary, useTestMode } = body as AnalyzeRequest;
 
-    if (!url || !source || !symbol || !date) {
+    if (!url || !source || !symbol || !date || !title) {
       return NextResponse.json(
-        { error: 'Missing required fields: url, source, symbol, date' },
+        { error: 'Missing required fields: url, source, symbol, date, title' },
         { status: 400 }
       );
     }
@@ -160,29 +171,43 @@ export async function POST(req: Request) {
       });
 
       if (!response.ok) {
-        console.warn(`Fetch failed with status: ${response.status}`);
-        return NextResponse.json({ error: 'Failed to fetch article' }, { status: 502 });
+        console.warn(`Fetch failed with status: ${response.status}. Continuing with empty body.`);
+      } else {
+        html = await response.text();
       }
-      html = await response.text();
     } catch (error) {
-      console.error('Fetch error:', error);
-      return NextResponse.json({ error: 'Failed to fetch article' }, { status: 502 });
+      console.warn('Fetch error:', error, '. Continuing with empty body.');
     }
 
     // 5. Extract article text
-    const articleText = cleanArticleText(html);
-    const evidenceLevel = articleText.length < 200 ? 'summary' : 'full';
+    let articleText = cleanArticleText(html);
+    let evidenceLevel: 'summary' | 'full';
+
+    if (articleText.length < 200) {
+      evidenceLevel = 'summary';
+      const fallbackContent = summary || title;
+      articleText = `(Analysis based on summary due to access restrictions)\n\n${fallbackContent}`;
+    } else {
+      evidenceLevel = 'full';
+    }
 
     // 6. Call the LLM
-    const n8nUrl = 'https://n8n.srv904355.hstgr.cloud/webhook/19d4e091-5368-4b5e-b4b3-71257abbd92d';
+    const N8N_WEBHOOK_PROD = 'https://n8n.srv904355.hstgr.cloud/webhook/fintra-notice-insight';
+    const N8N_WEBHOOK_TEST = 'https://n8n.srv904355.hstgr.cloud/webhook-test/fintra-notice-insight';
+
+    // TOGGLE: Controlled by frontend request, default to false if not provided
+    const useTestWebhook = useTestMode === true;
+
+    const n8nUrl = useTestWebhook ? N8N_WEBHOOK_TEST : N8N_WEBHOOK_PROD;
     
     // Send ONLY the specified fields
     const llmPayload = {
       title,
-      date, // Pass original date or normalized? "date" in input. Let's pass original to be safe, or normalized. Prompt says "date".
+      date,
       source,
       symbol,
       articleText,
+      evidence_level: evidenceLevel,
     };
 
     let llmResult: LLMResponse;
@@ -194,13 +219,23 @@ export async function POST(req: Request) {
       });
 
       if (!llmResponse.ok) {
-        throw new Error(`LLM service failed with status: ${llmResponse.status}`);
+        const errorText = await llmResponse.text();
+        console.error(`n8n Error (${llmResponse.status}):`, errorText);
+        throw new Error(`LLM service failed with status: ${llmResponse.status}. Details: ${errorText.slice(0, 200)}`);
       }
 
       llmResult = await llmResponse.json();
     } catch (error) {
       console.error('LLM call error:', error);
-      return NextResponse.json({ error: 'LLM analysis failed' }, { status: 502 });
+      // Return more detailed error to help debugging
+      return NextResponse.json(
+        { 
+          error: 'LLM analysis failed', 
+          details: error instanceof Error ? error.message : String(error),
+          tip: useTestWebhook ? 'Check if n8n workflow is active in UI' : undefined
+        }, 
+        { status: 502 }
+      );
     }
 
     // 7. Compute eligibility

@@ -27,6 +27,7 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import DraggableWidget from "@/components/ui/draggable-widget";
 import { fmp } from "@/lib/fmp/public";
 
 interface NewsItem {
@@ -77,11 +78,13 @@ export default function NoticiasTab({
   // Filter State
   const [activeCategory, setActiveCategory] = useState("Stock News");
   
-  const [viewNewsModal, setViewNewsModal] = useState<{ isOpen: boolean; url: string | null; title: string | null }>({
+  const [viewNewsModal, setViewNewsModal] = useState<{ isOpen: boolean; url: string | null; title: string | null; summary: string | null }>({
     isOpen: false,
     url: null,
-    title: null
+    title: null,
+    summary: null
   });
+  const [iframeAllowed, setIframeAllowed] = useState<boolean | null>(null);
 
   const categories = ["Stock News", "General", "Press Releases", "FMP Articles", "Crypto", "Forex"];
 
@@ -257,12 +260,27 @@ export default function NoticiasTab({
     setAnalysisModal(initialAnalysisState);
   };
 
-  const openNewsModal = (url: string, title: string) => {
-    setViewNewsModal({ isOpen: true, url, title });
+  const openNewsModal = (url: string, title: string, summary: string) => {
+    setViewNewsModal({ isOpen: true, url, title, summary });
+    setIframeAllowed(null); // Reset state to loading
+    
+    // Check if the URL allows framing
+    fetch(`/api/check-iframe?url=${encodeURIComponent(url)}`)
+      .then(res => res.json())
+      .then(data => {
+        setIframeAllowed(data.allowed);
+      })
+      .catch(err => {
+        console.error("Error checking iframe compatibility", err);
+        // On error, assume allowed so we at least try, or could set to false to be safe.
+        // Setting to true to mimic default behavior but allow fallback if it fails later?
+        // Actually, if the check fails, we probably shouldn't block it proactively.
+        setIframeAllowed(true);
+      });
   };
 
   const closeNewsModal = () => {
-    setViewNewsModal({ isOpen: false, url: null, title: null });
+    setViewNewsModal({ isOpen: false, url: null, title: null, summary: null });
   };
 
   const resetFilters = () => {
@@ -296,14 +314,10 @@ export default function NoticiasTab({
 		<>
       <div className="flex flex-col h-full bg-tarjetas overflow-hidden">
         {/* Header */}
-        <div className="relative flex items-center justify-center px-1 py-1 border-b border-zinc-800 bg-white/[0.02] shrink-0">
-          <h4 className="text-xs font-medium text-gray-400 text-center">
-            {title ? (
-              <span className="text-[#FFA028]">{title}</span>
-            ) : (
-              <>Noticias Generales · <span className="text-[#FFA028]">{activeCategory}</span></>
-            )}
-          </h4>
+        <div className="h-[20px] border-b border-zinc-800 bg-[#103765] flex items-center justify-center shrink-0 relative">
+          <span className="text-[12px] font-medium text-white tracking-wide">
+            {title ? title : <>Noticias Generales · <span className="text-zinc-300">{activeCategory}</span></>}
+          </span>
           
           <div className="absolute right-1 flex items-center gap-2">
             {/* Filter Menu */}
@@ -312,7 +326,7 @@ export default function NoticiasTab({
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-5 w-5 hover:bg-transparent focus:bg-transparent active:bg-transparent data-[state=open]:bg-transparent border-none ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-zinc-400 hover:text-zinc-100"
+                  className="h-[18px] w-[18px] hover:bg-white/10 text-white/80 hover:text-white"
                 >
                   <Filter className="h-3 w-3" />
                 </Button>
@@ -368,7 +382,7 @@ export default function NoticiasTab({
                                     
                                     <h3 className="text-zinc-100 font-light text-[11px] leading-snug mb-1 transition-colors line-clamp-2">
                                       <button 
-                                        onClick={(e) => { e.preventDefault(); openNewsModal(item.url, item.title); }} 
+                                        onClick={(e) => { e.preventDefault(); openNewsModal(item.url, item.title, item.summary); }} 
                                         className="text-left hover:underline hover:text-[#FFA028] focus:outline-none"
                                       >
                                         {item.title}
@@ -477,33 +491,92 @@ export default function NoticiasTab({
         </div>
       )}
 
-      {/* News Viewer Modal */}
+      {/* News Viewer Draggable Widget */}
       {viewNewsModal.isOpen && viewNewsModal.url && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl relative">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-900/95 backdrop-blur rounded-t-xl">
-               <h2 className="text-sm font-medium text-zinc-100 truncate flex-1 mr-4">{viewNewsModal.title}</h2>
-               <div className="flex items-center gap-2">
-                 <a href={viewNewsModal.url} target="_blank" rel="noopener noreferrer" className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors" title="Abrir en nueva pestaña">
-                   <ExternalLink className="w-4 h-4" />
-                 </a>
-                 <button onClick={closeNewsModal} className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
-                   <X className="w-5 h-5" />
-                 </button>
-               </div>
+        <DraggableWidget
+            isOpen={viewNewsModal.isOpen}
+            onClose={closeNewsModal}
+            title={viewNewsModal.title || "Noticia"}
+            initialPosition={{ x: 150, y: 100 }}
+            width={900}
+            height={700}
+        >
+            <div className="flex flex-col h-full bg-zinc-900 relative">
+                 <div className="flex justify-end p-1 bg-zinc-900 border-b border-zinc-800">
+                     <a 
+                        href={viewNewsModal.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-white px-2 py-0.5 hover:bg-zinc-800 rounded transition-colors"
+                     >
+                       <ExternalLink className="w-3 h-3" />
+                       Abrir en navegador
+                     </a>
+                 </div>
+                 
+                 <div className="flex-1 bg-zinc-950 relative overflow-hidden group">
+                     {iframeAllowed === null ? (
+                        /* Loading State */
+                        <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-zinc-900 z-20">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FFA028] mb-4"></div>
+                            <p className="text-zinc-400 text-sm">Verificando compatibilidad de visualización...</p>
+                        </div>
+                     ) : !iframeAllowed ? (
+                        /* Blocked State - Show message explicitly */
+                        <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-zinc-900 z-20">
+                            <div className="max-w-xl w-full flex flex-col items-center">
+                                <h2 className="text-xl font-semibold text-zinc-100 mb-4 line-clamp-2 leading-tight">
+                                    {viewNewsModal.title}
+                                </h2>
+                                <p className="text-zinc-400 text-sm mb-8 line-clamp-4 leading-relaxed">
+                                    {viewNewsModal.summary}
+                                </p>
+                                
+                                <div className="w-16 h-16 bg-zinc-800/50 rounded-full flex items-center justify-center mb-6">
+                                    <ExternalLink className="w-8 h-8 text-zinc-500" />
+                                </div>
+                                <p className="text-zinc-300 font-medium mb-2 text-lg">Visualización no disponible aquí</p>
+                                <p className="text-zinc-500 text-sm max-w-md mb-8 leading-relaxed">
+                                    El sitio de noticias ({new URL(viewNewsModal.url).hostname}) no permite ser incrustado en otras aplicaciones por políticas de seguridad.
+                                </p>
+                                <a 
+                                    href={viewNewsModal.url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="px-6 py-3 bg-[#103765] hover:bg-[#0d2b4e] text-white rounded-lg transition-all text-sm font-medium flex items-center gap-2 shadow-lg hover:shadow-xl hover:translate-y-[-1px]"
+                                >
+                                    <ExternalLink className="w-4 h-4" />
+                                    Leer noticia en fuente original
+                                </a>
+                            </div>
+                        </div>
+                     ) : (
+                        /* Allowed State - Show Iframe */
+                        <>
+                             <iframe 
+                               src={viewNewsModal.url} 
+                               className="w-full h-full border-none relative z-10 bg-white" 
+                               title="News Preview"
+                               sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                             />
+                             
+                             {/* Banner flotante de ayuda */}
+                             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-zinc-900/90 backdrop-blur text-zinc-300 text-xs py-2 px-4 rounded-full border border-zinc-700 shadow-xl z-20 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                <span>¿Problemas de visualización?</span>
+                                <a 
+                                    href={viewNewsModal.url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="text-white hover:text-[#FFA028] font-medium underline underline-offset-2 flex items-center gap-1"
+                                >
+                                    Abrir externamente <ExternalLink className="w-3 h-3" />
+                                </a>
+                             </div>
+                        </>
+                     )}
+                 </div>
             </div>
-            {/* Content */}
-            <div className="flex-1 bg-white relative overflow-hidden">
-                <iframe 
-                  src={viewNewsModal.url} 
-                  className="w-full h-full border-none" 
-                  title="News Preview"
-                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-                />
-            </div>
-          </div>
-        </div>
+        </DraggableWidget>
       )}
     </>
   );

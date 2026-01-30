@@ -105,7 +105,7 @@ export default function StockTerminal() {
       />
 
       {/* Contenedor principal responsivo - Ancho completo */}
-      <div className="flex-1 w-full px-1 min-h-0 overflow-hidden relative">
+      <div className="flex-1 w-full min-h-0 overflow-hidden relative">
         {selectedStock && (
           <div className="space-y-1 md:space-y-1 h-full">
 

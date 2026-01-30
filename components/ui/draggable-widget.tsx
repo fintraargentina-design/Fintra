@@ -90,16 +90,18 @@ export default function DraggableWidget({
       {/* Header Bar - Draggable Area */}
       <div
         onMouseDown={handleMouseDown}
-        className="h-8 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-2 cursor-move select-none shrink-0"
+        className="h-[20px] bg-[#103765] border-b border-zinc-800 flex items-center justify-center px-2 cursor-move select-none shrink-0 relative"
       >
-        <div className="flex items-center gap-2">
-          <GripHorizontal className="w-4 h-4 text-zinc-500" />
-          <span className="text-xs font-medium text-zinc-300">{title}</span>
+        <div className="flex items-center gap-2 absolute left-2">
+          <GripHorizontal className="w-3 h-3 text-white/50" />
         </div>
+
+        <span className="text-[12px] font-medium text-white tracking-wide">{title}</span>
+
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 hover:bg-red-900/20 hover:text-red-400"
+          className="h-[18px] w-[18px] hover:bg-white/10 text-white/80 hover:text-white absolute right-1"
           onClick={onClose}
         >
           <X className="w-3 h-3" />

@@ -339,7 +339,7 @@ export default function TablaIFS({
                 <TableRow
                   key={stock.ticker}
                   className={`border-zinc-800/50 hover:bg-zinc-900/50 cursor-pointer transition-colors border-b ${
-                    isSelected ? "bg-zinc-900 border-l-2 border-l-[#002D72]" : ""
+                    isSelected ? "bg-zinc-700 border-l-4 border-l-[#002D72]" : ""
                   }`}
                   onClick={() => onRowClick?.(stock.ticker)}
                 >

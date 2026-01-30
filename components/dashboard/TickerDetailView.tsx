@@ -251,7 +251,7 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
   return (
     <div className="w-full h-full flex flex-col bg-[#0A0A0A]">
       <div className="shrink-0 w-full h-[45px] flex flex-col bg-tarjetas border-b border-zinc-800">
-        <div className="w-full flex items-center px-1 pt-1">
+        <div className="w-full flex items-center">
           <NavigationBar
             orientation="horizontal"
             activeTab={activeTab}

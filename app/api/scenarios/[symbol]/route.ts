@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { computeNarrativeRisk, type NewsInsight } from '@/lib/analysis/narrativeRisk';
 import { computeDominantNarratives, type DominantNarrative } from '@/lib/analysis/dominantNarratives';
+import { computeNarrativeBias } from '@/lib/analysis/narrativeBias';
 
 export const runtime = 'nodejs';
 
@@ -17,6 +18,15 @@ interface ScenarioContext {
   dominantNarratives: {
     narratives: DominantNarrative[];
     total_insights: number;
+  };
+  narrativeBias: {
+    bias: 'Positivo' | 'Neutro' | 'Negativo';
+    score: number;
+    breakdown: {
+      positiva: number;
+      neutra: number;
+      negativa: number;
+    };
   };
   sample_size: number;
   generated_at: string;
@@ -90,6 +100,7 @@ export async function GET(
 
     const riskResult = computeNarrativeRisk(insights);
     const dominantNarrativesResult = computeDominantNarratives(insights);
+    const narrativeBiasResult = computeNarrativeBias(insights);
 
     // 6. Build Scenario Context DTO
     const context: ScenarioContext = {
@@ -101,6 +112,7 @@ export async function GET(
         active_rules: riskResult.active_rules
       },
       dominantNarratives: dominantNarrativesResult,
+      narrativeBias: narrativeBiasResult,
       sample_size: insights.length,
       generated_at: new Date().toISOString()
     };

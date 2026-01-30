@@ -22,14 +22,7 @@ export default function SectorScatterChart({ selectedSector }: { selectedSector?
 
   const option = {
     backgroundColor: '#0A0A0A', // Dark background to match theme
-    title: {
-      text: selectedSector ? `${selectedSector} Analysis` : 'Sector Analysis Scatter',
-      left: 'center',
-      textStyle: {
-        color: '#ccc',
-        fontSize: 14
-      }
-    },
+
     grid: {
       left: '8%',
       right: '8%',
@@ -93,7 +86,7 @@ export default function SectorScatterChart({ selectedSector }: { selectedSector?
   };
 
   return (
-    <div className="w-full h-full p-2 bg-[#0A0A0A] border-t border-zinc-800">
+    <div className="w-full h-full p-2 bg-[#0A0A0A] ">
       <ReactECharts 
         option={option} 
         style={{ height: '100%', width: '100%' }} 

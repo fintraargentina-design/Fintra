@@ -27,9 +27,10 @@ export interface AnalysisState {
 /**
  * Envía una noticia a la API interna para análisis con IA
  * @param newsData - Datos de la noticia a analizar
+ * @param useTestMode - (Opcional) Si es true, usa el webhook de test de n8n
  * @returns Promise con la respuesta del análisis
  */
-export async function analyzeNewsWithAI(data: NewsAnalysisData): Promise<AnalysisResponse> {
+export async function analyzeNewsWithAI(data: NewsAnalysisData, useTestMode: boolean = false): Promise<AnalysisResponse> {
   const apiUrl = '/api/news/analyze';
   
   // Construct payload with minimal data required by backend
@@ -39,7 +40,8 @@ export async function analyzeNewsWithAI(data: NewsAnalysisData): Promise<Analysi
     date: data.date,
     source: data.source,
     symbol: data.symbol,
-    url: data.url
+    url: data.url,
+    useTestMode
   };
 
   const response = await fetch(apiUrl, {
@@ -56,6 +58,12 @@ export async function analyzeNewsWithAI(data: NewsAnalysisData): Promise<Analysi
       const errorData = await response.json();
       if (errorData.error) {
         errorMessage = errorData.error;
+        if (errorData.details) {
+          errorMessage += `\n\nDetails: ${errorData.details}`;
+        }
+        if (errorData.tip) {
+          errorMessage += `\n\nTip: ${errorData.tip}`;
+        }
       }
     } catch (e) {
       // Ignore JSON parse error

@@ -53,7 +53,7 @@ export default function NavigationBar({
   }
   return (
     <div className="w-full border-b-none border-zinc-800 bg-transparent z-10 shrink-0">
-      <div className="w-full overflow-x-auto whitespace-nowrap">
+      <div className="w-full">
         {/* Desktop Navigation */}
         <div className="hidden md:flex bg-transparent p-0 flex-nowrap items-center w-full gap-0.5">
           {tabs.map((tab) => (
@@ -62,7 +62,7 @@ export default function NavigationBar({
               onClick={() => setActiveTab(tab.key as TabKey)}
               data-state={activeTab === tab.key ? 'active' : 'inactive'}
               className={`
-                flex-1 h-[20px] flex items-center justify-center bg-[#103765] rounded-none border-b-0 data-[state=active]:bg-[#09203B] data-[state=active]:text-white text-[14px] px-2 text-[#FFFFFF] hover:text-[#FFFFFF] hover:bg-[#09203B] transition-colors font-medium 
+                flex-1 h-[20px] flex items-center justify-center bg-[#103765] rounded-none border-b-0 data-[state=active]:bg-[#09203B] data-[state=active]:text-white text-[12px] text-[#FFFFFF] hover:text-[#FFFFFF] hover:bg-[#09203B] transition-colors font-light 
               `}
             >
               {tab.label}

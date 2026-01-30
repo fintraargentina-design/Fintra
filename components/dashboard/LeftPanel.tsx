@@ -26,7 +26,7 @@ const LeftPanel = memo(({
   return (
     <div className="w-full h-full flex flex-col min-h-0 bg-[#0A0A0A]">
       {/* Top 60%: Sector Analysis Panel */}
-      <div className="h-[60%] w-full min-h-0 border-b border-zinc-800">
+      <div className="h-[60%] w-full min-h-0 ">
         <SectorAnalysisPanel 
           onStockSelect={onStockSelect} 
           selectedTicker={selectedTicker}
