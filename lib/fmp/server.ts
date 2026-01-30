@@ -15,7 +15,7 @@ if (!process.env.FMP_API_KEY) {
 
 export type Query = Record<string, string | number | boolean | undefined>;
 
-const DEFAULT_TIMEOUT = 12_000; // ms
+const DEFAULT_TIMEOUT = 25_000; // Increased to 25s for slower endpoints
 const DEFAULT_RETRIES = 2;
 
 function ensureLeadingSlash(path: string) {
@@ -56,6 +56,10 @@ async function fetchWithRetry(
 
       // 429 y 5xx → reintenta con backoff+jitter
       if (res.status === 429 || res.status >= 500) {
+        // Log warning before retry
+        const body = await res.text().catch(() => "No body");
+        console.warn(`[FMP] Retryable error ${res.status} for ${url}: ${body.slice(0, 200)}`);
+
         const delay = 400 * (attempt + 1) + Math.random() * 250;
         await new Promise((r) => setTimeout(r, delay));
         attempt++;

@@ -67,35 +67,54 @@ async function main() {
 
   console.log(`🚀 Historical backfill for industry_performance 1D from ${startYear} to ${endYear}`);
 
-  // 1) Discover industries from existing 1D data
-  const { data: industryRows, error: industriesError } = await supabaseAdmin
-    .from('industry_performance')
-    .select('industry')
-    .eq('window_code', WINDOW_CODE)
-    .not('industry', 'is', null);
+  // 1) Discover industries from industry_classification (Source of Truth)
+  // Fallback to industry_performance if classification is empty (legacy behavior)
+  
+  let industries: string[] = [];
 
-  if (industriesError) {
-    console.error('❌ Error fetching industries from industry_performance:', industriesError);
-    process.exit(1);
+  // Try fetching from industry_classification first
+   const { data: classRows, error: classError } = await supabaseAdmin
+     .from('industry_classification')
+     .select('industry_name')
+     .not('industry_name', 'is', null);
+
+   if (!classError && classRows && classRows.length > 0) {
+       const industrySet = new Set<string>();
+       for (const r of classRows) {
+           if (r.industry_name) industrySet.add(r.industry_name.trim());
+       }
+       industries = Array.from(industrySet).sort();
+       console.log(`📊 Discovered ${industries.length} industries from industry_classification.`);
+   } else {
+       if (classError) console.warn('⚠️ Error fetching from industry_classification:', classError.message);
+       console.warn('⚠️ Could not fetch from industry_classification or empty. Trying industry_performance...');
+      
+      const { data: industryRows, error: industriesError } = await supabaseAdmin
+        .from('industry_performance')
+        .select('industry')
+        .eq('window_code', WINDOW_CODE)
+        .not('industry', 'is', null);
+
+      if (industriesError) {
+        console.error('❌ Error fetching industries from industry_performance:', industriesError);
+        process.exit(1);
+      }
+
+      const industrySet = new Set<string>();
+      for (const r of industryRows || []) {
+        const raw = (r as any).industry as string | null;
+        if (!raw) continue;
+        const clean = raw.trim();
+        if (!clean) continue;
+        industrySet.add(clean);
+      }
+      industries = Array.from(industrySet).sort();
   }
-
-  const industrySet = new Set<string>();
-  for (const r of industryRows || []) {
-    const raw = (r as any).industry as string | null;
-    if (!raw) continue;
-    const clean = raw.trim();
-    if (!clean) continue;
-    industrySet.add(clean);
-  }
-
-  const industries = Array.from(industrySet).sort();
 
   if (!industries.length) {
-    console.warn('⚠️ No industries found in industry_performance (1D). Nothing to backfill.');
+    console.warn('⚠️ No industries found. Nothing to backfill.');
     process.exit(0);
   }
-
-  console.log(`📊 Discovered ${industries.length} industries to backfill.`);
 
   const segments = buildMonthlySegments(startYear, endYear);
   console.log(`📅 Monthly segments to query: ${segments.length} (from ${segments[0].from} to ${segments[segments.length - 1].to})`);
