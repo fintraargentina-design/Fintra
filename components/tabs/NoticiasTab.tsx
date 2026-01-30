@@ -110,7 +110,12 @@ export default function NoticiasTab({
           case "Stock News":
               // Prioritize symbol specific news if available
               if (symbol) {
-                  data = await fmp.stockNews({ tickers: symbol, limit });
+                  try {
+                    data = await fmp.stockNews({ tickers: symbol, limit });
+                  } catch (err) {
+                    console.warn(`[NoticiasTab] Failed to fetch specific news for ${symbol}, falling back to general stock news.`, err);
+                    data = await fmp.stockNews({ limit });
+                  }
               } else {
                   data = await fmp.stockNews({ limit });
               }
