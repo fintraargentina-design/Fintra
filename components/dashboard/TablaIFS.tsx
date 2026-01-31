@@ -235,7 +235,7 @@ export default function TablaIFS({
   return (
     <div
       ref={scrollRef}
-      className="w-full relative p-0 border-b border-zinc-800 bg-[#0A0A0A]" 
+      className="w-full relative p-0 border-b border-zinc-800 bg-[#0A0A0A] rounded-[4px]" 
       onScroll={onScroll}
     >
       <table className="w-full text-sm border-collapse m-0 p-0">
