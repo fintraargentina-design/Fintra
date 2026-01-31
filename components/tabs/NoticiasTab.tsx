@@ -114,10 +114,20 @@ export default function NoticiasTab({
                     data = await fmp.stockNews({ tickers: symbol, limit });
                   } catch (err) {
                     console.warn(`[NoticiasTab] Failed to fetch specific news for ${symbol}, falling back to general stock news.`, err);
-                    data = await fmp.stockNews({ limit });
+                    try {
+                        data = await fmp.stockNews({ limit });
+                    } catch (err2) {
+                        console.warn(`[NoticiasTab] Failed to fetch general stock news, falling back to general news.`, err2);
+                        data = await fmp.generalNews({ limit });
+                    }
                   }
               } else {
-                  data = await fmp.stockNews({ limit });
+                  try {
+                    data = await fmp.stockNews({ limit });
+                  } catch (err) {
+                    console.warn(`[NoticiasTab] Failed to fetch stock news, falling back to general news.`, err);
+                    data = await fmp.generalNews({ limit });
+                  }
               }
               break;
           case "General":
@@ -393,10 +403,24 @@ export default function NoticiasTab({
                                         {item.title}
                                       </button>
                                     </h3>
-                                    <span className="flex items-center font-mono  gap-1">
-                                        <Clock className="w-3 h-3" />
-                                        {formatDate(item.time_published)}
-                                    </span>
+                                    
+                                    {/* Summary */}
+                                    {item.summary && (
+                                        <p className="text-zinc-500 text-[10px] line-clamp-2 mb-1.5 leading-relaxed">
+                                            {item.summary}
+                                        </p>
+                                    )}
+
+                                    <div className="flex items-center gap-3 text-[10px] text-zinc-500 font-mono">
+                                        <span className="flex items-center gap-1">
+                                            <Clock className="w-3 h-3" />
+                                            {formatDate(item.time_published)}
+                                        </span>
+                                        <span className="text-zinc-600">•</span>
+                                        <span className="truncate max-w-[120px] text-zinc-400">
+                                            {item.source}
+                                        </span>
+                                    </div>
                                 </div>                                
                             </div>                                                                               
                         </div>

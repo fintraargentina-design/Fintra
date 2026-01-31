@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getResumenData, ResumenData } from "@/lib/repository/fintra-db";
 import FinancialsHistoryChart from "@/components/charts/FinancialsHistoryChart";
 import { cn } from "@/lib/utils";
+import DraggableWidget from "@/components/ui/draggable-widget";
+import CompanyInfoWidget from "@/components/widgets/CompanyInfoWidget";
 import { 
   Activity, 
   BarChart3, Globe, Building2, User, 
@@ -177,6 +179,7 @@ export default function ResumenCard({
   const [resumen, setResumen] = useState<ResumenData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showCompanyInfo, setShowCompanyInfo] = useState(false);
 
   const currentSymbol = useMemo(() => (symbol || "").toUpperCase(), [symbol]);
 
@@ -292,7 +295,10 @@ export default function ResumenCard({
                                     <h1 className="text-[16px] font-medium text-white tracking-tight leading-none">{data.name}</h1>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2 text-zinc-300 transition-colors cursor-pointer">
+                            <div 
+                                className="flex items-center gap-2 text-zinc-300 transition-colors cursor-pointer hover:text-white"
+                                onClick={() => setShowCompanyInfo(true)}
+                            >
                                 <span className="text-[10px] tracking-wider font-light">more info about the company</span>
                                 <Info size={23} />
                             </div>
@@ -370,6 +376,17 @@ export default function ResumenCard({
             </div>
         </div>
       </CardContent>
+
+      <DraggableWidget
+        title={`Company Info: ${data.symbol}`}
+        isOpen={showCompanyInfo}
+        onClose={() => setShowCompanyInfo(false)}
+        width={800}
+        height={600}
+        initialPosition={{ x: 200, y: 150 }}
+      >
+        <CompanyInfoWidget data={resumen?.raw_profile_structural} />
+      </DraggableWidget>
     </Card>
   );
 }

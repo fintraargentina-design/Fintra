@@ -39,7 +39,7 @@ export default function SectorAnalysisPanel({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // MOCK MODE TOGGLE
-  const USE_MOCK = true;
+  const USE_MOCK = false;
 
   // Fetch Data Function
   const fetchData = async (pageNum: number, isNewFetch: boolean) => {

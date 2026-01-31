@@ -6,13 +6,17 @@ import fs from 'fs';
 /**
  * REPLACEMENT BACKFILL STRATEGY
  * 
- * Original Strategy: Fetch Historical Sector Performance from FMP.
- * Problem: FMP endpoint is Legacy (403 Forbidden) for new/standard keys.
+ * Strict Canonical Window Aggregation
  * 
- * New Strategy: Aggregate Industry Performance.
- * We fetch all rows from `industry_performance` (which works fine),
- * map them to sectors via `industry_classification`,
- * and calculate the Equal-Weight Average return for the sector.
+ * Strategy:
+ * 1. Find the LATEST available date (snapshot) in industry_performance.
+ * 2. Fetch ONLY canonical windows (1M, 3M, 6M, 1Y, 2Y, 3Y, 5Y).
+ * 3. Aggregate Equal-Weight Average per Sector per Window.
+ * 4. Write to sector_performance (replacing existing for that date).
+ * 
+ * STRICTLY FORBIDDEN:
+ * - 1D, 1W, YTD
+ * - Historical iteration (only latest snapshot matters for structural layers)
  */
 
 // Load env vars
@@ -23,13 +27,14 @@ if (fs.existsSync(envLocalPath)) {
   dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 }
 
-const START_DATE = '2025-01-01';
+// Canonical Windows Contract
+const CANONICAL_WINDOWS = ['1M', '3M', '6M', '1Y', '2Y', '3Y', '5Y'];
 
 async function main() {
   // Load supabaseAdmin dynamically
   const { supabaseAdmin } = await import('@/lib/supabase-admin');
   
-  console.log('🚀 Starting Sector Performance Aggregation from Industries (Fallback Strategy)...');
+  console.log('🚀 Starting Sector Performance Aggregation (Strict Canonical Contract)...');
 
   // 1. Load Industry -> Sector Map
   const { data: mappingData, error: mappingError } = await supabaseAdmin
@@ -50,81 +55,94 @@ async function main() {
 
   console.log(`✅ Loaded ${industryToSector.size} industry mappings.`);
 
-  // 2. Determine Date Range
-  // We'll iterate from START_DATE to Today
-  const start = new Date(START_DATE);
-  const end = new Date();
-  
-  let current = new Date(start);
-  
-  while (current <= end) {
-    const dateStr = current.toISOString().split('T')[0];
-    // console.log(`📅 Processing ${dateStr}...`); // Reduce noise
+  // 2. Find MAX(performance_date) from industry_performance
+  // We want the latest date that actually has data.
+  const { data: maxDateData, error: maxDateError } = await supabaseAdmin
+    .from('industry_performance')
+    .select('performance_date')
+    .order('performance_date', { ascending: false })
+    .limit(1)
+    .single();
 
-    await processDate(dateStr, industryToSector, supabaseAdmin);
-
-    // Next day
-    current.setDate(current.getDate() + 1);
+  if (maxDateError || !maxDateData) {
+      console.error('❌ Failed to determine max performance_date from industry_performance:', maxDateError);
+      process.exit(1);
   }
 
-  console.log('✅ Aggregation Complete.');
-}
+  const targetDate = maxDateData.performance_date;
+  console.log(`📅 Target Snapshot Date: ${targetDate}`);
 
-async function processDate(date: string, mapping: Map<string, string>, supabaseAdmin: any) {
-  // Fetch Industry Performance for this date (1D only)
-  const { data: industries, error } = await supabaseAdmin
+  // 3. Fetch ONLY Canonical Windows for that Date
+  const { data: industries, error: fetchError } = await supabaseAdmin
     .from('industry_performance')
-    .select('industry, return_percent')
-    .eq('performance_date', date)
-    .eq('window_code', '1D');
+    .select('industry, return_percent, window_code')
+    .eq('performance_date', targetDate)
+    .in('window_code', CANONICAL_WINDOWS);
 
-  if (error) {
-    console.error(`   ❌ Error fetching industries for ${date}:`, error.message);
-    return;
+  if (fetchError) {
+      console.error('❌ Failed to fetch industry data:', fetchError);
+      process.exit(1);
   }
 
   if (!industries || industries.length === 0) {
-    // console.log(`   ⚠️ No industry data for ${date} (skipping)`);
-    return;
+      console.warn(`⚠️ No canonical industry data found for ${targetDate}. Aborting.`);
+      return;
   }
 
-  // Aggregate by Sector
-  const sectorReturns = new Map<string, { sum: number; count: number }>();
+  console.log(`✅ Fetched ${industries.length} industry rows for aggregation.`);
+
+  // 4. Aggregate by Sector AND Window
+  // Map Key: "SECTOR|WINDOW" -> { sum, count }
+  const sectorAgg = new Map<string, { sum: number; count: number }>();
 
   for (const row of industries) {
-    const sector = mapping.get(row.industry);
-    if (!sector) continue; // Skip if no sector mapping
+      const sector = industryToSector.get(row.industry);
+      if (!sector) continue;
 
-    const current = sectorReturns.get(sector) || { sum: 0, count: 0 };
-    current.sum += Number(row.return_percent);
-    current.count += 1;
-    sectorReturns.set(sector, current);
+      const key = `${sector}|${row.window_code}`;
+      const current = sectorAgg.get(key) || { sum: 0, count: 0 };
+      
+      current.sum += Number(row.return_percent);
+      current.count += 1;
+      sectorAgg.set(key, current);
   }
 
-  if (sectorReturns.size === 0) return;
+  if (sectorAgg.size === 0) {
+      console.warn('⚠️ No sectors could be mapped. Aborting.');
+      return;
+  }
 
-  // Prepare Upsert Data
+  // 5. Prepare Upsert
   const upsertRows = [];
-  for (const [sector, stats] of sectorReturns.entries()) {
-    const avgReturn = stats.sum / stats.count;
-    upsertRows.push({
-      sector: sector,
-      window_code: '1D',
-      performance_date: date,
-      return_percent: avgReturn,
-      source: 'aggregated_from_industries'
-    });
+  for (const [key, stats] of sectorAgg.entries()) {
+      const [sector, window_code] = key.split('|');
+      const avgReturn = stats.sum / stats.count;
+
+      upsertRows.push({
+          sector: sector,
+          window_code: window_code,
+          performance_date: targetDate,
+          return_percent: avgReturn,
+          source: 'aggregated_from_industries'
+      });
   }
 
-  // Batch Upsert
+  // 6. Write to DB
   const { error: upsertError } = await supabaseAdmin
-    .from('sector_performance')
-    .upsert(upsertRows, { onConflict: 'sector, performance_date, window_code' });
+      .from('sector_performance')
+      .upsert(upsertRows, { onConflict: 'sector, performance_date, window_code' });
 
   if (upsertError) {
-    console.error(`   ❌ Failed to upsert sectors for ${date}:`, upsertError.message);
+      console.error('❌ Failed to upsert sector performance:', upsertError.message);
   } else {
-    console.log(`   ✅ Saved ${upsertRows.length} sectors for ${date}`);
+      console.log(`✅ Successfully upserted ${upsertRows.length} sector performance rows.`);
+      
+      // Verification Log
+      const countsByWindow: Record<string, number> = {};
+      upsertRows.forEach(r => {
+          countsByWindow[r.window_code] = (countsByWindow[r.window_code] || 0) + 1;
+      });
+      console.table(countsByWindow);
   }
 }
 

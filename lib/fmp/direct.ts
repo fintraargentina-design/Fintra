@@ -50,12 +50,12 @@ export async function directFetcher<T>(path: string, { params = {}, cache }: Get
       break;
 
     case "/quote":
-      const rawSym = requireSymbol();
+      const rawSym = requireSymbol() as string;
       if (rawSym.includes(',')) {
-        const symbols = rawSym.split(',').map(s => s.trim()).filter(Boolean);
+        const symbols = rawSym.split(',').map((s: string) => s.trim()).filter(Boolean);
         const results = await Promise.all(
-          symbols.map(s => 
-            directFetcher<any[]>("/quote", { ...params, symbol: s })
+          symbols.map((s: string) => 
+            directFetcher<any[]>("/quote", { params: { ...params, symbol: s }, cache })
               .catch(err => {
                 console.error(`[fmpDirect] Failed quote for ${s}`, err);
                 return [];

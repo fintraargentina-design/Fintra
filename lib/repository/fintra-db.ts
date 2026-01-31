@@ -124,6 +124,9 @@ export type ResumenData = {
   sector_rank: number | null;
   sector_rank_total: number | null;
   attention_state: "structural_compounder" | "quality_in_favor" | "quality_misplaced" | "structural_headwind" | "inconclusive" | null;
+  
+  // Raw Structural Profile for Widgets
+  raw_profile_structural?: any;
 }
 
 export type CanonicalValuationState = {
@@ -263,7 +266,10 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
     ifs: s.ifs || null,
     sector_rank: s.sector_rank || null,
     sector_rank_total: s.sector_rank_total || null,
-    attention_state: ps?.attention_state || null
+    attention_state: ps?.attention_state || null,
+    
+    // Pass raw profile structural for the widget
+    raw_profile_structural: ps || null
   };
   return result;
 }
