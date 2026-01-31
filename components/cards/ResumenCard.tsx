@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getResumenData, ResumenData } from "@/lib/repository/fintra-db";
-import FinancialsHistoryChart from "@/components/charts/FinancialsHistoryChart";
+import { fetchResumenDataServer } from "@/lib/actions/resumen";
+import { IFSRadial } from "@/components/visuals/IFSRadial";
 import { cn } from "@/lib/utils";
 import DraggableWidget from "@/components/ui/draggable-widget";
 import CompanyInfoWidget from "@/components/widgets/CompanyInfoWidget";
@@ -73,57 +74,7 @@ const ValuationSignal = ({ status }: { status: string | null }) => {
   );
 };
 
-const IFSRadial = ({ ifs }: { ifs?: { position: string, pressure: number } | null }) => {
-  if (!ifs) return <div className="w-4 h-4 rounded-full border border-zinc-800" />;
 
-  const { position, pressure } = ifs;
-  const totalSegments = 8; // Simplified to 8 for symmetry in radial
-  const filled = Math.min(totalSegments, Math.ceil((pressure / 9) * totalSegments));
-  
-  let color = "#71717a"; // zinc-500
-  if (position === "leader") color = "#10b981"; // emerald-500
-  else if (position === "follower") color = "#f59e0b"; // amber-500
-  else if (position === "laggard") color = "#ef4444"; // red-500
-
-  // Generate segments
-  const segments = [];
-  const cx = 10;
-  const cy = 10;
-  const r = 8;
-  
-  for (let i = 0; i < totalSegments; i++) {
-    const startAngle = (i * 360) / totalSegments;
-    const endAngle = ((i + 1) * 360) / totalSegments - 8; // 8 deg gap
-    
-    // Polar to Cartesian
-    const x1 = cx + r * Math.cos((startAngle - 90) * (Math.PI / 180));
-    const y1 = cy + r * Math.sin((startAngle - 90) * (Math.PI / 180));
-    const x2 = cx + r * Math.cos((endAngle - 90) * (Math.PI / 180));
-    const y2 = cy + r * Math.sin((endAngle - 90) * (Math.PI / 180));
-    
-    const d = [
-      "M", cx, cy,
-      "L", x1, y1,
-      "A", r, r, 0, 0, 1, x2, y2,
-      "Z"
-    ].join(" ");
-
-    segments.push(
-      <path
-        key={i}
-        d={d}
-        fill={i < filled ? color : "#27272a"} // zinc-800 empty
-        stroke="none"
-      />
-    );
-  }
-
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20">
-      {segments}
-    </svg>
-  );
-};
 
 // New Component for the Horizontal Bars (IFS, Valuation, Stage)
 const MetricRowCard = ({ 
@@ -157,7 +108,7 @@ const MetricRowCard = ({
     };
 
     return (
-        <div className="bg-[#121212] rounded px-2 py-1 flex items-center justify-between h-full">
+        <div className="bg-[#121212] rounded px-2 py-1 flex items-center justify-between">
             <span className="text-sm font-medium text-zinc-300 w-1/3 truncate">{label}</span>
             <div className="flex items-center justify-center w-1/3">
                  {customIndicator ? customIndicator : (Icon ? <Icon size={16} className={colorStyles[color]} /> : renderIndicator())}
@@ -219,7 +170,8 @@ export default function ResumenCard({
       setLoading(true);
       setError(null);
       try {
-        const fetchedResumen = await getResumenData(currentSymbol);
+        // Use Server Action to bypass RLS/Client limitations
+        const fetchedResumen = await fetchResumenDataServer(currentSymbol);
         if (active && fetchedResumen) setResumen(fetchedResumen);
       } catch (err) {
         console.error("Error fetching resumen:", err);
@@ -235,7 +187,9 @@ export default function ResumenCard({
   // Derived States for UI
   const ifsStatus = useMemo(() => {
       const pos = resumen?.ifs?.position;
-      const rawData = resumen?.ifs ? { position: resumen.ifs.position, pressure: resumen.ifs.pressure } : null;
+      const rawData = resumen?.ifs ? { 
+          position: resumen.ifs.position, 
+      } : null;
 
       if (!pos) return { label: "PENDING", color: "gray" as const, raw: rawData };
       if (pos === 'leader') return { label: "LEADER", color: "green" as const, raw: rawData };
@@ -267,102 +221,107 @@ export default function ResumenCard({
       <CardContent className="p-0 flex flex-col h-full bg-zinc-950">
         
         {/* HEADER - DO NOT MODIFY */}
-        <div className="h-[25px] border-b border-zinc-800 bg-[#103765] flex items-center justify-center shrink-0">
-          <span className="text-[14px] font-ligth text-white tracking-wide">Overview</span>
+        <div className="h-[20px] border-b border-zinc-800 bg-[#103765] flex items-center justify-center shrink-0">
+          <span className="text-[14px] font-medium text-white tracking-wide">Overview</span>
         </div>
 
         {/* SCROLLABLE CONTENT WITH NEW GRID LAYOUT */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
             <div className="max-w-[1600px] mx-auto flex flex-col gap-1">
                 
-                {/* --- MAIN GRID CONTAINER: 20% - 30% - 25% - 25% --- */}
-                <div className="grid grid-cols-[2fr_3fr_2.5fr_2.5fr] gap-1 items-stretch min-h-[100px]">
+                {/* --- MAIN GRID CONTAINER --- */}
+                <div className="grid grid-cols-[3fr_1fr] gap-1">
 
-                    {/* --- COLUMN 1 (20%): COMPANY INFO --- */}
-                    <div className="bg-[#A2A2A2]/20 rounded-lg px-2 py-2 flex flex-col items-center justify-center gap-2 h-full">
-                        <div className="w-8 h-8 rounded-md flex items-center justify-center p-0">
-                            {data.logo_url ? (
-                                <img src={data.logo_url} alt={data.symbol} className="w-full h-full object-contain" />
-                            ) : (
-                                <span className="text-lg font-light text-zinc-500">{data.symbol.slice(0,2)}</span>
-                            )}
-                        </div>
-                        <div className="text-center">
-                            <h1 className="text-[14px] font-medium text-white tracking-tight leading-tight">{data.name}</h1>
-                        </div>
-                        <div 
-                            className="flex items-center gap-1 text-zinc-300 transition-colors cursor-pointer hover:text-white mt-auto"
-                            onClick={() => setShowCompanyInfo(true)}
-                        >
-                            <span className="text-[9px] tracking-wider font-light">more info</span>
-                            <Info size={16} />
-                        </div>
-                    </div>
-
-                    {/* --- COLUMN 2 (30%): METRICS --- */}
-                    <div className="flex flex-col gap-1 h-full">
-                        <div className="flex-1">
-                            <MetricRowCard 
-                                label="IFS" 
-                                value={ifsStatus.label} 
-                                color={ifsStatus.color} 
-                                customIndicator={<IFSRadial ifs={ifsStatus.raw} />}                                    
-                            />
-                        </div>
-                        <div className="flex-1">
-                            <MetricRowCard 
-                                label="R.V" 
-                                value={valuationStatus.label} 
-                                color={valuationStatus.color} 
-                                customIndicator={<ValuationSignal status={valuationStatus.raw} />}
-                            />
-                        </div>
-                        <div className="flex-1">
-                            <MetricRowCard 
-                                label="Stage" 
-                                value={stageStatus.label} 
-                                color={stageStatus.color} 
-                                icon={Activity}
-                            />
-                        </div>
-                    </div>
-
-                    {/* --- COLUMN 3 (25%): FGOS --- */}
-                    <div className="h-full bg-[#121212] rounded-lg p-1 flex flex-col justify-between">
-                        <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">FGOS</h3>
-                        <div className="flex flex-col flex-1 justify-center">
-                            <div className="flex justify-between items-center text-[12px]">
-                                <span className="font-light text-zinc-300">Calidad fundamental</span>
-                                <span className="font-mono font-light text-zinc-200">{resumen?.fgos_score ?? '-'}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-[12px]">
-                                <span className="font-light text-zinc-300 flex items-center gap-1">Moat <Info size={12}/></span>
-                                <span className="font-mono font-light text-zinc-200">{resumen?.fgos_components?.moat ?? '-'}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-[12px]">
-                                <span className="font-light text-zinc-300">Sentiment</span>
-                                <span className={cn("font-light", 
-                                    resumen?.fgos_components?.sentiment_details?.band === 'optimistic' ? "text-emerald-400" : 
-                                    resumen?.fgos_components?.sentiment_details?.band === 'pessimistic' ? "text-red-400" : 
-                                    "text-zinc-400"
-                                )}>
-                                    {resumen?.fgos_components?.sentiment_details?.band 
-                                        ? resumen.fgos_components.sentiment_details.band.charAt(0).toUpperCase() + resumen.fgos_components.sentiment_details.band.slice(1) 
-                                        : "Neutral"}
-                                </span>
-                            </div>
-                            {/* Alert / Brake */}
-                            {(resumen?.fgos_maturity === "Developing" || resumen?.fgos_maturity === "Incomplete" || resumen?.fgos_maturity === "Early-stage") && (
-                                <div className="flex justify-between items-center text-[12px]">
-                                    <span className="font-light text-zinc-300">Z Score / F Score - alert</span>
-                                    <AlertTriangle size={12} className="text-yellow-500" />
+                    {/* --- LEFT COLUMN (75%) --- */}
+                    <div className="flex flex-col gap-1">
+                        
+                        {/* FILA 1: COMPANY INFO CARD */}
+                        <div className="bg-[#A2A2A2]/20 rounded-lg px-2 py-2 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-md flex items-center justify-center p-0">
+                                    {data.logo_url ? (
+                                        <img src={data.logo_url} alt={data.symbol} className="w-full h-full object-contain" />
+                                    ) : (
+                                        <span className="text-lg font-light text-zinc-500">{data.symbol.slice(0,2)}</span>
+                                    )}
                                 </div>
-                            )}
+                                <div>
+                                    <h1 className="text-[16px] font-medium text-white tracking-tight leading-none">{data.name}</h1>
+                                </div>
+                            </div>
+                            <div 
+                                className="flex items-center gap-2 text-zinc-300 transition-colors cursor-pointer hover:text-white"
+                                onClick={() => setShowCompanyInfo(true)}
+                            >
+                                <span className="text-[10px] tracking-wider font-light">more info about the company</span>
+                                <Info size={23} />
+                            </div>
+                        </div>
+
+                        {/* FILA 2: NESTED GRID (METRICS + FGOS) */}
+                        <div className="grid grid-cols-[2fr_1fr] gap-1">
+                            
+                            {/* COLUMNA IZQUIERDA: STACK OF 3 */}
+                            <div className="flex flex-col gap-1">
+                                <MetricRowCard 
+                                    label="IFS" 
+                                    value={ifsStatus.label} 
+                                    color={ifsStatus.color} 
+                                    customIndicator={<IFSRadial ifs={ifsStatus.raw} ifsMemory={resumen?.ifs_memory} />}                                    
+                                />
+                                <MetricRowCard 
+                                    label="Relative valuation" 
+                                    value={valuationStatus.label} 
+                                    color={valuationStatus.color} 
+                                    customIndicator={<ValuationSignal status={valuationStatus.raw} />}
+                                />
+                                <MetricRowCard 
+                                    label="Stage" 
+                                    value={stageStatus.label} 
+                                    color={stageStatus.color} 
+                                    icon={Activity}
+                                />
+                            </div>
+
+                            {/* COLUMNA DERECHA: FGOS (TALL) */}
+                            <div className="h-full bg-[#121212] rounded-lg p-1 flex flex-col justify-between">
+                                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">FGOS</h3>
+                                <div className="flex flex-col flex-1 justify-center">
+                                    <div className="flex justify-between items-center text-[10px]">
+                                        <span className="font-light text-zinc-300">Calidad fundamental</span>
+                                        <span className="font-mono font-light text-zinc-200">{resumen?.fgos_score ?? '-'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-[10px]">
+                                        <span className="font-light text-zinc-300 flex items-center gap-1">Moat <Info size={12}/></span>
+                                        <span className="font-mono font-light text-zinc-200">{resumen?.fgos_components?.moat ?? '-'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-[10px]">
+                                        <span className="font-light text-zinc-300">Sentiment</span>
+                                        <span className={cn("font-light", 
+                                            resumen?.fgos_components?.sentiment_details?.band === 'optimistic' ? "text-emerald-400" : 
+                                            resumen?.fgos_components?.sentiment_details?.band === 'pessimistic' ? "text-red-400" : 
+                                            "text-zinc-400"
+                                        )}>
+                                            {resumen?.fgos_components?.sentiment_details?.band 
+                                                ? resumen.fgos_components.sentiment_details.band.charAt(0).toUpperCase() + resumen.fgos_components.sentiment_details.band.slice(1) 
+                                                : "Neutral"}
+                                        </span>
+                                    </div>
+                                    {/* Alert / Brake */}
+                                    {(resumen?.fgos_maturity === "Developing" || resumen?.fgos_maturity === "Incomplete" || resumen?.fgos_maturity === "Early-stage") && (
+                                        <div className="flex justify-between items-center text-[10px]">
+                                            <span className="font-light text-zinc-300">Z Score / F Score - alert</span>
+                                            <AlertTriangle size={12} className="text-yellow-500" />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
                         </div>
                     </div>
 
-                    {/* --- COLUMN 4 (25%): SECTOR/INDUSTRY/CEO --- */}
-                    <div className="flex flex-col gap-1 pl-2 py-2 align-center justify-center bg-[#121212] rounded-lg h-full">
+                    {/* --- RIGHT COLUMN (25%) --- */}
+                    <div className="flex flex-col gap-1 pl-2 py-2 align-center justify-center bg-[#121212]">
                         <InfoLabel label="Sector" value={data.sector || "N/A"} />
                         <InfoLabel label="Industria" value={data.industry || "N/A"} />
                         <InfoLabel label="CEO" value={data.ceo || "N/A"} />                        

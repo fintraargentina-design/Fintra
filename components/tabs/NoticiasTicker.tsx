@@ -385,7 +385,7 @@ export default function NoticiasTicker({
           </span>
           
           <div className="absolute right-1 flex items-center gap-2">
-            <div className="flex items-center gap-1.5 mr-2">
+            {/* <div className="flex items-center gap-1.5 mr-2">
               <span className={`text-[10px] font-medium ${isTestMode ? 'text-red-400' : 'text-zinc-500'}`}>
                 {isTestMode ? 'TEST' : 'PROD'}
               </span>
@@ -394,7 +394,7 @@ export default function NoticiasTicker({
                 onCheckedChange={setIsTestMode}
                 className={`scale-[0.65] data-[state=checked]:bg-red-500 rounded-full`}
               />
-            </div>
+            </div> */}
 
             {/* Filter Menu */}
             <DropdownMenu>
@@ -508,7 +508,7 @@ export default function NoticiasTicker({
 
       {/* AI Analysis Modal - Dark Theme Redesign */}
       {analysisModal.isOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[1000] p-4 animate-in fade-in duration-200">
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl relative">
             
             {/* Modal Header */}

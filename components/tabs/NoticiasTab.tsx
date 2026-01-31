@@ -391,38 +391,33 @@ export default function NoticiasTab({
                     <div className="flex gap-4">
                        
                         {/* Content */}
-                        <div className="flex-1 min-w-0">
+                        <div 
+                          className="flex-1 min-w-0 cursor-pointer"
+                          onClick={() => openNewsModal(item.url, item.title, item.summary)}
+                        >
                             <div className="flex items-start mb-1">
-                                <div className="flex flex-col w-full gap-1 text-xs text-zinc-400">
-                                    
-                                    <h3 className="text-zinc-100 font-light text-[11px] leading-snug transition-colors line-clamp-2">
-                                      <button 
-                                        onClick={(e) => { e.preventDefault(); openNewsModal(item.url, item.title, item.summary); }} 
-                                        className="text-left hover:underline hover:text-[#FFA028] focus:outline-none"
-                                      >
-                                        {item.title}
-                                      </button>
+                                <div className="flex w-full items-start justify-between gap-2 text-xs text-zinc-400"> 
+                                  <div className="flex-1 min-w-0">                                   
+                                    <h3 className="text-zinc-100 font-light text-[11px] leading-snug mb-1 transition-colors line-clamp-2">
+                                      {item.title}
                                     </h3>
-                                    
-                                    {/* Summary */}
                                     {item.summary && (
-                                        <p className="text-zinc-500 text-[10px] line-clamp-2 mb-1 leading-relaxed">
+                                        <p className="text-zinc-500 text-[10px] leading-snug line-clamp-2 mb-1">
                                             {item.summary}
                                         </p>
                                     )}
-
-                                    <div className="flex items-center gap-3 text-[10px] text-zinc-500 font-mono">
-                                        <span className="truncate max-w-[150px] font-medium text-zinc-400">
-                                            {item.source}
-                                        </span>
-                                        <span className="text-zinc-600">•</span>
-                                        <span className="flex items-center gap-1">
-                                            <Clock className="w-3 h-3" />
-                                            {formatDate(item.time_published)}
-                                        </span>
-                                    </div>
-                                </div>                                
-                            </div>                                                                               
+                                    <p className="text-zinc-400 text-[10px] leading-snug line-clamp-1">
+                                      {item.source}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-end gap-1 shrink-0">
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {formatDate(item.time_published)}
+                                      </span>
+                                  </div>
+                                </div>
+                            </div>                                             
                         </div>
                     </div>
                   </div>
@@ -435,7 +430,7 @@ export default function NoticiasTab({
 
       {/* AI Analysis Modal - Dark Theme Redesign */}
       {analysisModal.isOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[1000] p-4 animate-in fade-in duration-200">
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl relative">
             
             {/* Modal Header */}

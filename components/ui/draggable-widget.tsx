@@ -16,6 +16,9 @@ interface DraggableWidgetProps {
   height?: number | string;
 }
 
+// Global counter for z-index management
+let globalZIndex = 50;
+
 export default function DraggableWidget({
   title,
   isOpen,
@@ -29,12 +32,19 @@ export default function DraggableWidget({
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [mounted, setMounted] = useState(false);
+  const [zIndex, setZIndex] = useState(globalZIndex);
   
   // Ref for the widget to check bounds if needed
   const widgetRef = useRef<HTMLDivElement>(null);
 
+  const bringToFront = () => {
+    globalZIndex += 1;
+    setZIndex(globalZIndex);
+  };
+
   useEffect(() => {
     setMounted(true);
+    bringToFront();
     return () => setMounted(false);
   }, []);
 
@@ -77,13 +87,14 @@ export default function DraggableWidget({
   return createPortal(
     <div
       ref={widgetRef}
+      onMouseDownCapture={bringToFront}
       style={{
         position: "fixed",
         left: position.x,
         top: position.y,
         width: typeof width === 'number' ? `${width}px` : width,
         height: typeof height === 'number' ? `${height}px` : height,
-        zIndex: 50,
+        zIndex: zIndex,
       }}
       className="flex flex-col shadow-2xl rounded-lg overflow-hidden border border-zinc-700 bg-[#0A0A0A]"
     >

@@ -5,45 +5,26 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { formatMarketCap } from "@/lib/utils";
 import { Loader2, AlertTriangle, ChevronUp, ChevronDown, Minus } from "lucide-react";
-
-// Shared interface
-export interface EnrichedStockData {
-  ticker: string;
-  sectorRank: number | null;
-  sectorRankTotal: number | null;
-  sectorValuationStatus: string | null;
-  fgosBand: string | null;
-  fgosScore?: number | null;
-  fgosStatus?: string | null; // e.g. Mature, Developing
-  sentimentBand?: string | null; // e.g. optimistic, neutral
-  ifs?: {
-    position: "leader" | "follower" | "laggard";
-    pressure: number;
-  } | null;
-  strategyState: string | null;
-  priceEod: number | null;
-  priceChange?: number | null;
-  ytdReturn: number | null;
-  marketCap: number | null;
-  totalDebt?: number | null;
-  revenue?: number | null;
-}
+import { IFSData, IFSMemory, EnrichedStockData } from "@/lib/engine/types";
+import { IFSRadial } from "@/components/visuals/IFSRadial";
 
 // Helper to map raw Supabase snapshot to EnrichedStockData
 export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
   // Strict mapping from fintra_snapshots flat columns or JSONB structures
   
   // IFS Construction
-  // Handle both flat columns (legacy/view) and JSONB 'ifs' column
   const rawIfs = row.ifs || {};
   const position = rawIfs.position || row.ifs_position;
-  const pressure = rawIfs.pressure ?? row.ifs_pressure ?? 0;
+  const pressure = rawIfs.pressure ?? 0;
+  
+  // New Model: Structural Persistence (IFS Memory)
+  const ifsMemory = row.ifs_memory || null;
 
-  let ifsData = null;
+  let ifsData: IFSData | null = null;
   if (position) {
     ifsData = {
       position: position,
-      pressure: pressure
+      pressure: Number(pressure)
     };
   }
 
@@ -71,12 +52,10 @@ export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
   const sectorValuationStatus = row.sector_valuation_status ?? valuation.valuation_status ?? null;
 
   // Price & Return
-  const priceEod = row.price_eod ?? marketSnapshot.price ?? marketSnapshot.price_eod ?? null;
-  const priceChange = row.price_change ?? marketSnapshot.change ?? marketState.price_change ?? null;
-  const ytdReturn = marketState.ytd_return ?? row.return_ytd ?? marketSnapshot.ytd_percent ?? null;
+  // Use row.price (from market_state merge) as primary source for current price
+  const priceEod = row.price ?? row.price_eod ?? marketSnapshot.price ?? marketSnapshot.price_eod ?? null;
+  const ytdReturn = marketState.ytd_return ?? row.ytd_return ?? row.return_ytd ?? marketSnapshot.ytd_percent ?? null;
   const marketCap = marketState.market_cap ?? row.market_cap ?? marketSnapshot.market_cap ?? financialScores.marketCap ?? null;
-  const totalDebt = row.total_debt ?? financialScores.totalDebt ?? profileStructural.total_debt ?? null;
-  const revenue = row.revenue ?? financialScores.revenue ?? profileStructural.revenue ?? null;
 
   return {
     ticker: row.ticker,
@@ -88,13 +67,11 @@ export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
     fgosStatus,
     sentimentBand,
     ifs: ifsData,
+    ifsMemory, // Return the memory structure
     strategyState: row.strategy_state ?? row.investment_verdict?.verdict_label ?? null,
     priceEod,
-    priceChange,
     ytdReturn,
     marketCap,
-    totalDebt,
-    revenue,
   };
 };
 
@@ -141,118 +118,39 @@ export const sortStocksBySnapshot = (a: EnrichedStockData, b: EnrichedStockData)
 
 // --- New Visual Components ---
 
-const ValuationSignal = ({ status }: { status: string | null }) => {
+export const ValuationSignal = ({ status }: { status: string | null }) => {
   if (!status) return <div className="w-4 h-4" />;
 
   const lower = status.toLowerCase();
+  let colorClass = "bg-zinc-700";
   let bars = 0;
 
-  // 3 barras para 3 estados: Más barras = caro, Menos barras = barato
+  // Logic: Cheap = High Signal (Green), Fair = Med (Orange), Expensive = Low (Red)
   if (lower.includes("undervalued") || lower.includes("cheap")) {
-    bars = 1;
+    colorClass = "bg-green-500";
+    bars = 4;
   } else if (lower.includes("fair")) {
-    bars = 2;
-  } else if (lower.includes("overvalued") || lower.includes("expensive")) {
+    colorClass = "bg-orange-500";
     bars = 3;
+  } else if (lower.includes("overvalued") || lower.includes("expensive")) {
+    colorClass = "bg-red-500";
+    bars = 2;
   }
 
   return (
-    <div className="relative flex items-end gap-[2px] h-4">
-      
-      {[1, 2, 3].map((i) => (
+    <div className="flex items-end gap-[1px] h-3">
+      {[1, 2, 3, 4].map((i) => (
         <div
           key={i}
-          className={`w-[4px] ${i <= bars ? "bg-[#1E5493]" : "bg-zinc-800"}`}
-          style={{ height: `${i * 33.33}%` }}
+          className={`w-[2px] rounded-sm ${i <= bars ? colorClass : "bg-zinc-800"}`}
+          style={{ height: `${i * 25}%` }}
         />
       ))}
     </div>
   );
 };
 
-const IFSRadial = ({ ifs }: { ifs?: EnrichedStockData["ifs"] }) => {
-  if (!ifs) {
-    // Sin datos: gráfico completo en gris inactivo
-    return (
-      <svg width="24" height="24" viewBox="0 0 24 24" className="opacity-50">
-        <circle cx="12" cy="12" r="10" fill="none" stroke="#3f3f46" strokeWidth="3" />
-      </svg>
-    );
-  }
 
-  const { position, pressure } = ifs;
-  
-  // Mapeo de position + pressure a nivel de estado (1-5)
-  let statusLevel = 0;
-  
-  if (position === "leader") {
-    if (pressure >= 7) statusLevel = 5;
-    else if (pressure >= 5) statusLevel = 4;
-    else if (pressure >= 3) statusLevel = 3;
-    else statusLevel = 2;
-  } else if (position === "follower") {
-    if (pressure >= 6) statusLevel = 3;
-    else if (pressure >= 3) statusLevel = 2;
-    else statusLevel = 1;
-  } else if (position === "laggard") {
-    if (pressure >= 4) statusLevel = 2;
-    else statusLevel = 1;
-  }
-
-  // Color según nivel - Verde, Amarillo, Rojo
-  const getSegmentColor = (segmentIndex: number): string => {
-    if (segmentIndex >= statusLevel) return "#27272a"; // zinc-800 vacío
-    
-    if (statusLevel === 5 || statusLevel === 4) return "#008000"; // Verde
-    if (statusLevel === 3) return "#C57D21"; // Amarillo
-    return "#800000"; // Rojo fuerte
-  };
-
-  // Generar 5 segmentos como arcos (estilo donut)
-  const totalSegments = 5;
-  const segments = [];
-  const cx = 12;
-  const cy = 12;
-  const r = 8;
-  const strokeWidth = 3.5;
-  const gapDegrees = 8;
-  
-  for (let i = 0; i < totalSegments; i++) {
-    const segmentDegrees = (360 / totalSegments) - gapDegrees;
-    const startAngle = (i * 360 / totalSegments) - 90;
-    const endAngle = startAngle + segmentDegrees;
-    
-    // Convert to radians
-    const startRad = (startAngle * Math.PI) / 180;
-    const endRad = (endAngle * Math.PI) / 180;
-    
-    const x1 = cx + r * Math.cos(startRad);
-    const y1 = cy + r * Math.sin(startRad);
-    const x2 = cx + r * Math.cos(endRad);
-    const y2 = cy + r * Math.sin(endRad);
-    
-    const largeArcFlag = segmentDegrees > 180 ? 1 : 0;
-    
-    const pathData = `M ${x1} ${y1} A ${r} ${r} 0 ${largeArcFlag} 1 ${x2} ${y2}`;
-
-    segments.push(
-      <path
-        key={i}
-        d={pathData}
-        fill="none"
-        stroke={getSegmentColor(i)}
-        strokeWidth={strokeWidth}
-        strokeLinecap="butt"
-      />
-    );
-  }
-
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" style={{ background: 'transparent' }}>
-      {segments}
-    </svg>
-  );
-};
 
 const FGOSCell = ({ 
   score, 
@@ -263,63 +161,41 @@ const FGOSCell = ({
   status: string | null | undefined;
   sentiment: string | null | undefined;
 }) => {
-  if (score == null) return <span className="text-white">—</span>;
+  if (score == null) return <span className="text-zinc-600">—</span>;
 
   // Warning if status is not mature/developed or if score is weird
-  const showWarning = status === "Incomplete" || status === "Early-stage" || status === "Developing";
-  // Actually, "Developing" might be fine. Let's show warning for "Incomplete" or "Pending"
-  // User image shows warning for "Developing" sometimes (yellow triangle).
-  // Let's assume warning for anything not "Mature" just to match the vibe, or based on specific flag.
-  // We'll stick to a simple heuristic: Warning if score exists but status is "Developing" or "Early-stage"? 
-  // In the image, "Developing" has warning, "Mature" does not. "Early" does not?
-  // Let's rely on `status` itself.
-  
-  const isWarning = status === "Developing" || status === "Incomplete"; // Heuristic matching image
+  // Heuristic matching image
+  const isWarning = status === "Developing" || status === "Incomplete"; 
 
   // Sentiment Arrow
-  let sentimentArrow = null;
+  let ArrowIcon = Minus;
+  let arrowColor = "text-orange-500";
   
   if (sentiment === "optimistic") {
-    sentimentArrow = (
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M7 3L7 11M7 3L4 6M7 3L10 6" stroke="#0BFD4F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    );
+    ArrowIcon = ChevronUp;
+    arrowColor = "text-green-500";
   } else if (sentiment === "pessimistic") {
-    sentimentArrow = (
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M7 11L7 3M7 11L10 8M7 11L4 8" stroke="#BE123C" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    );
-  } else {
-    sentimentArrow = (
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M3 7L11 7" stroke="#C57D21" strokeWidth="1.5" strokeLinecap="round"/>
-      </svg>
-    );
+    ArrowIcon = ChevronDown;
+    arrowColor = "text-red-500";
   }
 
   return (
-    <div className="flex items-center justify-between w-full">
+    <div className="flex items-center gap-2 w-full">
+      <div className="w-4 flex justify-center">
+        {isWarning && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
+      </div>
+      <span className="text-zinc-200 font-mono w-6 text-right">{score.toFixed(0)}</span>
       
-      {/* Progress Bar - Horizontal, left-aligned, pegado al margen */}
-      <div className="h-[24px] bg-zinc-900 overflow-hidden" style={{ width: `${Math.max(12, Math.min(60, score * 0.6))}px` }}>
+      {/* Progress Bar */}
+      <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden max-w-[60px]">
         <div 
-          className="h-full bg-[#26334D]" 
-          style={{ width: '100%' }}
+          className="h-full bg-sky-500 rounded-full" 
+          style={{ width: `${Math.max(0, Math.min(100, score))}%` }}
         />
       </div>
 
-      {/* Right section: number, arrow, warning */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-white font-mono text-[13px] w-7 text-right font-light">{score.toFixed(0)}</span>
-        <div className="w-3 flex justify-center">
-          {isWarning && <AlertTriangle className="w-3 h-3 text-[#FFD700]" />}
-        </div>
-        {/* Sentiment Arrow */}
-        {sentimentArrow}
-    
-      </div>
+      {/* Sentiment Arrow */}
+      <ArrowIcon className={`w-3 h-3 ${arrowColor}`} />
     </div>
   );
 };
@@ -355,35 +231,33 @@ export default function TablaIFS({
   return (
     <div
       ref={scrollRef}
-      className="flex-1 relative p-0 border border-t-0 border-zinc-800 overflow-y-auto bg-[#0A0A0A] rounded-[4px]" // Darker BG
+      className="w-full relative p-0 border-b border-zinc-800 bg-[#0A0A0A]" 
       onScroll={onScroll}
     >
-      <table className="w-full text-sm border-collapse">
-        <TableHeader className="sticky top-0 z-50 bg-[#1D1D1D]" style={{ position: 'sticky', top: 0, zIndex: 50 }}>
-          <TableRow className="bg-[#1D1D1D] border-0">
-            <TableHead className="px-3 text-white text-[13px] py-0 h-5 text-left w-[80px] border-r border-black font-light sticky top-0 bg-[#1D1D1D]">Ticker</TableHead>
-            <TableHead className="px-1 text-white text-[13px] py-0 h-5 text-center w-[40px] border-r border-black font-light sticky top-0 bg-[#1D1D1D]">R.V</TableHead>
-            <TableHead className="px-1 text-white text-[13px] py-0 h-5 text-center w-[50px] border-r border-black font-light sticky top-0 bg-[#1D1D1D]">IFS</TableHead>
-            <TableHead className="px-2 text-white text-[13px] py-0 h-5 text-left w-[100px] border-r border-black font-light sticky top-0 bg-[#1D1D1D]">Stage</TableHead>
-            <TableHead className="px-2 text-white text-[13px] py-0 h-5 text-right border-r border-black font-light sticky top-0 bg-[#1D1D1D]">FGOS</TableHead>
-            <TableHead className="px-2 text-white text-[13px] py-0 h-5 text-right w-[80px] border-r border-black font-light sticky top-0 bg-[#1D1D1D]">EOD</TableHead>
-            <TableHead className="px-2 text-white text-[13px] py-0 h-5 text-right w-[80px] border-r border-black font-light sticky top-0 bg-[#1D1D1D]">Mkt Cap</TableHead>
-            <TableHead className="px-2 text-white text-[13px] py-0 h-5 text-right w-[80px] border-r border-black font-light sticky top-0 bg-[#1D1D1D]">Total Debt</TableHead>
-            <TableHead className="px-2 text-white text-[13px] py-0 h-5 text-right w-[80px] font-light sticky top-0 bg-[#1D1D1D]">Revenue</TableHead>
+      <table className="w-full text-sm border-collapse m-0 p-0">
+        <TableHeader className="sticky top-0 z-10 bg-[#585757]">
+          <TableRow className="border-[#1A1A1A] bg-[#585757] border-b border-[#1A1A1A]">
+            <TableHead className="border-r border-[#1A1A1A] px-3 text-zinc-400 font-medium text-[12px] h-4 text-left w-[60px]">Ticker</TableHead>
+            <TableHead className="border-r border-[#1A1A1A] px-1 text-zinc-400 font-medium text-[12px] h-4 text-left w-[40px]">V.R</TableHead>
+            <TableHead className="border-r border-[#1A1A1A] px-2 text-zinc-400 font-medium text-[12px] h-4 text-left w-[60px]">Stage</TableHead>
+            <TableHead className="border-r border-[#1A1A1A] px-2 text-zinc-400 font-medium text-[12px] h-4 text-right w-[120px]">FGOS</TableHead>
+            <TableHead className="border-r border-[#1A1A1A] px-1 text-zinc-400 font-medium text-[12px] h-4 text-center w-[20px]">IFS</TableHead>
+            <TableHead className="border-r border-[#1A1A1A] px-3 text-zinc-400 font-medium text-[12px] h-4 text-right w-[80px]">EOD</TableHead>
+            <TableHead className="px-3 text-zinc-400 font-medium text-[12px] h-4 text-right w-[80px]">Mkt Cap</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {isLoading ? (
-            <TableRow className="border-0">
-              <TableCell colSpan={9} className="h-24 text-center">
-                <div className="flex justify-center items-center gap-2 text-zinc-500 text-xs">
+            <TableRow className="border-zinc-800">
+              <TableCell colSpan={7} className="h-24 text-center">
+                <div className="flex justify-center items-center gap-1 text-zinc-500 text-xs">
                   <Loader2 className="w-4 h-4 animate-spin" /> Cargando datos...
                 </div>
               </TableCell>
             </TableRow>
-          ) : data.length === 0 ? (
-            <TableRow className="border-0">
-              <TableCell colSpan={9} className="text-center text-zinc-500 py-8 text-xs">
+          ) : (!data || data.length === 0) ? (
+            <TableRow className="border-zinc-800">
+              <TableCell colSpan={7} className="text-center text-zinc-500 py-1 text-xs">
                 {emptyMessage}
               </TableCell>
             </TableRow>
@@ -393,60 +267,53 @@ export default function TablaIFS({
               return (
                 <TableRow
                   key={stock.ticker}
-                  className={`hover:bg-zinc-900/50 cursor-pointer transition-colors border-b border-[#1A1A1A] ${
+                  className={`border-b-0 hover:bg-zinc-900/50 cursor-pointer transition-colors ${
                     isSelected ? "bg-zinc-700 border-l-4 border-l-[#002D72]" : ""
                   }`}
                   onClick={() => onRowClick?.(stock.ticker)}
                 >
-                  <TableCell className="font-light text-white px-3 py-0 h-5 text-s border-r border-[#484848]">{stock.ticker}</TableCell>
-
-                  <TableCell className="px-1 py-0 h-5 border-r border-[#484848]">
-                    <div className="flex justify-center h-full items-center">
-                      <ValuationSignal status={stock.sectorValuationStatus} />
-                    </div>
+                  <TableCell className="border-r border-zinc-800 font-medium text-zinc-200 pl-1 py-0 text-xs">{stock.ticker}</TableCell>
+                  
+                  {/* V.R */}
+                  <TableCell className="px-1 py-0 flex justify-center">
+                    <ValuationSignal status={stock.sectorValuationStatus} />
                   </TableCell>
-                  <TableCell className="px-1 py-0 h-5 border-r border-[#484848]">
-                    <div className="flex justify-center h-full items-center">
-                      <IFSRadial ifs={stock.ifs} />
-                    </div>
+                  
+                  {/* Stage */}
+                  <TableCell className="border-r border-l border-zinc-800 text-zinc-400 px-1 py-0 text-[10px]">
+                    {stock.fgosStatus || "—"}
                   </TableCell>
-                  <TableCell className="text-white py-0 h-5 text-[13px] text-left px-2 border-r border-[#484848] font-light">
-                    {stock.fgosStatus || "-"}
-                  </TableCell>
-                  <TableCell className="py-0 h-5 border-r border-[#484848] pl-0 pr-[2px]">
+                  
+                  {/* FGOS */}
+                  <TableCell className="border-r border-zinc-800 px-1 py-0">
                     <FGOSCell 
                       score={stock.fgosScore} 
                       status={stock.fgosStatus} 
                       sentiment={stock.sentimentBand} 
                     />
                   </TableCell>
-                  <TableCell 
-                    className={`text-right px-3 py-0 h-5 text-s font-mono border-r border-[#484848] font-light ${
-                      stock.priceChange != null && stock.priceChange > 0 
-                        ? 'text-[#34E265]' 
-                        : stock.priceChange != null && stock.priceChange < 0 
-                        ? 'text-[#BE123C]' 
-                        : 'text-zinc-200'
-                    }`}
-                  >
-                    {stock.priceEod != null ? stock.priceEod.toFixed(2) : "-"}
+                  
+                  {/* IFS */}
+                  <TableCell className="px-1 py-0 flex justify-center">
+                    <IFSRadial ifs={stock.ifs} ifsMemory={stock.ifsMemory} />
                   </TableCell>
-                  <TableCell className="text-right px-3 py-0 h-5 text-s font-mono text-[#EDA64D] font-light border-r border-[#484848]">
-                    {stock.marketCap != null ? formatMarketCap(Number(stock.marketCap)) : "-"}
+                  
+                  {/* EOD */}
+                  <TableCell className="border-r border-l border-zinc-800 text-right px-1 py-0 text-xs font-mono text-zinc-200">
+                    {stock.priceEod != null ? stock.priceEod.toFixed(2) : "—"}
                   </TableCell>
-                  <TableCell className="text-right px-3 py-0 h-5 text-s font-mono text-[#EDA64D] font-light border-r border-[#484848]">
-                    {stock.totalDebt != null ? formatMarketCap(Number(stock.totalDebt)) : "-"}
-                  </TableCell>
-                  <TableCell className="text-right px-3 py-0 h-5 text-s font-mono text-[#EDA64D] font-light">
-                    {stock.revenue != null ? formatMarketCap(Number(stock.revenue)) : "-"}
+                  
+                  {/* Mkt Cap */}
+                  <TableCell className="text-right px-1 py-0 text-xs font-mono text-amber-500">
+                    {stock.marketCap != null ? formatMarketCap(Number(stock.marketCap)) : "—"}
                   </TableCell>
                 </TableRow>
               );
             })
           )}
           {isFetchingMore && (
-            <TableRow className="border-0">
-              <TableCell colSpan={9} className="h-10 text-center text-zinc-600 text-xs">
+            <TableRow className="border-zinc-800">
+              <TableCell colSpan={7} className="h-10 text-center text-zinc-600 text-xs">
                 <div className="flex justify-center items-center gap-2">
                   <Loader2 className="w-3 h-3 animate-spin" /> Cargando más...
                 </div>

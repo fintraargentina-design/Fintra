@@ -207,11 +207,6 @@ export default function FGOSRadarChart({
 
   return (
     <Card className="bg-tarjetas border-none h-full shadow-lg py-0 flex flex-col relative group">
-      <CardHeader className="px-2 py-1 flex items-center justify-between pt-4">
-        <h3 className="text-[#FFA028] text-xs font-bold uppercase tracking-wider">
-          Calidad Fundamental
-        </h3>
-      </CardHeader>
       <CardContent className="flex-1 min-h-0 w-full p-2">
         <div className="w-full h-full">
             <ReactECharts

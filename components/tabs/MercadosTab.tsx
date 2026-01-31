@@ -84,6 +84,32 @@ interface QuoteData {
   timestamp: number;
 }
 
+interface FMPQuote {
+  symbol: string;
+  name: string;
+  price: number;
+  changesPercentage: number;
+  changePercentage?: number; // Added to support alternative API response
+  change: number;
+  dayLow: number;
+  dayHigh: number;
+  yearHigh: number;
+  yearLow: number;
+  marketCap: number;
+  priceAvg50: number;
+  priceAvg200: number;
+  volume: number;
+  avgVolume: number;
+  exchange: string;
+  open: number;
+  previousClose: number;
+  eps: number;
+  pe: number;
+  earningsAnnouncement: string;
+  sharesOutstanding: number;
+  timestamp: number;
+}
+
 // 2. Definición de Mercados (Horarios)
 type ExtendedMarketHours = ExchangeMarketHours & {
   displayName: string;
@@ -124,12 +150,12 @@ export default function MercadosTab() {
       const newQuotes: Record<string, QuoteData> = {};
       
       if (Array.isArray(response)) {
-        response.forEach((item: any) => {
+        response.forEach((item: FMPQuote) => {
           newQuotes[item.symbol] = {
             symbol: item.symbol,
             name: item.name,
             price: item.price,
-            changesPercentage: item.changesPercentage,
+            changesPercentage: item.changePercentage ?? item.changesPercentage,
             change: item.change,
             dayLow: item.dayLow,
             dayHigh: item.dayHigh,
