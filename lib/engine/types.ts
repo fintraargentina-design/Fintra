@@ -197,7 +197,25 @@ export interface MarketPosition {
       revenue_growth_percentile?: number;
     };
   };
+}
 
+export interface IFSMemory {
+  window_years: number;
+  observed_years: number;
+  distribution: {
+    leader: number;
+    follower: number;
+    laggard: number;
+  };
+  current_streak: {
+    position: "leader" | "follower" | "laggard";
+    years: number;
+  };
+}
+
+export interface IFSData {
+  position: "leader" | "follower" | "laggard";
+  pressure?: number;
   /**
    * Conceptual summary of the position.
    * - 'leader': Strong across most components.
@@ -205,7 +223,7 @@ export interface MarketPosition {
    * - 'average': Mixed or neutral.
    * - 'weak': Consistently below average.
    */
-  summary: 'leader' | 'strong' | 'average' | 'weak';
+  summary?: 'leader' | 'strong' | 'average' | 'weak';
 
   /**
    * Confidence in the position assessment.
@@ -213,7 +231,7 @@ export interface MarketPosition {
    * - 'medium': Adequate benchmarks.
    * - 'low': Low-confidence benchmarks or poor coverage.
    */
-  confidence: 'low' | 'medium' | 'high';
+  confidence?: 'low' | 'medium' | 'high';
 
   /**
    * Explanations for status or confidence issues.
@@ -278,247 +296,21 @@ export interface FinancialSnapshot {
   fgos_score: number | null;
   fgos_components: FgosBreakdown | null;
   fgos_status?: string | null;
-  fgos_category?: string | null;
-  fgos_confidence_percent?: number | null;
-  fgos_confidence_label?: string | null;
-  fgos_maturity?: string | null;
-  peers?: any | null;
-  valuation: ValuationResult | null;
-  market_position: MarketPosition | null;
-  investment_verdict: any | null;
-  ifs?: {
-    position: 'leader' | 'follower' | 'laggard';
-    pressure: number;
-  } | null;
-  strategic_state?: any | null; // New field for persisted verdict result
-  relative_return?: any | null; // New field for relative return result
-  
-  // Explicit Relative Performance Columns
-  relative_vs_sector_1w?: number | null;
-  relative_vs_sector_1m?: number | null;
-  relative_vs_sector_ytd?: number | null;
-  relative_vs_sector_1y?: number | null;
-  relative_vs_sector_3y?: number | null;
-  relative_vs_sector_5y?: number | null;
-
-  relative_vs_market_1w?: number | null;
-  relative_vs_market_1m?: number | null;
-  relative_vs_market_ytd?: number | null;
-  relative_vs_market_1y?: number | null;
-  relative_vs_market_3y?: number | null;
-  relative_vs_market_5y?: number | null;
-
-  sector_rank?: number | null;
-  sector_rank_total?: number | null;
-
-  data_confidence: StructuralCoverage;
 }
 
-export type LayerState = 'computed' | 'pending_recalculation' | 'structurally_unavailable';
-
-export interface LayerStatusDetail {
-  state: LayerState;
-  version?: string;
-  blocking_reason?: string;
-}
-
-export interface LayerStatusMap {
-  ifs: LayerStatusDetail;
-  fundamentals_growth: LayerStatusDetail;
-  valuation: LayerStatusDetail;
-  industry_performance: LayerStatusDetail;
-}
-
-export interface StructuralCoverage {
-  confidence_level: 'low' | 'medium' | 'high';
-  coverage: {
-    valid_windows: number;
-    required_windows: number;
-    valid_metrics: number;
-    required_metrics: number;
-  };
-  maturity: string;
-  industry_cadence: string;
-  limiting_factor: string;
-  
-  layer_status?: LayerStatusMap;
-
-  // Legacy / Context fields
-  has_profile?: boolean;
-  has_financials?: boolean;
-  has_valuation?: boolean;
-  has_performance?: boolean;
-  has_fgos?: boolean;
-  interpretation_context?: any;
-  fundamentals_years_count?: number;
-  fundamentals_first_year?: number;
-  fundamentals_last_year?: number;
-}
-
-// FMP Partial Types for inputs
-export interface FmpProfile {
-  sector: string | null;
-  industry?: string | null;
-  companyName?: string;
-  symbol?: string;
-  marketCap?: number | null;
-  [key: string]: any;
-}
-
-export interface FmpRatios {
-  operatingProfitMarginTTM?: number | null;
-  netProfitMarginTTM?: number | null;
-  debtEquityRatioTTM?: number | null;
-  interestCoverageTTM?: number | null;
-  [key: string]: any;
-}
-
-export interface FmpMetrics {
-  roicTTM?: number | null;
-  freeCashFlowMarginTTM?: number | null;
-  altmanZScore?: number | null;
-  piotroskiScore?: number | null;
-  [key: string]: any;
-}
-
-export interface FmpQuote {
-  price?: number | null;
-  changesPercentage?: number | null;
-  [key: string]: any;
-}
-
-export interface SectorBenchmark {
-  sample_size: number;
-  confidence: 'low' | 'medium' | 'high';
-  p10: number;
-  p25: number;
-  p50: number;
-  p75: number;
-  p90: number;
-  median?: number | null;
-  trimmed_mean?: number | null;
-  uncertainty_range?: { p5: number; p95: number } | null;
-}
-
-export interface SectorBenchmarkRow extends SectorBenchmark {
-  sector?: string;
-  industry?: string;
-  metric: string;
-  stats_date: string;
-}
-
-export interface EcoNodeJSON {
-  id: string;
-  n: string; // name
-  ehs: number; // Ecosystem Health Score
-  [key: string]: any;
-}
-
-export interface EcosystemDataJSON {
-  suppliers: EcoNodeJSON[];
-  clients: EcoNodeJSON[];
-  structural_signals?: {
-    source: string;
-    fiscal_year: number;
-    supplier_concentration: string | null;
-    single_source_dependency: boolean | null;
-    purchase_obligations: {
-      amount: number | null;
-      currency: string | null;
-    } | null;
-    geographic_exposure: string[] | null;
-    environmental_exposure: string | null;
-  };
-}
-
-export interface FintraSnapshotDB {
+export interface EnrichedStockData {
   ticker: string;
-  snapshot_date?: string;
-  date?: string; // Used in some client views
-  engine_version?: string;
-  sector?: string | null;
-  fgos_score: number | null;
-  fgos_components?: any;
-  fgos_breakdown?: any;
-  valuation?: any;
-  valuation_score?: number;
-  valuation_status?: string;
-  verdict_text?: string;
-  ecosystem_score?: number | null;
-  ecosystem_data?: any;
-  ecosystem_report?: string | null;
-  calculated_at?: string;
-  profile_structural?: ProfileStructural | null;
-  investment_verdict?: any;
-  ifs?: {
-    position: 'leader' | 'follower' | 'laggard';
-    pressure: number;
-  } | null;
-  sector_rank?: number | null;
-  sector_rank_total?: number | null;
-  [key: string]: any;
+  sectorRank: number | null;
+  sectorRankTotal: number | null;
+  sectorValuationStatus: string | null;
+  fgosBand: string | null;
+  fgosScore?: number | null;
+  fgosStatus?: string | null; // e.g. Mature, Developing
+  sentimentBand?: string | null; // e.g. optimistic, neutral
+  ifs?: IFSData | null;
+  ifsMemory?: IFSMemory | null;
+  strategyState: string | null;
+  priceEod: number | null;
+  ytdReturn: number | null;
+  marketCap: number | null;
 }
-
-export interface EcosystemRelationDB {
-  id: number;
-  ticker: string;
-  related_ticker: string;
-  relation_type: 'supplier' | 'client' | 'peer';
-  confidence: number;
-  source: string;
-  created_at: string;
-}
-
-export interface EcosystemReportDB {
-  ticker: string;
-  date: string;
-  data: EcosystemDataJSON;
-  ecosystem_score: number;
-  report_md: string;
-  created_at?: string;
-}
-
-// --- Fundamentals Timeline Types ---
-
-export type PeriodType = "Q" | "TTM" | "FY" | null;
-
-export type ValueItem = {
-  value: number | null;
-  display: string | null;
-  normalized: number | null;
-  period_type: PeriodType;
-  period_end_date?: string;
-  derived_from?: string[];
-};
-
-export type Metric = {
-  key: string;
-  label: string;
-  unit: string;
-  category: "quality" | "solvency" | "growth" | "performance";
-  priority: "A" | "B" | "C";
-  heatmap: {
-    direction: "higher_is_better" | "lower_is_better";
-    scale: "relative_row";
-  };
-  values: Record<string, ValueItem>;
-  meta?: {
-    description: string;
-    formula: string;
-  };
-};
-
-export type YearGroup = {
-  year: number;
-  tone: "light" | "dark";
-  columns: string[];
-};
-
-export type FundamentalsTimelineResponse = {
-  ticker: string;
-  currency: string;
-  years: YearGroup[];
-  metrics: Metric[];
-};
-
-export type PerformanceTimelineResponse = FundamentalsTimelineResponse;

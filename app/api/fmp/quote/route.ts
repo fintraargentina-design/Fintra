@@ -1,7 +1,7 @@
 // /app/api/fmp/quote/route.ts
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { fmpGet } from "@/lib/fmp/server";
+import { directFetcher } from "@/lib/fmp/direct";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,8 +30,8 @@ export async function GET(req: Request) {
   const { symbol } = parsed.data;
 
   try {
-    // FMP: /v3/quote/{symbol} — devuelve array con datos de cotización
-    const data = await fmpGet<any[]>(`/api/v3/quote/${symbol}`);
+    // Usamos directFetcher para aprovechar la lógica de batching/splitting si hay muchos símbolos
+    const data = await directFetcher<any[]>("/quote", { params: { symbol } });
 
     return NextResponse.json(data ?? [], {
       status: 200,

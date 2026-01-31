@@ -1,4 +1,4 @@
-import { EnrichedStockData } from "./TablaIFS";
+import { EnrichedStockData, IFSData } from "./TablaIFS";
 
 const WATCHLIST_MVP = [
   'AAPL', 'MSFT', 'NVDA', 'AVGO', 'ORCL', 'CRM', 'ADBE', 
@@ -28,7 +28,7 @@ const SECTOR_VALUATION_STATUSES = [
 const FGOS_BANDS = ["strong", "defendable", "weak"];
 const FGOS_STATUSES = ["Mature", "Developing", "Incomplete"];
 const SENTIMENT_BANDS = ["optimistic", "neutral", "pessimistic"];
-const IFS_POSITIONS = ["leader", "follower", "laggard"] as const;
+const IFS_POSITIONS: IFSData['position'][] = ["leader", "follower", "laggard"];
 const STRATEGY_STATES = ["balanced", "speculative", "fragile", "exceptional", "strong"];
 
 export const MOCK_DATA: EnrichedStockData[] = WATCHLIST_MVP.map((ticker) => {
@@ -53,7 +53,8 @@ export const MOCK_DATA: EnrichedStockData[] = WATCHLIST_MVP.map((ticker) => {
     sentimentBand: getRandomItem(SENTIMENT_BANDS),
     ifs: {
       position: getRandomItem(IFS_POSITIONS),
-      pressure: getRandomInt(0, 9),
+      yearsInState: getRandomInt(0, 5),
+      totalYearsAvailable: 5,
     },
     strategyState: getRandomItem(STRATEGY_STATES),
     priceEod: getRandomFloat(10, 1000),

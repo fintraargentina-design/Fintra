@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Newspaper, BarChart3, Search, PieChart, List, X } from "lucide-react";
+import { Newspaper, BarChart3, Search, PieChart, List, X, Globe } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -24,39 +24,47 @@ function FilterSelect({ icon: Icon, placeholder, options, value, onChange }: any
       <SelectTrigger className="h-[22px] bg-[#530C0C] border-none text-white text-[11px] font-medium px-2 gap-2 rounded hover:bg-[#4f1f1f] focus:ring-0 focus:ring-offset-0 min-w-[110px]">
         <div className="flex items-center gap-1.5">
           <Icon className="w-3 h-3 shrink-0 text-zinc-300" />
-          <span className="truncate">{value || placeholder}</span>
+          <span className="truncate">
+             {options.find((opt: any) => (typeof opt === 'object' ? opt.value : opt) === value)?.label || value || placeholder}
+          </span>
         </div>
       </SelectTrigger>
       <SelectContent className="bg-[#530C0C] border-zinc-800">
-        {options.map((opt: string) => (
-          <SelectItem key={opt} value={opt} className="text-zinc-300 focus:bg-[#400808] focus:text-white text-[11px]">
-            {opt}
-          </SelectItem>
-        ))}
+        {options.map((opt: any) => {
+          const optValue = typeof opt === 'object' ? opt.value : opt;
+          const optLabel = typeof opt === 'object' ? opt.label : opt;
+          return (
+            <SelectItem key={optValue} value={optValue} className="text-zinc-300 focus:bg-[#400808] focus:text-white text-[11px]">
+              {optLabel}
+            </SelectItem>
+          );
+        })}
       </SelectContent>
     </Select>
   );
 }
 
 export default function Header({
+  countries = [],
   sectors = [],
   selectedSector,
   onSectorChange,
   industries = [],
   selectedIndustry,
   onIndustryChange,
-  selectedExchange,
-  onExchangeChange,
+  selectedCountry,
+  onCountryChange,
   onStockSelect
 }: {
-  sectors?: string[];
+  countries?: any[];
+  sectors?: any[];
   selectedSector?: string;
   onSectorChange?: (val: string) => void;
-  industries?: string[];
+  industries?: any[];
   selectedIndustry?: string;
   onIndustryChange?: (val: string) => void;
-  selectedExchange?: string;
-  onExchangeChange?: (val: string) => void;
+  selectedCountry?: string;
+  onCountryChange?: (val: string) => void;
   onStockSelect?: (ticker: string) => void;
 }) {
   const [showMarkets, setShowMarkets] = useState(false);
@@ -100,30 +108,32 @@ export default function Header({
             News
           </Button>
 
-          {/* Filters */}
-          <div className="flex items-center gap-2 ml-2">
-            <FilterSelect 
-              icon={Search} 
-              placeholder="Exchange" 
-              options={["NYSE", "NASDAQ", "AMEX", "EURONEXT"]} 
-              value={selectedExchange}
-              onChange={onExchangeChange}
-            />
-            <FilterSelect 
-              icon={PieChart} 
-              placeholder="Sector" 
-              options={sectors} 
-              value={selectedSector}
-              onChange={onSectorChange}
-            />
-            <FilterSelect 
-              icon={List} 
-              placeholder="Industry" 
-              options={industries} 
-              value={selectedIndustry}
-              onChange={onIndustryChange}
-            />
-          </div>
+          {/* Filter Section */}
+        <div className="flex items-center gap-2 border-l border-zinc-800 pl-4">
+          <FilterSelect 
+            icon={Globe} 
+            placeholder="Country" 
+            options={countries} 
+            value={selectedCountry}
+            onChange={onCountryChange}
+          />
+
+          <FilterSelect 
+            icon={PieChart} 
+            placeholder="Sector" 
+            options={sectors} 
+            value={selectedSector}
+            onChange={onSectorChange}
+          />
+          
+          <FilterSelect 
+            icon={List} 
+            placeholder="Industry" 
+            options={industries} 
+            value={selectedIndustry}
+            onChange={onIndustryChange}
+          />
+        </div>
           
           <div className="flex items-center ml-2">
             <GlobalSearchInput 

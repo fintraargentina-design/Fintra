@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
-import { getAvailableSectors, getIndustriesForSector } from "@/lib/repository/fintra-db";
+import { useFilterOptions } from "@/hooks/useFilterOptions";
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import LeftPanel from '@/components/dashboard/LeftPanel';
@@ -22,60 +22,36 @@ export default function StockTerminal() {
   });
   const [activeTab, setActiveTab] = useState<TabKey>('empresa');
 
-  // Filter State (Lifted from SectorAnalysisPanel)
-  const [sectors, setSectors] = useState<string[]>([]);
+  // Filter State
+  const [selectedCountry, setSelectedCountry] = useState("US");
   const [selectedSector, setSelectedSector] = useState("Technology");
-  
-  const [industries, setIndustries] = useState<string[]>([]);
-  const [selectedIndustry, setSelectedIndustry] = useState("Todas");
+  const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
 
-  const [selectedExchange, setSelectedExchange] = useState("NYSE");
+  const { countries, sectors, industries } = useFilterOptions(selectedCountry, selectedSector);
 
-  // Load Sectors on Mount
+  // Auto-select Sector when list changes
   useEffect(() => {
-    let mounted = true;
-    const fetchSectors = async () => {
-      const USE_MOCK = true;
-      if (USE_MOCK) {
-         if (mounted) {
-            setSectors(["Technology", "Financial Services", "Consumer Cyclical", "Healthcare", "Energy"]);
-         }
-      } else {
-         try {
-            const available = await getAvailableSectors();
-            if (mounted && available.length > 0) {
-               setSectors(available);
-               const defaultSector = available.find(s => s === "Technology") || available[0];
-               setSelectedSector(defaultSector);
-            }
-         } catch (e) { console.error(e); }
+    if (sectors.length > 0) {
+      const exists = sectors.find(s => s.value === selectedSector);
+      if (!exists) {
+        // Prefer "All Sectors" if available, otherwise first option
+        const allOption = sectors.find(s => s.value === 'All Sectors');
+        setSelectedSector(allOption ? 'All Sectors' : sectors[0].value);
       }
-    };
-    fetchSectors();
-    return () => { mounted = false; };
-  }, []);
+    }
+  }, [sectors, selectedSector]);
 
-  // Load Industries when Sector changes
+  // Auto-select Industry when list changes
   useEffect(() => {
-      let mounted = true;
-      const loadIndustries = async () => {
-          if (!selectedSector) return;
-          
-          // Reset industry to "Todas" when sector changes
-          // Only if the current selected industry is not valid for the new sector? 
-          // Simpler to just reset to "Todas" or keep if it exists (but likely won't).
-          setSelectedIndustry("Todas");
-          
-          try {
-             const inds = await getIndustriesForSector(selectedSector);
-             if (mounted) {
-                 setIndustries(inds);
-             }
-          } catch (e) { console.error(e); }
-      };
-      loadIndustries();
-      return () => { mounted = false; };
-  }, [selectedSector]);
+     if (industries.length > 0) {
+        const exists = industries.find(i => i.value === selectedIndustry);
+        if (!exists) {
+            setSelectedIndustry("All Industries");
+        }
+     } else if (industries.length === 0 && selectedIndustry !== "All Industries") {
+        setSelectedIndustry("All Industries");
+     }
+  }, [industries, selectedIndustry]);
 
 
   // símbolo actual (string) sin importar si selectedStock es string u objeto
@@ -93,14 +69,15 @@ export default function StockTerminal() {
   return (
     <div className="h-screen w-full flex flex-col bg-black overflow-hidden">
       <Header 
+        countries={countries}
         sectors={sectors}
         selectedSector={selectedSector}
         onSectorChange={setSelectedSector}
         industries={industries}
         selectedIndustry={selectedIndustry}
         onIndustryChange={setSelectedIndustry}
-        selectedExchange={selectedExchange}
-        onExchangeChange={setSelectedExchange}
+        selectedCountry={selectedCountry}
+        onCountryChange={setSelectedCountry}
         onStockSelect={handleTopStockClick}
       />
 
@@ -120,7 +97,7 @@ export default function StockTerminal() {
                   selectedSector={selectedSector}
                   industries={industries}
                   selectedIndustry={selectedIndustry}
-                  selectedExchange={selectedExchange}
+                  selectedCountry={selectedCountry}
                 />                
               </div>
 

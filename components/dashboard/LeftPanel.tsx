@@ -7,11 +7,11 @@ import SectorScatterChart from '@/components/dashboard/SectorScatterChart';
 interface LeftPanelProps {
   onStockSelect: (symbol: string) => void;
   selectedTicker?: string;
-  sectors?: string[];
+  sectors?: any[];
   selectedSector?: string;
-  industries?: string[];
+  industries?: any[];
   selectedIndustry?: string;
-  selectedExchange?: string;
+  selectedCountry?: string;
 }
 
 const LeftPanel = memo(({ 
@@ -21,7 +21,7 @@ const LeftPanel = memo(({
   selectedSector,
   industries,
   selectedIndustry,
-  selectedExchange
+  selectedCountry
 }: LeftPanelProps) => {
   return (
     <div className="w-full h-full flex flex-col min-h-0 bg-[#0A0A0A]">
@@ -34,7 +34,7 @@ const LeftPanel = memo(({
           selectedSector={selectedSector}
           industries={industries}
           selectedIndustry={selectedIndustry}
-          selectedExchange={selectedExchange}
+          selectedCountry={selectedCountry}
         />
       </div>
       

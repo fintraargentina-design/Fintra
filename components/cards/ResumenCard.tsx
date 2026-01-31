@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getResumenData, ResumenData } from "@/lib/repository/fintra-db";
+import { IFSRadial } from "@/components/visuals/IFSRadial";
 import FinancialsHistoryChart from "@/components/charts/FinancialsHistoryChart";
 import { cn } from "@/lib/utils";
 import DraggableWidget from "@/components/ui/draggable-widget";
@@ -73,57 +74,7 @@ const ValuationSignal = ({ status }: { status: string | null }) => {
   );
 };
 
-const IFSRadial = ({ ifs }: { ifs?: { position: string, pressure: number } | null }) => {
-  if (!ifs) return <div className="w-4 h-4 rounded-full border border-zinc-800" />;
 
-  const { position, pressure } = ifs;
-  const totalSegments = 8; // Simplified to 8 for symmetry in radial
-  const filled = Math.min(totalSegments, Math.ceil((pressure / 9) * totalSegments));
-  
-  let color = "#71717a"; // zinc-500
-  if (position === "leader") color = "#10b981"; // emerald-500
-  else if (position === "follower") color = "#f59e0b"; // amber-500
-  else if (position === "laggard") color = "#ef4444"; // red-500
-
-  // Generate segments
-  const segments = [];
-  const cx = 10;
-  const cy = 10;
-  const r = 8;
-  
-  for (let i = 0; i < totalSegments; i++) {
-    const startAngle = (i * 360) / totalSegments;
-    const endAngle = ((i + 1) * 360) / totalSegments - 8; // 8 deg gap
-    
-    // Polar to Cartesian
-    const x1 = cx + r * Math.cos((startAngle - 90) * (Math.PI / 180));
-    const y1 = cy + r * Math.sin((startAngle - 90) * (Math.PI / 180));
-    const x2 = cx + r * Math.cos((endAngle - 90) * (Math.PI / 180));
-    const y2 = cy + r * Math.sin((endAngle - 90) * (Math.PI / 180));
-    
-    const d = [
-      "M", cx, cy,
-      "L", x1, y1,
-      "A", r, r, 0, 0, 1, x2, y2,
-      "Z"
-    ].join(" ");
-
-    segments.push(
-      <path
-        key={i}
-        d={d}
-        fill={i < filled ? color : "#27272a"} // zinc-800 empty
-        stroke="none"
-      />
-    );
-  }
-
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20">
-      {segments}
-    </svg>
-  );
-};
 
 // New Component for the Horizontal Bars (IFS, Valuation, Stage)
 const MetricRowCard = ({ 
@@ -235,7 +186,9 @@ export default function ResumenCard({
   // Derived States for UI
   const ifsStatus = useMemo(() => {
       const pos = resumen?.ifs?.position;
-      const rawData = resumen?.ifs ? { position: resumen.ifs.position, pressure: resumen.ifs.pressure } : null;
+      const rawData = resumen?.ifs ? { 
+          position: resumen.ifs.position, 
+      } : null;
 
       if (!pos) return { label: "PENDING", color: "gray" as const, raw: rawData };
       if (pos === 'leader') return { label: "LEADER", color: "green" as const, raw: rawData };
@@ -313,7 +266,7 @@ export default function ResumenCard({
                                     label="IFS" 
                                     value={ifsStatus.label} 
                                     color={ifsStatus.color} 
-                                    customIndicator={<IFSRadial ifs={ifsStatus.raw} />}                                    
+                                    customIndicator={<IFSRadial ifs={ifsStatus.raw} ifsMemory={resumen?.ifs_memory} />}                                    
                                 />
                                 <MetricRowCard 
                                     label="Relative valuation" 

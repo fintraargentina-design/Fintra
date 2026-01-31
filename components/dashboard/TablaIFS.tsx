@@ -5,42 +5,26 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { formatMarketCap } from "@/lib/utils";
 import { Loader2, AlertTriangle, ChevronUp, ChevronDown, Minus } from "lucide-react";
-
-// Shared interface
-export interface EnrichedStockData {
-  ticker: string;
-  sectorRank: number | null;
-  sectorRankTotal: number | null;
-  sectorValuationStatus: string | null;
-  fgosBand: string | null;
-  fgosScore?: number | null;
-  fgosStatus?: string | null; // e.g. Mature, Developing
-  sentimentBand?: string | null; // e.g. optimistic, neutral
-  ifs?: {
-    position: "leader" | "follower" | "laggard";
-    pressure: number;
-  } | null;
-  strategyState: string | null;
-  priceEod: number | null;
-  ytdReturn: number | null;
-  marketCap: number | null;
-}
+import { IFSData, IFSMemory, EnrichedStockData } from "@/lib/engine/types";
+import { IFSRadial } from "@/components/visuals/IFSRadial";
 
 // Helper to map raw Supabase snapshot to EnrichedStockData
 export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
   // Strict mapping from fintra_snapshots flat columns or JSONB structures
   
   // IFS Construction
-  // Handle both flat columns (legacy/view) and JSONB 'ifs' column
   const rawIfs = row.ifs || {};
   const position = rawIfs.position || row.ifs_position;
-  const pressure = rawIfs.pressure ?? row.ifs_pressure ?? 0;
+  const pressure = rawIfs.pressure ?? 0;
+  
+  // New Model: Structural Persistence (IFS Memory)
+  const ifsMemory = row.ifs_memory || null;
 
-  let ifsData = null;
+  let ifsData: IFSData | null = null;
   if (position) {
     ifsData = {
       position: position,
-      pressure: pressure
+      pressure: Number(pressure)
     };
   }
 
@@ -132,7 +116,7 @@ export const sortStocksBySnapshot = (a: EnrichedStockData, b: EnrichedStockData)
 
 // --- New Visual Components ---
 
-const ValuationSignal = ({ status }: { status: string | null }) => {
+export const ValuationSignal = ({ status }: { status: string | null }) => {
   if (!status) return <div className="w-4 h-4" />;
 
   const lower = status.toLowerCase();
@@ -164,57 +148,7 @@ const ValuationSignal = ({ status }: { status: string | null }) => {
   );
 };
 
-const IFSRadial = ({ ifs }: { ifs?: EnrichedStockData["ifs"] }) => {
-  if (!ifs) return <div className="w-4 h-4 rounded-full border border-zinc-800" />;
 
-  const { position, pressure } = ifs;
-  const totalSegments = 8; // Simplified to 8 for symmetry in radial
-  const filled = Math.min(totalSegments, Math.ceil((pressure / 9) * totalSegments));
-  
-  let color = "#71717a"; // zinc-500
-  if (position === "leader") color = "#10b981"; // emerald-500
-  else if (position === "follower") color = "#f59e0b"; // amber-500
-  else if (position === "laggard") color = "#ef4444"; // red-500
-
-  // Generate segments
-  const segments = [];
-  const cx = 10;
-  const cy = 10;
-  const r = 8;
-  
-  for (let i = 0; i < totalSegments; i++) {
-    const startAngle = (i * 360) / totalSegments;
-    const endAngle = ((i + 1) * 360) / totalSegments - 8; // 8 deg gap
-    
-    // Polar to Cartesian
-    const x1 = cx + r * Math.cos((startAngle - 90) * (Math.PI / 180));
-    const y1 = cy + r * Math.sin((startAngle - 90) * (Math.PI / 180));
-    const x2 = cx + r * Math.cos((endAngle - 90) * (Math.PI / 180));
-    const y2 = cy + r * Math.sin((endAngle - 90) * (Math.PI / 180));
-    
-    const d = [
-      "M", cx, cy,
-      "L", x1, y1,
-      "A", r, r, 0, 0, 1, x2, y2,
-      "Z"
-    ].join(" ");
-
-    segments.push(
-      <path
-        key={i}
-        d={d}
-        fill={i < filled ? color : "#27272a"} // zinc-800 empty
-        stroke="none"
-      />
-    );
-  }
-
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20">
-      {segments}
-    </svg>
-  );
-};
 
 const FGOSCell = ({ 
   score, 
@@ -228,15 +162,8 @@ const FGOSCell = ({
   if (score == null) return <span className="text-zinc-600">—</span>;
 
   // Warning if status is not mature/developed or if score is weird
-  const showWarning = status === "Incomplete" || status === "Early-stage" || status === "Developing";
-  // Actually, "Developing" might be fine. Let's show warning for "Incomplete" or "Pending"
-  // User image shows warning for "Developing" sometimes (yellow triangle).
-  // Let's assume warning for anything not "Mature" just to match the vibe, or based on specific flag.
-  // We'll stick to a simple heuristic: Warning if score exists but status is "Developing" or "Early-stage"? 
-  // In the image, "Developing" has warning, "Mature" does not. "Early" does not?
-  // Let's rely on `status` itself.
-  
-  const isWarning = status === "Developing" || status === "Incomplete"; // Heuristic matching image
+  // Heuristic matching image
+  const isWarning = status === "Developing" || status === "Incomplete"; 
 
   // Sentiment Arrow
   let ArrowIcon = Minus;
@@ -302,33 +229,33 @@ export default function TablaIFS({
   return (
     <div
       ref={scrollRef}
-      className="flex-1 relative p-0 border border-t-0 border-zinc-800 overflow-y-auto bg-[#0A0A0A]" // Darker BG
+      className="w-full relative p-0 border-b border-zinc-800 bg-[#0A0A0A]" 
       onScroll={onScroll}
     >
-      <table className="w-full text-sm border-collapse">
+      <table className="w-full text-sm border-collapse m-0 p-0">
         <TableHeader className="sticky top-0 z-10 bg-[#585757]">
-          <TableRow className="border-zinc-800 bg-[#585757] border-b border-zinc-800">
-            <TableHead className="px-3 text-zinc-400 font-medium text-[12px] h-6 text-left w-[80px]">Ticker</TableHead>
-            <TableHead className="px-1 text-zinc-400 font-medium text-[12px] h-6 text-left w-[40px]">V.R</TableHead>
-            <TableHead className="px-2 text-zinc-400 font-medium text-[12px] h-6 text-left w-[100px]">Stage</TableHead>
-            <TableHead className="px-2 text-zinc-400 font-medium text-[12px] h-6 text-right">FGOS</TableHead>
-            <TableHead className="px-1 text-zinc-400 font-medium text-[12px] h-6 text-center w-[50px]">IFS</TableHead>
-            <TableHead className="px-3 text-zinc-400 font-medium text-[12px] h-6 text-right w-[80px]">EOD</TableHead>
-            <TableHead className="px-3 text-zinc-400 font-medium text-[12px] h-6 text-right w-[80px]">Mkt Cap</TableHead>
+          <TableRow className="border-[#1A1A1A] bg-[#585757] border-b border-[#1A1A1A]">
+            <TableHead className="border-r border-[#1A1A1A] px-3 text-zinc-400 font-medium text-[12px] h-4 text-left w-[80px]">Ticker</TableHead>
+            <TableHead className="border-r border-[#1A1A1A] px-1 text-zinc-400 font-medium text-[12px] h-4 text-left w-[40px]">V.R</TableHead>
+            <TableHead className="border-r border-[#1A1A1A] px-2 text-zinc-400 font-medium text-[12px] h-4 text-left w-[80px]">Stage</TableHead>
+            <TableHead className="border-r border-[#1A1A1A] px-2 text-zinc-400 font-medium text-[12px] h-4 text-right w-[100px]">FGOS</TableHead>
+            <TableHead className="border-r border-[#1A1A1A] px-1 text-zinc-400 font-medium text-[12px] h-4 text-center w-[20px]">IFS</TableHead>
+            <TableHead className="border-r border-[#1A1A1A] px-3 text-zinc-400 font-medium text-[12px] h-4 text-right w-[80px]">EOD</TableHead>
+            <TableHead className="px-3 text-zinc-400 font-medium text-[12px] h-4 text-right w-[80px]">Mkt Cap</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {isLoading ? (
             <TableRow className="border-zinc-800">
               <TableCell colSpan={7} className="h-24 text-center">
-                <div className="flex justify-center items-center gap-2 text-zinc-500 text-xs">
+                <div className="flex justify-center items-center gap-1 text-zinc-500 text-xs">
                   <Loader2 className="w-4 h-4 animate-spin" /> Cargando datos...
                 </div>
               </TableCell>
             </TableRow>
-          ) : data.length === 0 ? (
+          ) : (!data || data.length === 0) ? (
             <TableRow className="border-zinc-800">
-              <TableCell colSpan={7} className="text-center text-zinc-500 py-8 text-xs">
+              <TableCell colSpan={7} className="text-center text-zinc-500 py-1 text-xs">
                 {emptyMessage}
               </TableCell>
             </TableRow>
@@ -338,25 +265,25 @@ export default function TablaIFS({
               return (
                 <TableRow
                   key={stock.ticker}
-                  className={`border-zinc-800/50 hover:bg-zinc-900/50 cursor-pointer transition-colors border-b ${
+                  className={`border-b-0 hover:bg-zinc-900/50 cursor-pointer transition-colors ${
                     isSelected ? "bg-zinc-700 border-l-4 border-l-[#002D72]" : ""
                   }`}
                   onClick={() => onRowClick?.(stock.ticker)}
                 >
-                  <TableCell className="font-medium text-zinc-200 px-3 py-1 text-xs">{stock.ticker}</TableCell>
+                  <TableCell className="border-r border-zinc-800 font-medium text-zinc-200 px-0 py-0 text-xs">{stock.ticker}</TableCell>
                   
                   {/* V.R */}
-                  <TableCell className="px-1 py-1 flex justify-center">
+                  <TableCell className="px-1 py-0 flex justify-center">
                     <ValuationSignal status={stock.sectorValuationStatus} />
                   </TableCell>
                   
                   {/* Stage */}
-                  <TableCell className="text-zinc-400 px-2 py-1 text-[11px]">
+                  <TableCell className="border-r border-l border-zinc-800 text-zinc-400 px-1 py-0 text-[10px]">
                     {stock.fgosStatus || "—"}
                   </TableCell>
                   
                   {/* FGOS */}
-                  <TableCell className="px-2 py-1">
+                  <TableCell className="border-r border-zinc-800 px-1 py-0">
                     <FGOSCell 
                       score={stock.fgosScore} 
                       status={stock.fgosStatus} 
@@ -365,17 +292,17 @@ export default function TablaIFS({
                   </TableCell>
                   
                   {/* IFS */}
-                  <TableCell className="px-1 py-1 flex justify-center">
-                    <IFSRadial ifs={stock.ifs} />
+                  <TableCell className="px-1 py-0 flex justify-center">
+                    <IFSRadial ifs={stock.ifs} ifsMemory={stock.ifsMemory} />
                   </TableCell>
                   
                   {/* EOD */}
-                  <TableCell className="text-right px-3 py-1 text-xs font-mono text-zinc-200">
+                  <TableCell className="border-r border-l border-zinc-800 text-right px-1 py-0 text-xs font-mono text-zinc-200">
                     {stock.priceEod != null ? stock.priceEod.toFixed(2) : "—"}
                   </TableCell>
                   
                   {/* Mkt Cap */}
-                  <TableCell className="text-right px-3 py-1 text-xs font-mono text-amber-500">
+                  <TableCell className="text-right px-1 py-0 text-xs font-mono text-amber-500">
                     {stock.marketCap != null ? formatMarketCap(Number(stock.marketCap)) : "—"}
                   </TableCell>
                 </TableRow>

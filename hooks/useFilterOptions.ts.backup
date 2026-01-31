@@ -1,0 +1,120 @@
+import useSWR from 'swr';
+import { supabase } from '@/lib/supabase';
+
+export interface FilterOption {
+  value: string;
+  label: string;
+  count: number;
+}
+
+const fetchCountries = async () => {
+  const { data, error } = await supabase
+    .from('company_profile')
+    .select('country')
+    .not('country', 'is', null)
+    .order('country');
+
+  if (error) throw error;
+
+  // Aggregate counts
+  const counts: Record<string, number> = {};
+  data?.forEach((row: any) => {
+    const c = row.country;
+    counts[c] = (counts[c] || 0) + 1;
+  });
+
+  return Object.entries(counts)
+    .map(([country, count]) => ({
+      value: country,
+      label: `${country} (${count})`,
+      count
+    }))
+    .sort((a, b) => a.value.localeCompare(b.value));
+};
+
+const fetchSectors = async (country: string) => {
+  const { data, error } = await supabase
+    .from('company_profile')
+    .select('sector')
+    .eq('country', country)
+    .not('sector', 'is', null);
+
+  if (error) throw error;
+
+  const counts: Record<string, number> = {};
+  data?.forEach((row: any) => {
+    const s = row.sector;
+    counts[s] = (counts[s] || 0) + 1;
+  });
+
+  return Object.entries(counts)
+    .map(([sector, count]) => ({
+      value: sector,
+      label: `${sector} (${count})`,
+      count
+    }))
+    .sort((a, b) => b.count - a.count); // Sort by count desc
+};
+
+const fetchIndustries = async (country: string, sector: string) => {
+  const { data, error } = await supabase
+    .from('company_profile')
+    .select('industry')
+    .eq('country', country)
+    .eq('sector', sector)
+    .not('industry', 'is', null);
+
+  if (error) throw error;
+
+  const counts: Record<string, number> = {};
+  data?.forEach((row: any) => {
+    const i = row.industry;
+    counts[i] = (counts[i] || 0) + 1;
+  });
+
+  const options = Object.entries(counts)
+    .map(([industry, count]) => ({
+      value: industry,
+      label: `${industry} (${count})`,
+      count
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // Add "All" option if there are industries
+  if (options.length > 0) {
+    const total = options.reduce((sum, opt) => sum + opt.count, 0);
+    return [
+      { value: 'Todas', label: `All Industries (${total})`, count: total },
+      ...options
+    ];
+  }
+  
+  return options;
+};
+
+export function useFilterOptions(selectedCountry: string, selectedSector: string) {
+  const { data: countries, isLoading: loadingCountries } = useSWR(
+    'filter-countries',
+    fetchCountries,
+    { revalidateOnFocus: false }
+  );
+
+  const { data: sectors, isLoading: loadingSectors } = useSWR(
+    selectedCountry ? ['filter-sectors', selectedCountry] : null,
+    () => fetchSectors(selectedCountry),
+    { revalidateOnFocus: false }
+  );
+
+  const { data: industries, isLoading: loadingIndustries } = useSWR(
+    selectedCountry && selectedSector ? ['filter-industries', selectedCountry, selectedSector] : null,
+    () => fetchIndustries(selectedCountry, selectedSector),
+    { revalidateOnFocus: false }
+  );
+
+  return {
+    countries: countries || [],
+    sectors: sectors || [],
+    industries: industries || [],
+    isLoading: loadingCountries || loadingSectors || loadingIndustries
+  };
+}
