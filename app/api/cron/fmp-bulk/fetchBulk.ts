@@ -114,9 +114,15 @@ async function downloadToCache(
     while (true) {
       // Construct URL with part param
       const url = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}part=${part}&apikey=${apiKey}`;
-      
+
       // Polite delay between parts to avoid 429 spikes
       if (part > 0) await sleep(500);
+
+      // Log with masked URL for security
+      if (part === 0) {
+        const maskedUrl = url.replace(/apikey=[^&]+/, 'apikey=***');
+        console.log(`📥 Fetching from ${maskedUrl}`);
+      }
 
       const res = await fetchWithRetry(url);
 

@@ -1,4 +1,5 @@
 import { FgosStatus } from './types';
+import { getSectorDefaults } from './utils/sectorDefaults';
 
 export interface MoatResult {
   score: number | null;
@@ -19,7 +20,8 @@ export interface FinancialHistoryRow {
 
 export function calculateMoat(
   history: FinancialHistoryRow[],
-  benchmarks: { roic?: { p50: number }; gross_margin?: { p50: number } }
+  benchmarks: { roic?: { p50: number }; gross_margin?: { p50: number } },
+  sector?: string | null
 ): MoatResult {
   // 0. Safety check
   if (!history || !Array.isArray(history)) {
@@ -60,7 +62,9 @@ export function calculateMoat(
 
   // 3. ROIC Persistence (Primary - 70%)
   // Compare vs Sector Median (P50)
-  const sectorRoic = benchmarks.roic?.p50 ?? 0.10; // Default 10% if missing (fallback)
+  // Use sector-specific defaults if benchmark is missing
+  const sectorDefaults = getSectorDefaults(sector);
+  const sectorRoic = benchmarks.roic?.p50 ?? sectorDefaults.roic;
   
   let yearsAbove = 0;
   const roicValues: number[] = [];
@@ -88,7 +92,7 @@ export function calculateMoat(
   }
 
   // 4. Margin Stability (Secondary - 30%)
-  const sectorMargin = benchmarks.gross_margin?.p50 ?? 0.40; // Default 40%
+  const sectorMargin = benchmarks.gross_margin?.p50 ?? sectorDefaults.grossMargin;
   const marginValues = sorted.map(r => r.gross_margin ?? 0);
   
   const marginMean = marginValues.reduce((a, b) => a + b, 0) / count;

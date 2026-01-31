@@ -9,51 +9,9 @@ import { calculateMoat } from './moat';
 import { calculateSentiment, type SentimentValuationTimeline } from './sentiment';
 import { calculateCompetitiveAdvantage, type CompetitiveAdvantageHistoryRow } from './competitive-advantage';
 import { calculateIFS, type RelativePerformanceInputs } from './ifs';
+import { calculateMetricScore, type MetricResult } from './utils/calculateMetricScore';
 
 type BenchMap = Record<string, SectorBenchmark>;
-
-function calculateMetricScore(
-  value: number | null | undefined,
-  stats?: {
-    p10: number;
-    p25: number;
-    p50: number;
-    p75: number;
-    p90: number;
-    confidence?: 'low' | 'medium' | 'high';
-    sample_size?: number;
-  }
-) {
-  if (value == null || !stats) return null;
-  let raw_percentile: number;
-  if (value <= stats.p10) raw_percentile = 10;
-  else if (value <= stats.p25) raw_percentile = 25;
-  else if (value <= stats.p50) raw_percentile = 50;
-  else if (value <= stats.p75) raw_percentile = 75;
-  else raw_percentile = 90;
-  if (stats.confidence === 'low') {
-    const sampleSize = stats.sample_size || 0;
-    const weight = Math.min(1, Math.max(0, sampleSize / 20));
-    const fallbackValue = 50;
-    const effective = raw_percentile * weight + fallbackValue * (1 - weight);
-    return {
-      effective,
-      raw: raw_percentile,
-      weight,
-      sample_size: sampleSize,
-      is_low_conf: true
-    };
-  }
-  let effective = raw_percentile;
-  if (stats.confidence === 'medium') effective *= 0.95;
-  return {
-    effective,
-    raw: raw_percentile,
-    weight: 1,
-    sample_size: stats.sample_size || 20,
-    is_low_conf: false
-  };
-}
 
 function calculateComponent(
   items: Array<{ value: number | null | undefined; benchmark: any }>
@@ -163,8 +121,10 @@ export function computeFGOS(
     { value: metrics?.roicTTM, benchmark: (benchmarks as any).roic },
     { value: metrics?.freeCashFlowMarginTTM, benchmark: (benchmarks as any).fcf_margin }
   ]);
+  // FIXED: Removed inverted calculation (100 - D/E)
+  // Lower D/E ratio = better solvency, calculateMetricScore handles this correctly
   const solvencyResult = calculateComponent([
-    { value: ratios?.debtEquityRatioTTM != null ? 100 - (ratios as any).debtEquityRatioTTM : null, benchmark: (benchmarks as any).debt_to_equity },
+    { value: ratios?.debtEquityRatioTTM, benchmark: (benchmarks as any).debt_to_equity },
     { value: ratios?.interestCoverageTTM, benchmark: (benchmarks as any).interest_coverage }
   ]);
   const WEIGHTS = { growth: 0.25, profitability: 0.30, efficiency: 0.20, solvency: 0.25 };

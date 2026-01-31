@@ -18,22 +18,38 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
 
   try {
     console.log(`📌 Snapshot Engine Version: ${SNAPSHOT_ENGINE_VERSION}`);
-    // ─────────────────────────────────────────
-    // CURSOR (Data-based Idempotency)
-    // ─────────────────────────────────────────
-    // Check if snapshots exist for today
-    const { count } = await supabase
-      .from('fintra_snapshots')
-      .select('*', { count: 'exact', head: true })
-      .eq('snapshot_date', today);
 
-    const hasDataToday = (count || 0) > 0;
+    // ─────────────────────────────────────────
+    // DISTRIBUTED LOCK (Prevent Race Conditions)
+    // ─────────────────────────────────────────
+    // Acquire lock before checking/writing data
+    const { withLock, getDailyLockName } = await import('@/lib/utils/dbLocks');
+    const lockName = getDailyLockName('fmp-bulk');
 
-    // Bypass check if we are in test mode (ticker override)
-    if (hasDataToday && !tickerParam) {
-      console.log(`✅ Snapshots already exist for ${today} (count=${count}). Skipping.`);
-      return { skipped: true, date: today, count };
+    // If lock can't be acquired, another instance is running
+    const acquired = await import('@/lib/utils/dbLocks').then(m => m.tryAcquireLock(lockName));
+    if (!acquired && !tickerParam) {
+      console.log(`⏭️  Another instance is already processing. Skipping.`);
+      return { skipped: true, reason: 'lock_held' };
     }
+
+    try {
+      // ─────────────────────────────────────────
+      // CURSOR (Data-based Idempotency)
+      // ─────────────────────────────────────────
+      // Check if snapshots exist for today
+      const { count } = await supabase
+        .from('fintra_snapshots')
+        .select('*', { count: 'exact', head: true })
+        .eq('snapshot_date', today);
+
+      const hasDataToday = (count || 0) > 0;
+
+      // Bypass check if we are in test mode (ticker override)
+      if (hasDataToday && !tickerParam) {
+        console.log(`✅ Snapshots already exist for ${today} (count=${count}). Skipping.`);
+        return { skipped: true, date: today, count };
+      }
 
     // ─────────────────────────────────────────
     // FETCH BULKS
@@ -204,5 +220,11 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
   } catch (err: any) {
     console.error('❌ Bulk Cron Error:', err);
     throw err;
+  } finally {
+    // Release lock
+    if (!tickerParam) {
+      const { releaseLock } = await import('@/lib/utils/dbLocks');
+      await releaseLock(lockName);
+    }
   }
 }

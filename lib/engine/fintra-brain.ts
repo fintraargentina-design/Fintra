@@ -10,72 +10,11 @@ import { fmp } from '@/lib/fmp/client';
 import { calculateConfidenceLayer, calculateDimensionalConfidence, type ConfidenceInputs } from './confidence';
 import { calculateMoat, type FinancialHistoryRow } from './moat';
 import { calculateSentiment, type SentimentValuationTimeline } from './sentiment';
+import { calculateMetricScore, type MetricResult } from './utils/calculateMetricScore';
 
 /* ================================
    Helpers
 ================================ */
-
-interface MetricResult {
-  effective: number;
-  raw: number;
-  weight: number;
-  sample_size: number;
-  is_low_conf: boolean;
-}
-
-function calculateMetricScore(
-  value: number | null | undefined,
-  stats?: {
-    p10: number;
-    p25: number;
-    p50: number;
-    p75: number;
-    p90: number;
-    confidence?: 'low' | 'medium' | 'high';
-    sample_size?: number;
-  }
-): MetricResult | null {
-  if (value == null || !stats) return null;
-
-  let raw_percentile: number;
-
-  if (value <= stats.p10) raw_percentile = 10;
-  else if (value <= stats.p25) raw_percentile = 25;
-  else if (value <= stats.p50) raw_percentile = 50;
-  else if (value <= stats.p75) raw_percentile = 75;
-  else raw_percentile = 90;
-
-  // Rule 1 & 2: Handle Low Confidence
-  if (stats.confidence === 'low') {
-    const sampleSize = stats.sample_size || 0;
-    // Rule 2: Weight factor clamped to max 1
-    const weight = Math.min(1, Math.max(0, sampleSize / 20));
-    
-    // Rule 3: Effective percentile with fallback to median (50)
-    const fallbackValue = 50; 
-    const effective = raw_percentile * weight + fallbackValue * (1 - weight);
-    
-    return { 
-      effective, 
-      raw: raw_percentile, 
-      weight, 
-      sample_size: sampleSize, 
-      is_low_conf: true 
-    };
-  }
-
-  // Existing Logic: Handle Medium Confidence (legacy adjustment)
-  let effective = raw_percentile;
-  if (stats.confidence === 'medium') effective *= 0.95;
-
-  return { 
-    effective, 
-    raw: raw_percentile, 
-    weight: 1, 
-    sample_size: stats.sample_size || 20, 
-    is_low_conf: false 
-  };
-}
 
 function calculateComponent(
   items: Array<{ value: number | null | undefined, benchmark: any }>
@@ -221,10 +160,12 @@ export async function calculateFGOSFromData(
     ]);
 
     /* ---------- SOLVENCY ---------- */
+    // FIXED: Removed inverted calculation (100 - D/E)
+    // Lower D/E ratio = better solvency, calculateMetricScore handles this correctly
     const solvencyResult = calculateComponent([
-      { 
-        value: ratios?.debtEquityRatioTTM != null ? 100 - ratios.debtEquityRatioTTM : null, 
-        benchmark: benchmarks.debt_to_equity 
+      {
+        value: ratios?.debtEquityRatioTTM,
+        benchmark: benchmarks.debt_to_equity
       },
       { value: ratios?.interestCoverageTTM, benchmark: benchmarks.interest_coverage }
     ]);
