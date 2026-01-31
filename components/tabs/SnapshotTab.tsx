@@ -29,6 +29,7 @@ import {
   TimelineMetric,
   PerformanceYear
 } from "@/lib/engine/types";
+import PeersAnalysisPanel from "@/components/dashboard/PeersAnalysisPanel";
 
 // --- TYPES ---
 
@@ -86,6 +87,7 @@ export default function SnapshotTab({
   stockAnalysis,
   stockBasicData,
   symbol,
+  peerTicker,
   ratios: ratiosProp,
   metrics: metricsProp,
 }: SnapshotTabProps) {
@@ -313,6 +315,14 @@ export default function SnapshotTab({
 
 
       
+      {/* 3) COMPETIDORES */}
+      <section className="h-[400px] flex flex-col mt-4 border-t border-zinc-800/50 pt-4">
+        <PeersAnalysisPanel 
+          symbol={symbol} 
+          selectedPeer={peerTicker} 
+        />
+      </section>
+
       {/* Footer / Micro-copy */}
       <div className="pt-2 border-t border-zinc-900 mt-4">
         <p className="text-[10px] text-zinc-600 font-mono text-center">

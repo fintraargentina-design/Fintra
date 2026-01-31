@@ -54,7 +54,7 @@ export default function SectorScatterChart({
         // Step 1: Get tickers matching filters from market_state
         let tickerQuery = supabase
           .from('fintra_market_state')
-          .select('ticker')
+          .select('ticker, market_cap')
           .eq('sector', selectedSector);
 
         if (selectedIndustry && selectedIndustry !== 'All Industries' && selectedIndustry !== 'Todas') {
@@ -75,26 +75,14 @@ export default function SectorScatterChart({
         }
 
         const tickers = marketData.map(d => d.ticker);
+        const marketCapMap = new Map(marketData.map(d => [d.ticker, d.market_cap]));
 
-        // Step 2: Determine the latest snapshot date for this sector
-        const { data: dateData, error: dateError } = await supabase
-          .from('fintra_snapshots')
-          .select('snapshot_date')
-          .eq('sector', selectedSector)
-          .order('snapshot_date', { ascending: false })
-          .limit(1)
-          .single();
+        // Step 2: Fetch recent snapshots for these tickers (last 30 days) to find the latest per ticker
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - 30);
+        const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
 
-        if (dateError) throw dateError;
-        if (!dateData) {
-          setData([]);
-          return;
-        }
-
-        const targetDate = dateData.snapshot_date;
-
-        // Step 3: Fetch snapshots for these tickers at the target date
-        const { data: snapshots, error } = await supabase
+        const { data: rawSnapshots, error } = await supabase
           .from('fintra_snapshots')
           .select(`
             ticker,
@@ -106,14 +94,25 @@ export default function SectorScatterChart({
             market_snapshot
           `)
           .in('ticker', tickers)
-          .eq('snapshot_date', targetDate);
+          .gte('snapshot_date', cutoffDateStr)
+          .order('snapshot_date', { ascending: false });
 
         if (error) throw error;
 
-        if (!snapshots) {
+        if (!rawSnapshots || rawSnapshots.length === 0) {
           setData([]);
           return;
         }
+
+        // Step 3: Deduplicate - Keep only the latest snapshot per ticker
+        const uniqueSnapshots = new Map();
+        rawSnapshots.forEach((snap: any) => {
+          if (!uniqueSnapshots.has(snap.ticker)) {
+            uniqueSnapshots.set(snap.ticker, snap);
+          }
+        });
+        
+        const snapshots = Array.from(uniqueSnapshots.values());
 
         // Transform to scatter points
         const validPoints: ScatterPoint[] = [];
@@ -132,7 +131,9 @@ export default function SectorScatterChart({
             return;
           }
 
-          const marketCap = snap.market_snapshot?.market_cap || 0;
+          // Use market_cap from market_state map if not in snapshot
+          const marketCap = snap.market_snapshot?.market_cap || marketCapMap.get(snap.ticker) || 0;
+          
           if (marketCap > 0) {
             const logCap = Math.log10(marketCap);
             if (logCap < minLogCap) minLogCap = logCap;
@@ -156,7 +157,8 @@ export default function SectorScatterChart({
           const ifsPos = snap.ifs.position as keyof typeof COLORS;
           const color = COLORS[ifsPos] || COLORS.default;
           
-          const marketCap = snap.market_snapshot?.market_cap || 0;
+          // Use market_cap from market_state map if not in snapshot
+          const marketCap = snap.market_snapshot?.market_cap || marketCapMap.get(snap.ticker) || 0;
           let size = 10; // Default size
           
           if (marketCap > 0) {
@@ -213,6 +215,9 @@ export default function SectorScatterChart({
     },
     tooltip: {
       trigger: 'item',
+      confine: true,
+      enterable: false,
+      extraCssText: 'pointer-events: none;',
       backgroundColor: 'rgba(20, 20, 20, 0.95)',
       borderColor: '#333',
       textStyle: {
