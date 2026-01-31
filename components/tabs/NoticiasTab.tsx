@@ -393,9 +393,9 @@ export default function NoticiasTab({
                         {/* Content */}
                         <div className="flex-1 min-w-0">
                             <div className="flex items-start mb-1">
-                                <div className="flex w-full items-start justify-between gap-2 text-xs text-zinc-400">
+                                <div className="flex flex-col w-full gap-1 text-xs text-zinc-400">
                                     
-                                    <h3 className="text-zinc-100 font-light text-[11px] leading-snug mb-1 transition-colors line-clamp-2">
+                                    <h3 className="text-zinc-100 font-light text-[11px] leading-snug transition-colors line-clamp-2">
                                       <button 
                                         onClick={(e) => { e.preventDefault(); openNewsModal(item.url, item.title, item.summary); }} 
                                         className="text-left hover:underline hover:text-[#FFA028] focus:outline-none"
@@ -406,7 +406,7 @@ export default function NoticiasTab({
                                     
                                     {/* Summary */}
                                     {item.summary && (
-                                        <p className="text-zinc-500 text-[10px] line-clamp-2 mb-1.5 leading-relaxed">
+                                        <p className="text-zinc-500 text-[10px] line-clamp-2 mb-1 leading-relaxed">
                                             {item.summary}
                                         </p>
                                     )}
