@@ -355,7 +355,7 @@ export default function TablaIFS({
   return (
     <div
       ref={scrollRef}
-      className="flex-1 relative p-0 border border-t-0 border-zinc-800 overflow-y-auto bg-[#0A0A0A]" // Darker BG
+      className="flex-1 relative p-0 border border-t-0 border-zinc-800 overflow-y-auto bg-[#0A0A0A] rounded-[4px]" // Darker BG
       onScroll={onScroll}
     >
       <table className="w-full text-sm border-collapse">

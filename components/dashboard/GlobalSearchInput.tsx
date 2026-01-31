@@ -147,7 +147,7 @@ export default function GlobalSearchInput({ onSelect, className }: { onSelect?: 
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-white/80" />
           <Input 
             placeholder="Search ..." 
-            className="h-[24px] py-0 pl-7 text-[12px] bg-[#000000] border border-[#2454b4] focus-visible:ring-0 focus-visible:ring-transparent placeholder:text-white/80 text-white font-medium rounded-none search-input-vscode selection:bg-[#0056FF] selection:text-white"
+            className="h-[24px] py-0 pl-7 text-[12px] bg-[#000000] border border-[#2454b4] focus-visible:ring-0 focus-visible:ring-transparent placeholder:text-white/80 text-white font-medium rounded-[4px] search-input-vscode selection:bg-[#0056FF] selection:text-white"
             style={{ caretColor: '#2454b4' }}
             value={query}
             onChange={e => {

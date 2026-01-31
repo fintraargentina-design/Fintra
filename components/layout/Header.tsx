@@ -147,7 +147,7 @@ export default function Header({
                   key={ticker}
                   onClick={() => openOrActivateTicker(ticker)}
                   className={cn(
-                    "group flex items-center gap-2 px-2 py-0.5 text-[12px] font-medium border rounded-none cursor-pointer select-none transition-colors min-w-[80px] justify-between h-max",
+                    "group flex items-center gap-2 px-2 py-0.5 text-[12px] font-medium border rounded-[4px] cursor-pointer select-none transition-colors min-w-[80px] justify-between h-max",
                     isActive
                       ? "bg-[#002D72] text-white border-[#1650A9] hover:bg-[#003B9E]"
                       : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:bg-zinc-800 hover:text-zinc-200"
