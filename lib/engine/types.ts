@@ -207,6 +207,7 @@ export interface IFSMemory {
     follower: number;
     laggard: number;
   };
+  timeline?: ("leader" | "follower" | "laggard")[];
   current_streak: {
     position: "leader" | "follower" | "laggard";
     years: number;
@@ -313,4 +314,79 @@ export interface EnrichedStockData {
   priceEod: number | null;
   ytdReturn: number | null;
   marketCap: number | null;
+}
+
+// Database & Ecosystem Types
+export interface FintraSnapshotDB {
+  ticker: string;
+  snapshot_date: string;
+  profile_structural?: any;
+  market_snapshot?: any;
+  fgos_score?: number | null;
+  fgos_components?: any;
+  valuation?: any;
+  ifs?: any;
+  ifs_memory?: any;
+  sector_rank?: number | null;
+  sector_rank_total?: number | null;
+  created_at?: string;
+  [key: string]: any; // Allow other columns
+}
+
+export interface EcosystemRelationDB {
+  id?: string;
+  ticker_source: string;
+  ticker_target: string;
+  relation_type: string;
+  strength: number;
+  metadata?: any;
+  created_at?: string;
+}
+
+export interface EcosystemReportDB {
+  id: string;
+  ticker: string;
+  date: string;
+  data: any;
+  ecosystem_score: number | null;
+  report_md: string | null;
+  created_at: string;
+}
+
+export interface EcoNodeJSON {
+  id: string;
+  group: number;
+  radius?: number;
+  color?: string;
+  label?: string;
+}
+
+export interface EcosystemDataJSON {
+  nodes: EcoNodeJSON[];
+  links: any[];
+}
+
+// Timeline Types
+export interface TimelineMetricValue {
+  value: number;
+  [key: string]: any;
+}
+
+export interface TimelineMetric {
+  key?: string;
+  label: string;
+  values: Record<string, TimelineMetricValue>;
+}
+
+export interface FundamentalsTimelineResponse {
+  metrics: TimelineMetric[];
+}
+
+export interface PerformanceYear {
+  year: string | number;
+}
+
+export interface PerformanceTimelineResponse {
+  years: PerformanceYear[];
+  metrics: TimelineMetric[];
 }

@@ -25,7 +25,9 @@ import {
 import { 
   FinancialSnapshot, 
   FundamentalsTimelineResponse, 
-  PerformanceTimelineResponse 
+  PerformanceTimelineResponse,
+  TimelineMetric,
+  PerformanceYear
 } from "@/lib/engine/types";
 
 // --- TYPES ---
@@ -148,17 +150,17 @@ export default function SnapshotTab({
     if (!performanceData || !performanceData.years) return [];
     // Transform API structure to Recharts friendly array
     // We'll extract "Total Return" metric
-    const totalReturnMetric = performanceData.metrics?.find((m) => m.key === "total_return" || m.label === "Total Return");
+    const totalReturnMetric = performanceData.metrics?.find((m: TimelineMetric) => m.key === "total_return" || m.label === "Total Return");
     if (!totalReturnMetric) return [];
 
     // Map years to data points
-    return performanceData.years.map((y) => {
+    return performanceData.years.map((y: PerformanceYear) => {
       const valObj = totalReturnMetric.values[y.year.toString()] || {};
       return {
         year: y.year.toString(),
         value: valObj.value,
       };
-    }).sort((a, b) => parseInt(a.year) - parseInt(b.year));
+    }).sort((a: { year: string }, b: { year: string }) => parseInt(a.year) - parseInt(b.year));
   }, [performanceData]);
 
   // C) Financial Metrics (Latest TTM or FY)
@@ -167,7 +169,7 @@ export default function SnapshotTab({
     
     // Helper to find by fuzzy label
     const findByLabel = (labelPart: string) => {
-       return timelineData.metrics?.find((m) => m.label.toLowerCase().includes(labelPart.toLowerCase()));
+       return timelineData.metrics?.find((m: TimelineMetric) => m.label.toLowerCase().includes(labelPart.toLowerCase()));
     };
 
     const extract = (labelPart: string) => {

@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getResumenData, ResumenData } from "@/lib/repository/fintra-db";
+import { fetchResumenDataServer } from "@/lib/actions/resumen";
 import { IFSRadial } from "@/components/visuals/IFSRadial";
-import FinancialsHistoryChart from "@/components/charts/FinancialsHistoryChart";
 import { cn } from "@/lib/utils";
 import DraggableWidget from "@/components/ui/draggable-widget";
 import CompanyInfoWidget from "@/components/widgets/CompanyInfoWidget";
@@ -170,7 +170,8 @@ export default function ResumenCard({
       setLoading(true);
       setError(null);
       try {
-        const fetchedResumen = await getResumenData(currentSymbol);
+        // Use Server Action to bypass RLS/Client limitations
+        const fetchedResumen = await fetchResumenDataServer(currentSymbol);
         if (active && fetchedResumen) setResumen(fetchedResumen);
       } catch (err) {
         console.error("Error fetching resumen:", err);

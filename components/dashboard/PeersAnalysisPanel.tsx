@@ -2,7 +2,8 @@
 // Fintra/components/dashboard/PeersAnalysisPanel.tsx
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import TablaIFS, { EnrichedStockData, sortStocksBySnapshot, mapSnapshotToStockData } from "./TablaIFS";
+import { EnrichedStockData } from "@/lib/engine/types";
+import TablaIFS, { sortStocksBySnapshot, mapSnapshotToStockData } from "./TablaIFS";
 
 interface PeersAnalysisPanelProps {
   symbol: string;

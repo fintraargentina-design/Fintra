@@ -213,9 +213,16 @@ export default function SectorAnalysisPanel({
             fgos_confidence,
             fgos_category,
             fgos_components,
-            valuation_status,
-            competitive_advantage,
-            investment_verdict
+            valuation,
+            market_position,
+            investment_verdict,
+            ifs,
+            ifs_memory,
+            sector_rank,
+            sector_rank_total,
+            fgos_maturity,
+            fgos_status,
+            market_snapshot
           `) // Solo campos necesarios (NO SELECT *)
           .in('ticker', tickers)
           .order('ticker', { ascending: true })

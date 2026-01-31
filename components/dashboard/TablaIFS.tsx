@@ -52,8 +52,9 @@ export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
   const sectorValuationStatus = row.sector_valuation_status ?? valuation.valuation_status ?? null;
 
   // Price & Return
-  const priceEod = row.price_eod ?? marketSnapshot.price ?? marketSnapshot.price_eod ?? null;
-  const ytdReturn = marketState.ytd_return ?? row.return_ytd ?? marketSnapshot.ytd_percent ?? null;
+  // Use row.price (from market_state merge) as primary source for current price
+  const priceEod = row.price ?? row.price_eod ?? marketSnapshot.price ?? marketSnapshot.price_eod ?? null;
+  const ytdReturn = marketState.ytd_return ?? row.ytd_return ?? row.return_ytd ?? marketSnapshot.ytd_percent ?? null;
   const marketCap = marketState.market_cap ?? row.market_cap ?? marketSnapshot.market_cap ?? financialScores.marketCap ?? null;
 
   return {
@@ -66,6 +67,7 @@ export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
     fgosStatus,
     sentimentBand,
     ifs: ifsData,
+    ifsMemory, // Return the memory structure
     strategyState: row.strategy_state ?? row.investment_verdict?.verdict_label ?? null,
     priceEod,
     ytdReturn,
@@ -235,10 +237,10 @@ export default function TablaIFS({
       <table className="w-full text-sm border-collapse m-0 p-0">
         <TableHeader className="sticky top-0 z-10 bg-[#585757]">
           <TableRow className="border-[#1A1A1A] bg-[#585757] border-b border-[#1A1A1A]">
-            <TableHead className="border-r border-[#1A1A1A] px-3 text-zinc-400 font-medium text-[12px] h-4 text-left w-[80px]">Ticker</TableHead>
+            <TableHead className="border-r border-[#1A1A1A] px-3 text-zinc-400 font-medium text-[12px] h-4 text-left w-[60px]">Ticker</TableHead>
             <TableHead className="border-r border-[#1A1A1A] px-1 text-zinc-400 font-medium text-[12px] h-4 text-left w-[40px]">V.R</TableHead>
-            <TableHead className="border-r border-[#1A1A1A] px-2 text-zinc-400 font-medium text-[12px] h-4 text-left w-[80px]">Stage</TableHead>
-            <TableHead className="border-r border-[#1A1A1A] px-2 text-zinc-400 font-medium text-[12px] h-4 text-right w-[100px]">FGOS</TableHead>
+            <TableHead className="border-r border-[#1A1A1A] px-2 text-zinc-400 font-medium text-[12px] h-4 text-left w-[60px]">Stage</TableHead>
+            <TableHead className="border-r border-[#1A1A1A] px-2 text-zinc-400 font-medium text-[12px] h-4 text-right w-[120px]">FGOS</TableHead>
             <TableHead className="border-r border-[#1A1A1A] px-1 text-zinc-400 font-medium text-[12px] h-4 text-center w-[20px]">IFS</TableHead>
             <TableHead className="border-r border-[#1A1A1A] px-3 text-zinc-400 font-medium text-[12px] h-4 text-right w-[80px]">EOD</TableHead>
             <TableHead className="px-3 text-zinc-400 font-medium text-[12px] h-4 text-right w-[80px]">Mkt Cap</TableHead>
@@ -270,7 +272,7 @@ export default function TablaIFS({
                   }`}
                   onClick={() => onRowClick?.(stock.ticker)}
                 >
-                  <TableCell className="border-r border-zinc-800 font-medium text-zinc-200 px-0 py-0 text-xs">{stock.ticker}</TableCell>
+                  <TableCell className="border-r border-zinc-800 font-medium text-zinc-200 pl-1 py-0 text-xs">{stock.ticker}</TableCell>
                   
                   {/* V.R */}
                   <TableCell className="px-1 py-0 flex justify-center">
