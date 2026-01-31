@@ -412,13 +412,13 @@ export default function NoticiasTab({
                                     )}
 
                                     <div className="flex items-center gap-3 text-[10px] text-zinc-500 font-mono">
+                                        <span className="truncate max-w-[150px] font-medium text-zinc-400">
+                                            {item.source}
+                                        </span>
+                                        <span className="text-zinc-600">•</span>
                                         <span className="flex items-center gap-1">
                                             <Clock className="w-3 h-3" />
                                             {formatDate(item.time_published)}
-                                        </span>
-                                        <span className="text-zinc-600">•</span>
-                                        <span className="truncate max-w-[120px] text-zinc-400">
-                                            {item.source}
                                         </span>
                                     </div>
                                 </div>                                
