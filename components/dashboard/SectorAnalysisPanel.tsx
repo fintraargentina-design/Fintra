@@ -1,6 +1,6 @@
 "use client";
 // Fintra/components/dashboard/SectorAnalysisPanel.tsx
-// VERSIÓN CORREGIDA - Sin columna beta (no existe en fintra_market_state)
+// VERSIÓN CORREGIDA - Orchestrates Table and Chart
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { Loader2, AlertCircle } from "lucide-react";
@@ -8,6 +8,7 @@ import TablaIFS, {
   sortStocksBySnapshot, 
   mapSnapshotToStockData 
 } from "./TablaIFS";
+import SectorScatterChart from "./SectorScatterChart";
 import { EnrichedStockData } from "@/lib/engine/types";
 import { MOCK_DATA } from "./mock-data";
 
@@ -34,10 +35,11 @@ export default function SectorAnalysisPanel({
   selectedSector,
   industries = [],
   selectedIndustry = "Todas",
-  selectedCountry
+  selectedCountry,
 }: SectorAnalysisPanelProps) {
 
   const [stocks, setStocks] = useState<EnrichedStockData[]>([]);
+  const [hoveredTicker, setHoveredTicker] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dataQuality, setDataQuality] = useState<DataQuality>({
@@ -177,8 +179,6 @@ export default function SectorAnalysisPanel({
 
       const tickers = marketData.map(m => m.ticker);
       
-      console.log(`📊 Fetched ${marketData.length} companies from market_state`);
-
       // ===== STEP 2: Fetch Latest Snapshots (Optimizado) =====
       
       let snapshots: any[] = [];
@@ -196,13 +196,11 @@ export default function SectorAnalysisPanel({
 
         if (!rpcError && rpcSnapshots) {
           snapshots = rpcSnapshots;
-          console.log(`✅ Fetched ${snapshots.length} snapshots via RPC`);
         } else {
           throw new Error('RPC not available');
         }
       } catch (rpcErr) {
         // Opción B: Fallback a query tradicional optimizada
-        console.warn('⚠️ RPC get_latest_snapshots not found, using fallback');
         
         let fallbackQuery = supabase
           .from('fintra_snapshots')
@@ -222,7 +220,8 @@ export default function SectorAnalysisPanel({
             sector_rank_total,
             fgos_maturity,
             fgos_status,
-            market_snapshot
+            market_snapshot,
+            relative_vs_sector_1y
           `) // Solo campos necesarios (NO SELECT *)
           .in('ticker', tickers)
           .order('ticker', { ascending: true })
@@ -241,7 +240,6 @@ export default function SectorAnalysisPanel({
           // No lanzar error, continuar sin snapshots
         } else {
           snapshots = fallbackSnapshots || [];
-          console.log(`📸 Fetched ${snapshots.length} snapshot records (fallback)`);
         }
       }
 
@@ -328,26 +326,31 @@ export default function SectorAnalysisPanel({
       });
 
       // Debug: mostrar primeros 3 registros
-      if (isNewFetch && mergedData.length > 0) {
-        console.log('🔍 [DEBUG] Merged Data (first 3):', mergedData.slice(0, 3));
-      }
+      // if (isNewFetch && mergedData.length > 0) {
+      //   console.log('🔍 [DEBUG] Merged Data (first 3):', mergedData.slice(0, 3));
+      // }
 
       // ===== STEP 6: Transform to EnrichedStockData =====
       const enriched: EnrichedStockData[] = mergedData.map(mapSnapshotToStockData);
 
       // ===== STEP 7: Update State =====
+      // 5. Sort
+      const sorted = enriched.sort(sortStocksBySnapshot);
+      
       setStocks(prev => {
         if (isNewFetch) {
-          return enriched;
+          return sorted;
         }
         
         // Evitar duplicados al paginar
         const existingTickers = new Set(prev.map(p => p.ticker));
-        const newUnique = enriched.filter(e => !existingTickers.has(e.ticker));
+        const newUnique = sorted.filter(e => !existingTickers.has(e.ticker));
         
         return [...prev, ...newUnique];
       });
       
+      setHasMore(marketData.length === PAGE_SIZE);
+
     } catch (err: any) {
       // No mostrar error si fue cancelación
       if (err.name === 'AbortError' || signal?.aborted) {
@@ -407,120 +410,49 @@ export default function SectorAnalysisPanel({
     };
   }, [selectedSector, selectedIndustry, selectedCountry]);
 
-  /**
-   * Infinite scroll handler
-   */
-  const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-      
-      // Trigger cuando está cerca del fondo
-      if (
-        scrollTop + clientHeight >= scrollHeight - 50 && 
-        hasMore && 
-        !isFetchingMore && 
-        !loading
-      ) {
-        const nextPage = page + 1;
-        setPage(nextPage);
-        
-        // Crear nuevo AbortController para esta página
-        const abortController = new AbortController();
-        fetchData(nextPage, false, abortController.signal);
-      }
-    }
+  // Handle row hover from Table
+  const handleRowHover = (ticker: string | null) => {
+    setHoveredTicker(ticker);
   };
 
-  // ===== RENDER =====
-
-  if (!selectedSector) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-tarjetas text-gray-400 text-xs">
-        Seleccione un sector...
-      </div>
-    );
-  }
-
   return (
-    <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden shadow-sm">
-      
-      {/* Header con información de filtros y data quality */}
-      <div className="w-full h-[20px] bg-[#103765] border-b border-zinc-800 px-2 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-zinc-400">Sector:</span>
-          <span className="text-white font-medium">{selectedSector}</span>
-          
-          {selectedIndustry && selectedIndustry !== "Todas" && selectedIndustry !== "All Industries" && (
-            <>
-              <span className="text-zinc-600">/</span>
-              <span className="text-zinc-400">Industry:</span>
-              <span className="text-white font-medium">{selectedIndustry}</span>
-            </>
-          )}
-        </div>
-
-        {/* Data Quality Indicator */}
-        {!loading && dataQuality.marketDataCount > 0 && (
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-zinc-400">
-              {dataQuality.marketDataCount} companies
-            </span>
-            
-            {dataQuality.completeness < 100 && (
-              <span className="text-yellow-500 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                {dataQuality.completeness.toFixed(0)}% complete
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Error State */}
-      {error && (
-        <div className="w-full p-4 bg-red-500/10 border-b border-red-500/20">
-          <div className="flex items-center gap-2 text-red-400 text-sm">
+    <div className="flex flex-col h-full w-full bg-[#0A0A0A]">
+      {/* Top Section: Table (60%) */}
+      <div className="h-[60%] w-full flex flex-col min-h-0 border-b border-zinc-800">
+        
+        {error ? (
+          <div className="p-4 text-red-500 flex items-center gap-2">
             <AlertCircle className="w-4 h-4" />
             <span>{error}</span>
           </div>
-        </div>
-      )}
-
-      {/* Content Area */}
-      <div 
-        className="flex-1 overflow-y-auto border-b border-zinc-800 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent min-h-0 relative"
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-      >
-        {loading && stocks.length === 0 ? (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
-          </div>
         ) : (
-          <div className="min-w-full block align-top">
-            <TablaIFS 
-              data={stocks} 
-              isLoading={loading}
-              isFetchingMore={isFetchingMore}
-              onRowClick={onStockSelect} 
-              selectedTicker={selectedTicker}
-            />
-            
-            {/* Loading More Indicator */}
-            {isFetchingMore && (
-              <div className="w-full py-4 flex justify-center">
-                <Loader2 className="w-5 h-5 animate-spin text-zinc-500" />
-              </div>
-            )}
-            
-            {/* End of List */}
-            {!hasMore && stocks.length > 0 && (
-              <div className="w-full py-4 text-center text-xs text-zinc-500">
-                End of results ({stocks.length} companies)
-              </div>
-            )}
-          </div>
+          <TablaIFS
+            data={stocks}
+            isLoading={loading && page === 0}
+            isFetchingMore={isFetchingMore}
+            onRowClick={(ticker) => onStockSelect?.(ticker)}
+            onRowHover={handleRowHover}
+            selectedTicker={selectedTicker}
+            onScroll={(e) => {
+              const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+              if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMore && !isFetchingMore && !loading) {
+                const nextPage = page + 1;
+                setPage(nextPage);
+                fetchData(nextPage, false);
+              }
+            }}
+            scrollRef={scrollContainerRef}
+          />
         )}
+      </div>
+
+      {/* Bottom Section: Chart (40%) */}
+      <div className="h-[40%] w-full min-h-0 relative">
+        <SectorScatterChart 
+          data={stocks}
+          hoveredTicker={hoveredTicker}
+          activeTicker={selectedTicker}
+        />
       </div>
     </div>
   );

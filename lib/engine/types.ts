@@ -313,6 +313,7 @@ export interface EnrichedStockData {
   strategyState: string | null;
   priceEod: number | null;
   ytdReturn: number | null;
+  relativeReturn1Y?: number | null;
   marketCap: number | null;
 }
 

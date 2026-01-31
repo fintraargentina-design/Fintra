@@ -20,6 +20,7 @@ import type { OHLC } from "@/lib/fmp/types";
 import { getBenchmarkTicker } from "@/lib/services/benchmarkService";
 import { alignSeries, normalizeRebase100, calculateDrawdown } from "@/lib/utils/finance-math";
 import FGOSRadarChart from "@/components/charts/FGOSRadarChart";
+import BalanceBarChart from "@/components/charts/BalanceBarChart";
 import { supabase } from "@/lib/supabase";
 
 echarts.use([
@@ -102,6 +103,7 @@ const VIEWS = [
   { key: "rel", label: "Relativo" },
   { key: "drawdown", label: "Drawdown" },
   { key: "fgos", label: "FGOS" },
+  { key: "balance", label: "Balance" },
 ] as const;
 type View = typeof VIEWS[number]["key"];
 
@@ -624,6 +626,14 @@ export default function ChartsTabHistoricos({
             comparedSymbol={comparedSymbols.length > 0 ? comparedSymbols[0] : null}
             isActive={isActive && view === 'fgos'}
           />
+        </div>
+      );
+    }
+
+    if (view === 'balance') {
+      return (
+        <div className="h-full w-full p-4">
+          <BalanceBarChart symbol={symbol} />
         </div>
       );
     }

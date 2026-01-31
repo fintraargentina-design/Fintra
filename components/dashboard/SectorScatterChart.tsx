@@ -1,8 +1,8 @@
 "use client";
 // SectorScatterChart.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
-import { supabase } from '@/lib/supabase';
+import { EnrichedStockData } from '@/lib/engine/types';
 
 const ACTIVE_WINDOW = '1Y';
 
@@ -13,6 +13,8 @@ const COLORS = {
   laggard: '#ef4444',  // Red
   default: '#6b7280'   // Gray (fallback)
 };
+
+const ACTIVE_COLOR = '#3b82f6'; // Bright Blue for active selection
 
 interface ScatterPoint {
   ticker: string;
@@ -30,354 +32,200 @@ interface ScatterPoint {
   };
 }
 
+interface SectorScatterChartProps {
+  data: EnrichedStockData[];
+  hoveredTicker: string | null;
+  activeTicker?: string;
+}
+
 export default function SectorScatterChart({ 
-  selectedSector,
-  selectedIndustry,
-  selectedCountry 
-}: { 
-  selectedSector?: string;
-  selectedIndustry?: string;
-  selectedCountry?: string;
-}) {
-  const [data, setData] = useState<ScatterPoint[]>([]);
-  const [loading, setLoading] = useState(false);
+  data: rawData,
+  hoveredTicker,
+  activeTicker
+}: SectorScatterChartProps) {
+  
+  const chartPoints = useMemo(() => {
+    if (!rawData || rawData.length === 0) return [];
 
-  useEffect(() => {
-    if (!selectedSector || selectedSector === 'All Sectors') {
-      setData([]);
-      return;
-    }
+    // Calculate min/max log market cap for sizing
+    let minLogCap = Infinity;
+    let maxLogCap = -Infinity;
+    
+    // Filter valid data first
+    const validData = rawData.filter(item => 
+      item.fgosScore !== null && 
+      item.fgosScore !== undefined &&
+      item.relativeReturn1Y !== null && 
+      item.relativeReturn1Y !== undefined &&
+      item.ifs?.position
+    );
 
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Step 1: Get tickers matching filters from market_state
-        let tickerQuery = supabase
-          .from('fintra_market_state')
-          .select('ticker, market_cap')
-          .eq('sector', selectedSector);
-
-        if (selectedIndustry && selectedIndustry !== 'All Industries' && selectedIndustry !== 'Todas') {
-          tickerQuery = tickerQuery.eq('industry', selectedIndustry);
-        }
-
-        if (selectedCountry && selectedCountry !== 'All Countries') {
-          tickerQuery = tickerQuery.eq('country', selectedCountry);
-        }
-
-        const { data: marketData, error: marketError } = await tickerQuery;
-
-        if (marketError) throw marketError;
-
-        if (!marketData || marketData.length === 0) {
-          setData([]);
-          return;
-        }
-
-        const tickers = marketData.map(d => d.ticker);
-        const marketCapMap = new Map(marketData.map(d => [d.ticker, d.market_cap]));
-
-        // Step 2: Fetch recent snapshots for these tickers (last 30 days) to find the latest per ticker
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - 30);
-        const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
-
-        const { data: rawSnapshots, error } = await supabase
-          .from('fintra_snapshots')
-          .select(`
-            ticker,
-            snapshot_date,
-            relative_vs_sector_${ACTIVE_WINDOW.toLowerCase()},
-            fgos_score,
-            ifs,
-            fgos_components,
-            market_snapshot
-          `)
-          .in('ticker', tickers)
-          .gte('snapshot_date', cutoffDateStr)
-          .order('snapshot_date', { ascending: false });
-
-        if (error) throw error;
-
-        if (!rawSnapshots || rawSnapshots.length === 0) {
-          setData([]);
-          return;
-        }
-
-        // Step 3: Deduplicate - Keep only the latest snapshot per ticker
-        const uniqueSnapshots = new Map();
-        rawSnapshots.forEach((snap: any) => {
-          if (!uniqueSnapshots.has(snap.ticker)) {
-            uniqueSnapshots.set(snap.ticker, snap);
-          }
-        });
-        
-        const snapshots = Array.from(uniqueSnapshots.values());
-
-        // Transform to scatter points
-        const validPoints: ScatterPoint[] = [];
-        
-        // Calculate min/max log market cap for sizing
-        let minLogCap = Infinity;
-        let maxLogCap = -Infinity;
-
-        snapshots.forEach((snap: any) => {
-          // Strict data rules: skip if missing core metrics
-          if (
-            snap.fgos_score === null || 
-            snap[`relative_vs_sector_${ACTIVE_WINDOW.toLowerCase()}`] === null || 
-            !snap.ifs?.position
-          ) {
-            return;
-          }
-
-          // Use market_cap from market_state map if not in snapshot
-          const marketCap = snap.market_snapshot?.market_cap || marketCapMap.get(snap.ticker) || 0;
-          
-          if (marketCap > 0) {
-            const logCap = Math.log10(marketCap);
-            if (logCap < minLogCap) minLogCap = logCap;
-            if (logCap > maxLogCap) maxLogCap = logCap;
-          }
-        });
-
-        // Avoid division by zero
-        const capRange = maxLogCap - minLogCap || 1;
-
-        snapshots.forEach((snap: any) => {
-          // Re-check validity inside loop
-          if (
-            snap.fgos_score === null || 
-            snap[`relative_vs_sector_${ACTIVE_WINDOW.toLowerCase()}`] === null || 
-            !snap.ifs?.position
-          ) {
-            return;
-          }
-
-          const ifsPos = snap.ifs.position as keyof typeof COLORS;
-          const color = COLORS[ifsPos] || COLORS.default;
-          
-          // Use market_cap from market_state map if not in snapshot
-          const marketCap = snap.market_snapshot?.market_cap || marketCapMap.get(snap.ticker) || 0;
-          let size = 10; // Default size
-          
-          if (marketCap > 0) {
-            const logCap = Math.log10(marketCap);
-            // Scale between 5 and 30
-            size = 5 + ((logCap - minLogCap) / capRange) * 25;
-          }
-
-          // Extract sentiment from fgos_components
-          const sentimentDetails = snap.fgos_components?.sentiment_details;
-          let sentiment = undefined;
-          
-          if (sentimentDetails) {
-            sentiment = {
-              band: sentimentDetails.band || 'insufficient data',
-              confidence: sentimentDetails.confidence,
-              sampleSize: sentimentDetails.sample_size,
-              horizon: sentimentDetails.horizon || sentimentDetails.time_horizon
-            };
-          }
-
-          validPoints.push({
-            ticker: snap.ticker,
-            x: Number(snap[`relative_vs_sector_${ACTIVE_WINDOW.toLowerCase()}`].toFixed(2)),
-            y: snap.fgos_score,
-            size,
-            color,
-            ifsPosition: ifsPos,
-            marketCap,
-            sentiment
-          });
-        });
-
-        setData(validPoints);
-
-      } catch (err) {
-        console.error('Error fetching scatter data:', err);
-      } finally {
-        setLoading(false);
+    validData.forEach(item => {
+      const marketCap = item.marketCap || 0;
+      if (marketCap > 0) {
+        const logCap = Math.log10(marketCap);
+        if (logCap < minLogCap) minLogCap = logCap;
+        if (logCap > maxLogCap) maxLogCap = logCap;
       }
-    };
+    });
 
-    fetchData();
-  }, [selectedSector, selectedIndustry, selectedCountry]);
+    const capRange = maxLogCap - minLogCap || 1;
 
-  // ECharts Option
-  const option = {
-    backgroundColor: '#0A0A0A',
-    grid: {
-      left: '8%',
-      right: '8%',
-      top: '10%',
-      bottom: '10%'
-    },
-    tooltip: {
-      trigger: 'item',
-      confine: true,
-      enterable: false,
-      extraCssText: 'pointer-events: none;',
-      backgroundColor: 'rgba(20, 20, 20, 0.95)',
-      borderColor: '#333',
-      textStyle: {
-        color: '#eee',
-        fontSize: 12
+    return validData.map(item => {
+      const ifsPos = (item.ifs?.position || 'default') as keyof typeof COLORS;
+      // Base color from IFS position, but will be overridden in render if active
+      const baseColor = COLORS[ifsPos] || COLORS.default;
+      
+      const marketCap = item.marketCap || 0;
+      let size = 10;
+      
+      if (marketCap > 0) {
+        const logCap = Math.log10(marketCap);
+        // Scale between 5 and 30
+        size = 5 + ((logCap - minLogCap) / capRange) * 25;
+      }
+
+      // Extract sentiment
+      // Note: EnrichedStockData might not have deep nested sentiment_details in fgos_components
+      // We'll use what's available or adapt based on EnrichedStockData structure
+      // For now, using top level sentimentBand if available, or placeholder
+      const sentiment = {
+        band: item.sentimentBand || 'insufficient data',
+        confidence: null, // Add if available in EnrichedStockData
+        sampleSize: undefined,
+        horizon: undefined
+      };
+
+      return {
+        ticker: item.ticker,
+        x: item.relativeReturn1Y, // Relative Performance vs Sector
+        y: item.fgosScore, // FGOS Score
+        size,
+        color: baseColor,
+        ifsPosition: ifsPos,
+        marketCap,
+        sentiment
+      };
+    });
+  }, [rawData]);
+
+  const option = useMemo(() => {
+    return {
+      grid: {
+        top: 40,
+        right: 30,
+        bottom: 40,
+        left: 50,
+        containLabel: true
       },
-      padding: 12,
-      formatter: (params: any) => {
-        const p = params.data as ScatterPoint & { value: any[] };
-        // Value[0] = X, Value[1] = Y, Value[2] = Ticker (mapped below)
-        
-        // Find the point data from our state (or passed in data)
-        // ECharts passes the data object if we structure it right
-        const point = params.data as any; 
-        
-        const formatMoney = (val: number) => {
-          if (val >= 1e12) return `$${(val / 1e12).toFixed(1)}T`;
-          if (val >= 1e9) return `$${(val / 1e9).toFixed(1)}B`;
-          if (val >= 1e6) return `$${(val / 1e6).toFixed(1)}M`;
-          return `$${val.toLocaleString()}`;
-        };
-
-        const sentimentInfo = point.sentiment 
-          ? `
-            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #333;">
-              <div style="color: #888; font-size: 11px; margin-bottom: 2px;">NEWS SENTIMENT</div>
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
-                <span style="color: ${
-                  point.sentiment.band === 'optimistic' ? '#10b981' : 
-                  point.sentiment.band === 'pessimistic' ? '#ef4444' : '#fbbf24'
-                }">${point.sentiment.band.toUpperCase()}</span>
-                ${point.sentiment.confidence ? `<span style="color: #666; font-size: 10px;">Conf: ${point.sentiment.confidence}%</span>` : ''}
-              </div>
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: #666; font-size: 10px;">Sample: ${point.sentiment.sampleSize ?? 'unavailable'}</span>
-                <span style="color: #666; font-size: 10px;">Horizon: ${point.sentiment.horizon ?? 'unavailable'}</span>
-              </div>
+      tooltip: {
+        trigger: 'item',
+        formatter: (params: any) => {
+          const pt = params.data;
+          return `
+            <div class="font-bold mb-1">${pt.ticker}</div>
+            <div class="text-xs text-zinc-400 mb-2">
+              Market Cap: $${(pt.marketCap / 1e9).toFixed(2)}B
             </div>
-          `
-          : `
-            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #333;">
-              <span style="color: #666; font-style: italic; font-size: 11px;">News sentiment: insufficient data</span>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              <span class="text-zinc-500">FGOS:</span>
+              <span class="font-mono text-right">${pt.y?.toFixed(0)}</span>
+              <span class="text-zinc-500">Rel Perf:</span>
+              <span class="font-mono text-right">${pt.x > 0 ? '+' : ''}${pt.x?.toFixed(1)}%</span>
             </div>
           `;
-
-        return `
-          <div style="min-width: 180px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-              <span style="font-weight: bold; font-size: 14px; color: #fff;">${point.name}</span>
-              <span style="
-                background-color: ${point.itemStyle.color}20; 
-                color: ${point.itemStyle.color}; 
-                padding: 2px 6px; 
-                border-radius: 4px; 
-                font-size: 10px; 
-                text-transform: uppercase; 
-                font-weight: 600;
-              ">${point.ifsPosition}</span>
-            </div>
-            <div style="color: #888; font-size: 11px; margin-bottom: 8px;">${formatMoney(point.marketCap)}</div>
+        },
+        backgroundColor: '#18181b',
+        borderColor: '#27272a',
+        textStyle: { color: '#e4e4e7' }
+      },
+      xAxis: {
+        type: 'value',
+        name: 'Rel Perf (1Y)',
+        nameLocation: 'middle',
+        nameGap: 25,
+        splitLine: {
+          lineStyle: { color: '#27272a' }
+        },
+        axisLabel: { color: '#71717a' },
+        axisLine: { lineStyle: { color: '#52525b' } }
+      },
+      yAxis: {
+        type: 'value',
+        name: 'FGOS Score',
+        min: 0,
+        max: 100,
+        splitLine: {
+          lineStyle: { color: '#27272a' }
+        },
+        axisLabel: { color: '#71717a' },
+        axisLine: { lineStyle: { color: '#52525b' } }
+      },
+      series: [
+        {
+          type: 'scatter',
+          symbolSize: (data: any) => data?.size || 10,
+          data: chartPoints.map(pt => {
+            const isHovered = hoveredTicker === pt.ticker;
+            const isActive = activeTicker === pt.ticker;
+            const hasInteraction = !!hoveredTicker || !!activeTicker;
             
-            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-              <span style="color: #aaa;">FGOS Score:</span>
-              <span style="color: #fff; font-weight: 500;">${point.value[1]}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: #aaa;">Rel. Perf (1Y):</span>
-              <span style="color: ${point.value[0] >= 0 ? '#10b981' : '#ef4444'}; font-weight: 500;">
-                ${point.value[0] > 0 ? '+' : ''}${point.value[0]}%
-              </span>
-            </div>
+            // Visual Rules Implementation:
+            // 1. Active: Blue, Opacity 1, High Z-Index
+            // 2. Hovered: Normal Color (or Blue if active), Opacity 1, Highest Z-Index
+            // 3. Dimmed: If interaction exists and point is neither active nor hovered -> Opacity 0.2
+            
+            const isHighlighted = isActive || isHovered;
+            const isDimmed = hasInteraction && !isHighlighted;
+            
+            let finalColor = pt.color;
+            let opacity = 0.8;
+            let z = 2;
+            let borderColor = '#000';
+            let borderWidth = 1;
 
-            ${sentimentInfo}
-          </div>
-        `;
-      }
-    },
-    xAxis: {
-      type: 'value',
-      name: `Relative Performance vs Sector (${ACTIVE_WINDOW})`,
-      nameLocation: 'middle',
-      nameGap: 30,
-      min: -50,
-      max: 50,
-      nameTextStyle: { color: '#666', fontSize: 11 },
-      splitLine: {
-        lineStyle: {
-          color: '#222',
-          type: 'dashed'
-        }
-      },
-      axisLine: {
-        lineStyle: { color: '#444' }
-      },
-      axisLabel: {
-        color: '#666',
-        formatter: '{value}%'
-      },
-      // Center line at 0
-      axisPointer: {
-        show: true,
-        snap: true
-      }
-    },
-    yAxis: {
-      type: 'value',
-      name: 'FGOS Score',
-      min: 0,
-      max: 100,
-      nameTextStyle: { color: '#666', fontSize: 11 },
-      splitLine: {
-        lineStyle: {
-          color: '#222'
-        }
-      },
-      axisLine: {
-        show: false
-      },
-      axisLabel: {
-        color: '#666'
-      }
-    },
-    series: [
-      {
-        name: 'Companies',
-        type: 'scatter',
-        // Map data to ECharts format: [x, y, ...extras]
-        data: data.map(pt => ({
-          name: pt.ticker,
-          value: [pt.x, pt.y],
-          symbolSize: pt.size,
+            if (isActive) {
+              finalColor = ACTIVE_COLOR; // Blue
+              opacity = 1;
+              z = 10;
+              borderColor = '#fff';
+              borderWidth = 2;
+            }
+            
+            // Hover overrides z-index to bring to front, but keeps active color if active
+            if (isHovered) {
+              opacity = 1;
+              z = 20; 
+              borderColor = '#fff';
+              borderWidth = 2;
+            }
+
+            if (isDimmed) {
+              opacity = 0.2;
+              borderColor = 'transparent'; // Remove border for dimmed
+            }
+
+            return {
+              ...pt,
+              itemStyle: {
+                color: finalColor,
+                opacity: opacity,
+                borderColor: borderColor,
+                borderWidth: borderWidth
+              },
+              z: z
+            };
+          }),
           itemStyle: {
-            color: pt.color,
-            borderColor: '#000',
-            borderWidth: 1,
-            opacity: 0.8
-          },
-          // Pass custom data for tooltip
-          ifsPosition: pt.ifsPosition,
-          marketCap: pt.marketCap,
-          sentiment: pt.sentiment
-        })),
-        markLine: {
-          silent: true,
-          symbol: 'none',
-          lineStyle: {
-            color: '#333',
-            type: 'solid',
-            width: 1
-          },
-          data: [
-            { yAxis: 50, label: { show: false } },
-            { xAxis: 0, label: { show: false } }
-          ]
+            shadowBlur: 2,
+            shadowColor: 'rgba(0, 0, 0, 0.5)'
+          }
         }
-      }
-    ]
-  };
+      ]
+    };
+  }, [chartPoints, hoveredTicker, activeTicker]);
 
-  if (!selectedSector) {
+  if (!rawData || rawData.length === 0) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-[#0A0A0A] text-zinc-600 text-xs">
         Select a sector to view structural positioning
@@ -387,11 +235,6 @@ export default function SectorScatterChart({
 
   return (
     <div className="w-full h-full bg-[#0A0A0A] relative">
-      {loading && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="text-zinc-400 text-xs animate-pulse">Loading sector structure...</div>
-        </div>
-      )}
       <ReactECharts 
         option={option} 
         style={{ height: '100%', width: '100%' }} 

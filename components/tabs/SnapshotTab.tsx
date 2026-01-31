@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 import {
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -11,8 +11,9 @@ import {
   Legend,
   ResponsiveContainer,
   ReferenceLine,
+  AreaChart,
+  Area,
 } from "recharts";
-import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -22,23 +23,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
-  FinancialSnapshot, 
-  FundamentalsTimelineResponse, 
-  PerformanceTimelineResponse,
-  TimelineMetric,
-  PerformanceYear
-} from "@/lib/engine/types";
+import { FinancialSnapshot } from "@/lib/engine/types";
 import PeersAnalysisPanel from "@/components/dashboard/PeersAnalysisPanel";
 
 // --- TYPES ---
 
 interface SnapshotTabProps {
-  stockAnalysis: FinancialSnapshot | any; // Contains snapshot data (relative_return, scores, etc.)
-  stockPerformance?: any;
-  stockBasicData?: any; // Contains market_cap, etc.
+  stockAnalysis: FinancialSnapshot | any; // Read-only from fintra_snapshots
   symbol: string;
   peerTicker?: string | null;
+  // Deprecated/Unused props kept for interface compatibility if needed, but ignored
+  stockPerformance?: any;
+  stockBasicData?: any;
   ratios?: any;
   metrics?: any;
 }
@@ -47,7 +43,7 @@ interface SnapshotTabProps {
 
 function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <div className="flex flex-row justify-between items-baseline pb-3 border-b border-zinc-800 mb-4">
+    <div className="flex flex-row justify-between items-baseline pb-1 ">
       <h3 className="text-[#FFA028] text-xs font-bold uppercase tracking-wider">
         {title}
       </h3>
@@ -56,228 +52,133 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
   );
 }
 
-
-
-// --- FORMATTERS ---
-
-const formatCurrency = (val: number | null | undefined) => {
-  if (val === null || val === undefined) return "N/D";
-  if (Math.abs(val) >= 1e9) return `$${(val / 1e9).toFixed(2)}B`;
-  if (Math.abs(val) >= 1e6) return `$${(val / 1e6).toFixed(2)}M`;
-  return `$${val.toLocaleString()}`;
-};
-
-const formatNumber = (val: number | null | undefined, decimals = 2) => {
-  if (val === null || val === undefined) return "N/D";
-  return val.toLocaleString("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-};
-
-const formatPercent = (val: number | null | undefined) => {
-  if (val === null || val === undefined) return "-";
-  const sign = val > 0 ? "+" : "";
-  return `${sign}${(val * 100).toFixed(2)}%`;
-};
-
 // --- MAIN COMPONENT ---
 
 export default function SnapshotTab({
   stockAnalysis,
-  stockBasicData,
   symbol,
   peerTicker,
-  ratios: ratiosProp,
-  metrics: metricsProp,
 }: SnapshotTabProps) {
-  const [timelineData, setTimelineData] = useState<FundamentalsTimelineResponse | null>(null);
-  const [performanceData, setPerformanceData] = useState<PerformanceTimelineResponse | null>(null);
-  const [loadingHistory, setLoadingHistory] = useState(true);
-
-  // 1. Fetch Fundamentals Timeline (for Financial Metrics)
-  useEffect(() => {
-    let active = true;
-    async function fetchFundamentals() {
-      try {
-        const res = await fetch(`/api/analysis/fundamentals-timeline?ticker=${symbol}`);
-        if (res.ok && active) {
-          const json = await res.json();
-          setTimelineData(json);
-        }
-      } catch (e) {
-        console.warn("Fundamentals fetch failed", e);
-      }
-    }
-    if (symbol) fetchFundamentals();
-    return () => { active = false; };
-  }, [symbol]);
-
-  // 2. Fetch Performance Timeline (for Historical Chart)
-  useEffect(() => {
-    let active = true;
-    setLoadingHistory(true);
-    async function fetchPerformance() {
-      try {
-        const res = await fetch(`/api/analysis/performance-timeline?ticker=${symbol}`);
-        if (res.ok && active) {
-          const json = await res.json();
-          setPerformanceData(json);
-        }
-      } catch (e) {
-        console.warn("Performance fetch failed", e);
-      } finally {
-        if (active) setLoadingHistory(false);
-      }
-    }
-    if (symbol) fetchPerformance();
-    return () => { active = false; };
-  }, [symbol]);
-
-  // --- DATA PREPARATION ---
-
-  // A) Relative Result
-  const relativeReturn = stockAnalysis?.relative_return || {};
-  const relativeRows = [
-    { label: "1W", key: "1W" },
-    { label: "1M", key: "1M" },
-    { label: "YTD", key: "YTD" },
-    { label: "1Y", key: "1Y" },
-    { label: "3Y", key: "3Y" },
-    { label: "5Y", key: "5Y" },
-  ];
-
-  // B) Historical Chart Data
-  const chartSeries = useMemo(() => {
-    if (!performanceData || !performanceData.years) return [];
-    // Transform API structure to Recharts friendly array
-    // We'll extract "Total Return" metric
-    const totalReturnMetric = performanceData.metrics?.find((m: TimelineMetric) => m.key === "total_return" || m.label === "Total Return");
-    if (!totalReturnMetric) return [];
-
-    // Map years to data points
-    return performanceData.years.map((y: PerformanceYear) => {
-      const valObj = totalReturnMetric.values[y.year.toString()] || {};
-      return {
-        year: y.year.toString(),
-        value: valObj.value,
-      };
-    }).sort((a: { year: string }, b: { year: string }) => parseInt(a.year) - parseInt(b.year));
-  }, [performanceData]);
-
-  // C) Financial Metrics (Latest TTM or FY)
-  const financialMetrics = useMemo(() => {
-    if (!timelineData) return {};
+  
+  // 1. Prepare Vs Market Data (Time Series / Windows)
+  const marketChartData = useMemo(() => {
+    const rr = stockAnalysis?.relative_return || {};
+    const windows = ['1Y', '3Y', '5Y'];
     
-    // Helper to find by fuzzy label
-    const findByLabel = (labelPart: string) => {
-       return timelineData.metrics?.find((m: TimelineMetric) => m.label.toLowerCase().includes(labelPart.toLowerCase()));
-    };
+    return windows.map(w => {
+        const data = rr[w];
+        if (!data) return null;
+        return {
+            window: w,
+            Company: data.asset_return, // Capitalized for Legend
+            Market: data.benchmark_return,
+            drawdown: data.asset_max_drawdown
+        };
+    }).filter(item => item !== null && item.Company != null && item.Market != null);
+  }, [stockAnalysis]);
 
-    const extract = (labelPart: string) => {
-       const m = findByLabel(labelPart);
-       if (!m) return null;
-       const periods = Object.keys(m.values);
-       // We prefer TTM, then FY. 
-       // The API usually keys by "2024", "2023".
-       // We'll take the latest available key.
-       const latestKey = periods.sort((a,b) => parseInt(b) - parseInt(a))[0];
-       return m.values[latestKey];
-    };
+  // 2. Prepare Vs Sector & Industry Data (Historical Comparison - Alphas)
+  const sectorIndustryData = useMemo(() => {
+    const windows = [
+        { key: '1y', label: '1Y' }, 
+        { key: '3y', label: '3Y' }, 
+        { key: '5y', label: '5Y' }
+    ];
+    
+    return windows.map(w => {
+        // Explicit fields from snapshot
+        const sectorAlpha = stockAnalysis?.[`relative_vs_sector_${w.key}`];
+        const industryAlpha = stockAnalysis?.[`relative_vs_industry_${w.key}`];
+        
+        // If both are null, skip? Or show as 0? Better skip or show null.
+        if (sectorAlpha == null && industryAlpha == null) return null;
 
-    return {
-      revenue: extract("Revenue"),
-      netIncome: extract("Net Income"),
-      assets: extract("Total Assets"),
-      liabilities: extract("Total Liabilities"),
-      fcf: extract("Free Cash Flow"),
-      debt: extract("Total Debt"),
-      operatingMargin: extract("Operating Margin"),
-      ebitda: extract("EBITDA")
-    };
-  }, [timelineData]);
-
-  // Helper for EBIT calculation
-  const ebitValue = useMemo(() => {
-    if (financialMetrics.revenue?.value && financialMetrics.operatingMargin?.value) {
-        return financialMetrics.revenue.value * (financialMetrics.operatingMargin.value / 100);
-    }
-    return financialMetrics.ebitda?.value || null;
-  }, [financialMetrics]);
-
-  // D) Technical Ratios
-  // Prioritize Snapshot (stockAnalysis), then Live TTM (props), then Basic Data
-  const ratios = {
-    altman: stockAnalysis?.altman_z ?? stockAnalysis?.metrics?.altmanZScore ?? metricsProp?.altmanZScore,
-    piotroski: stockAnalysis?.piotroski_score ?? stockAnalysis?.metrics?.piotroskiScore ?? metricsProp?.piotroskiScore,
-    currentRatio: stockAnalysis?.metrics?.currentRatio ?? ratiosProp?.currentRatioTTM ?? stockBasicData?.current_ratio,
-    debtEquity: stockAnalysis?.metrics?.debtEquityRatio ?? ratiosProp?.debtEquityRatioTTM ?? stockBasicData?.debt_equity,
-    roe: stockAnalysis?.metrics?.roe ?? ratiosProp?.returnOnEquityTTM ?? stockBasicData?.roe,
-  };
+        return {
+            window: w.label,
+            'vs Sector': sectorAlpha,
+            'vs Industry': industryAlpha
+        };
+    }).filter(item => item !== null);
+  }, [stockAnalysis]);
 
   const snapshotDate = stockAnalysis?.snapshot_date || new Date().toISOString().split('T')[0];
   const sectorRank = stockAnalysis?.sector_rank;
   const sectorRankTotal = stockAnalysis?.sector_rank_total;
 
   return (
-    <div className="flex flex-col gap-1 p-1 bg-transparent min-h-screen text-zinc-200 font-sans">
+    <div className="flex flex-col gap-2 p-1 bg-transparent min-h-screen text-zinc-200 font-sans">
       
-      {/* 1) RESULTADO RELATIVO */}
-      <section>
+      {/* A. VS MARKET */}
+      <section className="flex flex-col h-[320px]">
         <SectionHeader 
-          title="Resultado Relativo" 
-          subtitle={`Datos al snapshot: ${snapshotDate}${sectorRank && sectorRankTotal ? ` • Rank Sectorial: #${sectorRank} de ${sectorRankTotal}` : ''}`} 
+          title="Vs Market (Contextual)" 
+          subtitle={`Windows: 1Y, 3Y, 5Y • Neutral Colors`} 
         />
-        <div className="bg-zinc-900/20">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-zinc-800 hover:bg-transparent">
-                <TableHead className="h-6 text-[9px] uppercase tracking-wider text-zinc-500 font-medium">Ventana</TableHead>
-                <TableHead className="h-6 text-[9px] uppercase tracking-wider text-zinc-500 font-medium text-right">vs Sector</TableHead>
-                <TableHead className="h-6 text-[9px] uppercase tracking-wider text-zinc-500 font-medium text-right">vs Mercado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {relativeRows.map((row) => {
-                // Construct property names for explicit columns
-                // e.g. relative_vs_sector_1w
-                const sectorKey = `relative_vs_sector_${row.key}` as keyof FinancialSnapshot;
-                const marketKey = `relative_vs_market_${row.key}` as keyof FinancialSnapshot;
-
-                const sectorVal = stockAnalysis?.[sectorKey] as number | null | undefined;
-                const marketVal = stockAnalysis?.[marketKey] as number | null | undefined;
-
-                return (
-                  <TableRow key={row.key} className="border-zinc-800/30 hover:bg-transparent">
-                    <TableCell className="py-1 text-[11px] font-mono text-zinc-400">{row.label}</TableCell>
-                    <TableCell className="py-1 text-[11px] font-mono text-right text-zinc-300">
-                      {formatPercent(sectorVal)}
-                    </TableCell>
-                    <TableCell className="py-1 text-[11px] font-mono text-right text-zinc-300">
-                      {formatPercent(marketVal)}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+        <div className="flex-1 w-full bg-zinc-900/20 p-2 border border-zinc-800/30 rounded-sm">
+            {marketChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={marketChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                        <XAxis 
+                            dataKey="window" 
+                            stroke="#52525b" 
+                            tick={{fontSize: 10}} 
+                            tickLine={false}
+                            axisLine={false}
+                        />
+                        <YAxis 
+                            stroke="#52525b" 
+                            tick={{fontSize: 10}} 
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={(val) => `${val}%`}
+                        />
+                        <Tooltip 
+                            cursor={{ fill: '#27272a', opacity: 0.4 }}
+                            contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', fontSize: '12px' }}
+                            itemStyle={{ color: '#e4e4e7' }}
+                            formatter={(val: number) => [`${val.toFixed(2)}%`, "Return"]}
+                            labelStyle={{ color: '#a1a1aa', marginBottom: '4px' }}
+                        />
+                        <Legend 
+                            wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} 
+                            iconSize={8}
+                        />
+                        <Bar dataKey="Company" fill="#e4e4e7" radius={[2, 2, 0, 0]} maxBarSize={40} />
+                        <Bar dataKey="Market" fill="#52525b" radius={[2, 2, 0, 0]} maxBarSize={40} />
+                    </BarChart>
+                </ResponsiveContainer>
+            ) : (
+                <div className="flex items-center justify-center h-full text-zinc-600 text-xs">
+                    Insufficient Market Comparison Data
+                </div>
+            )}
         </div>
       </section>
 
-      {/* 2) PERFORMANCE HISTÓRICA */}
-      <section className="h-[300px] flex flex-col">
-        <SectionHeader title="Performance Relativa vs Sector e Industria" />
-        <div className="flex-1 w-full bg-zinc-900/20 p-2 relative">
-            {loadingHistory ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <Loader2 className="w-5 h-5 animate-spin text-zinc-600" />
-                </div>
-            ) : chartSeries.length > 0 ? (
+      {/* B. VS SECTOR & INDUSTRY */}
+      <section className="flex flex-col h-[320px]">
+        <SectionHeader 
+            title="Vs Sector & Industry (Alpha)" 
+            subtitle="Historical Outperformance/Underperformance"
+        />
+        <div className="flex-1 w-full bg-zinc-900/20 p-4 border border-zinc-800/30 rounded-sm">
+            {sectorIndustryData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartSeries}>
+                    <AreaChart data={sectorIndustryData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <defs>
+                            <linearGradient id="colorSector" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                            </linearGradient>
+                            <linearGradient id="colorIndustry" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                            </linearGradient>
+                        </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                         <XAxis 
-                            dataKey="year" 
+                            dataKey="window" 
                             stroke="#52525b" 
                             tick={{fontSize: 10}} 
                             tickLine={false}
@@ -293,40 +194,55 @@ export default function SnapshotTab({
                         <Tooltip 
                             contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', fontSize: '12px' }}
                             itemStyle={{ color: '#e4e4e7' }}
-                            formatter={(val: number) => [`${(val * 100).toFixed(2)}%`, "Retorno"]}
+                            formatter={(val: number) => [`${(val * 100).toFixed(2)}%`, "Alpha"]}
                         />
-                        <Line 
+                        <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} iconSize={8} />
+                        <ReferenceLine y={0} stroke="#52525b" strokeDasharray="3 3" />
+                        
+                        <Area 
                             type="monotone" 
-                            dataKey="value" 
-                            stroke="#e4e4e7" 
-                            strokeWidth={1.5} 
-                            dot={{ r: 2, fill: '#e4e4e7' }} 
-                            activeDot={{ r: 4 }} 
+                            dataKey="vs Sector" 
+                            stroke="#3b82f6" 
+                            fillOpacity={1} 
+                            fill="url(#colorSector)" 
+                            strokeWidth={1.5}
                         />
-                    </LineChart>
+                        <Area 
+                            type="monotone" 
+                            dataKey="vs Industry" 
+                            stroke="#8b5cf6" 
+                            fillOpacity={1} 
+                            fill="url(#colorIndustry)" 
+                            strokeWidth={1.5}
+                        />
+                    </AreaChart>
                 </ResponsiveContainer>
             ) : (
                 <div className="flex items-center justify-center h-full text-zinc-600 text-xs">
-                    Gráfico no disponible
+                    Insufficient Sector/Industry Data
                 </div>
             )}
         </div>
       </section>
 
-
-      
-      {/* 3) COMPETIDORES */}
-      <section className="h-[400px] flex flex-col mt-4 border-t border-zinc-800/50 pt-4">
-        <PeersAnalysisPanel 
-          symbol={symbol} 
-          selectedPeer={peerTicker} 
+      {/* C. PEERS */}
+      <section className="flex flex-col pt-1">
+        <SectionHeader 
+            title="Peers Analysis" 
+            subtitle={`Rank Sectorial: #${sectorRank || '-'} de ${sectorRankTotal || '-'}`}
         />
+        <div className="h-[400px]">
+            <PeersAnalysisPanel 
+              symbol={symbol} 
+              selectedPeer={peerTicker} 
+            />
+        </div>
       </section>
 
-      {/* Footer / Micro-copy */}
-      <div className="pt-2 border-t border-zinc-900 mt-4">
+      {/* Footer */}
+      <div className="pt-1 border-t border-zinc-900 mt-0.5">
         <p className="text-[10px] text-zinc-600 font-mono text-center">
-            Ventanas de observación • Datos al snapshot: {snapshotDate}
+            Source: fintra_snapshots • Snapshot Date: {snapshotDate} • No Real-time Recalculation
         </p>
       </div>
     </div>

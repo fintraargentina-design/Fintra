@@ -56,6 +56,7 @@ export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
   const priceEod = row.price ?? row.price_eod ?? marketSnapshot.price ?? marketSnapshot.price_eod ?? null;
   const ytdReturn = marketState.ytd_return ?? row.ytd_return ?? row.return_ytd ?? marketSnapshot.ytd_percent ?? null;
   const marketCap = marketState.market_cap ?? row.market_cap ?? marketSnapshot.market_cap ?? financialScores.marketCap ?? null;
+  const relativeReturn1Y = row.relative_vs_sector_1y ?? null;
 
   return {
     ticker: row.ticker,
@@ -71,6 +72,7 @@ export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
     strategyState: row.strategy_state ?? row.investment_verdict?.verdict_label ?? null,
     priceEod,
     ytdReturn,
+    relativeReturn1Y,
     marketCap,
   };
 };
@@ -205,6 +207,7 @@ interface TablaIFSProps {
   isLoading: boolean;
   isFetchingMore?: boolean;
   onRowClick?: (ticker: string) => void;
+  onRowHover?: (ticker: string | null) => void;
   selectedTicker?: string | null;
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
   scrollRef?: React.Ref<HTMLDivElement>;
@@ -216,6 +219,7 @@ export default function TablaIFS({
   isLoading,
   isFetchingMore = false,
   onRowClick,
+  onRowHover,
   selectedTicker,
   onScroll,
   scrollRef,
@@ -271,6 +275,8 @@ export default function TablaIFS({
                     isSelected ? "bg-zinc-700 border-l-4 border-l-[#002D72]" : ""
                   }`}
                   onClick={() => onRowClick?.(stock.ticker)}
+                  onMouseEnter={() => onRowHover?.(stock.ticker)}
+                  onMouseLeave={() => onRowHover?.(null)}
                 >
                   <TableCell className="border-r border-zinc-800 font-medium text-zinc-200 pl-1 py-0 text-xs">{stock.ticker}</TableCell>
                   

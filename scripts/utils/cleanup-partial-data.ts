@@ -4,12 +4,22 @@ import path from 'path';
 import fs from 'fs';
 import dayjs from 'dayjs';
 
-// Load env
-const envLocalPath = path.resolve(process.cwd(), '.env.local');
-if (fs.existsSync(envLocalPath)) {
-    dotenv.config({ path: envLocalPath, override: true });
-} else {
-    dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+// Load env - Robust check for project root
+const pathsToCheck = [
+    path.resolve(process.cwd(), '.env.local'),
+    path.resolve(process.cwd(), '.env'),
+    path.resolve(process.cwd(), '../../.env.local'), // Handle running from scripts/utils
+    path.resolve(process.cwd(), '../../.env')
+];
+
+let envLoaded = false;
+for (const p of pathsToCheck) {
+    if (fs.existsSync(p)) {
+        console.log(`Loading env from: ${p}`);
+        dotenv.config({ path: p });
+        envLoaded = true;
+        break;
+    }
 }
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -17,6 +27,8 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 if (!supabaseUrl || !supabaseServiceKey) {
     console.error('❌ Missing Supabase credentials.');
+    if (!supabaseUrl) console.error('   - Missing: NEXT_PUBLIC_SUPABASE_URL');
+    if (!supabaseServiceKey) console.error('   - Missing: SUPABASE_SERVICE_ROLE_KEY');
     process.exit(1);
 }
 
