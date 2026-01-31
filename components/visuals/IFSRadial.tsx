@@ -1,7 +1,7 @@
 import React from "react";
 import { IFSData, IFSMemory } from "@/lib/engine/types";
 
-export const IFSRadial = ({ ifs, ifsMemory }: { ifs?: IFSData | null, ifsMemory?: IFSMemory | null }) => {
+export const IFSRadial = ({ ifs, ifsMemory, size = 20 }: { ifs?: IFSData | null, ifsMemory?: IFSMemory | null, size?: number }) => {
   // Constants
   const cx = 10;
   const cy = 10;
@@ -18,7 +18,7 @@ export const IFSRadial = ({ ifs, ifsMemory }: { ifs?: IFSData | null, ifsMemory?
   // We strictly require ifsMemory.timeline to be present.
   if (!ifsMemory || !ifsMemory.timeline || ifsMemory.timeline.length === 0) {
     return (
-      <svg width="20" height="20" viewBox="0 0 20 20">
+      <svg width={size} height={size} viewBox="0 0 20 20">
         <circle cx="10" cy="10" r="8" fill="none" stroke={COLORS.empty} strokeWidth="2" />
       </svg>
     );
@@ -70,7 +70,7 @@ export const IFSRadial = ({ ifs, ifsMemory }: { ifs?: IFSData | null, ifsMemory?
   }
 
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20">
+    <svg width={size} height={size} viewBox="0 0 20 20">
       {segments}
     </svg>
   );

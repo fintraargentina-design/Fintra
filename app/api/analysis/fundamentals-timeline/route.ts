@@ -166,7 +166,7 @@ export async function GET(req: Request) {
 
     sortedYears.forEach((year, index) => {
       yearsList.push({
-        year,
+        year: year.toString(),
         tone: index % 2 === 0 ? "light" : "dark",
         columns: yearsMap.get(year)!,
       });
@@ -190,7 +190,7 @@ export async function GET(req: Request) {
 
       for (const col of sortedPeriods) {
         let val: number | null = null;
-        let periodType: PeriodType = null;
+        let periodType: PeriodType | null = null;
         let endDate: string | undefined = undefined;
 
         const row = findFinRow(col);

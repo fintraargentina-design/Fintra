@@ -217,14 +217,19 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
       result
     };
 
+    } catch (innerErr: any) {
+      console.error('❌ Processing Error:', innerErr);
+      throw innerErr;
+    } finally {
+      // Release lock
+      if (!tickerParam) {
+        const { releaseLock } = await import('@/lib/utils/dbLocks');
+        await releaseLock(lockName);
+      }
+    }
+
   } catch (err: any) {
     console.error('❌ Bulk Cron Error:', err);
     throw err;
-  } finally {
-    // Release lock
-    if (!tickerParam) {
-      const { releaseLock } = await import('@/lib/utils/dbLocks');
-      await releaseLock(lockName);
-    }
   }
 }

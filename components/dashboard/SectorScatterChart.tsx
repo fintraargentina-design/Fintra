@@ -165,6 +165,21 @@ export default function SectorScatterChart({
         {
           type: 'scatter',
           symbolSize: (data: any) => data?.size || 10,
+          markLine: {
+            silent: true,
+            symbol: ['none', 'none'],
+            label: { show: false },
+            lineStyle: {
+              color: '#52525b', // zinc-600
+              type: 'solid',
+              width: 1,
+              opacity: 0.6
+            },
+            data: [
+              { xAxis: 0 },
+              { yAxis: 60 }
+            ]
+          },
           data: chartPoints.map(pt => {
             const isHovered = hoveredTicker === pt.ticker;
             const isActive = activeTicker === pt.ticker;

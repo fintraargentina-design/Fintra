@@ -4,6 +4,34 @@ export type FgosCategory =
   | 'Low'
   | 'Pending';
 
+export type PeriodType = 'FY' | 'Q1' | 'Q2' | 'Q3' | 'Q4';
+
+export interface ValueItem {
+  value: number | null;
+  display?: string | null;
+  color?: string;
+  normalized?: number | null;
+  periodType?: PeriodType | null;
+  endDate?: string;
+  period_type?: PeriodType | null;
+  period_end_date?: string;
+}
+
+export interface Metric {
+  key: string;
+  label: string;
+  unit?: string;
+  category?: string;
+  values: Record<string, ValueItem>;
+}
+
+export interface YearGroup {
+  year: string;
+  periods?: string[];
+  tone?: 'light' | 'dark';
+  columns?: string[];
+}
+
 export interface LowConfidenceImpact {
   raw_percentile: number;
   effective_percentile: number;
