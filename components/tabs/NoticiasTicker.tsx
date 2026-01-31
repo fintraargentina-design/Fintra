@@ -207,17 +207,10 @@ export default function NoticiasTicker({
       const now = new Date();
       const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
       
-      if (diffInHours < 24) {
-        if (diffInHours < 1) {
-            const minutes = Math.floor(diffInHours * 60);
-            return `${minutes}m ago`;
-        }
-        return `${Math.floor(diffInHours)}h`;
-      }
-
       return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
+        month: '2-digit',
+        day: '2-digit',
+        year: 'numeric'
       });
     } catch {
       return dateString;
@@ -384,9 +377,9 @@ export default function NoticiasTicker({
 
   return (
     <>
-      <div className="flex flex-col h-full bg-tarjetas overflow-hidden">
+      <div className="flex flex-col h-full bg-black overflow-hidden">
         {/* Header */}
-        <div className="h-[20px] border-b border-t border-zinc-800 bg-[#103765] flex items-center justify-center shrink-0 relative">
+        <div className="h-[25px] border-b border-t border-zinc-800 bg-[#1D1D1D] flex items-center justify-center shrink-0 relative">
           <span className="text-[12px] font-medium text-white tracking-wide">
               Noticias de · <span className="text-zinc-300">{symbol}</span>
           </span>
@@ -399,7 +392,7 @@ export default function NoticiasTicker({
               <Switch 
                 checked={isTestMode}
                 onCheckedChange={setIsTestMode}
-                className={`scale-75 data-[state=checked]:bg-red-500`}
+                className={`scale-[0.65] data-[state=checked]:bg-red-500 rounded-full`}
               />
             </div>
 
@@ -414,7 +407,7 @@ export default function NoticiasTicker({
                   <Filter className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-auto bg-black border-zinc-800 text-zinc-300 rounded-none p-0">
+              <DropdownMenuContent align="end" className="w-auto bg-black border-zinc-800 text-zinc-300 rounded p-0">
                 <div className="flex divide-x divide-zinc-800">
                     {/* Column 1: Categoría */}
                     <div className="w-32 p-1">
@@ -472,56 +465,39 @@ export default function NoticiasTicker({
               <p className="text-sm">No hay noticias en esta categoría</p>
             </div>
           ) : (
-            <div className="divide-y divide-zinc-800">
+            <div className="space-y-0">
               {filteredNews.map((item, idx) => {
-                const tickerSentiment = getTickerSentiment(item);
-                const sentimentScore = tickerSentiment 
-                    ? parseFloat(tickerSentiment.ticker_sentiment_score)
-                    : item.overall_sentiment_score;
-                const sentimentLabel = tickerSentiment 
-                    ? tickerSentiment.ticker_sentiment_label
-                    : item.overall_sentiment_label;
-
                 return (
-                  <div key={idx} className="group p-1 hover:bg-[#2563EB]/20 transition-colors cursor-default">
-                    <div className="flex gap-4">
-                       
-                        {/* Content */}
-                        <div 
-                          className="flex-1 min-w-0 cursor-pointer"
-                          onClick={() => openNewsModal(item.url, item.title, item.summary)}
-                        >
-                            <div className="flex items-start mb-1">
-                                <div className="flex w-full items-start justify-between gap-2 text-xs text-zinc-400"> 
-                                  <div>                                   
-                                    <h3 className="text-zinc-100 font-light text-[11px] leading-snug mb-2 transition-colors line-clamp-2">
-                                      {item.title}
-                                    </h3>
-                                    <p className="text-zinc-400 text-[10px] leading-snug line-clamp-2">
-                                      {item.source}
-                                    </p>
-                                    </div>
-                                    <div className="flex items-end gap-1">
-                                      <span className="flex items-center gap-1">
-                                        <Clock className="w-3 h-3" />
-                                        {formatDate(item.time_published)}
-                                      </span>
-                                    </div>
-                                    <div>
-                                    <button 
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleAnalyzeNews(item);
-                                        }}
-                                        className="flex items-center font-light uppercase gap-1.5 px-3 py-1 bg-[#103765] text-[#FFFFFF] hover:bg-[#09203B] text-[10px] transition-all"
-                                    >                                        
-                                        Insight
-                                    </button>
-                                    </div> 
-                                </div>
-                            </div>                                             
-                        </div>
+                  <div 
+                    key={idx} 
+                    className="group px-3 py-1 hover:bg-zinc-900/50 transition-colors flex items-center gap-0.5"
+                  >
+                    <span className="text-zinc-500 font-mono text-[12px] shrink-0 w-6">{idx + 1})</span>
+                    <div className="flex-1 min-w-0 flex flex-col">
+                      <span 
+                        className="text-[#EDA64D] font-light text-[15px] leading-tight truncate cursor-pointer"
+                        onClick={() => openNewsModal(item.url, item.title, item.summary)}
+                      >
+                        {item.title}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-mono text-[10px]">
+                          {item.source}
+                        </span>
+                        <span className="text-zinc-500 font-mono text-[10px]">
+                          {formatDate(item.time_published)}
+                        </span>
+                      </div>
                     </div>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAnalyzeNews(item);
+                      }}
+                      className="flex items-center font-medium gap-1.5 px-2 py-1 bg-[#1A1A1A] text-[#FFA028] hover:bg-[#363535] text-[12px] transition-all shrink-0"
+                    >                                        
+                      AI insight
+                    </button>
                   </div>
                 );
               })}

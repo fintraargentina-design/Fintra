@@ -39,7 +39,7 @@ export default function SectorAnalysisPanel({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // MOCK MODE TOGGLE
-  const USE_MOCK = false;
+  const USE_MOCK = true
 
   // Fetch Data Function
   const fetchData = async (pageNum: number, isNewFetch: boolean) => {
@@ -217,15 +217,15 @@ export default function SectorAnalysisPanel({
   return (
     <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden shadow-sm">
         {/* Header showing current selection (Optional, can be removed if redundant with Header) */}
-        <div className="w-full h-[20px] bg-[#103765] border-b border-zinc-800 px-2 flex items-center justify-between shrink-0">
-             <div className="flex items-center gap-2 text-xs">
-                 <span className="text-zinc-400">Sector:</span>
-                 <span className="text-white font-medium">{selectedSector}</span>
+        <div className="w-full h-[25px] bg-[#103765] border-b border-zinc-800 px-3 flex items-center justify-left shrink-0">
+             <div className="flex items-center gap-2 text-[14px]">
+                 <span className="text-zinc-300">Sector:</span>
+                 <span className="text-white font-light tracking-wide">{selectedSector}</span>
                  {selectedIndustry && selectedIndustry !== "Todas" && (
                      <>
-                        <span className="text-zinc-600">/</span>
-                        <span className="text-zinc-400">Industry:</span>
-                        <span className="text-white font-medium">{selectedIndustry}</span>
+                        <span className="text-zinc-600">•</span>
+                        <span className="text-zinc-300">Industry:</span>
+                        <span className="text-white font-light tracking-wide">{selectedIndustry}</span>
                      </>
                  )}
              </div>

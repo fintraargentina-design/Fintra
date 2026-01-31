@@ -68,8 +68,8 @@ export default function CompanyInfoWidget({ data }: CompanyInfoWidgetProps) {
             </div>
 
             {/* Grid: Classification & Key Info */}
-            <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-1">
+            <div className="grid grid-cols-2 gap-4 rounded">
+                 <div className="space-y-1 bg-zinc-900/30 p-3 rounded border border-zinc-800">
                      <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Classification</h3>
                      <div className="flex flex-col gap-2">
                          <div className="flex justify-between text-xs border-b border-zinc-800 pb-1">
@@ -91,7 +91,7 @@ export default function CompanyInfoWidget({ data }: CompanyInfoWidgetProps) {
                      </div>
                  </div>
 
-                 <div className="space-y-1">
+                 <div className="space-y-1 bg-zinc-900/30 p-3 rounded border border-zinc-800">
                      <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Market Data</h3>
                      <div className="flex flex-col gap-2">
                          <div className="flex justify-between text-xs border-b border-zinc-800 pb-1">

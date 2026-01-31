@@ -139,7 +139,7 @@ export default function PeersAnalysisPanel({ symbol, onPeerSelect, selectedPeer 
   }, [symbol]);
 
   return (
-    <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden mt-0">
+    <div className="w-full h-full flex flex-col bg-tarjetas rounded overflow-hidden mt-0">
       
       <div className="px-1 py-1 bg-white/[0.02] shrink-0">
         <h4 className="text-xs font-medium text-gray-400 text-center">

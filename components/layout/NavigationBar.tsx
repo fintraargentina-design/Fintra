@@ -33,7 +33,7 @@ export default function NavigationBar({
             onClick={() => setActiveTab(tab.key as TabKey)}
             data-state={activeTab === tab.key ? 'active' : 'inactive'}
             className={`
-              relative group flex items-center justify-center w-8 h-8 rounded-none transition-colors
+              relative group flex items-center justify-center w-8 h-8 rounded transition-colors
               ${activeTab === tab.key ? 'bg-[#103765] text-white' : 'bg-[#103765] text-gray-400 hover:text-gray-200 hover:bg-white/5'}
             `}
           >
@@ -62,7 +62,7 @@ export default function NavigationBar({
               onClick={() => setActiveTab(tab.key as TabKey)}
               data-state={activeTab === tab.key ? 'active' : 'inactive'}
               className={`
-                flex-1 h-[20px] flex items-center justify-center bg-[#103765] rounded-none border-b-0 data-[state=active]:bg-[#09203B] data-[state=active]:text-white text-[12px] text-[#FFFFFF] hover:text-[#FFFFFF] hover:bg-[#09203B] transition-colors font-light 
+                flex-1 h-[25px] flex items-center justify-center bg-[#103765] border-b-0 data-[state=active]:bg-[#09203B] data-[state=active]:text-white text-[14px] text-[#FFFFFF] hover:text-[#FFFFFF] hover:bg-[#09203B] transition-colors font-light 
               `}
             >
               {tab.label}
@@ -80,7 +80,7 @@ export default function NavigationBar({
               onClick={() => setActiveTab(tab.key as TabKey)}
               data-state={activeTab === tab.key ? 'active' : 'inactive'}
               className={`
-                bg-[#103765] rounded-none border-b-0 data-[state=active]:bg-[#0056FF] data-[state=active]:text-white text-xs px-2 py-0 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors whitespace-nowrap flex-shrink-0 font-medium
+                bg-[#103765] rounded border-b-0 data-[state=active]:bg-[#0056FF] data-[state=active]:text-white text-xs px-2 py-0 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors whitespace-nowrap flex-shrink-0 font-medium
               `}
             >
               <span>{tab.label}</span>

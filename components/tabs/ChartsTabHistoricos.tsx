@@ -441,7 +441,7 @@ export default function ChartsTabHistoricos({
           type: 'value', 
           position: 'right', 
           scale: true,
-          splitLine: { show: false, lineStyle: { color: "rgba(148,163,184,0.15)" } },
+          splitLine: { show: true, lineStyle: { color: "rgba(148,163,184,0.15)" } },
           axisLabel: { color: "#cbd5e1" }
         },
         {
@@ -496,7 +496,7 @@ export default function ChartsTabHistoricos({
         position: 'right',
         scale: true,
         axisLabel: { formatter: '{value}%', color: "#cbd5e1" },
-        splitLine: { show: false }
+        splitLine: { show: true, lineStyle: { color: "rgba(148,163,184,0.15)" } }
       };
 
       const normalizedData = normalizeRebase100(aligned, allKeys);
@@ -535,7 +535,7 @@ export default function ChartsTabHistoricos({
         position: 'right',
         max: 0,
         axisLabel: { formatter: '{value}%', color: "#cbd5e1" },
-        splitLine: { show: false }
+        splitLine: { show: true, lineStyle: { color: "rgba(148,163,184,0.15)" } }
       };
 
       // Función auxiliar para extraer array numérico (con nulls/NaNs)
@@ -584,7 +584,7 @@ export default function ChartsTabHistoricos({
   }, [chartData, view, symbol, benchmarkTicker, comparedSymbolsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const renderChart = () => {
-    if (loading) return <div className="h-full w-full animate-pulse bg-zinc-900/50 rounded-md" />;
+    if (loading) return <div className="h-full w-full animate-pulse bg-zinc-900/50 rounded-none" />;
     if (!getOption) {
       console.warn(`[ChartsTab] renderChart: getOption returned null for ${symbol}. chartData is:`, chartData);
       console.log(`[ChartsTab] DataMap keys:`, Object.keys(dataMap));
@@ -616,7 +616,7 @@ export default function ChartsTabHistoricos({
               key={r}
               onClick={() => setRange(r)}
               className={`
-                rounded-none px-3 py-0 text-xs transition-colors font-medium
+                px-3 py-0 text-sm transition-colors font-medium
                 ${
                   range === r
                     ? 'bg-[#002D72] text-white'
@@ -635,7 +635,7 @@ export default function ChartsTabHistoricos({
               key={v.key}
               onClick={() => setView(v.key)}
               className={`
-                rounded-none px-3 py-0 text-xs transition-colors font-medium
+                px-3 py-0 text-sm transition-colors font-medium
                 ${
                   view === v.key
                     ? 'bg-[#002D72] text-white'

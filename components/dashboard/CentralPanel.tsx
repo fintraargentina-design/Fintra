@@ -2,7 +2,6 @@
 
 import ResumenCard from "@/components/cards/ResumenCard";
 import NoticiasTicker from "@/components/tabs/NoticiasTicker";
-import BalanceBarChart from "@/components/charts/BalanceBarChart";
 import ChartsTabHistoricos from "@/components/tabs/ChartsTabHistoricos";
 
 interface CentralPanelProps {
@@ -21,13 +20,8 @@ export default function CentralPanel({ selectedTicker, onStockSelect }: CentralP
          />
       </div>
 
-      {/* Balance Bar Chart Section */}
-      <div className="w-full h-[150px] shrink-0 bg-[#0A0A0A]">
-         <BalanceBarChart symbol={selectedTicker} />
-      </div>
-
-      {/* Historical Charts Tab Section */}
-      <div className="w-full h-[250px] shrink-0 bg-[#0A0A0A]">
+      {/* Historical Charts Tab Section - Enlarged */}
+      <div className="w-full h-[400px] shrink-0 bg-[#0A0A0A]">
          <ChartsTabHistoricos symbol={selectedTicker} isActive={true} />
       </div>
 

@@ -12,6 +12,18 @@ import {
 } from "@/components/ui/table";
 import { getHeatmapColor, HeatmapDirection } from "@/lib/ui/heatmap";
 
+// Helper to determine text color based on heatmap intensity
+function getTextColor(normalized: number | null | undefined): string {
+  if (normalized == null || Number.isNaN(normalized)) {
+    return "text-white";
+  }
+  const value = Math.max(0, Math.min(1, normalized));
+  const idx = Math.min(4, Math.floor(value * 5));
+  // For weak (0) and very weak (1) intensities, use white text
+  // For moderate (2), strong (3), and very strong (4), use black text
+  return idx <= 1 ? "text-white" : "text-black";
+}
+
 // --- TYPES ---
 
 type TimelineResponse = {
@@ -208,14 +220,14 @@ function GenericTimelineTable({
           <Table className="min-w-max text-sm">
             <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
               <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
-                <TableHead className="border-2 border-zinc-800 px-2 text-gray-300 text-[10px] h-5 w-[150px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D]">
+                <TableHead className="border-2 border-zinc-800 px-2 text-gray-300 text-[13px] h-5 w-[150px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D]">
                   {title}
                 </TableHead>
                 {years.map((year, yearIdx) => (
                   year.columns.flatMap(col => [
                     <TableHead
                       key={`${year.year}-${col}`}
-                      className={`px-2 text-[10px] h-5 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                      className={`px-2 text-[13px] h-5 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                     >
                       {renderHeaderCol ? renderHeaderCol(col, yearIdx) : <span className="text-gray-300">{col}</span>}
                     </TableHead>,
@@ -255,7 +267,7 @@ function GenericTimelineTable({
                         }
                     }}
                   >
-                    <TableCell className={`font-bold text-gray-200 px-2 py-0 text-[10px] h-6 w-[100px] border border-zinc-800 sticky left-0 z-10 bg-[#1D1D1D] ${metricExplanations ? 'group-hover:text-blue-400 transition-colors' : ''}`}>
+                    <TableCell className={`font-bold text-gray-200 px-2 py-0 text-[13px] h-6 w-[100px] border border-zinc-800 sticky left-0 z-10 bg-[#1D1D1D] ${metricExplanations ? 'group-hover:text-blue-400 transition-colors' : ''}`}>
                       {metric.label}
                     </TableCell>
                     {years.map((year, yearIdx) => (
@@ -272,7 +284,7 @@ function GenericTimelineTable({
                         return [
                           <TableCell
                             key={`${year.year}-${col}`}
-                            className={`text-center px-2 py-0 text-[10px] font-medium text-white h-6 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                            className={`text-center px-2 py-0 text-[13px] font-medium ${getTextColor(cellData?.normalized ?? null)} h-6 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                             style={{ backgroundColor: getHeatmapColor(cellData?.normalized ?? null, direction) }}
                           >
                             {cellData?.display ?? "-"}
@@ -280,7 +292,7 @@ function GenericTimelineTable({
                           peerTicker && (
                             <TableCell
                               key={`${year.year}-${col}-peer`}
-                              className={`text-center px-2 py-0 text-[10px] font-light text-[#FFFFFF] h-6 border-x border-[#002D72] ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
+                              className={`text-center px-2 py-0 text-[13px] font-light ${getTextColor(peerCellData?.normalized ?? null)} h-6 border-x border-[#002D72] ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
                               style={{ backgroundColor: getHeatmapColor(peerCellData?.normalized ?? null, direction) }}
                             >
                               {peerCellData?.display ?? "-"}

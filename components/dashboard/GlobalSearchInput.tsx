@@ -144,10 +144,11 @@ export default function GlobalSearchInput({ onSelect, className }: { onSelect?: 
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverAnchor asChild>
         <div className={`relative w-full ${className || 'max-w-[300px]'} pb-0`}>
-          <Search className="absolute left-2 top-1.5 h-3 w-3 text-black/70" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-white/80" />
           <Input 
             placeholder="Search ..." 
-            className="h-[22px] pl-7 text-[11px] bg-[#F9A01B] border-none focus-visible:ring-0 focus-visible:ring-transparent placeholder:text-black/60 text-black font-medium rounded-full"
+            className="h-[24px] py-0 pl-7 text-[12px] bg-[#000000] border border-[#2454b4] focus-visible:ring-0 focus-visible:ring-transparent placeholder:text-white/80 text-white font-medium rounded-none search-input-vscode selection:bg-[#0056FF] selection:text-white"
+            style={{ caretColor: '#2454b4' }}
             value={query}
             onChange={e => {
                 setQuery(e.target.value);
@@ -156,7 +157,7 @@ export default function GlobalSearchInput({ onSelect, className }: { onSelect?: 
             onKeyDown={handleKeyDown}
             onFocus={() => query.length >= 2 && setOpen(true)}
           />
-          {loading && <Loader2 className="absolute right-2 top-1.5 h-3 w-3 animate-spin text-black/70" />}
+          {loading && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-black/70" />}
         </div>
       </PopoverAnchor>
       

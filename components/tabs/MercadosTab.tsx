@@ -354,7 +354,7 @@ export default function MercadosTab() {
                     <Card 
                       key={`${market.name}-${idx}`}
                       className={`
-                        border-none transition-all hover:brightness-110 cursor-default overflow-hidden relative shadow-sm rounded-none
+                        border-none transition-all hover:brightness-110 cursor-default overflow-hidden relative shadow-sm rounded
                         ${market.isMarketOpen ? 'bg-[#001A00]' : 'bg-[#1A0000]'}
                       `}
                     >

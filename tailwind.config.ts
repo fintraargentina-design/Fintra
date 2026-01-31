@@ -67,14 +67,14 @@ const config: Config = {
         }
       },
       borderRadius: {
-        lg: '0',
-        md: '0',
-        sm: '0',
-        xl: '0',
-        '2xl': '0',
-        '3xl': '0',
-        full: '0',
-        DEFAULT: '0',
+        lg: '0.25rem',
+        md: '0.25rem',
+        sm: '0.25rem',
+        xl: '0.25rem',
+        '2xl': '0.25rem',
+        '3xl': '0.25rem',
+        full: '9999px',
+        DEFAULT: '0.25rem',
       },
       keyframes: {
         'accordion-down': {

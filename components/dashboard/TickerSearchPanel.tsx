@@ -207,7 +207,7 @@ export default function TickerSearchPanel({ onStockSelect }: { onStockSelect?: (
               <div className="space-y-1">
                   <Label className="text-[9px] uppercase text-gray-500 font-bold">Exchange</Label>
                   <Select value={filters.exchange} onValueChange={v => setFilters({...filters, exchange: v})}>
-                     <SelectTrigger className="h-7 text-[10px] bg-zinc-900 border-zinc-800 rounded-none"><SelectValue /></SelectTrigger>
+                     <SelectTrigger className="h-7 text-[10px] bg-zinc-900 border-zinc-800 rounded"><SelectValue /></SelectTrigger>
                      <SelectContent className="bg-zinc-900 border-zinc-800">
                         <SelectItem value="ALL">All</SelectItem>
                         {EXCHANGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}

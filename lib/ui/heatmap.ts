@@ -4,17 +4,17 @@ export type HeatmapDirection = "positive" | "negative" | "neutral";
 const POSITIVE_SCALE = [
   "#001A00", // very weak
   "#003300", // weak
-  "#004D00", // moderate
-  "#006600", // strong
-  "#008000", // very strong
+  "#125712", // moderate
+  "#3e9424", // strong
+  "#9ed36f", // very strong
 ];
 
 const NEGATIVE_SCALE = [
   "#1A0000", // very weak
   "#330000", // weak
-  "#4D0000", // moderate
-  "#660000", // strong
-  "#800000", // very strong
+  "#8a1618", // moderate
+  "#b11313", // strong
+  "#ff153c", // very strong
 ];
 
 export function getHeatmapColor(

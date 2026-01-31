@@ -21,15 +21,19 @@ import { cn } from "@/lib/utils";
 function FilterSelect({ icon: Icon, placeholder, options, value, onChange }: any) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-[22px] bg-[#530C0C] border-none text-white text-[11px] font-medium px-2 gap-2 rounded hover:bg-[#4f1f1f] focus:ring-0 focus:ring-offset-0 min-w-[110px]">
-        <div className="flex items-center gap-1.5">
-          <Icon className="w-3 h-3 shrink-0 text-zinc-300" />
+      <SelectTrigger className="h-max bg-[#1A1A1A] border-none text-white text-[12px] font-medium px-2 py-0.5 gap-2 rounded-none hover:bg-[#141414] focus:ring-0 focus:ring-offset-0 min-w-[110px] max-w-full transition-all duration-300 ease-out hover:shadow-md">
+        <div className="flex items-center gap-2 min-w-0">
+          <Icon className="w-3 h-3 shrink-0 text-zinc-300 transition-transform duration-300 ease-out group-hover:scale-110" />
           <span className="truncate">{value || placeholder}</span>
         </div>
       </SelectTrigger>
-      <SelectContent className="bg-[#530C0C] border-zinc-800">
+      <SelectContent className="bg-[#1A1A1A] border-zinc-800 animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-300 ease-out max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-zinc-900 hover:scrollbar-thumb-zinc-600">
         {options.map((opt: string) => (
-          <SelectItem key={opt} value={opt} className="text-zinc-300 focus:bg-[#400808] focus:text-white text-[11px]">
+          <SelectItem 
+            key={opt} 
+            value={opt} 
+            className="text-zinc-300 focus:bg-[#141414] focus:text-white text-[14px] py-2 transition-all duration-200 ease-out cursor-pointer hover:bg-[#1F1F1F]"
+          >
             {opt}
           </SelectItem>
         ))}
@@ -66,10 +70,10 @@ export default function Header({
 
   return (
     <>
-      <header className="w-full h-[40px] border-b border-zinc-800 bg-[#0A0A0A] flex items-center px-3 gap-4">
+      <header className="w-full h-[30px] border-b border-zinc-800 bg-[#0A0A0A] flex items-center px-3 gap-4">
         {/* Logo Section */}
         <div className="flex items-center gap-2">
-          <div className="relative w-5 h-5">
+          <div className="relative w-7 h-7">
             <Image 
               src="/fav.webp" 
               alt="Fintra Logo" 
@@ -77,7 +81,7 @@ export default function Header({
               className="object-contain"
             />
           </div>
-          <span className="text-sm font-bold text-zinc-200 hidden sm:inline-block">Fintra</span>
+          <span className="text-lg font-bold text-zinc-200 hidden sm:inline-block">Fintra</span>
         </div>
 
         {/* Navigation Buttons */}
@@ -101,7 +105,7 @@ export default function Header({
           </Button>
 
           {/* Filters */}
-          <div className="flex items-center gap-2 ml-2">
+          <div className="flex items-center gap-2 ml-2 shrink-0">
             <FilterSelect 
               icon={Search} 
               placeholder="Exchange" 
@@ -116,16 +120,18 @@ export default function Header({
               value={selectedSector}
               onChange={onSectorChange}
             />
-            <FilterSelect 
-              icon={List} 
-              placeholder="Industry" 
-              options={industries} 
-              value={selectedIndustry}
-              onChange={onIndustryChange}
-            />
+            <div className="max-w-[200px]">
+              <FilterSelect 
+                icon={List} 
+                placeholder="Industry" 
+                options={industries} 
+                value={selectedIndustry}
+                onChange={onIndustryChange}
+              />
+            </div>
           </div>
           
-          <div className="flex items-center ml-2">
+          <div className="flex items-center ml-1.5">
             <GlobalSearchInput 
               onSelect={onStockSelect} 
               className="w-[180px]"
@@ -141,9 +147,9 @@ export default function Header({
                   key={ticker}
                   onClick={() => openOrActivateTicker(ticker)}
                   className={cn(
-                    "group flex items-center gap-2 px-3 py-0.5 text-[10px] font-medium border rounded-sm cursor-pointer select-none transition-colors min-w-[80px] justify-between h-[22px]",
+                    "group flex items-center gap-2 px-2 py-0.5 text-[12px] font-medium border rounded-none cursor-pointer select-none transition-colors min-w-[80px] justify-between h-max",
                     isActive
-                      ? "bg-[#002D72] text-white border-[#002D72]"
+                      ? "bg-[#002D72] text-white border-[#1650A9] hover:bg-[#003B9E]"
                       : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:bg-zinc-800 hover:text-zinc-200"
                   )}
                 >

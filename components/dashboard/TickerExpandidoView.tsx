@@ -97,7 +97,7 @@ export default function TickerExpandidoView({
           <div className="grid grid-cols-1 grid-rows-2 gap-1 h-full">
              
             {/* Peers */}
-             <div className="bg-tarjetas border border-zinc-800 h-full flex flex-col">
+             <div className="bg-tarjetas border border-zinc-800 rounded h-full flex flex-col">
                 <PeersAnalysisPanel
                     symbol={ticker}
                     onPeerSelect={setSelectedCompetitor}
@@ -108,7 +108,7 @@ export default function TickerExpandidoView({
              {/* Charts & FGOS Side-by-Side */}
             <div className="grid grid-cols-[60%_40%] gap-1 h-full">
                 {/* Charts */}
-                 <div className="bg-tarjetas border border-zinc-800 h-full">
+                 <div className="bg-tarjetas border border-zinc-800 rounded h-full">
                    <ChartsTabHistoricos
                      symbol={ticker}
                      companyName={stockBasicData?.companyName}
@@ -118,7 +118,7 @@ export default function TickerExpandidoView({
                  </div>
 
                  {/* FGOS */}
-                 <div className="bg-tarjetas border border-zinc-800 h-full">
+                 <div className="bg-tarjetas border border-zinc-800 rounded h-full">
                    <FGOSRadarChart
                      symbol={ticker}
                      data={stockAnalysis?.fgos_breakdown}
@@ -132,7 +132,7 @@ export default function TickerExpandidoView({
           {/* 1. Top Section: Resumen + Core Cards */}
           
           {/* Right: Vertical Stack of Core Cards */}
-          <div className="flex flex-col border border-zinc-800 bg-tarjetas">
+          <div className="flex flex-col border border-zinc-800 rounded bg-tarjetas">
              <div className="border-b border-zinc-800 last:border-0">
               <FundamentalCard
                 symbol={ticker}

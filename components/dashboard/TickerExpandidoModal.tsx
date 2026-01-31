@@ -60,7 +60,7 @@ export default function TickerExpandidoModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
         overlayClassName="backdrop-blur-sm"
-        className="max-w-[98vw] w-[98vw] max-h-[98vh] h-auto bg-[#0A0A0A] border border-zinc-800 rounded-none p-0"
+        className="max-w-[98vw] w-[98vw] max-h-[98vh] h-auto bg-[#0A0A0A] border border-zinc-800 rounded p-0"
       >
         <DialogTitle className="sr-only">
           Detalle expandido {ticker}

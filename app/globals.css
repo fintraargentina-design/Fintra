@@ -26,7 +26,7 @@
     --chart-3: 34 100% 58%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --radius: 0rem;
+    --radius: 0.25rem;
   }
  
   * {
@@ -108,6 +108,31 @@
   content: "|";
   animation: blink 1s infinite;
   color: #AA6826;
+}
+
+/* VS Code style search input cursor */
+@keyframes vscode-cursor-blink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+.search-input-vscode {
+  caret-color: transparent;
+  position: relative;
+}
+
+.search-input-vscode:focus {
+  caret-color: black;
+  caret-shape: block;
+}
+
+/* Cursor personalizado más grueso */
+input.search-input-vscode {
+  caret-color: black;
 }
 
 /* Scroll animation */

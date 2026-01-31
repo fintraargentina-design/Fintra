@@ -22,8 +22,11 @@ export interface EnrichedStockData {
   } | null;
   strategyState: string | null;
   priceEod: number | null;
+  priceChange?: number | null;
   ytdReturn: number | null;
   marketCap: number | null;
+  totalDebt?: number | null;
+  revenue?: number | null;
 }
 
 // Helper to map raw Supabase snapshot to EnrichedStockData
@@ -69,8 +72,11 @@ export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
 
   // Price & Return
   const priceEod = row.price_eod ?? marketSnapshot.price ?? marketSnapshot.price_eod ?? null;
+  const priceChange = row.price_change ?? marketSnapshot.change ?? marketState.price_change ?? null;
   const ytdReturn = marketState.ytd_return ?? row.return_ytd ?? marketSnapshot.ytd_percent ?? null;
   const marketCap = marketState.market_cap ?? row.market_cap ?? marketSnapshot.market_cap ?? financialScores.marketCap ?? null;
+  const totalDebt = row.total_debt ?? financialScores.totalDebt ?? profileStructural.total_debt ?? null;
+  const revenue = row.revenue ?? financialScores.revenue ?? profileStructural.revenue ?? null;
 
   return {
     ticker: row.ticker,
@@ -84,8 +90,11 @@ export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
     ifs: ifsData,
     strategyState: row.strategy_state ?? row.investment_verdict?.verdict_label ?? null,
     priceEod,
+    priceChange,
     ytdReturn,
     marketCap,
+    totalDebt,
+    revenue,
   };
 };
 
@@ -136,28 +145,25 @@ const ValuationSignal = ({ status }: { status: string | null }) => {
   if (!status) return <div className="w-4 h-4" />;
 
   const lower = status.toLowerCase();
-  let colorClass = "bg-zinc-700";
   let bars = 0;
 
-  // Logic: Cheap = High Signal (Green), Fair = Med (Orange), Expensive = Low (Red)
+  // 3 barras para 3 estados: Más barras = caro, Menos barras = barato
   if (lower.includes("undervalued") || lower.includes("cheap")) {
-    colorClass = "bg-green-500";
-    bars = 4;
+    bars = 1;
   } else if (lower.includes("fair")) {
-    colorClass = "bg-orange-500";
-    bars = 3;
-  } else if (lower.includes("overvalued") || lower.includes("expensive")) {
-    colorClass = "bg-red-500";
     bars = 2;
+  } else if (lower.includes("overvalued") || lower.includes("expensive")) {
+    bars = 3;
   }
 
   return (
-    <div className="flex items-end gap-[1px] h-3">
-      {[1, 2, 3, 4].map((i) => (
+    <div className="relative flex items-end gap-[2px] h-4">
+      
+      {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className={`w-[2px] rounded-sm ${i <= bars ? colorClass : "bg-zinc-800"}`}
-          style={{ height: `${i * 25}%` }}
+          className={`w-[4px] ${i <= bars ? "bg-[#1E5493]" : "bg-zinc-800"}`}
+          style={{ height: `${i * 33.33}%` }}
         />
       ))}
     </div>
@@ -165,52 +171,84 @@ const ValuationSignal = ({ status }: { status: string | null }) => {
 };
 
 const IFSRadial = ({ ifs }: { ifs?: EnrichedStockData["ifs"] }) => {
-  if (!ifs) return <div className="w-4 h-4 rounded-full border border-zinc-800" />;
+  if (!ifs) {
+    // Sin datos: gráfico completo en gris inactivo
+    return (
+      <svg width="24" height="24" viewBox="0 0 24 24" className="opacity-50">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="#3f3f46" strokeWidth="3" />
+      </svg>
+    );
+  }
 
   const { position, pressure } = ifs;
-  const totalSegments = 8; // Simplified to 8 for symmetry in radial
-  const filled = Math.min(totalSegments, Math.ceil((pressure / 9) * totalSegments));
   
-  let color = "#71717a"; // zinc-500
-  if (position === "leader") color = "#10b981"; // emerald-500
-  else if (position === "follower") color = "#f59e0b"; // amber-500
-  else if (position === "laggard") color = "#ef4444"; // red-500
+  // Mapeo de position + pressure a nivel de estado (1-5)
+  let statusLevel = 0;
+  
+  if (position === "leader") {
+    if (pressure >= 7) statusLevel = 5;
+    else if (pressure >= 5) statusLevel = 4;
+    else if (pressure >= 3) statusLevel = 3;
+    else statusLevel = 2;
+  } else if (position === "follower") {
+    if (pressure >= 6) statusLevel = 3;
+    else if (pressure >= 3) statusLevel = 2;
+    else statusLevel = 1;
+  } else if (position === "laggard") {
+    if (pressure >= 4) statusLevel = 2;
+    else statusLevel = 1;
+  }
 
-  // Generate segments
+  // Color según nivel - Verde, Amarillo, Rojo
+  const getSegmentColor = (segmentIndex: number): string => {
+    if (segmentIndex >= statusLevel) return "#27272a"; // zinc-800 vacío
+    
+    if (statusLevel === 5 || statusLevel === 4) return "#008000"; // Verde
+    if (statusLevel === 3) return "#C57D21"; // Amarillo
+    return "#800000"; // Rojo fuerte
+  };
+
+  // Generar 5 segmentos como arcos (estilo donut)
+  const totalSegments = 5;
   const segments = [];
-  const cx = 10;
-  const cy = 10;
+  const cx = 12;
+  const cy = 12;
   const r = 8;
+  const strokeWidth = 3.5;
+  const gapDegrees = 8;
   
   for (let i = 0; i < totalSegments; i++) {
-    const startAngle = (i * 360) / totalSegments;
-    const endAngle = ((i + 1) * 360) / totalSegments - 8; // 8 deg gap
+    const segmentDegrees = (360 / totalSegments) - gapDegrees;
+    const startAngle = (i * 360 / totalSegments) - 90;
+    const endAngle = startAngle + segmentDegrees;
     
-    // Polar to Cartesian
-    const x1 = cx + r * Math.cos((startAngle - 90) * (Math.PI / 180));
-    const y1 = cy + r * Math.sin((startAngle - 90) * (Math.PI / 180));
-    const x2 = cx + r * Math.cos((endAngle - 90) * (Math.PI / 180));
-    const y2 = cy + r * Math.sin((endAngle - 90) * (Math.PI / 180));
+    // Convert to radians
+    const startRad = (startAngle * Math.PI) / 180;
+    const endRad = (endAngle * Math.PI) / 180;
     
-    const d = [
-      "M", cx, cy,
-      "L", x1, y1,
-      "A", r, r, 0, 0, 1, x2, y2,
-      "Z"
-    ].join(" ");
+    const x1 = cx + r * Math.cos(startRad);
+    const y1 = cy + r * Math.sin(startRad);
+    const x2 = cx + r * Math.cos(endRad);
+    const y2 = cy + r * Math.sin(endRad);
+    
+    const largeArcFlag = segmentDegrees > 180 ? 1 : 0;
+    
+    const pathData = `M ${x1} ${y1} A ${r} ${r} 0 ${largeArcFlag} 1 ${x2} ${y2}`;
 
     segments.push(
       <path
         key={i}
-        d={d}
-        fill={i < filled ? color : "#27272a"} // zinc-800 empty
-        stroke="none"
+        d={pathData}
+        fill="none"
+        stroke={getSegmentColor(i)}
+        strokeWidth={strokeWidth}
+        strokeLinecap="butt"
       />
     );
   }
 
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20">
+    <svg width="24" height="24" viewBox="0 0 24 24" style={{ background: 'transparent' }}>
       {segments}
     </svg>
   );
@@ -225,7 +263,7 @@ const FGOSCell = ({
   status: string | null | undefined;
   sentiment: string | null | undefined;
 }) => {
-  if (score == null) return <span className="text-zinc-600">—</span>;
+  if (score == null) return <span className="text-white">—</span>;
 
   // Warning if status is not mature/developed or if score is weird
   const showWarning = status === "Incomplete" || status === "Early-stage" || status === "Developing";
@@ -239,34 +277,49 @@ const FGOSCell = ({
   const isWarning = status === "Developing" || status === "Incomplete"; // Heuristic matching image
 
   // Sentiment Arrow
-  let ArrowIcon = Minus;
-  let arrowColor = "text-orange-500";
+  let sentimentArrow = null;
   
   if (sentiment === "optimistic") {
-    ArrowIcon = ChevronUp;
-    arrowColor = "text-green-500";
+    sentimentArrow = (
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M7 3L7 11M7 3L4 6M7 3L10 6" stroke="#0BFD4F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
   } else if (sentiment === "pessimistic") {
-    ArrowIcon = ChevronDown;
-    arrowColor = "text-red-500";
+    sentimentArrow = (
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M7 11L7 3M7 11L10 8M7 11L4 8" stroke="#BE123C" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+  } else {
+    sentimentArrow = (
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M3 7L11 7" stroke="#C57D21" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    );
   }
 
   return (
-    <div className="flex items-center gap-2 w-full">
-      <div className="w-4 flex justify-center">
-        {isWarning && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
-      </div>
-      <span className="text-zinc-200 font-mono w-6 text-right">{score.toFixed(0)}</span>
+    <div className="flex items-center justify-between w-full">
       
-      {/* Progress Bar */}
-      <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden max-w-[60px]">
+      {/* Progress Bar - Horizontal, left-aligned, pegado al margen */}
+      <div className="h-[24px] bg-zinc-900 overflow-hidden" style={{ width: `${Math.max(12, Math.min(60, score * 0.6))}px` }}>
         <div 
-          className="h-full bg-sky-500 rounded-full" 
-          style={{ width: `${Math.max(0, Math.min(100, score))}%` }}
+          className="h-full bg-[#26334D]" 
+          style={{ width: '100%' }}
         />
       </div>
 
-      {/* Sentiment Arrow */}
-      <ArrowIcon className={`w-3 h-3 ${arrowColor}`} />
+      {/* Right section: number, arrow, warning */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-white font-mono text-[13px] w-7 text-right font-light">{score.toFixed(0)}</span>
+        <div className="w-3 flex justify-center">
+          {isWarning && <AlertTriangle className="w-3 h-3 text-[#FFD700]" />}
+        </div>
+        {/* Sentiment Arrow */}
+        {sentimentArrow}
+    
+      </div>
     </div>
   );
 };
@@ -306,29 +359,31 @@ export default function TablaIFS({
       onScroll={onScroll}
     >
       <table className="w-full text-sm border-collapse">
-        <TableHeader className="sticky top-0 z-10 bg-[#585757]">
-          <TableRow className="border-zinc-800 bg-[#585757] border-b border-zinc-800">
-            <TableHead className="px-3 text-zinc-400 font-medium text-[12px] h-6 text-left w-[80px]">Ticker</TableHead>
-            <TableHead className="px-1 text-zinc-400 font-medium text-[12px] h-6 text-left w-[40px]">V.R</TableHead>
-            <TableHead className="px-2 text-zinc-400 font-medium text-[12px] h-6 text-left w-[100px]">Stage</TableHead>
-            <TableHead className="px-2 text-zinc-400 font-medium text-[12px] h-6 text-right">FGOS</TableHead>
-            <TableHead className="px-1 text-zinc-400 font-medium text-[12px] h-6 text-center w-[50px]">IFS</TableHead>
-            <TableHead className="px-3 text-zinc-400 font-medium text-[12px] h-6 text-right w-[80px]">EOD</TableHead>
-            <TableHead className="px-3 text-zinc-400 font-medium text-[12px] h-6 text-right w-[80px]">Mkt Cap</TableHead>
+        <TableHeader className="sticky top-0 z-50 bg-[#1D1D1D]" style={{ position: 'sticky', top: 0, zIndex: 50 }}>
+          <TableRow className="bg-[#1D1D1D] border-0">
+            <TableHead className="px-3 text-white text-[13px] py-0 h-5 text-left w-[80px] border-r border-black font-light sticky top-0 bg-[#1D1D1D]">Ticker</TableHead>
+            <TableHead className="px-1 text-white text-[13px] py-0 h-5 text-center w-[40px] border-r border-black font-light sticky top-0 bg-[#1D1D1D]">R.V</TableHead>
+            <TableHead className="px-1 text-white text-[13px] py-0 h-5 text-center w-[50px] border-r border-black font-light sticky top-0 bg-[#1D1D1D]">IFS</TableHead>
+            <TableHead className="px-2 text-white text-[13px] py-0 h-5 text-left w-[100px] border-r border-black font-light sticky top-0 bg-[#1D1D1D]">Stage</TableHead>
+            <TableHead className="px-2 text-white text-[13px] py-0 h-5 text-right border-r border-black font-light sticky top-0 bg-[#1D1D1D]">FGOS</TableHead>
+            <TableHead className="px-2 text-white text-[13px] py-0 h-5 text-right w-[80px] border-r border-black font-light sticky top-0 bg-[#1D1D1D]">EOD</TableHead>
+            <TableHead className="px-2 text-white text-[13px] py-0 h-5 text-right w-[80px] border-r border-black font-light sticky top-0 bg-[#1D1D1D]">Mkt Cap</TableHead>
+            <TableHead className="px-2 text-white text-[13px] py-0 h-5 text-right w-[80px] border-r border-black font-light sticky top-0 bg-[#1D1D1D]">Total Debt</TableHead>
+            <TableHead className="px-2 text-white text-[13px] py-0 h-5 text-right w-[80px] font-light sticky top-0 bg-[#1D1D1D]">Revenue</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {isLoading ? (
-            <TableRow className="border-zinc-800">
-              <TableCell colSpan={7} className="h-24 text-center">
+            <TableRow className="border-0">
+              <TableCell colSpan={9} className="h-24 text-center">
                 <div className="flex justify-center items-center gap-2 text-zinc-500 text-xs">
                   <Loader2 className="w-4 h-4 animate-spin" /> Cargando datos...
                 </div>
               </TableCell>
             </TableRow>
           ) : data.length === 0 ? (
-            <TableRow className="border-zinc-800">
-              <TableCell colSpan={7} className="text-center text-zinc-500 py-8 text-xs">
+            <TableRow className="border-0">
+              <TableCell colSpan={9} className="text-center text-zinc-500 py-8 text-xs">
                 {emptyMessage}
               </TableCell>
             </TableRow>
@@ -338,53 +393,60 @@ export default function TablaIFS({
               return (
                 <TableRow
                   key={stock.ticker}
-                  className={`border-zinc-800/50 hover:bg-zinc-900/50 cursor-pointer transition-colors border-b ${
+                  className={`hover:bg-zinc-900/50 cursor-pointer transition-colors border-b border-[#1A1A1A] ${
                     isSelected ? "bg-zinc-700 border-l-4 border-l-[#002D72]" : ""
                   }`}
                   onClick={() => onRowClick?.(stock.ticker)}
                 >
-                  <TableCell className="font-medium text-zinc-200 px-3 py-1 text-xs">{stock.ticker}</TableCell>
-                  
-                  {/* V.R */}
-                  <TableCell className="px-1 py-1 flex justify-center">
-                    <ValuationSignal status={stock.sectorValuationStatus} />
+                  <TableCell className="font-light text-white px-3 py-0 h-5 text-s border-r border-[#484848]">{stock.ticker}</TableCell>
+
+                  <TableCell className="px-1 py-0 h-5 border-r border-[#484848]">
+                    <div className="flex justify-center h-full items-center">
+                      <ValuationSignal status={stock.sectorValuationStatus} />
+                    </div>
                   </TableCell>
-                  
-                  {/* Stage */}
-                  <TableCell className="text-zinc-400 px-2 py-1 text-[11px]">
-                    {stock.fgosStatus || "—"}
+                  <TableCell className="px-1 py-0 h-5 border-r border-[#484848]">
+                    <div className="flex justify-center h-full items-center">
+                      <IFSRadial ifs={stock.ifs} />
+                    </div>
                   </TableCell>
-                  
-                  {/* FGOS */}
-                  <TableCell className="px-2 py-1">
+                  <TableCell className="text-white py-0 h-5 text-[13px] text-left px-2 border-r border-[#484848] font-light">
+                    {stock.fgosStatus || "-"}
+                  </TableCell>
+                  <TableCell className="py-0 h-5 border-r border-[#484848] pl-0 pr-[2px]">
                     <FGOSCell 
                       score={stock.fgosScore} 
                       status={stock.fgosStatus} 
                       sentiment={stock.sentimentBand} 
                     />
                   </TableCell>
-                  
-                  {/* IFS */}
-                  <TableCell className="px-1 py-1 flex justify-center">
-                    <IFSRadial ifs={stock.ifs} />
+                  <TableCell 
+                    className={`text-right px-3 py-0 h-5 text-s font-mono border-r border-[#484848] font-light ${
+                      stock.priceChange != null && stock.priceChange > 0 
+                        ? 'text-[#34E265]' 
+                        : stock.priceChange != null && stock.priceChange < 0 
+                        ? 'text-[#BE123C]' 
+                        : 'text-zinc-200'
+                    }`}
+                  >
+                    {stock.priceEod != null ? stock.priceEod.toFixed(2) : "-"}
                   </TableCell>
-                  
-                  {/* EOD */}
-                  <TableCell className="text-right px-3 py-1 text-xs font-mono text-zinc-200">
-                    {stock.priceEod != null ? stock.priceEod.toFixed(2) : "—"}
+                  <TableCell className="text-right px-3 py-0 h-5 text-s font-mono text-[#EDA64D] font-light border-r border-[#484848]">
+                    {stock.marketCap != null ? formatMarketCap(Number(stock.marketCap)) : "-"}
                   </TableCell>
-                  
-                  {/* Mkt Cap */}
-                  <TableCell className="text-right px-3 py-1 text-xs font-mono text-amber-500">
-                    {stock.marketCap != null ? formatMarketCap(Number(stock.marketCap)) : "—"}
+                  <TableCell className="text-right px-3 py-0 h-5 text-s font-mono text-[#EDA64D] font-light border-r border-[#484848]">
+                    {stock.totalDebt != null ? formatMarketCap(Number(stock.totalDebt)) : "-"}
+                  </TableCell>
+                  <TableCell className="text-right px-3 py-0 h-5 text-s font-mono text-[#EDA64D] font-light">
+                    {stock.revenue != null ? formatMarketCap(Number(stock.revenue)) : "-"}
                   </TableCell>
                 </TableRow>
               );
             })
           )}
           {isFetchingMore && (
-            <TableRow className="border-zinc-800">
-              <TableCell colSpan={7} className="h-10 text-center text-zinc-600 text-xs">
+            <TableRow className="border-0">
+              <TableCell colSpan={9} className="h-10 text-center text-zinc-600 text-xs">
                 <div className="flex justify-center items-center gap-2">
                   <Loader2 className="w-3 h-3 animate-spin" /> Cargando más...
                 </div>

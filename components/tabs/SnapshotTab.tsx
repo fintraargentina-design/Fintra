@@ -22,6 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import ChartsTabHistoricos from "@/components/tabs/ChartsTabHistoricos";
+import PeersAnalysisPanel from "@/components/dashboard/PeersAnalysisPanel";
 import { 
   FinancialSnapshot, 
   FundamentalsTimelineResponse, 
@@ -224,93 +226,118 @@ export default function SnapshotTab({
           title="Resultado Relativo" 
           subtitle={`Datos al snapshot: ${snapshotDate}${sectorRank && sectorRankTotal ? ` • Rank Sectorial: #${sectorRank} de ${sectorRankTotal}` : ''}`} 
         />
-        <div className="bg-zinc-900/20">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-zinc-800 hover:bg-transparent">
-                <TableHead className="h-6 text-[9px] uppercase tracking-wider text-zinc-500 font-medium">Ventana</TableHead>
-                <TableHead className="h-6 text-[9px] uppercase tracking-wider text-zinc-500 font-medium text-right">vs Sector</TableHead>
-                <TableHead className="h-6 text-[9px] uppercase tracking-wider text-zinc-500 font-medium text-right">vs Mercado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {relativeRows.map((row) => {
-                // Construct property names for explicit columns
-                // e.g. relative_vs_sector_1w
-                const sectorKey = `relative_vs_sector_${row.key}` as keyof FinancialSnapshot;
-                const marketKey = `relative_vs_market_${row.key}` as keyof FinancialSnapshot;
+        <div className="grid grid-cols-[30%_70%] gap-2 bg-zinc-900/20 p-2">
+          {/* LEFT: TABLE */}
+          <div className="bg-[#0A0A0A] rounded overflow-hidden">
+            <table className="w-full text-sm border-collapse">
+              <thead className="bg-[#1D1D1D] sticky top-0">
+                <tr className="border-0">
+                  <th className="px-3 text-white text-[13px] py-0 h-5 text-left border-r border-black font-light">Ventana</th>
+                  <th className="px-2 text-white text-[13px] py-0 h-5 text-right border-r border-black font-light">vs Peer</th>
+                  <th className="px-2 text-white text-[13px] py-0 h-5 text-right font-light">vs Mercado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {relativeRows.map((row) => {
+                  const sectorKey = `relative_vs_sector_${row.key}` as keyof FinancialSnapshot;
+                  const marketKey = `relative_vs_market_${row.key}` as keyof FinancialSnapshot;
 
-                const sectorVal = stockAnalysis?.[sectorKey] as number | null | undefined;
-                const marketVal = stockAnalysis?.[marketKey] as number | null | undefined;
+                  const sectorVal = stockAnalysis?.[sectorKey] as number | null | undefined;
+                  const marketVal = stockAnalysis?.[marketKey] as number | null | undefined;
 
-                return (
-                  <TableRow key={row.key} className="border-zinc-800/30 hover:bg-transparent">
-                    <TableCell className="py-1 text-[11px] font-mono text-zinc-400">{row.label}</TableCell>
-                    <TableCell className="py-1 text-[11px] font-mono text-right text-zinc-300">
-                      {formatPercent(sectorVal)}
-                    </TableCell>
-                    <TableCell className="py-1 text-[11px] font-mono text-right text-zinc-300">
-                      {formatPercent(marketVal)}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                  const sectorColor = sectorVal && sectorVal > 0 ? 'text-green-400' : sectorVal && sectorVal < 0 ? 'text-red-400' : 'text-zinc-400';
+                  const marketColor = marketVal && marketVal > 0 ? 'text-green-400' : marketVal && marketVal < 0 ? 'text-red-400' : 'text-zinc-400';
+
+                  return (
+                    <tr key={row.key} className="border-b border-[#484848] hover:bg-zinc-900/50 transition-colors h-5">
+                      <td className="px-3 py-0 text-[13px] font-mono text-zinc-400 border-r border-black">{row.label}</td>
+                      <td className={`px-2 py-0 text-[13px] font-mono text-right border-r border-black ${sectorColor}`}>
+                        {formatPercent(sectorVal)}
+                      </td>
+                      <td className={`px-2 py-0 text-[13px] font-mono text-right ${marketColor}`}>
+                        {formatPercent(marketVal)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* RIGHT: CHART */}
+          <div className="h-[280px] bg-[#0A0A0A] rounded overflow-hidden">
+            <ChartsTabHistoricos 
+              symbol={symbol}
+              showBenchmark={true}
+              isActive={true}
+            />
+          </div>
         </div>
       </section>
 
-      {/* 2) PERFORMANCE HISTÓRICA */}
-      <section className="h-[300px] flex flex-col">
+      {/* 2) PERFORMANCE RELATIVA VS SECTOR E INDUSTRIA */}
+      <section>
         <SectionHeader title="Performance Relativa vs Sector e Industria" />
-        <div className="flex-1 w-full bg-zinc-900/20 p-2 relative">
-            {loadingHistory ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <Loader2 className="w-5 h-5 animate-spin text-zinc-600" />
-                </div>
-            ) : chartSeries.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartSeries}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                        <XAxis 
-                            dataKey="year" 
-                            stroke="#52525b" 
-                            tick={{fontSize: 10}} 
-                            tickLine={false}
-                            axisLine={false}
-                        />
-                        <YAxis 
-                            stroke="#52525b" 
-                            tick={{fontSize: 10}} 
-                            tickLine={false}
-                            axisLine={false}
-                            tickFormatter={(val) => `${(val * 100).toFixed(0)}%`}
-                        />
-                        <Tooltip 
-                            contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', fontSize: '12px' }}
-                            itemStyle={{ color: '#e4e4e7' }}
-                            formatter={(val: number) => [`${(val * 100).toFixed(2)}%`, "Retorno"]}
-                        />
-                        <Line 
-                            type="monotone" 
-                            dataKey="value" 
-                            stroke="#e4e4e7" 
-                            strokeWidth={1.5} 
-                            dot={{ r: 2, fill: '#e4e4e7' }} 
-                            activeDot={{ r: 4 }} 
-                        />
-                    </LineChart>
-                </ResponsiveContainer>
-            ) : (
-                <div className="flex items-center justify-center h-full text-zinc-600 text-xs">
-                    Gráfico no disponible
-                </div>
-            )}
+        <div className="grid grid-cols-[30%_70%] gap-2 bg-zinc-900/20 p-2">
+          {/* LEFT: TABLE */}
+          <div className="bg-[#0A0A0A] rounded overflow-hidden">
+            <table className="w-full text-sm border-collapse">
+              <thead className="bg-[#1D1D1D] sticky top-0">
+                <tr className="border-0">
+                  <th className="px-3 text-white text-[13px] py-0 h-5 text-left border-r border-black font-light">Ventana</th>
+                  <th className="px-2 text-white text-[13px] py-0 h-5 text-right border-r border-black font-light">vs Sector</th>
+                  <th className="px-2 text-white text-[13px] py-0 h-5 text-right font-light">vs Industry</th>
+                </tr>
+              </thead>
+              <tbody>
+                {relativeRows.map((row) => {
+                  const sectorKey = `relative_vs_sector_${row.key}` as keyof FinancialSnapshot;
+                  const industryKey = `relative_vs_industry_${row.key}` as keyof FinancialSnapshot;
+
+                  const sectorVal = stockAnalysis?.[sectorKey] as number | null | undefined;
+                  const industryVal = stockAnalysis?.[industryKey] as number | null | undefined;
+
+                  const sectorColor = sectorVal && sectorVal > 0 ? 'text-green-400' : sectorVal && sectorVal < 0 ? 'text-red-400' : 'text-zinc-400';
+                  const industryColor = industryVal && industryVal > 0 ? 'text-green-400' : industryVal && industryVal < 0 ? 'text-red-400' : 'text-zinc-400';
+
+                  return (
+                    <tr key={row.key} className="border-b border-[#484848] hover:bg-zinc-900/50 transition-colors h-5">
+                      <td className="px-3 py-0 text-[13px] font-mono text-zinc-400 border-r border-black">{row.label}</td>
+                      <td className={`px-2 py-0 text-[13px] font-mono text-right border-r border-black ${sectorColor}`}>
+                        {formatPercent(sectorVal)}
+                      </td>
+                      <td className={`px-2 py-0 text-[13px] font-mono text-right ${industryColor}`}>
+                        {formatPercent(industryVal)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* RIGHT: CHART */}
+          <div className="h-[280px] bg-[#0A0A0A] rounded overflow-hidden">
+            <ChartsTabHistoricos 
+              symbol={symbol}
+              showBenchmark={true}
+              isActive={true}
+            />
+          </div>
         </div>
       </section>
 
+      {/* 3) PEERS TABLE */}
+      <section>
+        <SectionHeader title="Competidores Directos" subtitle={`Peers de ${symbol}`} />
+        <div className="bg-zinc-900/20 rounded overflow-hidden" style={{ height: '400px' }}>
+          <PeersAnalysisPanel 
+            symbol={symbol}
+            selectedPeer={null}
+          />
+        </div>
+      </section>
 
-      
       {/* Footer / Micro-copy */}
       <div className="pt-2 border-t border-zinc-900 mt-4">
         <p className="text-[10px] text-zinc-600 font-mono text-center">
