@@ -19,6 +19,8 @@ import { fmp } from "@/lib/fmp/client";
 import type { OHLC } from "@/lib/fmp/types";
 import { getBenchmarkTicker } from "@/lib/services/benchmarkService";
 import { alignSeries, normalizeRebase100, calculateDrawdown } from "@/lib/utils/finance-math";
+import FGOSRadarChart from "@/components/charts/FGOSRadarChart";
+import { supabase } from "@/lib/supabase";
 
 echarts.use([
   LineChart,
@@ -99,6 +101,7 @@ const VIEWS = [
   { key: "precio", label: "Precio" },
   { key: "rel", label: "Relativo" },
   { key: "drawdown", label: "Drawdown" },
+  { key: "fgos", label: "FGOS" },
 ] as const;
 type View = typeof VIEWS[number]["key"];
 
@@ -143,6 +146,7 @@ export default function ChartsTabHistoricos({
   const [benchmarkTicker, setBenchmarkTicker] = React.useState<string>("");
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [fgosData, setFgosData] = React.useState<any>(null);
 
   // ECharts instance ref
   const chartRef = React.useRef<any>(null);
@@ -164,6 +168,32 @@ export default function ChartsTabHistoricos({
 
   // Stabilize comparedSymbols for dependency checks
   const comparedSymbolsKey = comparedSymbols.join(',');
+
+  // Fetch FGOS Data when view is 'fgos'
+  React.useEffect(() => {
+    if (view === 'fgos' && !fgosData && symbol) {
+      const fetchFgos = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('fintra_snapshots')
+            .select('fgos_components')
+            .eq('ticker', symbol)
+            .order('snapshot_date', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+            
+          if (data?.fgos_components) {
+            setFgosData(data.fgos_components);
+          } else {
+            console.warn(`No FGOS data for ${symbol}`);
+          }
+        } catch (e) {
+          console.error("Error fetching FGOS data", e);
+        }
+      };
+      fetchFgos();
+    }
+  }, [view, symbol, fgosData]);
 
   // 1. Determine Benchmark & Fetch All Data
   React.useEffect(() => {
@@ -584,6 +614,20 @@ export default function ChartsTabHistoricos({
   }, [chartData, view, symbol, benchmarkTicker, comparedSymbolsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const renderChart = () => {
+    if (view === 'fgos') {
+      if (!fgosData) return <div className="h-full grid place-items-center text-zinc-500">Cargando FGOS...</div>;
+      return (
+        <div className="h-full w-full p-4">
+          <FGOSRadarChart 
+            symbol={symbol} 
+            data={fgosData} 
+            comparedSymbol={comparedSymbols.length > 0 ? comparedSymbols[0] : null}
+            isActive={isActive && view === 'fgos'}
+          />
+        </div>
+      );
+    }
+
     if (loading) return <div className="h-full w-full animate-pulse bg-zinc-900/50 rounded-md" />;
     if (!getOption) {
       console.warn(`[ChartsTab] renderChart: getOption returned null for ${symbol}. chartData is:`, chartData);

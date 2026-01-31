@@ -392,7 +392,7 @@ export default function NoticiasTicker({
           </span>
           
           <div className="absolute right-1 flex items-center gap-2">
-            <div className="flex items-center gap-1.5 mr-2">
+            {/* <div className="flex items-center gap-1.5 mr-2">
               <span className={`text-[10px] font-medium ${isTestMode ? 'text-red-400' : 'text-zinc-500'}`}>
                 {isTestMode ? 'TEST' : 'PROD'}
               </span>
@@ -401,7 +401,7 @@ export default function NoticiasTicker({
                 onCheckedChange={setIsTestMode}
                 className={`scale-75 data-[state=checked]:bg-red-500`}
               />
-            </div>
+            </div> */}
 
             {/* Filter Menu */}
             <DropdownMenu>

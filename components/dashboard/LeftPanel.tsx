@@ -40,7 +40,11 @@ const LeftPanel = memo(({
       
       {/* Bottom 40%: Scatter Chart */}
       <div className="h-[40%] w-full min-h-0">
-        <SectorScatterChart selectedSector={selectedSector} />
+        <SectorScatterChart 
+          selectedSector={selectedSector}
+          selectedIndustry={selectedIndustry}
+          selectedCountry={selectedCountry}
+        />
       </div>
     </div>
   );
