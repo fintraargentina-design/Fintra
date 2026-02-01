@@ -12,7 +12,12 @@ interface CentralPanelProps {
 export default function CentralPanel({ selectedTicker, onStockSelect }: CentralPanelProps) {
   return (
     <div className="w-full h-full flex flex-col min-h-0 bg-[#09090b] border border-zinc-800 rounded-md overflow-hidden">
-         {/* Scrollable Content */}
+      {/* Header Section - Matches Image "Overview" */}
+      <div className="h-7 shrink-0 bg-[#172554] flex items-center justify-center border-b border-zinc-800">
+        <span className="text-[11px] font-semibold text-blue-100 tracking-wide uppercase">Overview</span>
+      </div>
+
+      {/* Scrollable Content */}
       <div className="flex-1 flex flex-col min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
         
         {/* Resumen Section */}
