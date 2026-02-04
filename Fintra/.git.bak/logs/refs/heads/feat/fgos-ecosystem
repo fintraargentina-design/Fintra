@@ -1,3 +1,0 @@
-0000000000000000000000000000000000000000 1676168ee6834eb33236347138ab7d627f503672 S4kred <s4kred.arch@gmail.com> 1766517410 -0300	branch: Created from HEAD
-1676168ee6834eb33236347138ab7d627f503672 ca6e4fddd446337e81d8332d910b794a562f6352 S4kred <s4kred.arch@gmail.com> 1766517919 -0300	commit: Implementación del motor FGOS e infraestructura del ecosistema
-ca6e4fddd446337e81d8332d910b794a562f6352 06af5b0c402846283e5692294e2ddc718abfedbe S4kred <s4kred.arch@gmail.com> 1766521019 -0300	commit: Fix: Integración de FGOS Card y manejo de errores de tablas faltantes

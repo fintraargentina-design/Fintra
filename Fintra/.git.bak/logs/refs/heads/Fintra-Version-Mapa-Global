@@ -1,4 +1,0 @@
-0000000000000000000000000000000000000000 cd46f1066d9e1f79a5dc8eb8239063df2c9bb8bc S4kred <s4kred.arch@gmail.com> 1767138419 -0300	branch: Created from HEAD
-cd46f1066d9e1f79a5dc8eb8239063df2c9bb8bc 7a92b6a792513e61d45d3f5ce54a59c479f741b7 S4kred <s4kred.arch@gmail.com> 1767138421 -0300	commit: Implementación Drill-down Sunburst a Acciones: CountryStocksTreemap, RiskSunburstChart interactivo y utilidades
-7a92b6a792513e61d45d3f5ce54a59c479f741b7 bb9aa125c417d57de4bf615c003b2ffda2ce8e36 S4kred <s4kred.arch@gmail.com> 1767138530 -0300	commit: Mejora UI: Header en Sheet de Drill-down Sunburst
-bb9aa125c417d57de4bf615c003b2ffda2ce8e36 cd14d42669141ca7907fa38e89c9dd0b327971a6 S4kred <s4kred.arch@gmail.com> 1767141068 -0300	commit: Fix build errors: add missing types, update dotenv, fix scripts

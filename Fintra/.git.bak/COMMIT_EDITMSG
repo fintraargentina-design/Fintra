@@ -1,1 +1,0 @@
-fix(iqs): resolve contract bug by removing fiscal_year column reference and using period_end_date
