@@ -114,14 +114,14 @@ async function getAllActiveTickers(): Promise<string[]> {
     from += PAGE_SIZE;
     to += PAGE_SIZE;
   }
-  
+
   console.log(`\n   ✅ Found ${allTickers.length} active tickers in universe`);
   return allTickers;
 }
 
 async function filterProcessedTickers(tickers: string[]): Promise<string[]> {
   const { supabaseAdmin } = await import("@/lib/supabase-admin");
-  
+
   if (tickers.length === 0) return [];
 
   // Check which of these tickers already have data in the target table
@@ -426,19 +426,23 @@ async function main() {
   if (singleTicker) {
     console.log(`📌 Single ticker mode: ${singleTicker}\n`);
     const { inserted, skipped } = await processTickerBackfill(singleTicker);
-    console.log("\n═══════════════════════════════════════════════════════════");
+    console.log(
+      "\n═══════════════════════════════════════════════════════════",
+    );
     console.log("✨ Backfill Complete!\n");
     console.log(`   Inserted:  ${inserted} TTM rows`);
     console.log(`   Skipped:   ${skipped} rows`);
-    console.log("═══════════════════════════════════════════════════════════\n");
+    console.log(
+      "═══════════════════════════════════════════════════════════\n",
+    );
     return;
   }
 
   // BATCH MODE: Process in batches
-  
+
   // 1. Fetch ALL active tickers (paginated)
   const allTickers = await getAllActiveTickers();
-  
+
   let batchNumber = 1;
   let grandTotalInserted = 0;
   let grandTotalSkipped = 0;
@@ -448,21 +452,27 @@ async function main() {
   // 2. Iterate through the universe in chunks
   for (let i = 0; i < allTickers.length; i += MAX_TICKERS_PER_RUN) {
     const batchTickersRaw = allTickers.slice(i, i + MAX_TICKERS_PER_RUN);
-    
+
     console.log(`\n🔄 BATCH ${batchNumber}`);
-    console.log(`📋 Checking status for ${batchTickersRaw.length} tickers (${i + 1}-${Math.min(i + MAX_TICKERS_PER_RUN, allTickers.length)} of ${allTickers.length})...`);
+    console.log(
+      `📋 Checking status for ${batchTickersRaw.length} tickers (${i + 1}-${Math.min(i + MAX_TICKERS_PER_RUN, allTickers.length)} of ${allTickers.length})...`,
+    );
 
     // 3. Filter out already processed ones from this batch
     // This prevents the infinite loop on failed items because we move forward in the main list regardless
     const pendingTickers = await filterProcessedTickers(batchTickersRaw);
-    
+
     if (pendingTickers.length === 0) {
-      console.log(`   ⏭️  All ${batchTickersRaw.length} tickers in this batch are already processed.`);
+      console.log(
+        `   ⏭️  All ${batchTickersRaw.length} tickers in this batch are already processed.`,
+      );
       batchNumber++;
       continue;
     }
 
-    console.log(`   📊 Processing ${pendingTickers.length} pending tickers in this batch\n`);
+    console.log(
+      `   📊 Processing ${pendingTickers.length} pending tickers in this batch\n`,
+    );
 
     let batchInserted = 0;
     let batchSkipped = 0;
@@ -471,7 +481,9 @@ async function main() {
 
     for (const ticker of pendingTickers) {
       try {
-        console.log(`\n[${grandTotalProcessed + 1}/${allTickers.length}] ${ticker}`);
+        console.log(
+          `\n[${grandTotalProcessed + 1}/${allTickers.length}] ${ticker}`,
+        );
 
         const { inserted, skipped } = await processTickerBackfill(ticker);
 
@@ -489,7 +501,6 @@ async function main() {
 
         batchProcessed++;
         grandTotalProcessed++;
-
       } catch (error) {
         console.error(
           `   ❌ Fatal error processing ${ticker}:`,
@@ -506,16 +517,22 @@ async function main() {
     // Update grand totals
     grandTotalInserted += batchInserted;
     grandTotalSkipped += batchSkipped;
-    
-    console.log("\n───────────────────────────────────────────────────────────");
+
+    console.log(
+      "\n───────────────────────────────────────────────────────────",
+    );
     console.log(`✅ Batch ${batchNumber} Complete!\n`);
     console.log(`   Inserted:  ${batchInserted} TTM rows`);
     console.log(`   Skipped:   ${batchSkipped} rows`);
-    console.log("───────────────────────────────────────────────────────────\n");
+    console.log(
+      "───────────────────────────────────────────────────────────\n",
+    );
 
     // Optional: Allow user to set a batch limit (global limit check)
     if (userLimit && grandTotalProcessed >= userLimit) {
-      console.log(`⚠️  User limit of ${userLimit} tickers reached. Stopping.\n`);
+      console.log(
+        `⚠️  User limit of ${userLimit} tickers reached. Stopping.\n`,
+      );
       break;
     }
 

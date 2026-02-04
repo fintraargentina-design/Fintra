@@ -1,6 +1,6 @@
 # 📋 TAREAS PENDIENTES - FINTRA
 
-**Última actualización:** 2026-02-03
+**Última actualización:** 2026-02-04
 
 ---
 
@@ -10,6 +10,26 @@
 - **Tareas completadas:** `- [x]` checkbox marcado + ~~texto tachado~~
 - **Ejemplo:**
   - ~~`- [x] Verificar que quality_brakes está funcionando (COMPLETADO)`~~
+
+---
+
+## ✅ COMPLETADO RECIENTEMENTE (Feb 2-4, 2026)
+
+### Refactors y Correcciones
+
+- ~~- [x] Refactor IQS (IFS_FY) a percentile-based (Feb 2)~~
+- ~~- [x] Refactor TTM v2 con computeTTMv2 canónico (Feb 3)~~
+- ~~- [x] Corregir backfill-ttm-valuation.ts (procesamiento automático) (Feb 3)~~
+- ~~- [x] Agregar column cash_and_equivalents a datos_financieros (Feb 3)~~
+
+### Documentación
+
+- ~~- [x] Crear TTM_TROUBLESHOOTING.md (Feb 4)~~
+- ~~- [x] Crear QUALITY_BRAKES_GUIDE.md (Feb 4)~~
+- ~~- [x] Actualizar CRON_EXECUTION_ORDER.md con ttm-valuation-cron (Feb 4)~~
+- ~~- [x] Actualizar 00-BACKFILL_INSTRUCTIONS.md con TTM valuation (Feb 4)~~
+- ~~- [x] Reorganizar documentación en carpetas por flujo (Feb 4)~~
+- ~~- [x] Crear DIAGRAMA_DE_FLUJO.md (Feb 4)~~
 
 ---
 

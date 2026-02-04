@@ -396,7 +396,7 @@ import { supabase } from "@/lib/supabase"; // in /lib/actions/** or /app/api/cro
 
 - When fetching large datasets (aggregators, bulk operations, universe scans), ALWAYS control the page size or chunk size.
 - If fetching N rows per ticker (e.g. 7 windows), your chunk size of tickers MUST be `< 1000 / N`.
-- **Example:** If fetching 7 windows per ticker, `CHUNK_SIZE` must be <= 140 (7 * 140 = 980 < 1000).
+- **Example:** If fetching 7 windows per ticker, `CHUNK_SIZE` must be <= 140 (7 \* 140 = 980 < 1000).
 - **Prohibited:** Relying on default limits for bulk queries.
 
 **Example:**
@@ -740,11 +740,13 @@ var snapshot = await supabase
 **Context:** When modifying Fintra documentation files or generating user-facing messages.
 
 **CRITICAL PHILOSOPHY:**
+
 - Fintra does NOT issue conclusions, recommendations, or judgments.
 - Fintra describes analytical SCENARIOS.
 - Every message must answer: "Which dimensions require closer analysis now?"
 
 **MANDATORY RULES:**
+
 1. Do NOT use evaluative or verdict language (good, bad, risky, attractive).
 2. Do NOT imply outcomes or decisions.
 3. Every alert or message must:
