@@ -1,0 +1,48 @@
+# dependencias
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# producción
+/build
+/.vercel
+/.turbo/
+
+# logs y debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.eslintcache
+*.log
+
+# variables de entorno
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local
+
+# configuración local de IDE
+.vscode/
+.idea/
+.vs/
+*.slnx
+*.sqlite
+*.sqlite-journal
+
+# informes de cobertura
+coverage/
+
+# archivos de compilación de TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Data folder (local cache, bulk files, etc.)
+/data/
+scripts/pipeline/data/
+*_backup.json
+*.rar
+*.zip

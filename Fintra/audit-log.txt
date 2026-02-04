@@ -1,0 +1,46 @@
+=== AUDITORÍA FINTRA INICIADA ===
+
+lunes, 2 de febrero de 2026 01:58:37
+
+
+=== ARCHIVOS DE ENGINES ===
+
+Name
+----
+applyQualityBrakes.ts
+benchmarks.ts
+buildSectorBenchmark.test.ts
+buildSectorBenchmark.ts
+competitive-advantage.test.ts
+competitive-advantage.ts
+confidence.ts
+dividend-quality.test.ts
+dividend-quality.ts
+fgos-recompute.ts
+fgos-state.ts
+fintra-brain.test.ts
+fintra-brain.ts
+fintra-verdict.test.ts
+fintra-verdict.ts
+fundamentals-growth.ts
+fundamentals-maturity.ts
+ifs.test.ts
+ifs.ts
+industry-metadata.ts
+layer-status.ts
+market-position.ts
+moat.test.ts
+moat.ts
+relative-return.test.ts
+relative-return.ts
+resolveInvestmentVerdict.ts
+resolveValuationFromSector.test.ts
+resolveValuationFromSector.ts
+sentiment.test.ts
+sentiment.ts
+structural-coverage.ts
+types.ts
+calculateMetricScore.ts
+sectorDefaults.ts
+
+
