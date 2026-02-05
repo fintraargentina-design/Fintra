@@ -251,7 +251,7 @@ async function downloadAndCacheCSVs(apiKey: string, yearsOverride?: number[]) {
     }
 }
 
-async function parseCachedCSVs(activeTickers: Set<string>, yearsOverride?: number[]) {
+async function parseCachedCSVs(activeTickers: Set<string>, yearsOverride?: number[], forceUpdate: boolean = false) {
     console.log(`[financials-bulk] Starting Parse Phase...`);
     const targetYears = yearsOverride || YEARS;
     
@@ -262,8 +262,8 @@ async function parseCachedCSVs(activeTickers: Set<string>, yearsOverride?: numbe
         let targetTickers = activeTickers;
         const isMutable = isMutablePeriod(year, period);
 
-        // GAP DETECTION LOGIC
-        if (!isMutable && year !== null && period !== null) {
+        // GAP DETECTION LOGIC (Skip if forceUpdate is true)
+        if (!forceUpdate && !isMutable && year !== null && period !== null) {
              const type = period === 'FY' ? 'FY' : 'Q';
              // Check which of the current batch of tickers are missing this period
              const missing = await getMissingTickersForPeriod(activeTickers, year, period, type);
@@ -583,7 +583,7 @@ async function persistFinancialsStreaming(
     return stats;
 }
 
-export async function runFinancialsBulk(targetTicker?: string, limit?: number, years?: number[]) {
+export async function runFinancialsBulk(targetTicker?: string, limit?: number, years?: number[], forceUpdate: boolean = false) {
     const fmpKey = process.env.FMP_API_KEY!;
     if (!fmpKey) {
         throw new Error('Missing FMP_API_KEY');
@@ -597,29 +597,57 @@ export async function runFinancialsBulk(targetTicker?: string, limit?: number, y
     let activeSet = new Set(allActiveTickers);
 
     if (targetTicker) {
-        console.log(`[FinancialsBulk] Running for single ticker: ${targetTicker}`);
-        if (activeSet.has(targetTicker)) {
-            activeSet = new Set([targetTicker]);
+        if (!activeSet.has(targetTicker)) {
+             // Allow processing even if not in active list (for testing)
+             activeSet = new Set([targetTicker]);
         } else {
-            console.warn(`[FinancialsBulk] Ticker ${targetTicker} not in active set. Processing anyway.`);
-            activeSet = new Set([targetTicker]);
+             activeSet = new Set([targetTicker]);
         }
-    } else if (limit && limit > 0) {
-        console.log(`🧪 BENCHMARK MODE: Limiting financials to first ${limit} tickers`);
-        const limitedTickers = allActiveTickers.slice(0, limit);
-        activeSet = new Set(limitedTickers);
     }
 
-    // 3. Parse CSVs (filtered by activeSet)
-    const data = await parseCachedCSVs(activeSet, years);
-    console.log(`[FinancialsBulk] Parsed Data: Income=${data.income.length}, Balance=${data.balance.length}`);
+    if (limit && limit > 0) {
+        const limited = Array.from(activeSet).slice(0, limit);
+        activeSet = new Set(limited);
+    }
 
-    // 4. Process & Persist
-    const tickersArray = Array.from(activeSet);
-    const stats = await persistFinancialsStreaming(tickersArray, data, 500);
+    // 3. Parse & Process
+    // Streaming approach: We need to parse ALL files (filtered by ticker) and build metrics
+    // To avoid memory overflow, we can't load ALL rows for ALL tickers at once if universe is huge.
+    // But parseCachedCSVs loads by file (year/period).
+    // The issue is `persistFinancialsStreaming` expects ALL data for the tickers it processes.
+    
+    // STRATEGY: 
+    // We can process tickers in chunks.
+    // For each chunk of 100 tickers:
+    //   - Call parseCachedCSVs(chunkTickers) -> Returns rows ONLY for these tickers
+    //   - Call persistFinancialsStreaming(chunkTickers, data)
+    
+    const TICKER_BATCH_SIZE = 50; // Process 50 tickers at a time to keep memory low
+    const tickerList = Array.from(activeSet);
+    const stats = { processed: 0, skipped: 0, fy_built: 0, q_built: 0, ttm_built: 0 };
 
-    return {
-        ok: true,
-        stats
-    };
+    console.log(`[financials-bulk] Processing ${tickerList.length} tickers in batches of ${TICKER_BATCH_SIZE}...`);
+
+    for (let i = 0; i < tickerList.length; i += TICKER_BATCH_SIZE) {
+        const batchTickers = tickerList.slice(i, i + TICKER_BATCH_SIZE);
+        const batchSet = new Set(batchTickers);
+
+        console.log(`[financials-bulk] Batch ${i / TICKER_BATCH_SIZE + 1}: ${batchTickers[0]} ... ${batchTickers[batchTickers.length - 1]}`);
+
+        // Pass forceUpdate here
+        let data = await parseCachedCSVs(batchSet, years, forceUpdate);
+        
+        const batchStats = await persistFinancialsStreaming(batchTickers, data, 2000);
+        
+        stats.processed += batchStats.processed;
+        stats.skipped += batchStats.skipped;
+        stats.fy_built += batchStats.fy_built;
+        stats.q_built += batchStats.q_built;
+        stats.ttm_built += batchStats.ttm_built;
+
+        // GC hint
+        (data as any) = null;
+    }
+
+    return stats;
 }

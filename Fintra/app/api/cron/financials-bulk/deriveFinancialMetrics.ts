@@ -68,6 +68,7 @@ export function deriveFinancialMetrics(params: {
   const totalDebt = balance.totalDebt;
   const totalCurrentAssets = balance.totalCurrentAssets;
   const totalCurrentLiabilities = balance.totalCurrentLiabilities;
+  const cashAndCashEquivalents = balance.cashAndCashEquivalents;
   // Use weightedAverageShsOut (Diluted usually preferred for valuation, but Basic common for BVPS)
   // FMP often has weightedAverageShsOut or weightedAverageShsOutDil
   const sharesOutstanding = income.weightedAverageShsOutDil || income.weightedAverageShsOut;
@@ -195,6 +196,7 @@ export function deriveFinancialMetrics(params: {
     capex,
     invested_capital: investedCapital,
     weighted_shares_out: sharesOutstanding,
+    cash_and_equivalents: cashAndCashEquivalents,
 
     // Derived Metrics
     operating_margin: operatingMargin,
