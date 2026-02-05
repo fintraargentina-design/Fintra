@@ -141,7 +141,9 @@ async function getIndustryFYMetrics(
     if (row.ticker === excludeTicker) continue;
 
     const profile = row.profile_structural as any;
-    if (profile?.industry === industry) {
+    const pIndustry = profile?.industry || profile?.classification?.industry;
+    
+    if (pIndustry === industry) {
       peerTickers.push(row.ticker);
       seenTickers.add(row.ticker);
     }
