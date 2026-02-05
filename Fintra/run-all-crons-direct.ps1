@@ -120,7 +120,8 @@ Write-Host ""
 
 $jobs += Run-Script 3 "Prices Daily Bulk" "scripts\pipeline\03-prices-daily-bulk.ts"
 $jobs += Run-Script 4 "Financials Bulk" "scripts\pipeline\04-financials-bulk.ts"
-$jobs += Run-Script 5 "Company Profile Bulk" "scripts\pipeline\05-company-profile-bulk.ts"
+$jobs += Run-Script 5 "TTM Valuation Incremental" "scripts\backfill\backfill-ttm-valuation.ts"
+$jobs += Run-Script 6 "Company Profile Bulk" "scripts\pipeline\05-company-profile-bulk.ts"
 
 # ========================================
 # PHASE 3: Performance Aggregators
@@ -132,12 +133,12 @@ Write-Host "###                                                                 
 Write-Host "#########################################################################" -ForegroundColor Magenta
 Write-Host ""
 
-$jobs += Run-Script 6 "Industry Performance 1D" "scripts\pipeline\06-industry-performance-aggregator.ts"
-$jobs += Run-Script 7 "Sector Performance 1D" "scripts\pipeline\07-sector-performance-aggregator.ts"
-$jobs += Run-Script 8 "Sector Perf Windows" "scripts\pipeline\08-sector-performance-windows-aggregator.ts"
-$jobs += Run-Script 9 "Industry Perf Windows" "scripts\pipeline\09-industry-performance-windows-aggregator.ts"
-$jobs += Run-Script 10 "Sector PE Aggregator" "scripts\pipeline\10-sector-pe-aggregator.ts"
-$jobs += Run-Script 11 "Industry PE Aggregator" "scripts\pipeline\11-industry-pe-aggregator.ts"
+$jobs += Run-Script 7 "Industry Performance 1D" "scripts\pipeline\06-industry-performance-aggregator.ts"
+$jobs += Run-Script 8 "Sector Performance 1D" "scripts\pipeline\07-sector-performance-aggregator.ts"
+$jobs += Run-Script 9 "Sector Perf Windows" "scripts\pipeline\08-sector-performance-windows-aggregator.ts"
+$jobs += Run-Script 10 "Industry Perf Windows" "scripts\pipeline\09-industry-performance-windows-aggregator.ts"
+$jobs += Run-Script 11 "Sector PE Aggregator" "scripts\pipeline\10-sector-pe-aggregator.ts"
+$jobs += Run-Script 12 "Industry PE Aggregator" "scripts\pipeline\11-industry-pe-aggregator.ts"
 
 # ========================================
 # PHASE 4: Benchmarks (Critical for FGOS)
@@ -149,7 +150,7 @@ Write-Host "###                                                                 
 Write-Host "#########################################################################" -ForegroundColor Magenta
 Write-Host ""
 
-$jobs += Run-Script 12 "Sector Benchmarks" "scripts\pipeline\12-sector-benchmarks.ts"
+$jobs += Run-Script 13 "Sector Benchmarks" "scripts\pipeline\12-sector-benchmarks.ts"
 
 # ========================================
 # PHASE 5: Individual Metrics
@@ -161,9 +162,9 @@ Write-Host "###                                                                 
 Write-Host "#########################################################################" -ForegroundColor Magenta
 Write-Host ""
 
-$jobs += Run-Script 13 "Performance Bulk" "scripts\pipeline\13-performance-bulk.ts"
-$jobs += Run-Script 14 "Market State Bulk" "scripts\pipeline\14-market-state-bulk.ts"
-$jobs += Run-Script 15 "Dividends Bulk V2" "scripts\pipeline\15-dividends-bulk-v2.ts"
+$jobs += Run-Script 14 "Performance Bulk" "scripts\pipeline\13-performance-bulk.ts"
+$jobs += Run-Script 15 "Market State Bulk" "scripts\pipeline\14-market-state-bulk.ts"
+$jobs += Run-Script 16 "Dividends Bulk V2" "scripts\pipeline\15-dividends-bulk-v2.ts"
 
 # ========================================
 # PHASE 6: Final Snapshots (CRITICAL)
@@ -175,8 +176,8 @@ Write-Host "###                                                                 
 Write-Host "#########################################################################" -ForegroundColor Magenta
 Write-Host ""
 
-$jobs += Run-Script 16 "FMP Bulk Snapshots" "scripts\pipeline\16-fmp-bulk-snapshots.ts"
-$jobs += Run-Script 17 "Healthcheck Snapshots" "scripts\pipeline\17-healthcheck-snapshots.ts"
+$jobs += Run-Script 17 "FMP Bulk Snapshots" "scripts\pipeline\16-fmp-bulk-snapshots.ts"
+$jobs += Run-Script 18 "Healthcheck Snapshots" "scripts\pipeline\17-healthcheck-snapshots.ts"
 
 # ========================================
 # PHASE 7: Final Calculations (FGOS + IFS)
@@ -188,8 +189,7 @@ Write-Host "###                                                                 
 Write-Host "#########################################################################" -ForegroundColor Magenta
 Write-Host ""
 
-$jobs += Run-Script 18 "Recompute FGOS All" "scripts\pipeline\18-recompute-fgos-all.ts"
-$jobs += Run-Script 19 "IFS Memory Aggregator" "scripts\pipeline\ifs-memory-aggregator.ts"
+$jobs += Run-Script 19 "Recompute FGOS All" "scripts\pipeline\18-recompute-fgos-all.ts"
 
 # ========================================
 # Summary

@@ -64,11 +64,11 @@ export default function SectorAnalysisPanel({
   return (
     <div className="w-full h-full flex flex-col gap-1 p-2 bg-[#0e0e0e]">
       {/* 1. SCATTER CHART SECTION */}
-      <div className="flex-none bg-[#111] border border-[#222] rounded-xs shadow-sm overflow-hidden p-3 relative group transition-all hover:border-[#333]">
+      <div className="flex-1 min-h-0 bg-[#111] border border-[#222] rounded-xs shadow-sm overflow-hidden p-3 relative group transition-all hover:border-[#333]">
         <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
           {/* Optional: Add controls here if needed */}
         </div>
-        <div className="h-[350px] w-full">
+        <div className="h-full w-full">
           {stocks.length > 0 ? (
             <SectorScatterChart
               data={stocks}

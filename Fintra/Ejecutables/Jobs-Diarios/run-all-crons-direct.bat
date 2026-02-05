@@ -90,7 +90,8 @@ echo.
 
 call :run_script 3 "Prices Daily Bulk" "scripts\pipeline\03-prices-daily-bulk.ts"
 call :run_script 4 "Financials Bulk" "scripts\pipeline\04-financials-bulk.ts"
-call :run_script 5 "Company Profile Bulk" "scripts\pipeline\05-company-profile-bulk.ts"
+call :run_script 5 "TTM Valuation Incremental" "scripts\backfill\backfill-ttm-valuation.ts"
+call :run_script 6 "Company Profile Bulk" "scripts\pipeline\05-company-profile-bulk.ts"
 
 REM ========================================
 REM PHASE 3: Performance Aggregators
@@ -104,12 +105,12 @@ echo ###                                                                     ###
 echo #########################################################################
 echo.
 
-call :run_script 6 "Industry Performance 1D" "scripts\pipeline\06-industry-performance-aggregator.ts"
-call :run_script 7 "Sector Performance 1D" "scripts\pipeline\07-sector-performance-aggregator.ts"
-call :run_script 8 "Sector Perf Windows" "scripts\pipeline\08-sector-performance-windows-aggregator.ts"
-call :run_script 9 "Industry Perf Windows" "scripts\pipeline\09-industry-performance-windows-aggregator.ts"
-call :run_script 10 "Sector PE Aggregator" "scripts\pipeline\10-sector-pe-aggregator.ts"
-call :run_script 11 "Industry PE Aggregator" "scripts\pipeline\11-industry-pe-aggregator.ts"
+call :run_script 7 "Industry Performance 1D" "scripts\pipeline\06-industry-performance-aggregator.ts"
+call :run_script 8 "Sector Performance 1D" "scripts\pipeline\07-sector-performance-aggregator.ts"
+call :run_script 9 "Sector Perf Windows" "scripts\pipeline\08-sector-performance-windows-aggregator.ts"
+call :run_script 10 "Industry Perf Windows" "scripts\pipeline\09-industry-performance-windows-aggregator.ts"
+call :run_script 11 "Sector PE Aggregator" "scripts\pipeline\10-sector-pe-aggregator.ts"
+call :run_script 12 "Industry PE Aggregator" "scripts\pipeline\11-industry-pe-aggregator.ts"
 
 REM ========================================
 REM PHASE 4: Benchmarks (Critical for FGOS)
@@ -123,7 +124,7 @@ echo ###                                                                     ###
 echo #########################################################################
 echo.
 
-call :run_script 12 "Sector Benchmarks" "scripts\pipeline\12-sector-benchmarks.ts"
+call :run_script 13 "Sector Benchmarks" "scripts\pipeline\12-sector-benchmarks.ts"
 
 REM ========================================
 REM PHASE 5: Individual Metrics
@@ -137,9 +138,9 @@ echo ###                                                                     ###
 echo #########################################################################
 echo.
 
-call :run_script 13 "Performance Bulk" "scripts\pipeline\13-performance-bulk.ts"
-call :run_script 14 "Market State Bulk" "scripts\pipeline\14-market-state-bulk.ts"
-call :run_script 15 "Dividends Bulk V2" "scripts\pipeline\15-dividends-bulk-v2.ts"
+call :run_script 14 "Performance Bulk" "scripts\pipeline\13-performance-bulk.ts"
+call :run_script 15 "Market State Bulk" "scripts\pipeline\14-market-state-bulk.ts"
+call :run_script 16 "Dividends Bulk V2" "scripts\pipeline\15-dividends-bulk-v2.ts"
 
 REM ========================================
 REM PHASE 6: Final Snapshots (CRITICAL)
@@ -153,8 +154,8 @@ echo ###                                                                     ###
 echo #########################################################################
 echo.
 
-call :run_script 16 "FMP Bulk Snapshots" "scripts\pipeline\16-fmp-bulk-snapshots.ts"
-call :run_script 17 "Healthcheck Snapshots" "scripts\pipeline\17-healthcheck-snapshots.ts"
+call :run_script 17 "FMP Bulk Snapshots" "scripts\pipeline\16-fmp-bulk-snapshots.ts"
+call :run_script 18 "Healthcheck Snapshots" "scripts\pipeline\17-healthcheck-snapshots.ts"
 
 REM ========================================
 REM PHASE 7: Final Calculations (FGOS + IFS)
@@ -168,8 +169,7 @@ echo ###                                                                     ###
 echo #########################################################################
 echo.
 
-call :run_script 18 "Recompute FGOS All" "scripts\pipeline\18-recompute-fgos-all.ts"
-call :run_script 19 "IFS Memory Aggregator" "scripts\pipeline\ifs-memory-aggregator.ts"
+call :run_script 19 "Recompute FGOS All" "scripts\pipeline\18-recompute-fgos-all.ts"
 
 REM ========================================
 REM Summary

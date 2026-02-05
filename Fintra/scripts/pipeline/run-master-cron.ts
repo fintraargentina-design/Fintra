@@ -46,6 +46,11 @@ async function main() {
 		console.log('\n--- 4. Financials Bulk ---');
 		await runFinancialsBulk(undefined, LIMIT);
 
+		// 4b. TTM Valuation Incremental
+		console.log('\n--- 4b. TTM Valuation Incremental ---');
+		const { runTTMValuationCron } = await import('@/scripts/pipeline/ttm-valuation-cron');
+		await runTTMValuationCron();
+
 		// 5. Company Profile Bulk
 		console.log('\n--- 5. Company Profile Bulk ---');
 		await runCompanyProfileBulk(LIMIT);
@@ -164,22 +169,6 @@ async function main() {
 			console.log('\n✅ FGOS Recompute Finished.');
 		} else {
 			console.log('⚠️ No snapshots found for FGOS recompute.');
-		}
-
-		// 19. IFS Memory Aggregator
-		console.log('\n--- 19. IFS Memory Aggregator ---');
-		// Dynamic import to run the main logic from the script module
-		// Since the script uses "if (require.main === module)" pattern or just runs on import?
-		// Checking ifs-memory-aggregator.ts content: it calls main() at the end.
-		// We cannot easily import it if it runs immediately.
-		// Better to use child_process.execSync or spawn to run the script file.
-		const { execSync } = await import('child_process');
-		try {
-			console.log('🚀 Executing scripts/pipeline/ifs-memory-aggregator.ts...');
-			execSync('npx tsx scripts/pipeline/ifs-memory-aggregator.ts', { stdio: 'inherit' });
-			console.log('✅ IFS Memory Aggregator Finished.');
-		} catch (e) {
-			console.error('❌ IFS Memory Aggregator Failed:', e);
 		}
 
 		console.log('\n✅ Master Cron (ALL) Finished Successfully');

@@ -34,8 +34,9 @@ import { computeTTMv2, type QuarterTTMInput } from "@/lib/engine/ttm";
 loadEnv();
 
 // OPERATIONAL SAFETY LIMITS
-const BATCH_SIZE = 100;
-const MAX_TICKERS_PER_RUN = 100; // Hard limit to prevent RAM spikes and Supabase throttling
+const CONCURRENCY_LIMIT = 20; // Process 20 tickers in parallel
+const BATCH_SIZE = 500; // Fetch 500 tickers at a time (outer loop)
+const MAX_TICKERS_PER_RUN = 500; // Increased from 100
 
 /**
  * Sleep helper to prevent Supabase throttling and RAM spikes
@@ -331,15 +332,20 @@ async function insertTTMRow(
 
 async function processTickerBackfill(
   ticker: string,
+  minDate?: string,
 ): Promise<{ inserted: number; skipped: number }> {
   let inserted = 0;
   let skipped = 0;
 
   // 1. Get all quarterly financials
+  // Optimization: If minDate is provided, we could filter at DB level, 
+  // but getQuarterlyFinancials currently fetches all. 
+  // For now, filter in memory or update getQuarterlyFinancials later.
+  // Ideally, we need at least 3 quarters BEFORE minDate to compute TTM for minDate.
   const quarters = await getQuarterlyFinancials(ticker);
 
   if (quarters.length < 4) {
-    console.log(`   ⏭️  Insufficient quarters (${quarters.length}/4)`);
+    // console.log(`   ⏭️  Insufficient quarters (${quarters.length}/4)`);
     return { inserted, skipped };
   }
 
@@ -350,6 +356,12 @@ async function processTickerBackfill(
   for (let i = 3; i < quarters.length; i++) {
     const last4 = quarters.slice(i - 3, i + 1);
     const valuationDate = last4[3].period_end_date;
+
+    // Filter by minDate if provided
+    if (minDate && valuationDate < minDate) {
+      continue;
+    }
+
     const quartersUsed = last4.map((q) => q.period_label);
 
     // Check if already exists (idempotent)
@@ -421,11 +433,25 @@ async function main() {
   const singleTicker = args.find((a) => !a.startsWith("--"));
   const limitArg = args.find((a) => a.startsWith("--limit="))?.split("=")[1];
   const userLimit = limitArg ? parseInt(limitArg, 10) : undefined;
+  
+  const yearsArg = args.find((a) => a.startsWith("--years="))?.split("=")[1];
+  let minDate: string | undefined;
+  
+  if (yearsArg) {
+    const years = parseInt(yearsArg, 10);
+    if (!isNaN(years)) {
+        // Calculate minDate: Today minus X years
+        const date = new Date();
+        date.setFullYear(date.getFullYear() - years);
+        minDate = date.toISOString().split('T')[0];
+        console.log(`📅 Incremental mode: Processing data since ${minDate} (last ${years} years)`);
+    }
+  }
 
   // SINGLE TICKER MODE
   if (singleTicker) {
     console.log(`📌 Single ticker mode: ${singleTicker}\n`);
-    const { inserted, skipped } = await processTickerBackfill(singleTicker);
+    const { inserted, skipped } = await processTickerBackfill(singleTicker, minDate);
     console.log(
       "\n═══════════════════════════════════════════════════════════",
     );
@@ -460,7 +486,16 @@ async function main() {
 
     // 3. Filter out already processed ones from this batch
     // This prevents the infinite loop on failed items because we move forward in the main list regardless
-    const pendingTickers = await filterProcessedTickers(batchTickersRaw);
+    // Note: If using minDate (incremental), we might WANT to re-process even if "processed" 
+    // (if "processed" means "has any row"). 
+    // But filterProcessedTickers checks if ticker exists in datos_valuacion_ttm.
+    // If we are doing incremental backfill, we assume we might be adding NEW rows for existing tickers.
+    // So we should SKIP filterProcessedTickers if minDate is set, or make it smarter.
+    // For now, let's skip filtering if minDate is set, to ensure we check for new data.
+    let pendingTickers = batchTickersRaw;
+    if (!minDate) {
+        pendingTickers = await filterProcessedTickers(batchTickersRaw);
+    }
 
     if (pendingTickers.length === 0) {
       console.log(
@@ -471,7 +506,7 @@ async function main() {
     }
 
     console.log(
-      `   📊 Processing ${pendingTickers.length} pending tickers in this batch\n`,
+      `   📊 Processing ${pendingTickers.length} tickers in this batch (Concurrency: ${CONCURRENCY_LIMIT})\n`,
     );
 
     let batchInserted = 0;
@@ -479,40 +514,44 @@ async function main() {
     let batchProcessed = 0;
     let batchErrors = 0;
 
-    for (const ticker of pendingTickers) {
-      try {
-        console.log(
-          `\n[${grandTotalProcessed + 1}/${allTickers.length}] ${ticker}`,
-        );
+    // Parallel processing in chunks
+    for (let j = 0; j < pendingTickers.length; j += CONCURRENCY_LIMIT) {
+        const chunk = pendingTickers.slice(j, j + CONCURRENCY_LIMIT);
+        
+        const promises = chunk.map(async (ticker) => {
+            try {
+                // console.log(`[${grandTotalProcessed + 1}] ${ticker}`); // Too noisy for parallel
+                const { inserted, skipped } = await processTickerBackfill(ticker, minDate);
+                return { ticker, inserted, skipped, error: null };
+            } catch (error) {
+                return { ticker, inserted: 0, skipped: 0, error };
+            }
+        });
 
-        const { inserted, skipped } = await processTickerBackfill(ticker);
+        const results = await Promise.all(promises);
 
-        batchInserted += inserted;
-        batchSkipped += skipped;
-
-        if (inserted > 0) {
-          console.log(`   ✅ Inserted ${inserted} TTM rows`);
+        for (const res of results) {
+            if (res.error) {
+                console.error(
+                    `   ❌ Error ${res.ticker}:`,
+                    res.error instanceof Error ? res.error.message : "Unknown error",
+                );
+                batchErrors++;
+                grandTotalErrors++;
+            } else {
+                batchInserted += res.inserted;
+                batchSkipped += res.skipped;
+                if (res.inserted > 0) {
+                     process.stdout.write("+"); // Visual progress
+                } else {
+                     process.stdout.write("."); // Visual progress
+                }
+            }
+            batchProcessed++;
+            grandTotalProcessed++;
         }
-        if (skipped > 0) {
-          console.log(
-            `   ⏭️  Skipped ${skipped} rows (existing or incomplete data)`,
-          );
-        }
-
-        batchProcessed++;
-        grandTotalProcessed++;
-      } catch (error) {
-        console.error(
-          `   ❌ Fatal error processing ${ticker}:`,
-          error instanceof Error ? error.message : "Unknown error",
-        );
-        batchErrors++;
-        grandTotalErrors++;
-      }
-
-      // CRITICAL: Controlled delay
-      await sleep(150);
     }
+    console.log(""); // Newline after dots
 
     // Update grand totals
     grandTotalInserted += batchInserted;
@@ -537,6 +576,9 @@ async function main() {
     }
 
     batchNumber++;
+    
+    // Short sleep between big batches to let DB breathe
+    await sleep(1000);
   }
 
   console.log("\n═══════════════════════════════════════════════════════════");

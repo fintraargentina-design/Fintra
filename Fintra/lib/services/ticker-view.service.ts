@@ -165,7 +165,8 @@ function buildStockDataFromSnapshot(
     fgos_confidence:
       market.fgos_confidence_percent || snapshot?.fgos_confidence || null,
     fgos_confidence_label: market.fgos_confidence_label || null,
-    fgos_category: snapshot?.fgos_category || null,
+    // Extract Moat Band specifically from fgos_components if available
+    fgos_category: snapshot?.fgos_components?.competitive_advantage?.band || '-',
     fgos_status: snapshot?.fgos_status || null,
     valuation_status:
       market.valuation_status || snapshot?.valuation?.status || null,

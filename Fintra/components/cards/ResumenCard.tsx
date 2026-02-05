@@ -9,10 +9,10 @@ import { cn } from "@/lib/utils";
 import DraggableWidget from "@/components/ui/draggable-widget";
 import CompanyInfoWidget from "@/components/widgets/CompanyInfoWidget";
 import { 
-  Activity, 
-  BarChart3, Globe, Building2, User, 
   Info, AlertTriangle
 } from "lucide-react";
+import { ValuationSignal, FGOSCell } from "@/components/shared/FinancialCells";
+import { IFSDualCell } from "@/components/tables/IFSDualCell";
 
 interface ResumenCardProps {
   symbol: string;
@@ -31,94 +31,139 @@ function formatLargeNumber(num?: number) {
   return `$${n.toLocaleString()}`;
 }
 
-function getMoatLabel(val: number | string | null | undefined): string {
-  const score = Number(val);
-  if (val == null || !Number.isFinite(score)) return '-';
-  if (score < 40) return 'Débil';
-  if (score < 65) return 'Moderada';
-  return 'Fuerte';
-}
-
-const InfoLabel = ({ label, value, subtext, icon: Icon, className }: { label: string, value: React.ReactNode, subtext?: string, icon?: any, className?: string }) => (
-    <div className={cn("flex flex-col", className)}>
-        <span className="text-[10px] tracking-wider text-zinc-500 font-medium mb-0.5 flex items-center gap-1.5">
-            {Icon && <Icon size={10} />}
-            {label}
-        </span>
-        <span className="text-[11px] font-light text-zinc-200 font-mono tracking-tight">{value}</span>
-        {subtext && <span className="text-[10px] text-zinc-500">{subtext}</span>}
+const ScenarioCard = ({ 
+    title, 
+    scenario, 
+    implication, 
+    metric, 
+    suggestedViews,
+    warning
+}: { 
+    title: string, 
+    scenario: string, 
+    implication: string, 
+    metric: React.ReactNode, 
+    suggestedViews: string[],
+    warning?: React.ReactNode
+}) => (
+    <div className="h-full bg-[#0A0A0A] border border-[#222] rounded-md p-3 flex flex-col justify-between hover:border-[#333] transition-colors min-h-[140px]">
+        {/* HEADER & METRIC */}
+        <div className="flex flex-col items-center gap-2 mb-3">
+            <h3 className="text-[10px] font-bold text-[#666] uppercase tracking-wider">{title}</h3>
+            <div className="transform scale-110">
+                {metric}
+            </div>
+        </div>
+        {/* SCENARIO NARRATIVE */}
+        <div className="flex-1 flex flex-col gap-2 mb-2 text-center">
+            <div>
+                <span className="text-[9px] text-[#444] uppercase tracking-wider block mb-0.5">Escenario</span>
+                <p className="text-[11px] text-[#EDEDED] leading-snug font-medium">
+                    {scenario}
+                </p>
+            </div>
+            <div>
+                <span className="text-[9px] text-[#444] uppercase tracking-wider block mb-0.5">Significado</span>
+                <p className="text-[10px] text-[#888] leading-snug">
+                    {implication}
+                </p>
+            </div>
+            {warning && (
+                <div className="mt-1 pt-1 border-t border-[#1A1A1A] text-left">
+                     {warning}
+                </div>
+            )}
+        </div>
+        {/* SUGGESTED VIEWS */}
+        <div className="pt-2 mt-auto border-t border-[#1A1A1A]">
+            <div className="flex items-center gap-2 flex-wrap justify-center">
+                <span className="text-[9px] text-[#444] uppercase tracking-wider">Miradas:</span>
+                <div className="flex gap-2 flex-wrap justify-center">
+                    {suggestedViews.map((view, i) => (
+                        <span key={i} className="text-[9px] text-[#666] hover:text-[#888] cursor-pointer border-b border-transparent hover:border-[#444] transition-colors">
+                            {view}
+                        </span>
+                    ))}
+                </div>
+            </div>
+        </div>
     </div>
 );
 
-const ValuationSignal = ({ status }: { status: string | null }) => {
-  if (!status) return <div className="w-3 h-3" />;
-
-  const lower = status.toLowerCase();
-  let colorClass = "bg-[#333]";
-  let bars = 0;
-
-  if (lower.includes("undervalued") || lower.includes("cheap")) {
-    colorClass = "bg-emerald-500";
-    bars = 3;
-  } else if (lower.includes("fair")) {
-    colorClass = "bg-amber-500";
-    bars = 2;
-  } else if (lower.includes("overvalued") || lower.includes("expensive")) {
-    colorClass = "bg-red-500";
-    bars = 1;
-  }
-
-  return (
-    <div className="flex items-end gap-[1.5px] h-3.5 w-4">
-      {[1, 2, 3].map((i) => (
-        <div
-          key={i}
-          className={`w-[3px] rounded-[1px] ${i <= bars ? colorClass : "bg-[#222]"}`}
-          style={{ height: `${(i / 3) * 100}%` }}
-        />
-      ))}
-    </div>
-  );
-};
-
-
-
-// New Component for the Horizontal Bars (IFS, Valuation, Stage)
-const MetricRowCard = ({ 
-    label, 
-    value, 
-    icon: Icon, 
-    color, 
-    subtext, 
-    customIndicator 
-}: { 
-    label: string, 
-    value: string, 
-    icon?: any, 
-    color: "green" | "yellow" | "red" | "gray", 
-    subtext?: string,
-    customIndicator?: React.ReactNode 
-}) => {
-    const colorStyles = {
-        green: "text-emerald-500",
-        yellow: "text-amber-500",
-        red: "text-red-500",
-        gray: "text-[#666]"
+// Helpers for Scenario Data
+function getValuationScenarioData(status: string | null) {
+    const s = (status || '').toLowerCase();
+    if (!s || s === 'pending') return {
+        scenario: "Datos insuficientes para determinar un escenario de valoración confiable.",
+        implication: "Se requiere mayor histórico o normalización de métricas para emitir juicio.",
+        views: ["Evolución de Precio"]
     };
-    
-    return (
-        <div className="bg-[#0A0A0A] border border-[#222] rounded-md px-3 py-2 flex items-center justify-between h-[42px] hover:border-[#333] transition-colors">
-            <span className="text-[11px] font-medium text-[#888] w-1/3 truncate uppercase tracking-wider">{label}</span>
-            <div className="flex items-center justify-center w-1/3">
-                 {customIndicator ? customIndicator : (Icon && <Icon size={14} className={colorStyles[color]} />)}
-            </div>
-            <div className="flex flex-col items-end w-1/3">
-                <span className={cn("text-[11px] font-mono font-medium", colorStyles[color])}>{value}</span>
-                {subtext && <span className="text-[9px] text-[#555] uppercase tracking-tighter">{subtext}</span>}
-            </div>
-        </div>
-    );
-};
+    if (s.includes('undervalued') || s.includes('cheap')) return {
+        scenario: "Cotización en zona de oportunidad histórica con margen de seguridad implícito.",
+        implication: "El mercado podría estar subestimando la capacidad de generación de caja futura.",
+        views: ["Múltiplos Históricos", "DCF Inverso"]
+    };
+    if (s.includes('fair')) return {
+        scenario: "Valoración alineada con los promedios históricos y la calidad del activo.",
+        implication: "El retorno esperado depende puramente del crecimiento de beneficios.",
+        views: ["PEG Ratio", "Yield vs Bonos"]
+    };
+    // Overvalued
+    return {
+        scenario: "Precio incorpora expectativas de crecimiento superiores a la media histórica.",
+        implication: "Riesgo asimétrico negativo si la ejecución no es perfecta.",
+        views: ["Revisiones de EPS", "Momentum"]
+    };
+}
+
+function getIFSScenarioData(position: string | undefined) {
+    if (!position) return {
+        scenario: "Evaluando la posición competitiva relativa al sector.",
+        implication: "Recopilando métricas de eficiencia comparada.",
+        views: ["Márgenes Operativos"]
+    };
+    if (position === 'leader') return {
+        scenario: "Dominancia estructural con métricas de eficiencia y rentabilidad superiores a pares.",
+        implication: "Dicta condiciones de mercado y posee ventajas competitivas duraderas.",
+        views: ["ROIC vs WACC", "Market Share"]
+    };
+    if (position === 'follower') return {
+        scenario: "Competidor funcional que replica estándares sin liderar la innovación.",
+        implication: "Rentabilidad ligada al ciclo del sector más que a méritos propios.",
+        views: ["Eficiencia de Capital", "Benchmarking"]
+    };
+    // Laggard
+    return {
+        scenario: "Posición defensiva con métricas inferiores que sugieren desventajas estructurales.",
+        implication: "Vulnerable a guerras de precios; requiere catalizadores de cambio.",
+        views: ["Deuda Neta/EBITDA", "Cash Burn"]
+    };
+}
+
+function getFGOSScenarioData(score: number | undefined) {
+    const s = score ?? 0;
+    if (s === 0) return { 
+         scenario: "Información fundamental insuficiente para diagnóstico de calidad.",
+         implication: "Verificar disponibilidad de estados financieros auditados.",
+         views: ["Estados Financieros"]
+    };
+    if (s >= 80) return {
+        scenario: "Fortaleza financiera integral con asignación de capital disciplinada.",
+        implication: "Bajo riesgo de quiebra; alta capacidad para sostener dividendos.",
+        views: ["Piotroski Breakdown", "Dupont"]
+    };
+    if (s >= 65) return {
+        scenario: "Operación sólida con fricciones menores o dependencia del ciclo económico.",
+        implication: "Requiere monitoreo de márgenes y apalancamiento en trimestres recesivos.",
+        views: ["Tendencia de Márgenes", "Ciclo Conversión"]
+    };
+    // Low
+    return {
+        scenario: "Deterioro en la calidad fundamental o estructura de capital agresiva.",
+        implication: "Riesgo elevado de dilución o problemas de liquidez si el entorno empeora.",
+        views: ["Altman Z-Score", "Vencimientos"]
+    };
+}
 
 export default function ResumenCard({
   symbol,
@@ -206,14 +251,10 @@ export default function ResumenCard({
       return { label: "OVERVALUED", color: "red" as const, raw: rawStatus };
   }, [resumen]);
 
-  const stageStatus = useMemo(() => {
-      const state = resumen?.attention_state;
-      if (!state) return { label: "ANALYZING", color: "gray" as const };
-      if (state === 'structural_compounder') return { label: "COMPOUNDER", color: "green" as const };
-      if (state === 'quality_in_favor') return { label: "MOMENTUM", color: "green" as const };
-      if (state === 'quality_misplaced') return { label: "TURNAROUND", color: "yellow" as const };
-      return { label: "HEADWIND", color: "red" as const };
-  }, [resumen]);
+  // Derived Scenario Data
+  const valuationScenario = useMemo(() => getValuationScenarioData(resumen?.valuation?.canonical_status || null), [resumen]);
+  const ifsScenario = useMemo(() => getIFSScenarioData(resumen?.ifs?.position), [resumen]);
+  const fgosScenario = useMemo(() => getFGOSScenarioData(resumen?.fgos_score ?? undefined), [resumen]);
 
   return (
     <Card className="bg-transparent border-none shadow-none w-full flex flex-col overflow-hidden rounded-none h-auto min-h-0">
@@ -234,105 +275,91 @@ export default function ResumenCard({
                             )}
                         </div>
                         <div className="flex flex-col">
-                            <h1 className="text-[18px] font-semibold text-[#EDEDED] tracking-tight leading-none">{data.symbol}</h1>
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-[18px] font-semibold text-[#EDEDED] tracking-tight leading-none">{data.symbol}</h1>
+                                <div 
+                                    className="text-[#666] hover:text-[#EDEDED] transition-colors cursor-pointer p-0.5 rounded hover:bg-[#1A1A1A]"
+                                    onClick={() => setShowCompanyInfo(true)}
+                                >
+                                    <Info size={12} />
+                                </div>
+                            </div>
                             <span className="text-[11px] text-[#888] font-medium truncate max-w-[300px]">{data.name}</span>
                         </div>
                     </div>
-                    <div 
-                        className="flex items-center gap-1.5 text-[#666] hover:text-[#EDEDED] transition-colors cursor-pointer px-2 py-1 rounded hover:bg-[#1A1A1A]"
-                        onClick={() => setShowCompanyInfo(true)}
-                    >
-                        <span className="text-[10px] uppercase tracking-wider font-medium">Info</span>
-                        <Info size={12} />
+                    <div className="flex items-center gap-1.5 text-[10px] self-end pb-0.5">
+                        <span className="text-zinc-500">Sector:</span>
+                        <span className="text-zinc-300 font-medium">
+                            {data.sector || "-"}
+                        </span>
+                        <span className="text-zinc-700 mx-1">/</span>
+                        <span className="text-zinc-500">Industry:</span>
+                        <span className="text-zinc-300 font-medium">
+                            {data.industry || "-"}
+                        </span>
                     </div>
+
                 </div>
 
-                {/* --- METRICS GRID --- */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* SCENARIO ANALYSIS CARDS */}
+                <div className="grid grid-cols-3 gap-3">
+                    {/* 1. VALORACIÓN RELATIVA */}
+                    <ScenarioCard 
+                        title="Valoración Relativa"
+                        scenario={valuationScenario.scenario}
+                        implication={valuationScenario.implication}
+                        metric={
+                            <ValuationSignal status={resumen?.valuation?.canonical_status || null} />
+                        }
+                        suggestedViews={["Discounted Cash Flow", "Multiple Analysis", "Historical Range"]}
+                    />
 
-                    {/* COLUMNA 1: CORE METRICS */}
-                    <div className="flex flex-col gap-2">
-                        <MetricRowCard 
-                            label="IFS" 
-                            value={ifsStatus.label} 
-                            color={ifsStatus.color} 
-                            customIndicator={<IFSRadial ifs={ifsStatus.raw} ifsMemory={resumen?.ifs_memory} size={24} />}                                    
-                        />
-                        <MetricRowCard 
-                            label="Valuation" 
-                            value={valuationStatus.label} 
-                            color={valuationStatus.color} 
-                            customIndicator={<ValuationSignal status={valuationStatus.raw} />}
-                        />
-                        <MetricRowCard 
-                            label="Stage" 
-                            value={stageStatus.label} 
-                            color={stageStatus.color} 
-                            icon={Activity}
-                        />
-                    </div>
+                    {/* 2. POSICIÓN COMPETITIVA */}
+                    <ScenarioCard 
+                        title="Posición Competitiva"
+                        scenario={ifsScenario.scenario}
+                        implication={ifsScenario.implication}
+                        metric={
+                            <IFSDualCell
+                                ifs={resumen?.ifs ? { position: resumen.ifs.position, pressure: 0 } : null}
+                                ifs_fy={null}
+                                size="compact"
+                            />
+                        }
+                        suggestedViews={["Industry Quality Score", "Moat Analysis", "Market Share"]}
+                    />
 
-                    {/* COLUMNA 2: FGOS (QUALITY) */}
-                    <div className="h-full bg-[#0A0A0A] border border-[#222] rounded-md p-3 flex flex-col justify-between hover:border-[#333] transition-colors min-h-[130px]">
-                        <h3 className="text-[10px] font-bold text-[#666] uppercase tracking-wider mb-2">Quality (FGOS)</h3>
-                        <div className="flex flex-col flex-1 justify-center gap-1.5">
-                            <div className="flex justify-between items-center text-[11px]">
-                                <span className="font-medium text-[#888]">Score</span>
-                                <span className="font-mono font-medium text-[#EDEDED]">{resumen?.fgos_score ?? '-'}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-[11px]">
-                                <span className="font-medium text-[#888] flex items-center gap-1">Ventaja vs Peers</span>
-                                <span className="font-mono font-medium text-[#EDEDED]">
-                                    {getMoatLabel(resumen?.fgos_components?.moat)}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-center text-[11px]">
-                                <span className="font-medium text-[#888]">Sentiment</span>
-                                <span className={cn("font-medium", 
-                                    resumen?.fgos_components?.sentiment_details?.band === 'optimistic' ? 'text-emerald-500' : 
-                                    resumen?.fgos_components?.sentiment_details?.band === 'pessimistic' ? 'text-red-500' : 'text-[#888]'
-                                )}>
-                                    {resumen?.fgos_components?.sentiment_details?.band === 'optimistic' ? '▲' : 
-                                     resumen?.fgos_components?.sentiment_details?.band === 'pessimistic' ? '▼' : '-'}
-                                </span>
-                            </div>
-                            {resumen?.fgos_components?.quality_brakes?.applied && (
-                                <div className="flex flex-col gap-1 mt-1 pt-1 border-t border-[#222]">
-                                    <div className="flex justify-between items-center text-[10px]">
-                                        <span className="font-medium text-amber-500">Quality Warning</span>
-                                        <AlertTriangle size={12} className="text-amber-500" />
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {resumen.fgos_components.quality_brakes.reasons.map((reason: string, idx: number) => (
-                                            <span key={idx} className="text-[9px] text-[#888] bg-[#1A1A1A] px-1 rounded border border-[#333]">
-                                                {reason.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                                            </span>
-                                        ))}
-                                    </div>
+                    {/* 3. CALIDAD FUNDAMENTAL */}
+                    <ScenarioCard 
+                        title="Calidad Fundamental"
+                        scenario={fgosScenario.scenario}
+                        implication={fgosScenario.implication}
+                        metric={
+                            <FGOSCell
+                                score={resumen?.fgos_score}
+                                status={resumen?.fgos_maturity || resumen?.fgos_status}
+                                sentiment={resumen?.fgos_components?.sentiment_details?.band}
+                                band={resumen?.fgos_components?.competitive_advantage?.band}
+                                hasPenalty={!!resumen?.fgos_components?.quality_brakes}
+                            />
+                        }
+                        suggestedViews={["FGOS Framework", "Balance Sheet Health", "Cash Flow Quality"]}
+                        warning={
+                            resumen?.fgos_components?.quality_brakes && (
+                                <div className="flex items-start gap-1.5 text-amber-500/90 bg-amber-950/20 p-1.5 rounded border border-amber-900/30">
+                                    <AlertTriangle size={10} className="mt-0.5 shrink-0" />
+                                    <div className="flex flex-col">
+                                         <span className="text-[9px] font-bold uppercase tracking-wider">Quality Warning</span>
+                                         <span className="text-[9px] leading-tight opacity-80">
+                                             {resumen.fgos_components.quality_brakes.reasons?.length > 0 
+                                                ? resumen.fgos_components.quality_brakes.reasons.map(r => r.replace(/_/g, ' ')).join(', ')
+                                                : "Frenos de calidad activos"}
+                                         </span>
+                                     </div>
                                 </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* COLUMNA 3: PROFILE */}
-                    <div className="h-full bg-[#0A0A0A] border border-[#222] rounded-md p-3 flex flex-col justify-between hover:border-[#333] transition-colors min-h-[130px]">
-                        <h3 className="text-[10px] font-bold text-[#666] uppercase tracking-wider mb-2">Profile</h3>
-                        <div className="flex flex-col flex-1 justify-center gap-1.5">
-                            <div className="flex justify-between items-center text-[11px]">
-                                <span className="font-medium text-[#888]">Sector</span>
-                                <span className="font-medium text-[#EDEDED] text-right truncate max-w-[100px]">{data.sector || "N/A"}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-[11px]">
-                                <span className="font-medium text-[#888]">Industry</span>
-                                <span className="font-medium text-[#EDEDED] text-right truncate max-w-[100px]">{data.industry || "N/A"}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-[11px]">
-                                <span className="font-medium text-[#888]">CEO</span>
-                                <span className="font-medium text-[#EDEDED] text-right truncate max-w-[100px]">{data.ceo || "N/A"}</span>
-                            </div>
-                        </div>
-                    </div>
-
+                            )
+                        }
+                    />
                 </div>
             </div>
         </div>

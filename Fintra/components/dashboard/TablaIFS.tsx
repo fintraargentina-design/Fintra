@@ -15,6 +15,7 @@ import { AlertTriangle, ArrowUp, ArrowDown, Minus } from "lucide-react";
 import { FintraLoader } from "@/components/ui/FintraLoader";
 import { IFSData, EnrichedStockData } from "@/lib/engine/types";
 import { IFSDualCell } from "@/components/tables/IFSDualCell";
+import { ValuationSignal, FGOSCell } from "@/components/shared/FinancialCells";
 
 // Helper to map raw Supabase snapshot to EnrichedStockData
 export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
@@ -42,8 +43,11 @@ export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
   const psMetrics = profileStructural.metrics || {};
   const financialScores = profileStructural.financial_scores || {};
 
-  // FGOS Band: Check fgos_category (Table) and fgos_band (Legacy/View)
-  const fgosBand = row.fgos_category || row.fgos_band || null;
+  // FGOS Band: Check fgos_category (Table)
+  // Strict rule: if not present in canonical path, use hyphen. DO NOT invent results.
+  // We prioritize the deep JSONB path (Source of Truth) or the pre-processed field.
+  // We explicitly IGNORE legacy columns like 'fgos_band' which might contain misplaced data (e.g. 'High' from confidence).
+  const fgosBand = row.fgos_components?.competitive_advantage?.band || row.fgos_category || '-';
 
   // FGOS Details
   // Use fgos_maturity if available (Mature, Developing, etc.), fallback to fgos_status (computed/pending)
@@ -171,129 +175,6 @@ export const sortStocksBySnapshot = (
   return a.ticker.localeCompare(b.ticker);
 };
 
-// --- Visual Components matching the image ---
-
-export const ValuationSignal = ({ status }: { status: string | null }) => {
-  if (!status) return <div className="w-5 h-4" />;
-
-  const lower = status.toLowerCase();
-  let colorClass = "bg-zinc-800";
-  let activeBars = 0;
-
-  // 5-State Valuation System
-  if (
-    lower.includes("very") &&
-    (lower.includes("cheap") || lower.includes("undervalued"))
-  ) {
-    colorClass = "bg-[#10b981]"; // Green - Very Cheap
-    activeBars = 5;
-  } else if (lower.includes("cheap") || lower.includes("undervalued")) {
-    colorClass = "bg-[#1ee3cf]"; // Cyan - Cheap
-    activeBars = 4;
-  } else if (lower.includes("fair")) {
-    colorClass = "bg-[#f5a623]"; // Orange - Fair
-    activeBars = 3;
-  } else if (lower.includes("expensive") || lower.includes("overvalued")) {
-    // Check if "very expensive"
-    if (lower.includes("very")) {
-      colorClass = "bg-[#dc2626]"; // Dark Red - Very Expensive
-      activeBars = 1;
-    } else {
-      colorClass = "bg-[#ff6b6b]"; // Red - Expensive
-      activeBars = 2;
-    }
-  }
-
-  return (
-    <div className="flex items-end gap-[1px] h-3.5 w-5">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <div
-          key={i}
-          className={`w-[2px] rounded-[1px] transition-all duration-300 ${
-            i <= activeBars ? colorClass : "bg-[#333]"
-          }`}
-          style={{
-            height: `${i === 1 ? "30%" : i === 2 ? "45%" : i === 3 ? "60%" : i === 4 ? "80%" : "100%"}`,
-            opacity: i <= activeBars ? 1 : 0.3,
-          }}
-        />
-      ))}
-    </div>
-  );
-};
-
-const FGOSCell = ({
-  score,
-  status,
-  sentiment,
-  band,
-  hasPenalty,
-}: {
-  score: number | null | undefined;
-  status: string | null | undefined;
-  sentiment: string | null | undefined;
-  band: string | null | undefined;
-  hasPenalty?: boolean;
-}) => {
-  if (score == null)
-    return <span className="text-zinc-600 text-[12px]">—</span>;
-
-  const showWarning = status === "Developing" || status === "Incomplete" || hasPenalty;
-
-  // Sentiment Icon Logic
-  let SentimentIcon = Minus;
-  let sentimentColor = "text-zinc-600";
-
-  if (sentiment === "optimistic") {
-    SentimentIcon = ArrowUp;
-    sentimentColor = "text-[#1ee3cf]";
-  } else if (sentiment === "pessimistic") {
-    SentimentIcon = ArrowDown;
-    sentimentColor = "text-[#ff6b6b]";
-  } else if (sentiment === "neutral") {
-    SentimentIcon = Minus;
-    sentimentColor = "text-[#a1a1aa]";
-  }
-
-  // Vercel-like colors for Score
-  let colorClass = "text-[#ff6b6b]"; // < 60
-  let barColor = "bg-[#ff6b6b]";
-
-  if ((score ?? 0) >= 80) {
-    colorClass = "text-[#1ee3cf]";
-    barColor = "bg-[#1ee3cf]";
-  } else if ((score ?? 0) >= 60) {
-    colorClass = "text-[#f5a623]";
-    barColor = "bg-[#f5a623]";
-  }
-
-  // Ancho proporcional al score (0-100)
-  const widthPercentage = Math.min(100, Math.max(0, score ?? 0));
-
-  return (
-    <div className="flex flex-col justify-center h-full w-full gap-1">
-      <div className="flex items-center justify-end gap-2">
-        {showWarning && (
-          <AlertTriangle className="w-3 h-3 text-amber-500" strokeWidth={2} />
-        )}
-        <span className={`font-mono font-semibold text-[12px] ${colorClass}`}>
-          {score?.toFixed(0) ?? "—"}
-        </span>
-        <SentimentIcon
-          className={`w-3 h-3 ${sentimentColor}`}
-          strokeWidth={2}
-        />
-      </div>
-      <div className="w-full h-[2px] bg-[#1c1c1c] rounded-full overflow-hidden">
-        <div
-          className={`h-full ${barColor} transition-all duration-500 ease-out`}
-          style={{ width: `${widthPercentage}%` }}
-        ></div>
-      </div>
-    </div>
-  );
-};
-
 interface TablaIFSProps {
   data: EnrichedStockData[];
   isLoading: boolean;
@@ -341,16 +222,16 @@ export default function TablaIFS({
               Ticker
             </TableHead>
             <TableHead className="h-9 px-1 py-1 text-[#a1a1aa] font-medium text-[11px] uppercase tracking-wider text-center w-[40px] whitespace-nowrap select-none">
-              R.V
+              R. V.
             </TableHead>
             <TableHead className="h-9 px-3 py-1 text-[#a1a1aa] font-medium text-[11px] uppercase tracking-wider text-center w-[80px] whitespace-nowrap select-none">
               Competitive
             </TableHead>
-            <TableHead className="h-9 px-3 py-1 text-[#a1a1aa] font-medium text-[11px] uppercase tracking-wider text-left w-[100px] whitespace-nowrap select-none">
+            <TableHead className="h-9 px-3 py-1 text-[#a1a1aa] font-medium text-[11px] uppercase tracking-wider text-center w-[100px] whitespace-nowrap select-none">
               Stage
             </TableHead>
-            <TableHead className="h-9 px-3 py-1 text-[#a1a1aa] font-medium text-[11px] uppercase tracking-wider text-right w-[110px] whitespace-nowrap select-none">
-              FGOS
+            <TableHead className="h-9 px-3 py-1 text-[#a1a1aa] font-medium text-[11px] uppercase tracking-wider text-center w-[110px] whitespace-nowrap select-none">
+              F. H.
             </TableHead>
             <TableHead className="h-9 px-3 py-1 text-[#a1a1aa] font-medium text-[11px] uppercase tracking-wider text-right w-[70px] whitespace-nowrap select-none">
               EOD
@@ -385,21 +266,21 @@ export default function TablaIFS({
                 const s = status?.toLowerCase() || "";
                 if (s.includes("early")) {
                   return {
-                    label: "[ ERY ]",
+                    label: "[EARLY]",
                     className:
                       "text-zinc-400 bg-zinc-500/10 border border-zinc-500/20",
                   };
                 }
                 if (s.includes("developing")) {
                   return {
-                    label: "[ DEV ]",
+                    label: "[DEVELOPING]",
                     className:
                       "text-orange-400 bg-orange-500/10 border border-orange-500/20",
                   };
                 }
                 if (s.includes("mature") || s.includes("established")) {
                   return {
-                    label: "[ EST ]",
+                    label: "[ESTABLISHED]",
                     className:
                       "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20",
                   };
@@ -462,7 +343,7 @@ export default function TablaIFS({
 
                   <TableCell className="px-3 py-1">
                     <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-medium tracking-wide ${stageConfig.className}`}
+                      className={`flex text-[10px] px-2 py-0.5 text-center justify-center font-mono font-medium tracking-wide ${stageConfig.className}`}
                     >
                       {stageConfig.label}
                     </span>

@@ -14,11 +14,13 @@ async function main() {
   const limitArg = args.find(a => a.startsWith('--limit='))?.split('=')[1];
   const limit = limitArg ? parseInt(limitArg) : undefined;
   const force = args.includes('--force');
+  const skipDownload = args.includes('--skip-download');
 
   console.log(`🚀 Starting Financials Bulk Trigger...`);
   console.log(`Target: ${ticker || 'ALL Active Tickers'}`);
   console.log(`Limit: ${limit || 'None'}`);
   console.log(`Force Update: ${force}`);
+  console.log(`Skip Download: ${skipDownload}`);
   console.log('------------------------------------------------');
 
   if (!process.env.FMP_API_KEY) {
@@ -27,7 +29,7 @@ async function main() {
   }
 
   try {
-    const stats = await runFinancialsBulk(ticker, limit, undefined, force);
+    const stats = await runFinancialsBulk(ticker, limit, undefined, force, skipDownload);
     console.log('\n✨ Completed Successfully!');
     console.log(JSON.stringify(stats, null, 2));
   } catch (err: any) {

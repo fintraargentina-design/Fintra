@@ -36,7 +36,9 @@ const ENDPOINT_MAP: Record<string, string> = {
   'ratios-ttm-bulk': 'ratios_ttm'
 };
 
-const YEARS = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
+const START_YEAR = 2010;
+const END_YEAR = new Date().getFullYear() + 1;
+const YEARS = Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i);
 const PERIODS = ['FY', 'Q1', 'Q2', 'Q3', 'Q4'];
 
 // --- Helper Functions ---
@@ -243,11 +245,13 @@ async function downloadAndCacheCSVs(apiKey: string, yearsOverride?: number[]) {
     tasks.push(fetchFile('key-metrics-ttm-bulk', null, null));
     tasks.push(fetchFile('ratios-ttm-bulk', null, null));
 
-    // Execute in chunks
-    const CHUNK_SIZE = 10;
+    // Execute in chunks with delay and retry
+    const CHUNK_SIZE = 5; // Reduced from 10 to be safer
     for (let i = 0; i < tasks.length; i += CHUNK_SIZE) {
         const chunk = tasks.slice(i, i + CHUNK_SIZE);
         await Promise.all(chunk);
+        // Add delay to respect rate limits
+        await new Promise(resolve => setTimeout(resolve, 1000));
     }
 }
 
@@ -583,14 +587,16 @@ async function persistFinancialsStreaming(
     return stats;
 }
 
-export async function runFinancialsBulk(targetTicker?: string, limit?: number, years?: number[], forceUpdate: boolean = false) {
+export async function runFinancialsBulk(targetTicker?: string, limit?: number, years?: number[], forceUpdate: boolean = false, skipDownload: boolean = false) {
     const fmpKey = process.env.FMP_API_KEY!;
     if (!fmpKey) {
         throw new Error('Missing FMP_API_KEY');
     }
 
-    // 1. Download & Cache (Skipped if recent & valid)
-    await downloadAndCacheCSVs(fmpKey, years);
+    // 1. Download & Cache (Skipped if recent & valid OR if skipDownload is true)
+    if (!skipDownload) {
+        await downloadAndCacheCSVs(fmpKey, years);
+    }
 
     // 2. Get Universe
     const allActiveTickers = await getActiveStockTickers(supabaseAdmin);
