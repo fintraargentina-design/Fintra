@@ -64,7 +64,7 @@ const AnalyticalAnchorCard = ({
           {/* COLLAPSED VIEW CONTENT */}
           <div className="flex flex-col gap-1.5">
             {/* Title */}
-            <h3 className="text-[9px] font-bold text-[#666] uppercase tracking-wider">
+            <h3 className="text-[9px] font-bold text-[#666] uppercase tracking-wider text-center">
               {title}
             </h3>
 

@@ -32,9 +32,9 @@ const POSITION_LABELS = {
 };
 
 const POSITION_COLORS = {
-  leader: "text-green-400",
-  follower: "text-amber-400",
-  laggard: "text-red-400",
+  leader: "#00CC00",
+  follower: "#FFA028",
+  laggard: "#CC0000",
 };
 
 const SIZE_CONFIG = {
@@ -70,8 +70,8 @@ export function IFSDualCell({
           className={`
             inline-flex items-center justify-center
             ${config.badgeSize}  font-semibold 
-            ${POSITION_COLORS[ifs.position]}
           `}
+          style={{ color: POSITION_COLORS[ifs.position] }}
           title="IFS Live
 Current competitive position
 Benchmark: Sector

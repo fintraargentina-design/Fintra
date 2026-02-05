@@ -20,9 +20,9 @@ interface IQSPieProps {
 }
 
 const COLORS = {
-  leader: "#10b981", // Green (matches IFS Live)
-  follower: "#f59e0b", // Yellow
-  laggard: "#ef4444", // Red
+  leader: "#00CC00",
+  follower: "#FFA028",
+  laggard: "#CC0000",
   empty: "#e5e7eb", // Gray
 };
 
