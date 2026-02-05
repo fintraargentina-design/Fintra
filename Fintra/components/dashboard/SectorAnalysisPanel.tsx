@@ -17,6 +17,8 @@ interface SectorAnalysisPanelProps {
   industries?: any[];
   selectedIndustry?: string;
   selectedCountry?: string;
+  selectedTickers?: string[];
+  onStocksSelect?: (tickers: string[]) => void;
 }
 
 export default function SectorAnalysisPanel({
@@ -27,8 +29,21 @@ export default function SectorAnalysisPanel({
   industries = [],
   selectedIndustry = "Todas",
   selectedCountry,
+  selectedTickers,
+  onStocksSelect,
 }: SectorAnalysisPanelProps) {
   const [hoveredTicker, setHoveredTicker] = useState<string | null>(null);
+  const [internalSelectedTickers, setInternalSelectedTickers] = useState<string[]>([]);
+
+  // Resolve controlled vs uncontrolled state
+  const effectiveSelectedTickers = selectedTickers || internalSelectedTickers;
+  const handleStocksSelect = (tickers: string[]) => {
+    if (onStocksSelect) {
+      onStocksSelect(tickers);
+    } else {
+      setInternalSelectedTickers(tickers);
+    }
+  };
 
   // Scroll Ref
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -61,6 +76,11 @@ export default function SectorAnalysisPanel({
     return (b.marketCap || 0) - (a.marketCap || 0);
   });
 
+  // Filter for Table based on selection (if active)
+  const tableStocks = effectiveSelectedTickers?.length
+    ? sortedStocks.filter((s) => effectiveSelectedTickers.includes(s.ticker))
+    : sortedStocks;
+
   return (
     <div className="w-full h-full flex flex-col gap-1 p-2 bg-[#0e0e0e]">
       {/* 1. SCATTER CHART SECTION */}
@@ -75,6 +95,7 @@ export default function SectorAnalysisPanel({
               onPointClick={onStockSelect}
               activeTicker={selectedTicker}
               hoveredTicker={hoveredTicker}
+              onSelectionChange={handleStocksSelect}
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-[#444] text-xs gap-2">
@@ -105,12 +126,9 @@ export default function SectorAnalysisPanel({
           </div>
         )}
 
-        <div
-          className="flex-1 overflow-hidden relative"
-          ref={scrollContainerRef}
-        >
+        <div className="flex-1 overflow-hidden">
           <TablaIFS
-            data={sortedStocks}
+            data={tableStocks}
             isLoading={loading}
             isFetchingMore={isFetchingMore}
             onRowClick={onStockSelect}
@@ -118,19 +136,23 @@ export default function SectorAnalysisPanel({
             selectedTicker={selectedTicker}
             onScroll={(e) => {
               const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-              if (scrollHeight - scrollTop - clientHeight < 50) {
-                if (hasMore && !isFetchingMore && !loading) {
-                  fetchMore();
-                }
+              if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMore) {
+                fetchMore();
               }
             }}
+            scrollRef={scrollContainerRef}
+            emptyMessage={error || "No stocks found for this sector."}
+            selectionVariant="secondary"
           />
         </div>
 
         {/* Footer / Status Bar */}
         <div className="h-7 border-t border-[#2a2a2a] bg-[#0e0e0e] flex items-center justify-between px-3 text-[10px] text-zinc-500 select-none">
           <div className="flex items-center gap-2">
-            <span>{stocks.length} Companies</span>
+            <span>
+                {tableStocks.length}
+                {effectiveSelectedTickers?.length ? ` / ${stocks.length}` : ""} Companies
+            </span>
             {isFetchingMore && (
               <span className="text-zinc-500 animate-pulse">
                 Fetching more...

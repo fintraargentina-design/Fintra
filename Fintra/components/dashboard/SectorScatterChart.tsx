@@ -31,7 +31,7 @@
  * Esto evita discusiones futuras y drift conceptual.
  */
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { EnrichedStockData } from "@/lib/engine/types";
 import { Switch } from "@/components/ui/switch";
@@ -71,6 +71,7 @@ interface SectorScatterChartProps {
   hoveredTicker: string | null;
   activeTicker?: string;
   onPointClick?: (ticker: string) => void;
+  onSelectionChange?: (tickers: string[]) => void;
 }
 
 export default function SectorScatterChart({
@@ -78,8 +79,10 @@ export default function SectorScatterChart({
   hoveredTicker,
   activeTicker,
   onPointClick,
+  onSelectionChange,
 }: SectorScatterChartProps) {
   const [benchmarkType, setBenchmarkType] = useState<"Industry" | "Sector">("Industry");
+  const chartRef = useRef<any>(null);
 
   const chartPoints = useMemo(() => {
     if (!rawData || rawData.length === 0) return [];
@@ -176,15 +179,123 @@ export default function SectorScatterChart({
     return chartPoints;
   }, [rawData, benchmarkType]);
 
+  // Compute bounding boxes per IFS class (Leader / Follower / Laggard)
+  // Equivalent to the official ECharts scatter-weight example
+  const markAreaData = useMemo(() => {
+    type Range = {
+      minX: number;
+      maxX: number;
+      minY: number;
+      maxY: number;
+    };
+
+    const ranges: Record<string, Range> = {};
+
+    chartPoints.forEach((pt) => {
+      const key = pt.ifsPosition;
+      if (!ranges[key]) {
+        ranges[key] = {
+          minX: pt.x,
+          maxX: pt.x,
+          minY: pt.y,
+          maxY: pt.y,
+        };
+      } else {
+        ranges[key].minX = Math.min(ranges[key].minX, pt.x);
+        ranges[key].maxX = Math.max(ranges[key].maxX, pt.x);
+        ranges[key].minY = Math.min(ranges[key].minY, pt.y);
+        ranges[key].maxY = Math.max(ranges[key].maxY, pt.y);
+      }
+    });
+
+    const buildArea = (label: string, range: Range | undefined, color: string) => {
+      if (!range) return null;
+      return [
+        {
+          name: label,
+          xAxis: range.minX,
+          yAxis: range.minY,
+          itemStyle: {
+            color: "transparent",
+            borderColor: color,
+            borderType: "dashed",
+            borderWidth: 1,
+          },
+          label: {
+            show: true,
+            position: "insideTopRight",
+            color: color, // Keep the text colored for identification
+            opacity: 0.9,
+            fontSize: 11,
+            formatter: "{b}",
+          },
+        },
+        {
+          xAxis: range.maxX,
+          yAxis: range.maxY,
+        },
+      ];
+    };
+
+    return [
+      buildArea("Leaders", ranges["leader"], COLORS.leader),
+      buildArea("Followers", ranges["follower"], COLORS.follower),
+      buildArea("Laggards", ranges["laggard"], COLORS.laggard),
+    ].filter(Boolean);
+  }, [chartPoints]);
+
   const option = useMemo(() => {
     return {
       grid: {
         top: 30,
         right: 55,
         bottom: 20,
-        left: 0,
+        left: 10,
         containLabel: true,
       },
+      toolbox: {
+        right: -10,
+        top: -10,
+        feature: {
+          brush: {
+            type: ['rect', 'polygon', 'keep', 'clear'],
+          },
+          dataZoom: {
+            title: {
+              zoom: 'Zoom 2D',
+              back: 'Restore Zoom'
+            }
+          },
+          saveAsImage: {
+             pixelRatio: 2
+          }
+        },
+        itemSize: 14,
+        iconStyle: {
+          borderColor: '#71717a'
+        },
+        emphasis: {
+          iconStyle: {
+            borderColor: '#3b82f6'
+          }
+        }
+      },
+      brush: {
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        throttleType: 'debounce',
+        throttleDelay: 300,
+        outOfBrush: {
+          colorAlpha: 0.1
+        },
+        brushStyle: {
+          borderWidth: 1,
+          color: 'rgba(59, 130, 246, 0.1)',
+          borderColor: 'rgba(59, 130, 246, 0.5)'
+        }
+      },
+      // Zoom disabled on scroll/pinch, only allowed via Toolbox
+      dataZoom: [],
       tooltip: {
         trigger: "item",
         formatter: (params: any) => {
@@ -227,6 +338,8 @@ export default function SectorScatterChart({
       yAxis: {
         type: "value",
         name: "FGOS Score (Quality Metric)",
+        nameLocation: "middle",
+        nameGap: 25,
         nameTextStyle: {
           fontSize: 11,
           color: "#a1a1aa",
@@ -266,6 +379,14 @@ export default function SectorScatterChart({
               { xAxis: 0, name: "Sector Average (0%)" },
               { yAxis: 50, name: "Quality \n\n Threshold" },
             ],
+          },
+          markArea: {
+            silent: true,
+            label: {
+              color: "#777",
+              fontSize: 10,
+            },
+            data: markAreaData,
           },
           data: chartPoints.map((pt) => {
             const isHovered = hoveredTicker === pt.ticker;
@@ -344,8 +465,15 @@ export default function SectorScatterChart({
           onPointClick(params.data.ticker);
         }
       },
+      brushSelected: (params: any) => {
+        if (onSelectionChange && params.batch && params.batch[0]) {
+            const selectedIndices = params.batch[0].selected[0].dataIndex;
+            const tickers = selectedIndices.map((idx: number) => chartPoints[idx].ticker);
+            onSelectionChange(tickers);
+        }
+      },
     }),
-    [onPointClick],
+    [onPointClick, onSelectionChange, chartPoints],
   );
 
   if (!rawData || rawData.length === 0) {
@@ -357,8 +485,8 @@ export default function SectorScatterChart({
   }
 
   return (
-    <div className="w-full h-full bg-transparent relative">
-      <div className="absolute -bottom-2 right-0 z-10 flex items-center space-x-1">
+    <div className="w-full h-full bg-transparent relative group/chart">
+      <div className="absolute -bottom-2 right-0 z-10 flex items-center space-x-0">
         <span
           className={`text-[9px] ${benchmarkType === "Industry" ? "text-white font-bold" : "text-zinc-500"}`}
         >
@@ -378,6 +506,9 @@ export default function SectorScatterChart({
         </span>
       </div>
       <ReactECharts
+        onChartReady={(instance) => {
+          chartRef.current = instance;
+        }}
         option={option}
         style={{ height: "100%", width: "100%" }}
         opts={{ renderer: "canvas" }}
