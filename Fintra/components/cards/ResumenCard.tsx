@@ -23,6 +23,8 @@ interface ResumenCardProps {
   stockBasicData?: any;
   onStockSearch?: (symbol: string) => Promise<any> | any;
   isParentLoading?: boolean;
+  onSectorSelect?: (sector: string) => void;
+  onIndustrySelect?: (industry: string) => void;
 }
 
 function formatLargeNumber(num?: number) {
@@ -296,6 +298,8 @@ export default function ResumenCard({
   stockBasicData,
   onStockSearch,
   isParentLoading,
+  onSectorSelect,
+  onIndustrySelect
 }: ResumenCardProps) {
   const [resumen, setResumen] = useState<ResumenData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -466,12 +470,23 @@ export default function ResumenCard({
               </div>
               <div className="flex items-center gap-1.5 text-[10px] self-end pb-0.5">
                 <span className="text-zinc-500">Sector:</span>
-                <span className="text-zinc-300 font-medium">
+                <span 
+                  className="text-zinc-300 font-medium cursor-pointer hover:text-white transition-colors"
+                  onClick={() => data.sector && onSectorSelect?.(data.sector)}
+                  title="Filter by this sector"
+                >
                   {data.sector || "-"}
                 </span>
                 <span className="text-zinc-700 mx-1">/</span>
                 <span className="text-zinc-500">Industry:</span>
-                <span className="text-zinc-300 font-medium">
+                <span 
+                  className="text-zinc-300 font-medium cursor-pointer hover:text-white transition-colors"
+                  onClick={() => {
+                    if (data.sector && onSectorSelect) onSectorSelect(data.sector);
+                    if (data.industry && onIndustrySelect) onIndustrySelect(data.industry);
+                  }}
+                  title="Filter by this industry"
+                >
                   {data.industry || "-"}
                 </span>
               </div>

@@ -120,6 +120,8 @@ export default function StockTerminal() {
                   <TabManager
                     requestedTicker={selectedSymbol}
                     onActiveTickerChange={handleTopStockClick}
+                    onSectorChange={setSelectedSector}
+                    onIndustryChange={setSelectedIndustry}
                   />
                 </div>
               </div>

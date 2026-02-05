@@ -8,6 +8,8 @@ interface ResumenTabProps {
   selectedPeer?: string | null;
   onStockSearch?: (symbol: string) => void;
   isLoading?: boolean;
+  onSectorChange?: (sector: string) => void;
+  onIndustryChange?: (industry: string) => void;
 }
 
 export default function ResumenTab({ 
@@ -17,7 +19,9 @@ export default function ResumenTab({
   onPeerSelect, 
   selectedPeer,
   onStockSearch,
-  isLoading
+  isLoading,
+  onSectorChange,
+  onIndustryChange
 }: ResumenTabProps) {
   return (
     <div className="w-full h-full flex flex-col gap-1 p-1 overflow-hidden">
@@ -28,6 +32,8 @@ export default function ResumenTab({
             stockBasicData={stockBasicData}
             onStockSearch={onStockSearch}
             isParentLoading={isLoading}
+            onSectorSelect={onSectorChange}
+            onIndustrySelect={onIndustryChange}
           />
         </div>
       </div>

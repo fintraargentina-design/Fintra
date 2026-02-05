@@ -22,9 +22,17 @@ interface TickerDetailViewProps {
   ticker: string;
   isActive: boolean;
   onTickerChange?: (ticker: string) => void;
+  onSectorChange?: (sector: string) => void;
+  onIndustryChange?: (industry: string) => void;
 }
 
-export default function TickerDetailView({ ticker, isActive, onTickerChange }: TickerDetailViewProps) {
+export default function TickerDetailView({ 
+  ticker, 
+  isActive, 
+  onTickerChange,
+  onSectorChange,
+  onIndustryChange
+}: TickerDetailViewProps) {
   const [stockBasicData, setStockBasicData] = useState<StockData | null>(null);
   const [stockAnalysis, setStockAnalysis] = useState<StockAnalysis | null>(null);
   const [financialSnapshot, setFinancialSnapshot] = useState<FinancialSnapshot | null>(null);
@@ -165,6 +173,8 @@ export default function TickerDetailView({ ticker, isActive, onTickerChange }: T
             selectedPeer={selectedCompetitor}
             onStockSearch={buscarDatosAccion}
             isLoading={isLoading}
+            onSectorChange={onSectorChange}
+            onIndustryChange={onIndustryChange}
           />
         );
       case 'ecosistema':

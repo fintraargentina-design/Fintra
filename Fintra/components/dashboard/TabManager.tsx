@@ -10,9 +10,16 @@ import { useTabContext } from '@/components/providers/TabProvider';
 interface TabManagerProps {
   requestedTicker?: string;
   onActiveTickerChange?: (ticker: string) => void;
+  onSectorChange?: (sector: string) => void;
+  onIndustryChange?: (industry: string) => void;
 }
 
-export default function TabManager({ requestedTicker, onActiveTickerChange }: TabManagerProps) {
+export default function TabManager({ 
+  requestedTicker, 
+  onActiveTickerChange,
+  onSectorChange,
+  onIndustryChange
+}: TabManagerProps) {
   const { openTickers, activeTicker, openOrActivateTicker, closeTab } = useTabContext();
 
   // Sync requestedTicker from parent (StockTerminal) to Context
@@ -61,6 +68,8 @@ export default function TabManager({ requestedTicker, onActiveTickerChange }: Ta
                   ticker={ticker}
                   isActive={isActive}
                   onTickerChange={handleTickerChange}
+                  onSectorChange={onSectorChange}
+                  onIndustryChange={onIndustryChange}
                 />
               </div>
             );
