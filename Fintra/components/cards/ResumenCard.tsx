@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { getResumenData, ResumenData } from "@/lib/repository/fintra-db";
 import { fetchResumenDataServer } from "@/lib/actions/resumen";
@@ -8,11 +9,14 @@ import { IFSRadial } from "@/components/visuals/IFSRadial";
 import { cn } from "@/lib/utils";
 import DraggableWidget from "@/components/ui/draggable-widget";
 import CompanyInfoWidget from "@/components/widgets/CompanyInfoWidget";
-import { 
-  Info, AlertTriangle
-} from "lucide-react";
+import { Info, AlertTriangle } from "lucide-react";
 import { ValuationSignal, FGOSCell } from "@/components/shared/FinancialCells";
 import { IFSDualCell } from "@/components/tables/IFSDualCell";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface ResumenCardProps {
   symbol: string;
@@ -31,138 +35,260 @@ function formatLargeNumber(num?: number) {
   return `$${n.toLocaleString()}`;
 }
 
-const ScenarioCard = ({ 
-    title, 
-    scenario, 
-    implication, 
-    metric, 
-    suggestedViews,
-    warning
-}: { 
-    title: string, 
-    scenario: string, 
-    implication: string, 
-    metric: React.ReactNode, 
-    suggestedViews: string[],
-    warning?: React.ReactNode
-}) => (
-    <div className="h-full bg-[#0A0A0A] border border-[#222] rounded-md p-3 flex flex-col justify-between hover:border-[#333] transition-colors min-h-[140px]">
-        {/* HEADER & METRIC */}
-        <div className="flex flex-col items-center gap-2 mb-3">
-            <h3 className="text-[10px] font-bold text-[#666] uppercase tracking-wider">{title}</h3>
-            <div className="transform scale-110">
-                {metric}
-            </div>
-        </div>
-        {/* SCENARIO NARRATIVE */}
-        <div className="flex-1 flex flex-col gap-2 mb-2 text-center">
-            <div>
-                <span className="text-[9px] text-[#444] uppercase tracking-wider block mb-0.5">Escenario</span>
-                <p className="text-[11px] text-[#EDEDED] leading-snug font-medium">
-                    {scenario}
-                </p>
-            </div>
-            <div>
-                <span className="text-[9px] text-[#444] uppercase tracking-wider block mb-0.5">Significado</span>
-                <p className="text-[10px] text-[#888] leading-snug">
-                    {implication}
-                </p>
-            </div>
-            {warning && (
-                <div className="mt-1 pt-1 border-t border-[#1A1A1A] text-left">
-                     {warning}
-                </div>
+const AnalyticalAnchorCard = ({
+  title,
+  values,
+  concept,
+  metadata,
+  alertData,
+  hoverContent,
+}: {
+  title: string;
+  values: React.ReactNode;
+  concept: string;
+  metadata?: React.ReactNode;
+  alertData?: React.ReactNode;
+  hoverContent: {
+    scenario: string;
+    meaning: string;
+    activatingData: string[];
+    suggestedFocus: string[];
+  };
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <div className="bg-[#0A0A0A] border border-[#222] rounded-md p-2.5 hover:border-[#333] transition-all cursor-pointer group relative h-full flex flex-col justify-between">
+          {/* COLLAPSED VIEW CONTENT */}
+          <div className="flex flex-col gap-1.5">
+            {/* Title */}
+            <h3 className="text-[9px] font-bold text-[#666] uppercase tracking-wider">
+              {title}
+            </h3>
+
+            {/* Values */}
+            <div className="flex items-center justify-center py-1">{values}</div>
+
+            {/* Metadata (confidence, etc) */}
+            {metadata && (
+              <div className="text-[9px] text-[#555] text-center">{metadata}</div>
             )}
+
+            {/* Alert Data (quality_brakes, etc) */}
+            {alertData && (
+              <div className="mt-1 pt-1.5 border-t border-[#1A1A1A]">
+                {alertData}
+              </div>
+            )}
+
+            {/* One-line concept */}
+            <p className="text-[10px] text-[#888] text-center leading-tight mt-1">
+              {concept}
+            </p>
+          </div>
+
+          {/* Expand indicator */}
+          <div className="text-[8px] text-[#444] text-center mt-2 group-hover:text-[#666] transition-colors">
+            {isOpen
+              ? "▲ Click to collapse"
+              : "▼ Click for analytical context"}
+          </div>
         </div>
-        {/* SUGGESTED VIEWS */}
-        <div className="pt-2 mt-auto border-t border-[#1A1A1A]">
-            <div className="flex items-center gap-2 flex-wrap justify-center">
-                <span className="text-[9px] text-[#444] uppercase tracking-wider">Miradas:</span>
-                <div className="flex gap-2 flex-wrap justify-center">
-                    {suggestedViews.map((view, i) => (
-                        <span key={i} className="text-[9px] text-[#666] hover:text-[#888] cursor-pointer border-b border-transparent hover:border-[#444] transition-colors">
-                            {view}
-                        </span>
-                    ))}
-                </div>
+      </PopoverTrigger>
+
+      {/* EXPANDED VIEW (POPOVER) */}
+      <PopoverContent 
+        className="w-[280px] bg-[#0A0A0A] border border-[#333] p-3 text-left shadow-2xl z-[100]" 
+        side="bottom" 
+        align="center"
+        sideOffset={5}
+      >
+        <div className="space-y-3">
+          <div>
+            <span className="text-[8px] text-[#444] uppercase tracking-wider block mb-1">
+              Scenario Described
+            </span>
+            <p className="text-[10px] text-[#AAA] leading-snug">
+              {hoverContent.scenario}
+            </p>
+          </div>
+
+          <div>
+            <span className="text-[8px] text-[#444] uppercase tracking-wider block mb-1">
+              What It Means
+            </span>
+            <p className="text-[9px] text-[#888] leading-snug">
+              {hoverContent.meaning}
+            </p>
+          </div>
+
+          <div>
+            <span className="text-[8px] text-[#444] uppercase tracking-wider block mb-1">
+              Activating Data
+            </span>
+            <ul className="text-[9px] text-[#777] leading-snug space-y-0.5">
+              {hoverContent.activatingData.map((item, i) => (
+                <li key={i}>· {item}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <span className="text-[8px] text-[#444] uppercase tracking-wider block mb-1">
+              Suggested Analytical Focus
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {hoverContent.suggestedFocus.map((focus, i) => (
+                <span
+                  key={i}
+                  className="text-[9px] text-[#666] px-1.5 py-0.5 bg-[#0F0F0F] border border-[#1A1A1A] rounded hover:border-[#333] hover:text-[#888] transition-colors"
+                >
+                  {focus}
+                </span>
+              ))}
             </div>
+          </div>
         </div>
-    </div>
-);
+      </PopoverContent>
+    </Popover>
+  );
+};
 
-// Helpers for Scenario Data
-function getValuationScenarioData(status: string | null) {
-    const s = (status || '').toLowerCase();
-    if (!s || s === 'pending') return {
-        scenario: "Datos insuficientes para determinar un escenario de valoración confiable.",
-        implication: "Se requiere mayor histórico o normalización de métricas para emitir juicio.",
-        views: ["Evolución de Precio"]
-    };
-    if (s.includes('undervalued') || s.includes('cheap')) return {
-        scenario: "Cotización en zona de oportunidad histórica con margen de seguridad implícito.",
-        implication: "El mercado podría estar subestimando la capacidad de generación de caja futura.",
-        views: ["Múltiplos Históricos", "DCF Inverso"]
-    };
-    if (s.includes('fair')) return {
-        scenario: "Valoración alineada con los promedios históricos y la calidad del activo.",
-        implication: "El retorno esperado depende puramente del crecimiento de beneficios.",
-        views: ["PEG Ratio", "Yield vs Bonos"]
-    };
-    // Overvalued
+// Helpers for Analytical Context (Hover/Expand)
+function getValuationHoverContent(status: string | null, percentile?: number) {
+  const s = (status || "").toLowerCase();
+  const p = percentile ?? 0;
+
+  if (!s || s === "pending")
     return {
-        scenario: "Precio incorpora expectativas de crecimiento superiores a la media histórica.",
-        implication: "Riesgo asimétrico negativo si la ejecución no es perfecta.",
-        views: ["Revisiones de EPS", "Momentum"]
+      scenario:
+        "Insufficient historical data to establish reliable sector positioning.",
+      meaning:
+        "Statistical distribution requires minimum dataset completeness. Pending state indicates data collection in progress, not absence of value.",
+      activatingData: [
+        "Sector percentile: pending",
+        "TTM benchmarks: incomplete",
+        "Minimum 4 consecutive quarters required",
+      ],
+      suggestedFocus: [
+        "Historical Price Evolution",
+        "Peer Comparison Readiness",
+        "Financial Statement Coverage",
+      ],
     };
+
+  return {
+    scenario:
+      "Statistical positioning of the asset's price relative to sector peers.",
+    meaning:
+      "Describes how the market is pricing the asset relative to its sector. Does not imply attractiveness, risk, or recommendation.",
+    activatingData: [
+      `Sector percentile: P${p}`,
+      "TTM benchmarks (PE, EV/EBITDA, Price/Sales)",
+      "Block voting across temporal windows",
+    ],
+    suggestedFocus: [
+      "Consistency with Expected Growth",
+      "Multiple Compression/Expansion Sensitivity",
+      "Alignment with Fundamental Quality",
+    ],
+  };
 }
 
-function getIFSScenarioData(position: string | undefined) {
-    if (!position) return {
-        scenario: "Evaluando la posición competitiva relativa al sector.",
-        implication: "Recopilando métricas de eficiencia comparada.",
-        views: ["Márgenes Operativos"]
-    };
-    if (position === 'leader') return {
-        scenario: "Dominancia estructural con métricas de eficiencia y rentabilidad superiores a pares.",
-        implication: "Dicta condiciones de mercado y posee ventajas competitivas duraderas.",
-        views: ["ROIC vs WACC", "Market Share"]
-    };
-    if (position === 'follower') return {
-        scenario: "Competidor funcional que replica estándares sin liderar la innovación.",
-        implication: "Rentabilidad ligada al ciclo del sector más que a méritos propios.",
-        views: ["Eficiencia de Capital", "Benchmarking"]
-    };
-    // Laggard
+function getIFSHoverContent(
+  position: string | undefined,
+  pressure?: number,
+  confidence?: number,
+) {
+  const pos = position || "pending";
+  const pr = pressure ?? 0;
+  const conf = confidence ?? 0;
+
+  if (!position)
     return {
-        scenario: "Posición defensiva con métricas inferiores que sugieren desventajas estructurales.",
-        implication: "Vulnerable a guerras de precios; requiere catalizadores de cambio.",
-        views: ["Deuda Neta/EBITDA", "Cash Burn"]
+      scenario: "Competitive relevance assessment in progress.",
+      meaning:
+        "Evaluating relative performance across multiple time horizons using block voting methodology. Pending state indicates insufficient temporal data.",
+      activatingData: [
+        "Time windows: 1M-5Y (incomplete)",
+        "Block voting: pending",
+        "Sector benchmark: establishing",
+      ],
+      suggestedFocus: [
+        "Historical Performance Windows",
+        "Sector Cycle Dependency",
+        "Data Completeness",
+      ],
     };
+
+  return {
+    scenario:
+      "Competitive relevance of the asset within its industry across multiple time horizons.",
+    meaning:
+      "Indicates whether the company leads, follows, or lags its peers, without implying future outcomes. Classification based on temporal block voting. Non-predictive.",
+    activatingData: [
+      `Position: ${pos.toUpperCase()}`,
+      `Block support: ${pr}/3`,
+      `Confidence: ${conf}%`,
+      "Time windows (1M, 3M, 6M, 1Y, 2Y, 3Y, 5Y)",
+    ],
+    suggestedFocus: [
+      "Structural Differences vs Peers",
+      "Sector Cycle Dependency",
+      "Historical Position Evolution",
+    ],
+  };
 }
 
-function getFGOSScenarioData(score: number | undefined) {
-    const s = score ?? 0;
-    if (s === 0) return { 
-         scenario: "Información fundamental insuficiente para diagnóstico de calidad.",
-         implication: "Verificar disponibilidad de estados financieros auditados.",
-         views: ["Estados Financieros"]
-    };
-    if (s >= 80) return {
-        scenario: "Fortaleza financiera integral con asignación de capital disciplinada.",
-        implication: "Bajo riesgo de quiebra; alta capacidad para sostener dividendos.",
-        views: ["Piotroski Breakdown", "Dupont"]
-    };
-    if (s >= 65) return {
-        scenario: "Operación sólida con fricciones menores o dependencia del ciclo económico.",
-        implication: "Requiere monitoreo de márgenes y apalancamiento en trimestres recesivos.",
-        views: ["Tendencia de Márgenes", "Ciclo Conversión"]
-    };
-    // Low
+function getFGOSHoverContent(
+  score?: number,
+  altmanZ?: number,
+  piotroski?: number,
+  hasBrakes?: boolean,
+) {
+  const s = score ?? 0;
+
+  if (s === 0)
     return {
-        scenario: "Deterioro en la calidad fundamental o estructura de capital agresiva.",
-        implication: "Riesgo elevado de dilución o problemas de liquidez si el entorno empeora.",
-        views: ["Altman Z-Score", "Vencimientos"]
+      scenario: "Insufficient fundamental data for quality diagnosis.",
+      meaning:
+        "Quality assessment requires minimum financial statement coverage. Pending state indicates data collection, not fundamental weakness.",
+      activatingData: [
+        "FGOS score: pending",
+        "Altman Z-Score: pending",
+        "Piotroski F-Score: pending",
+      ],
+      suggestedFocus: [
+        "Financial Statement Availability",
+        "Audit Trail",
+        "Reporting Frequency",
+      ],
     };
+
+  const activatingData = [
+    `FGOS score: ${s}/100`,
+    ...(altmanZ !== undefined ? [`Altman Z-Score: ${altmanZ.toFixed(2)}`] : []),
+    ...(piotroski !== undefined ? [`Piotroski F-Score: ${piotroski}/9`] : []),
+  ];
+
+  if (hasBrakes) {
+    activatingData.push("Quality brakes: ACTIVE");
+  }
+
+  return {
+    scenario:
+      "Structural quality level considering efficiency, growth, and financial risk.",
+    meaning:
+      "Synthesizes the company's ability to sustain returns, independent of market pricing. Captures operational robustness and capital discipline.",
+    activatingData,
+    suggestedFocus: [
+      "Liquidity and Debt Maturities",
+      "Interest Coverage",
+      "Cash Generation Under Adverse Cycles",
+    ],
+  };
 }
 
 export default function ResumenCard({
@@ -182,28 +308,33 @@ export default function ResumenCard({
   const data = useMemo(() => {
     // Helper to safely extract numbers
     const num = (x: any) => {
-        const n = Number(x);
-        return Number.isFinite(n) ? n : undefined;
+      const n = Number(x);
+      return Number.isFinite(n) ? n : undefined;
     };
     const str = (s: any) => (typeof s === "string" ? s.trim() : undefined);
 
     const baseData = resumen || stockBasicData || {};
-    
+
     return {
-        symbol: str(baseData.ticker || baseData.symbol) || currentSymbol,
-        name: str(baseData.name || baseData.companyName || baseData.company_name) || "",
-        price: num(baseData.price),
-        change: num(baseData.change_percentage || baseData.changesPercentage),
-        marketCap: num(baseData.market_cap || baseData.mktCap),
-        sector: str(baseData.sector),
-        industry: str(baseData.industry),
-        ceo: str(baseData.ceo),
-        website: str(baseData.website),
-        employees: num(baseData.employees || baseData.fullTimeEmployees),
-        exchange: str(baseData.exchange || baseData.exchangeShortName),
-        currency: str(baseData.currency) || "USD",
-        logo_url: baseData.image || baseData.logo_url || `https://financialmodelingprep.com/image-stock/${currentSymbol}.png`,
-        description: str(baseData.description),
+      symbol: str(baseData.ticker || baseData.symbol) || currentSymbol,
+      name:
+        str(baseData.name || baseData.companyName || baseData.company_name) ||
+        "",
+      price: num(baseData.price),
+      change: num(baseData.change_percentage || baseData.changesPercentage),
+      marketCap: num(baseData.market_cap || baseData.mktCap),
+      sector: str(baseData.sector),
+      industry: str(baseData.industry),
+      ceo: str(baseData.ceo),
+      website: str(baseData.website),
+      employees: num(baseData.employees || baseData.fullTimeEmployees),
+      exchange: str(baseData.exchange || baseData.exchangeShortName),
+      currency: str(baseData.currency) || "USD",
+      logo_url:
+        baseData.image ||
+        baseData.logo_url ||
+        `https://financialmodelingprep.com/image-stock/${currentSymbol}.png`,
+      description: str(baseData.description),
     };
   }, [resumen, stockBasicData, currentSymbol]);
 
@@ -225,143 +356,252 @@ export default function ResumenCard({
       }
     };
     loadData();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [currentSymbol]);
 
   // Derived States for UI
   const ifsStatus = useMemo(() => {
-      const pos = resumen?.ifs?.position;
-      const rawData = resumen?.ifs ? { 
-          position: resumen.ifs.position, 
-      } : null;
+    const pos = resumen?.ifs?.position;
+    const rawData = resumen?.ifs
+      ? {
+          position: resumen.ifs.position,
+        }
+      : null;
 
-      if (!pos) return { label: "PENDING", color: "gray" as const, raw: rawData };
-      if (pos === 'leader') return { label: "LEADER", color: "green" as const, raw: rawData };
-      if (pos === 'follower') return { label: "FOLLOWER", color: "yellow" as const, raw: rawData };
-      return { label: "LAGGARD", color: "red" as const, raw: rawData };
+    if (!pos) return { label: "PENDING", color: "gray" as const, raw: rawData };
+    if (pos === "leader")
+      return { label: "LEADER", color: "green" as const, raw: rawData };
+    if (pos === "follower")
+      return { label: "FOLLOWER", color: "yellow" as const, raw: rawData };
+    return { label: "LAGGARD", color: "red" as const, raw: rawData };
   }, [resumen]);
 
   const valuationStatus = useMemo(() => {
-      const status = resumen?.valuation?.canonical_status;
-      const rawStatus = status || null;
+    const status = resumen?.valuation?.canonical_status;
+    const rawStatus = status || null;
 
-      if (!status || status === 'pending') return { label: "PENDING", color: "gray" as const, raw: rawStatus };
-      if (status.includes('cheap')) return { label: "UNDERVALUED", color: "green" as const, raw: rawStatus };
-      if (status.includes('fair')) return { label: "FAIR", color: "yellow" as const, raw: rawStatus };
-      return { label: "OVERVALUED", color: "red" as const, raw: rawStatus };
+    if (!status || status === "pending")
+      return { label: "PENDING", color: "gray" as const, raw: rawStatus };
+    if (status.includes("cheap"))
+      return { label: "UNDERVALUED", color: "green" as const, raw: rawStatus };
+    if (status.includes("fair"))
+      return { label: "FAIR", color: "yellow" as const, raw: rawStatus };
+    return { label: "OVERVALUED", color: "red" as const, raw: rawStatus };
   }, [resumen]);
 
-  // Derived Scenario Data
-  const valuationScenario = useMemo(() => getValuationScenarioData(resumen?.valuation?.canonical_status || null), [resumen]);
-  const ifsScenario = useMemo(() => getIFSScenarioData(resumen?.ifs?.position), [resumen]);
-  const fgosScenario = useMemo(() => getFGOSScenarioData(resumen?.fgos_score ?? undefined), [resumen]);
+  // Derived Hover Content
+  const valuationHover = useMemo(
+    () =>
+      getValuationHoverContent(
+        resumen?.valuation?.canonical_status || null,
+        (resumen?.valuation as any)?.percentile,
+      ),
+    [resumen],
+  );
+
+  const ifsHover = useMemo(
+    () =>
+      getIFSHoverContent(
+        resumen?.ifs?.position,
+        resumen?.ifs?.pressure,
+        (resumen?.ifs as any)?.confidence,
+      ),
+    [resumen],
+  );
+
+  const fgosHover = useMemo(
+    () =>
+      getFGOSHoverContent(
+        resumen?.fgos_score ?? undefined,
+        (resumen?.fgos_components?.quality_brakes as any)?.altman_z,
+        (resumen?.fgos_components?.quality_brakes as any)?.piotroski,
+        resumen?.fgos_components?.quality_brakes?.applied,
+      ),
+    [resumen],
+  );
 
   return (
     <Card className="bg-transparent border-none shadow-none w-full flex flex-col overflow-hidden rounded-none h-auto min-h-0">
       <CardContent className="p-0 flex flex-col h-full bg-transparent">
-        
         {/* SCROLLABLE CONTENT WITH NEW GRID LAYOUT */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
-            <div className="max-w-full mx-auto flex flex-col gap-3">
-                
-                {/* --- HEADER: Ticker & Name --- */}
-                <div className="flex items-center justify-between pb-2 border-b border-[#222]">
-                    <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-md bg-transparent flex items-center justify-center overflow-hidden p-0.5">
-                            {data.logo_url ? (
-                                <img src={data.logo_url} alt={data.symbol} className="w-full h-full object-contain" />
-                            ) : (
-                                <span className="text-xs font-medium text-[#666]">{data.symbol.slice(0,2)}</span>
-                            )}
-                        </div>
-                        <div className="flex flex-col">
-                            <div className="flex items-center gap-2">
-                                <h1 className="text-[18px] font-semibold text-[#EDEDED] tracking-tight leading-none">{data.symbol}</h1>
-                                <div 
-                                    className="text-[#666] hover:text-[#EDEDED] transition-colors cursor-pointer p-0.5 rounded hover:bg-[#1A1A1A]"
-                                    onClick={() => setShowCompanyInfo(true)}
-                                >
-                                    <Info size={12} />
-                                </div>
-                            </div>
-                            <span className="text-[11px] text-[#888] font-medium truncate max-w-[300px]">{data.name}</span>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[10px] self-end pb-0.5">
-                        <span className="text-zinc-500">Sector:</span>
-                        <span className="text-zinc-300 font-medium">
-                            {data.sector || "-"}
-                        </span>
-                        <span className="text-zinc-700 mx-1">/</span>
-                        <span className="text-zinc-500">Industry:</span>
-                        <span className="text-zinc-300 font-medium">
-                            {data.industry || "-"}
-                        </span>
-                    </div>
-
+          <div className="max-w-full mx-auto flex flex-col gap-3">
+            {/* --- HEADER: Ticker & Name --- */}
+            <div className="flex items-center justify-between pb-2 border-b border-[#222]">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-md bg-transparent flex items-center justify-center overflow-hidden p-0.5 relative">
+                  {data.logo_url ? (
+                    <Image
+                      src={data.logo_url}
+                      alt={data.symbol}
+                      width={44}
+                      height={44}
+                      className="object-contain"
+                      unoptimized
+                    />
+                  ) : (
+                    <span className="text-xs font-medium text-[#666]">
+                      {data.symbol.slice(0, 2)}
+                    </span>
+                  )}
                 </div>
-
-                {/* SCENARIO ANALYSIS CARDS */}
-                <div className="grid grid-cols-3 gap-3">
-                    {/* 1. VALORACIÓN RELATIVA */}
-                    <ScenarioCard 
-                        title="Valoración Relativa"
-                        scenario={valuationScenario.scenario}
-                        implication={valuationScenario.implication}
-                        metric={
-                            <ValuationSignal status={resumen?.valuation?.canonical_status || null} />
-                        }
-                        suggestedViews={["Discounted Cash Flow", "Multiple Analysis", "Historical Range"]}
-                    />
-
-                    {/* 2. POSICIÓN COMPETITIVA */}
-                    <ScenarioCard 
-                        title="Posición Competitiva"
-                        scenario={ifsScenario.scenario}
-                        implication={ifsScenario.implication}
-                        metric={
-                            <IFSDualCell
-                                ifs={resumen?.ifs ? { position: resumen.ifs.position, pressure: 0 } : null}
-                                ifs_fy={null}
-                                size="compact"
-                            />
-                        }
-                        suggestedViews={["Industry Quality Score", "Moat Analysis", "Market Share"]}
-                    />
-
-                    {/* 3. CALIDAD FUNDAMENTAL */}
-                    <ScenarioCard 
-                        title="Calidad Fundamental"
-                        scenario={fgosScenario.scenario}
-                        implication={fgosScenario.implication}
-                        metric={
-                            <FGOSCell
-                                score={resumen?.fgos_score}
-                                status={resumen?.fgos_maturity || resumen?.fgos_status}
-                                sentiment={resumen?.fgos_components?.sentiment_details?.band}
-                                band={resumen?.fgos_components?.competitive_advantage?.band}
-                                hasPenalty={!!resumen?.fgos_components?.quality_brakes}
-                            />
-                        }
-                        suggestedViews={["FGOS Framework", "Balance Sheet Health", "Cash Flow Quality"]}
-                        warning={
-                            resumen?.fgos_components?.quality_brakes && (
-                                <div className="flex items-start gap-1.5 text-amber-500/90 bg-amber-950/20 p-1.5 rounded border border-amber-900/30">
-                                    <AlertTriangle size={10} className="mt-0.5 shrink-0" />
-                                    <div className="flex flex-col">
-                                         <span className="text-[9px] font-bold uppercase tracking-wider">Quality Warning</span>
-                                         <span className="text-[9px] leading-tight opacity-80">
-                                             {resumen.fgos_components.quality_brakes.reasons?.length > 0 
-                                                ? resumen.fgos_components.quality_brakes.reasons.map(r => r.replace(/_/g, ' ')).join(', ')
-                                                : "Frenos de calidad activos"}
-                                         </span>
-                                     </div>
-                                </div>
-                            )
-                        }
-                    />
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-[18px] font-semibold text-[#EDEDED] tracking-tight leading-none">
+                      {data.symbol}
+                    </h1>
+                    <div
+                      className="text-[#666] hover:text-[#EDEDED] transition-colors cursor-pointer p-0.5 rounded hover:bg-[#1A1A1A]"
+                      onClick={() => setShowCompanyInfo(true)}
+                    >
+                      <Info size={12} />
+                    </div>
+                  </div>
+                  <span className="text-[11px] text-[#888] font-medium truncate max-w-[300px]">
+                    {data.name}
+                  </span>
                 </div>
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] self-end pb-0.5">
+                <span className="text-zinc-500">Sector:</span>
+                <span className="text-zinc-300 font-medium">
+                  {data.sector || "-"}
+                </span>
+                <span className="text-zinc-700 mx-1">/</span>
+                <span className="text-zinc-500">Industry:</span>
+                <span className="text-zinc-300 font-medium">
+                  {data.industry || "-"}
+                </span>
+              </div>
             </div>
+
+            {/* ANALYTICAL ANCHOR CARDS */}
+            <div className="grid grid-cols-3 gap-3">
+              {/* 1. RELATIVE VALUATION */}
+              <AnalyticalAnchorCard
+                title="Relative Valuation"
+                values={
+                  <div className="flex flex-col items-center gap-1">
+                    <ValuationSignal
+                      status={resumen?.valuation?.canonical_status || null}
+                    />
+                    {(resumen?.valuation as any)?.percentile !== undefined && (
+                      <span className="text-[10px] text-[#666]">
+                        P{(resumen?.valuation as any)?.percentile}
+                      </span>
+                    )}
+                  </div>
+                }
+                metadata={
+                  (resumen?.valuation as any)?.confidence && (
+                    <span>
+                      Confidence:{" "}
+                      {typeof (resumen?.valuation as any)?.confidence ===
+                      "object"
+                        ? (resumen?.valuation as any)?.confidence?.label ||
+                          (resumen?.valuation as any)?.confidence?.percent + "%"
+                        : (resumen?.valuation as any)?.confidence}
+                    </span>
+                  )
+                }
+                concept="Position within the sector valuation distribution."
+                hoverContent={valuationHover}
+              />
+
+              {/* 2. COMPETITIVE POSITION */}
+              <AnalyticalAnchorCard
+                title="Competitive Position"
+                values={
+                  <div className="flex flex-col items-center gap-1">
+                    <IFSDualCell
+                      ifs={
+                        resumen?.ifs
+                          ? {
+                              position: resumen.ifs.position,
+                              pressure: resumen.ifs.pressure ?? 0,
+                            }
+                          : null
+                      }
+                      ifs_fy={resumen?.ifs_fy ?? null}
+                      size="compact"
+                    />
+                    {resumen?.ifs?.position &&
+                      resumen?.ifs?.pressure !== undefined && (
+                        <span className="text-[10px] text-[#666]">
+                          {resumen.ifs.pressure}/3
+                        </span>
+                      )}
+                  </div>
+                }
+                metadata={
+                  (resumen?.ifs as any)?.confidence !== undefined && (
+                    <span>
+                      Confidence:{" "}
+                      {typeof (resumen?.ifs as any)?.confidence === "object"
+                        ? (resumen?.ifs as any)?.confidence?.label ||
+                          (resumen?.ifs as any)?.confidence?.percent + "%"
+                        : (resumen?.ifs as any)?.confidence + "%"}
+                    </span>
+                  )
+                }
+                concept="Relative performance versus sector peers."
+                hoverContent={ifsHover}
+              />
+
+              {/* 3. FUNDAMENTAL QUALITY */}
+              <AnalyticalAnchorCard
+                title="Fundamental Quality"
+                values={
+                  <FGOSCell
+                    score={resumen?.fgos_score}
+                    status={resumen?.fgos_maturity || resumen?.fgos_status}
+                    sentiment={
+                      resumen?.fgos_components?.sentiment_details?.band
+                    }
+                    band={resumen?.fgos_components?.competitive_advantage?.band}
+                    hasPenalty={
+                      !!resumen?.fgos_components?.quality_brakes?.applied
+                    }
+                  />
+                }
+                concept="Operational and financial robustness of the business."
+                alertData={
+                  resumen?.fgos_components?.quality_brakes?.applied && (
+                    <div className="flex items-start gap-1.5 text-amber-500/90 bg-amber-950/20 px-2 py-1.5 rounded border border-amber-900/30">
+                      <AlertTriangle size={10} className="mt-0.5 shrink-0" />
+                      <div className="flex flex-col gap-0.5 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap text-[9px]">
+                          {(resumen.fgos_components.quality_brakes as any)
+                            .altman_z !== undefined && (
+                            <span>
+                              Altman:{" "}
+                              {(
+                                resumen.fgos_components.quality_brakes as any
+                              ).altman_z.toFixed(2)}
+                            </span>
+                          )}
+                          {(resumen.fgos_components.quality_brakes as any)
+                            .piotroski !== undefined && (
+                            <span>
+                              · Piotroski:{" "}
+                              {
+                                (resumen.fgos_components.quality_brakes as any)
+                                  .piotroski
+                              }
+                              /9
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }
+                hoverContent={fgosHover}
+              />
+            </div>
+          </div>
         </div>
       </CardContent>
 

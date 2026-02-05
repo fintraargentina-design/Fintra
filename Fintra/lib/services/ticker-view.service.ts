@@ -176,10 +176,9 @@ function buildStockDataFromSnapshot(
     // Structural Profile & Complex objects
     ifs: snapshot?.ifs || (snapshot?.ifs_position ? {
       position: snapshot.ifs_position,
-      yearsInState: snapshot.ifs_years_in_state,
-      totalYearsAvailable: snapshot.ifs_total_years_available
+      pressure: 0
     } : null),
-    ifs_memory: snapshot?.ifs_memory || null,
+    ifs_fy: snapshot?.ifs_fy || null,
     fgos_components: snapshot?.fgos_components || null,
     raw_profile_structural: snapshot?.profile_structural || null,
     sector_rank: snapshot?.sector_rank || null,

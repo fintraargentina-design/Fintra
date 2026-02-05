@@ -106,7 +106,7 @@ export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
     strategyState:
       row.strategy_state ||
       row.market_position?.strategy_state ||
-      (row.ifs_memory ? row.ifs_memory[0]?.strategy_state : null),
+      null,
     priceEod,
     ytdReturn,
     relativeReturn1Y,

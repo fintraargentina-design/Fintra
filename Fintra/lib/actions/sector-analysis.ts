@@ -137,7 +137,6 @@ export async function fetchSectorStocks(
         market_position,
         investment_verdict,
         ifs,
-        ifs_memory,
         ifs_fy,
         sector_rank,
         sector_rank_total,

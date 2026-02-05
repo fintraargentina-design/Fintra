@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { FintraSnapshotDB, EcosystemRelationDB, EcosystemDataJSON, EcoNodeJSON, EcosystemReportDB, FgosBreakdown, IFSMemory } from '@/lib/engine/types';
+import { FintraSnapshotDB, EcosystemRelationDB, EcosystemDataJSON, EcoNodeJSON, EcosystemReportDB, FgosBreakdown, IFSMemory, IFSData, IQSResult } from '@/lib/engine/types';
 import { getIntradayPrice } from "@/lib/services/market-data-service";
 import { buildFGOSState, FgosState } from '@/lib/engine/fgos-state';
 
@@ -119,10 +119,11 @@ export type ResumenData = {
   // Structural Profile
   ifs: {
     position: 'leader' | 'follower' | 'laggard';
-    yearsInState: number;
-    totalYearsAvailable: number;
+    pressure?: number;
+    yearsInState?: number;
+    totalYearsAvailable?: number;
   } | null;
-  ifs_memory: IFSMemory | null;
+  ifs_fy: IQSResult | null;
   sector_rank: number | null;
   sector_rank_total: number | null;
   attention_state: "structural_compounder" | "quality_in_favor" | "quality_misplaced" | "structural_headwind" | "inconclusive" | null;
@@ -171,7 +172,7 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
   // 4. Analysis (fintra_snapshots)
   const snapshotQuery = supabase
     .from('fintra_snapshots')
-    .select('profile_structural, fgos_maturity, fgos_confidence_percent, fgos_components, fgos_status, valuation, ifs, ifs_position, ifs_years_in_state, ifs_total_years_available, ifs_memory, market_snapshot, fundamentals_growth, sector_rank, sector_rank_total')
+    .select('profile_structural, fgos_maturity, fgos_confidence_percent, fgos_components, fgos_status, valuation, ifs, ifs_fy, market_snapshot, fundamentals_growth, sector_rank, sector_rank_total')
     .eq('ticker', upperTicker)
     .order('snapshot_date', { ascending: false })
     .limit(1)
@@ -264,13 +265,9 @@ export async function getResumenData(ticker: string): Promise<ResumenData> {
     fgos_components: (s.fgos_components || s.fgos_breakdown) || null,
     valuation: s.valuation || null,
 
-    // Structural
-    ifs: (s.ifs_position || s.ifs?.position) ? {
-        position: s.ifs_position || s.ifs?.position,
-        yearsInState: s.ifs_years_in_state ?? s.ifs?.yearsInState ?? 0,
-        totalYearsAvailable: s.ifs_total_years_available ?? s.ifs?.totalYearsAvailable ?? 5
-    } : null,
-    ifs_memory: s.ifs_memory || null,
+    // Structural Profile
+    ifs: s.ifs || null,
+    ifs_fy: s.ifs_fy || null,
     sector_rank: s.sector_rank || null,
     sector_rank_total: s.sector_rank_total || null,
     attention_state: ps?.attention_state || null,

@@ -62,7 +62,7 @@ export async function fetchPeersData(ticker: string): Promise<any[]> {
         market_position,
         investment_verdict,
         ifs,
-        ifs_memory,
+        ifs_fy,
         sector_rank,
         sector_rank_total,
         fgos_maturity,

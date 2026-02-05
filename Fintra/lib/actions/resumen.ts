@@ -81,7 +81,7 @@ export async function fetchResumenDataServer(ticker: string): Promise<ResumenDat
 
       // Structural Profile
       ifs: d.ifs || null,
-      ifs_memory: d.ifs_memory || null,
+      ifs_fy: d.ifs_fy || null,
       sector_rank: num(d.sector_rank),
       sector_rank_total: num(d.sector_rank_total),
       attention_state: d.strategy_state || null,

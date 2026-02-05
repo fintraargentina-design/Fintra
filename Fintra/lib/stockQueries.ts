@@ -62,7 +62,7 @@ export interface StockData extends FMPStockData {
 
   // Structural Profile & Complex objects
   ifs?: any;
-  ifs_memory?: any;
+  ifs_fy?: any;
   fgos_components?: any;
   raw_profile_structural?: any;
   sector_rank?: number | null;
