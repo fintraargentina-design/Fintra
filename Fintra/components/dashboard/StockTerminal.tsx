@@ -44,13 +44,16 @@ export default function StockTerminal() {
   const [selectedSector, setSelectedSector] = useState("Technology");
   const [selectedIndustry, setSelectedIndustry] = useState("");
 
-  const { countries, sectors, industries } = useFilterOptions(
+  const { countries, sectors, industries, isLoading: isFilterLoading } = useFilterOptions(
     selectedCountry,
     selectedSector,
   );
 
   // Automatically select the first industry when the list changes or is loaded
   useEffect(() => {
+    // Avoid resetting industry while loading new options
+    if (isFilterLoading) return;
+
     if (industries && industries.length > 0) {
       const isSelectedInList = industries.some(ind => (typeof ind === 'object' ? ind.value : ind) === selectedIndustry);
       if (!isSelectedInList) {
@@ -59,7 +62,7 @@ export default function StockTerminal() {
     } else if (selectedIndustry !== "") {
       setSelectedIndustry("");
     }
-  }, [industries, selectedIndustry]);
+  }, [industries, selectedIndustry, isFilterLoading]);
 
   // símbolo actual (string) sin importar si selectedStock es string u objeto
   const selectedSymbol = useMemo(() => {
