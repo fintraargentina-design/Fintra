@@ -24,19 +24,17 @@ type RawTickerNode = {
 // These tables define the classification taxonomy and mappings only.
 
 type IndustryRow = {
-  industry_id: string;
-  sic_code: string | null;
+  industry_code: string;
   sector: string;
-  industry: string;
-  sub_industry: string | null;
+  industry_name: string;
   source: string;
 };
 
 type AssetIndustryRow = {
   ticker: string;
-  industry_id: string;
-  sector: string;
+  industry_code: string;
   source: string;
+  effective_from: string;
 };
 
 function normalizeSicCode(
@@ -74,22 +72,46 @@ export async function runIndustryClassificationSync() {
     // Instead of failing, we will rebuild the industry map from our own `company_profile` table,
     // which is already populated by `company-profile-bulk`.
 
-    // 1. Fetch all profiles with sector/industry
-    const { data: profiles, error } = await supabaseAdmin
-      .from("company_profile")
-      .select("ticker, sector, industry, description") // description or other fields if needed for future
-      .not("sector", "is", null)
-      .not("industry", "is", null);
-
-    if (error) {
-      console.error(`[${CRON_NAME}] Failed to fetch company_profile:`, error);
-      throw error;
-    }
-
+    // 1. Fetch all profiles with sector/industry (PAGINATED to avoid 1000 row limit)
     const industryMap = new Map<string, IndustryRow>();
     const assetRows: AssetIndustryRow[] = [];
 
-    if (profiles) {
+    const PAGE_SIZE = 1000;
+    let page = 0;
+    let hasMore = true;
+    let totalFetched = 0;
+
+    while (hasMore) {
+      const { data: profiles, error } = await supabaseAdmin
+        .from("company_profile")
+        .select("ticker, sector, industry")
+        .not("sector", "is", null)
+        .not("industry", "is", null)
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+      if (error) {
+        console.error(
+          `[${CRON_NAME}] Failed to fetch company_profile (page ${page}):`,
+          error,
+        );
+        throw error;
+      }
+
+      if (!profiles || profiles.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      totalFetched += profiles.length;
+      console.log(
+        `[${CRON_NAME}] Fetched page ${page + 1}: ${profiles.length} profiles (total: ${totalFetched})`,
+      );
+
+      if (profiles.length < PAGE_SIZE) {
+        hasMore = false;
+      }
+
+      // Process this page
       for (const p of profiles) {
         const sector = (p.sector || "").trim();
         const industry = (p.industry || "").trim();
@@ -97,16 +119,14 @@ export async function runIndustryClassificationSync() {
 
         // We don't have SIC codes in company_profile usually, but that's fine.
         // We generate a consistent ID.
-        const industryId = buildIndustryId(null, sector, industry, null);
+        const industryCode = buildIndustryId(null, sector, industry, null);
 
         // 2. Build Industry Row
-        if (!industryMap.has(industryId)) {
-          industryMap.set(industryId, {
-            industry_id: industryId,
-            sic_code: null,
+        if (!industryMap.has(industryCode)) {
+          industryMap.set(industryCode, {
+            industry_code: industryCode,
             sector,
-            industry,
-            sub_industry: null,
+            industry_name: industry,
             source: "internal_profile",
           });
         }
@@ -114,11 +134,13 @@ export async function runIndustryClassificationSync() {
         // 3. Build Asset Mapping
         assetRows.push({
           ticker: p.ticker,
-          industry_id: industryId,
-          sector,
+          industry_code: industryCode,
           source: "internal_profile",
+          effective_from: "2020-01-01", // Anchor date for current state (SCD Type 1 behavior)
         });
       }
+
+      page++;
     }
 
     // (Original FMP fetching logic removed because endpoints are 403 Forbidden)
@@ -131,11 +153,23 @@ export async function runIndustryClassificationSync() {
       }
     }
 
-    const industriesToUpsert = Array.from(industryMap.values());
+    const industriesToUpsertRaw = Array.from(industryMap.values());
+
+    // Deduplicate by industry_name to avoid "ON CONFLICT DO UPDATE command cannot affect row a second time"
+    // Since industry_name is UNIQUE in DB, we can't have the same industry name in multiple sectors.
+    const uniqueIndustriesByName = new Map<string, IndustryRow>();
+    for (const row of industriesToUpsertRaw) {
+      const key = row.industry_name.trim().toUpperCase();
+      if (!uniqueIndustriesByName.has(key)) {
+        uniqueIndustriesByName.set(key, row);
+      }
+    }
+    const industriesToUpsert = Array.from(uniqueIndustriesByName.values());
+
     const assetToUpsert = Array.from(uniqueAssets.values());
 
     console.log(
-      `[${CRON_NAME}] Prepared ${industriesToUpsert.length} industry rows and ${assetToUpsert.length} asset mappings.`,
+      `[${CRON_NAME}] Prepared ${industriesToUpsert.length} industry rows (from ${industriesToUpsertRaw.length} raw) and ${assetToUpsert.length} asset mappings.`,
     );
 
     const supabase = supabaseAdmin;
@@ -165,7 +199,7 @@ export async function runIndustryClassificationSync() {
       await upsertChunked<IndustryRow>(
         "industry_classification",
         industriesToUpsert,
-        "industry_id",
+        "industry_name",
       );
     }
 
@@ -173,7 +207,7 @@ export async function runIndustryClassificationSync() {
       await upsertChunked<AssetIndustryRow>(
         "asset_industry_map",
         assetToUpsert,
-        "ticker",
+        "ticker, effective_from",
       );
     }
 
