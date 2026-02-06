@@ -4,37 +4,18 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import dayjs from 'dayjs';
 import Papa from 'papaparse';
 import { Readable } from 'stream';
-import fs from 'fs';
-import path from 'path';
-import { pipeline } from 'stream/promises';
-
-// Helper to resolve data directory correctly (handling scripts execution context)
-const resolveDataDir = (subDir: string) => {
-  let root = process.cwd();
-  if (root.includes('scripts')) {
-    // Traverse up to find package.json or stop at root
-    let current = root;
-    while (current !== path.dirname(current)) {
-      if (fs.existsSync(path.join(current, 'package.json'))) {
-        root = current;
-        break;
-      }
-      current = path.dirname(current);
-    }
-  }
-  return path.join(root, 'data', subDir);
-};
 
 export interface PricesDailyBulkStats {
   processed: number;
   inserted: number;
   errors: number;
   skipped: number;
+  duplicates: number;
 }
 
 interface PricesDailyBulkOptions {
   date?: string;
-  ticker?: string;
+  ticker?: string; // Ticker filter usually not supported by bulk endpoint, but we can filter in memory
   limit?: number;
 }
 
@@ -51,252 +32,185 @@ interface EodRow {
 
 export async function runPricesDailyBulk(opts: PricesDailyBulkOptions) {
   const log: string[] = [];
-  const stats = { processed: 0, inserted: 0, errors: 0, skipped: 0 };
-  
+  const aggregateStats = { processed: 0, inserted: 0, errors: 0, skipped: 0, duplicates: 0 };
+  const FMP_API_KEY = process.env.FMP_API_KEY;
+
+  if (!FMP_API_KEY) {
+      return { success: false, error: "Missing FMP_API_KEY", log, stats: aggregateStats };
+  }
+
   try {
-    // 1. Resolve Date
-    // Default to today. If user provided a date, use it.
-    const targetDate = opts.date || dayjs().format('YYYY-MM-DD');
-    log.push(`Target Date: ${targetDate}`);
+    // 0. Determine Dates to Process
+    const todayStr = dayjs().format('YYYY-MM-DD');
+    let datesToProcess: string[] = [];
 
-    const PAGE_SIZE = 1000;
-    const activeTickers = new Set<string>();
-    let page = 0;
-
-    while (true) {
-      const from = page * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-
-      const { data, error } = await supabaseAdmin
-        .from('fintra_universe')
-        .select('ticker')
-        .eq('is_active', true)
-        .order('ticker', { ascending: true })
-        .range(from, to);
-
-      if (error) throw new Error(`Universe fetch failed: ${error.message}`);
-      if (!data || data.length === 0) break;
-
-      for (const d of data as any[]) {
-        if (d?.ticker) activeTickers.add(String(d.ticker).toUpperCase());
-      }
-
-      if (data.length < PAGE_SIZE) break;
-      page++;
-    }
-
-    log.push(`Active Universe: ${activeTickers.size} tickers loaded.`);
-    if (activeTickers.size === 0) {
-        log.push('WARNING: Active Universe is EMPTY!');
-    }
-
-    // 3. Download & Cache Strategy
-    const apiKey = process.env.FMP_API_KEY;
-    if (!apiKey) throw new Error('Missing FMP_API_KEY');
-
-    // Define Cache Path
-    const cacheDir = resolveDataDir('fmp-eod-bulk');
-    if (!fs.existsSync(cacheDir)) {
-        fs.mkdirSync(cacheDir, { recursive: true });
-    }
-    const cacheFile = path.join(cacheDir, `eod_${targetDate}.csv`);
-    
-    let nodeStream: Readable;
-
-    // CACHE LOGIC UPDATE:
-    // If targetDate is TODAY, we should NOT trust the cache blindly, 
-    // because "Today" changes throughout the day (pre-market, open, close).
-    // If we cached an early "partial" file, we'd be stuck with it.
-    // So, if targetDate === today, we force a re-download (or ignore cache).
-    
-    const isToday = dayjs().format('YYYY-MM-DD') === targetDate;
-    
-    if (fs.existsSync(cacheFile) && !isToday) {
-        log.push(`✅ CACHE HIT: Found local CSV at ${cacheFile}`);
-        nodeStream = fs.createReadStream(cacheFile);
+    if (opts.date) {
+      // Manual Override
+      datesToProcess = [opts.date];
+      log.push(`Manual mode: Processing specific date ${opts.date}`);
     } else {
-        if (isToday && fs.existsSync(cacheFile)) {
-             log.push(`🔄 TODAY DETECTED: Invalidating cache for ${targetDate} to fetch latest data...`);
-             try { fs.unlinkSync(cacheFile); } catch (e) {}
-        }
+      // Auto Mode: "Smart Gap Fill"
+      // Check SPY as proxy
+      const { data: lastEntry, error: lastError } = await supabaseAdmin
+        .from('prices_daily')
+        .select('price_date')
+        .eq('ticker', 'SPY')
+        .order('price_date', { ascending: false })
+        .limit(1)
+        .single();
 
-        log.push(`⬇️ CACHE MISS (or Invalidated): Downloading EOD Bulk from FMP to ${cacheFile}...`);
-        const url = `https://financialmodelingprep.com/stable/eod-bulk?date=${targetDate}&apikey=${apiKey}&datatype=csv`;
+      if (lastError && lastError.code !== 'PGRST116') {
+         log.push(`Warning: Could not fetch last date for SPY: ${lastError.message}`);
+         datesToProcess = [todayStr];
+      } else {
+         const lastDate = lastEntry?.price_date;
+         
+         if (!lastDate) {
+            log.push(`System appears empty. Defaulting to Today: ${todayStr}`);
+            datesToProcess = [todayStr];
+         } else {
+            const last = dayjs(lastDate);
+            const today = dayjs(todayStr);
+            const diff = today.diff(last, 'day');
+
+            if (diff === 0) {
+                log.push(`✅ System is up to date (SPY found for ${todayStr}). No action needed.`);
+            } else if (diff > 0) {
+                const MAX_BACKFILL = 5;
+                const daysToFill = Math.min(diff, MAX_BACKFILL);
+                
+                if (diff > MAX_BACKFILL) {
+                    log.push(`⚠️ Gap of ${diff} days detected. Capping backfill to last ${MAX_BACKFILL} days.`);
+                } else {
+                    log.push(`🔄 Gap detected. Catching up ${daysToFill} days.`);
+                }
+
+                for (let i = 1; i <= daysToFill; i++) {
+                     datesToProcess.push(last.add(i, 'day').format('YYYY-MM-DD'));
+                }
+            } else {
+                log.push(`Future date detected in DB (${lastDate}). Checking Today anyway.`);
+                datesToProcess = [todayStr];
+            }
+         }
+      }
+    }
+
+    if (datesToProcess.length === 0) {
+        return {
+            success: true,
+            date: todayStr,
+            stats: aggregateStats,
+            log
+        };
+    }
+
+    // 1. Fetch Active Universe (Reuse for all dates)
+    log.push(`Fetching active universe...`);
+    const { data: activeRows } = await supabaseAdmin
+        .from('fintra_active_stocks') 
+        .select('ticker')
+        .eq('is_active', true);
+    
+    const activeTickers = new Set<string>(activeRows?.map(r => r.ticker) || []);
+    log.push(`Active universe size: ${activeTickers.size}`);
+
+    // 2. Process Each Date
+    for (const targetDate of datesToProcess) {
+        log.push(`\n--- Processing Date: ${targetDate} ---`);
         
+        const url = `https://financialmodelingprep.com/api/v4/batch-request-end-of-day-prices?date=${targetDate}&apikey=${FMP_API_KEY}`;
+        
+        // Fetch CSV stream
         const response = await fetch(url);
         if (!response.ok) {
-            throw new Error(`FMP EOD Bulk failed: ${response.status} ${response.statusText}`);
+            log.push(`❌ Failed to fetch FMP data for ${targetDate}: ${response.statusText}`);
+            aggregateStats.errors++;
+            continue;
         }
+
+        const csvText = await response.text();
         
-        if (!response.body) {
-            throw new Error('FMP returned empty body');
-        }
-
-        if (!isToday) {
-            // Save to Disk first (Stream to file)
-            const fileStream = fs.createWriteStream(cacheFile);
-            // @ts-ignore
-            await pipeline(Readable.fromWeb(response.body), fileStream);
-            log.push(`✅ Download complete. Saved to ${cacheFile}`);
-
-            // Read from the newly saved file
-            nodeStream = fs.createReadStream(cacheFile);
-        } else {
-            // Stream directly without saving
-            log.push(`⚠️ TODAY DETECTED: Streaming directly without caching (to avoid partial EOD data)`);
-            // @ts-ignore
-            nodeStream = Readable.fromWeb(response.body);
-        }
-    }
-
-    // 4. Streaming Parse & Process
-
-    
-    const BATCH_SIZE = 1000;
-    let batch: any[] = [];
-    
-    // Helper to flush batch
-    const flushBatch = async (rowsToInsert: any[]) => {
-        if (rowsToInsert.length === 0) return;
-        
-        const { error } = await supabaseAdmin
-            .from('prices_daily')
-            .upsert(rowsToInsert, { onConflict: 'ticker,price_date', ignoreDuplicates: true });
-            
-        if (error) {
-            log.push(`Batch upsert error: ${error.message}`);
-            stats.errors += rowsToInsert.length;
-        } else {
-            stats.inserted += rowsToInsert.length;
-        }
-    };
-
-    await new Promise<void>((resolve, reject) => {
-        Papa.parse<EodRow>(nodeStream, {
+        // Parse CSV
+        const parseResult = Papa.parse(csvText, {
             header: true,
-            dynamicTyping: true,
             skipEmptyLines: true,
-            step: (results, parser) => {
-                try {
-                    const row = results.data;
-                    // Safe string conversion for symbol
-                    const ticker = (row.symbol !== undefined && row.symbol !== null) 
-                        ? String(row.symbol).toUpperCase() 
-                        : null;
-
-                    // FILTER: Active Universe
-                    if (!ticker || !activeTickers.has(ticker)) {
-                        stats.skipped++;
-                        return;
-                    }
-
-                    // FILTER: Target Ticker (if debug/single mode)
-                    if (opts.ticker && ticker !== opts.ticker.toUpperCase()) {
-                         stats.skipped++;
-                         return;
-                    }
-                    
-                    // FILTER: Limit (Benchmark Mode)
-                    if (opts.limit && stats.inserted >= opts.limit) {
-                        parser.abort();
-                        // resolve handled in complete/error? Abort triggers complete?
-                        // PapaParse abort triggers complete? Usually yes.
-                        return;
-                    }
-
-                    // QUALITY GATE
-                    const open = row.open;
-                    const high = row.high;
-                    const low = row.low;
-                    const close = row.close;
-                    const adjClose = row.adjClose;
-                    const volume = (row.volume !== null && row.volume !== undefined) 
-                        ? Math.round(row.volume) 
-                        : null;
-                    
-                    let isValid = true;
-                    
-                    if (volume === null || volume === undefined || volume <= 0) isValid = false;
-                    if (adjClose === null || adjClose === undefined) isValid = false;
-                    if (open === null || high === null || low === null || close === null) isValid = false;
-                    
-                    if (isValid) {
-                        const maxOC = Math.max(open!, close!);
-                        const minOC = Math.min(open!, close!);
-                        if (high! < maxOC) isValid = false; 
-                        if (low! > minOC) isValid = false; 
-                    }
-
-                    if (!isValid) {
-                        stats.skipped++;
-                        return;
-                    }
-
-                    // Map to DB
-                    const dbRow = {
-                        ticker: ticker,
-                        price_date: row.date || targetDate, 
-                        open: open,
-                        high: high,
-                        low: low,
-                        close: close,
-                        adj_close: adjClose,
-                        volume: volume,
-                        source: 'fmp_eod_bulk'
-                    };
-                    
-                    batch.push(dbRow);
-                    stats.processed++;
-                    
-                    // FLOW CONTROL: Only pause if batch is full
-                    if (batch.length >= BATCH_SIZE) {
-                        parser.pause();
-                        const batchToInsert = [...batch];
-                        batch = []; // Clear immediately for safety (though stream is paused)
-                        
-                        flushBatch(batchToInsert).then(() => {
-                            parser.resume();
-                        }).catch(err => {
-                             console.error('Batch flush error:', err);
-                             stats.errors += batchToInsert.length;
-                             parser.resume(); // Resume even on error? Yes, to continue.
-                        });
-                    }
-                    
-                } catch (err) {
-                    console.error('Row processing error:', err);
-                    stats.errors++;
-                }
-            },
-            complete: async () => {
-                // Flush remaining
-                if (batch.length > 0) {
-                    await flushBatch(batch);
-                }
-                resolve();
-            },
-            error: (err) => {
-                reject(err);
-            }
+            dynamicTyping: true 
         });
-    });
 
-    log.push(`Completed. Inserted: ${stats.inserted}, Skipped: ${stats.skipped}, Errors: ${stats.errors}`);
+        const rows = parseResult.data as EodRow[];
+        log.push(`Downloaded ${rows.length} rows from FMP.`);
+
+        if (rows.length === 0) {
+            log.push(`No data found in FMP response for ${targetDate}.`);
+            continue;
+        }
+
+        // Filter and Map
+        const rowsToInsert: any[] = [];
+        let skippedCount = 0;
+
+        for (const row of rows) {
+            if (!activeTickers.has(row.symbol)) {
+                skippedCount++;
+                continue;
+            }
+
+            // Map to DB schema
+            rowsToInsert.push({
+                ticker: row.symbol,
+                price_date: targetDate, 
+                open: row.open,
+                high: row.high,
+                low: row.low,
+                close: row.close,
+                volume: row.volume,
+                adj_close: row.adjClose || row.close 
+            });
+        }
+
+        log.push(`Filtered to ${rowsToInsert.length} active tickers (${skippedCount} skipped).`);
+
+        // Batch Upsert
+        const BATCH_SIZE = 1000;
+        for (let i = 0; i < rowsToInsert.length; i += BATCH_SIZE) {
+            const batch = rowsToInsert.slice(i, i + BATCH_SIZE);
+            
+            const { data, error } = await supabaseAdmin
+                .from('prices_daily')
+                .upsert(batch, { onConflict: 'ticker,price_date', ignoreDuplicates: true })
+                .select('ticker'); // Select to count actual inserts
+            
+            if (error) {
+                log.push(`❌ Batch upsert error: ${error.message}`);
+                aggregateStats.errors += batch.length;
+            } else {
+                const insertedCount = data ? data.length : 0;
+                const duplicateCount = batch.length - insertedCount;
+                
+                aggregateStats.inserted += insertedCount;
+                aggregateStats.duplicates += duplicateCount;
+                aggregateStats.processed += batch.length;
+            }
+        }
+        
+        log.push(`Finished ${targetDate}: ${aggregateStats.inserted} inserted, ${aggregateStats.duplicates} duplicates.`);
+    }
 
     return {
         success: true,
-        date: targetDate,
-        stats,
+        stats: aggregateStats,
         log
     };
 
   } catch (err: any) {
       console.error('[PricesDailyBulk] Critical Error:', err);
+      log.push(`Critical Error: ${err.message}`);
       return {
           success: false,
           error: err.message,
           log,
-          stats
+          stats: aggregateStats
       };
   }
 }

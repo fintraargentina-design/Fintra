@@ -651,6 +651,90 @@ describe("TTM Construction", () => {
 
 ---
 
+## Performance & Parallelization Rules
+
+### Rule: Parallelize I/O, Keep CPU Sequential
+
+**Philosophy:**
+
+- **CPU-bound operations** (data processing, calculations): Keep SEQUENTIAL for predictable state management
+- **I/O-bound operations** (database writes, API calls): Parallelize with `Promise.all()` for maximum throughput
+
+**Critical Pattern:**
+
+```typescript
+// ✅ CORRECT - Sequential processing, parallel I/O
+for (const batch of tickerBatches) {
+  // 1. Load data (sequential - single DB query)
+  const data = await loadBatchData(batch);
+
+  // 2. Process in CPU (sequential - predictable state)
+  const results = [];
+  for (const ticker of batch) {
+    results.push(processTickerMetrics(ticker, data));
+  }
+
+  // 3. Write results (PARALLEL - multiple DB writes)
+  const chunks = chunkArray(results, 5000);
+  await Promise.all(chunks.map((chunk) => upsertToDB(chunk)));
+}
+
+// ❌ WRONG - Parallel processing creates state conflicts
+await Promise.all(
+  tickerBatches.map((batch) => processBatch(batch)), // RAM doubles, logs mix, cache conflicts
+);
+```
+
+**Why This Works:**
+
+- **Memory**: Constant (one batch in memory at a time)
+- **CPU**: Fully utilized during processing phase
+- **I/O**: Saturated during write phase (4 connections = 4x throughput)
+- **Debuggability**: Logs remain sequential and readable
+
+**Real Example (financials-bulk):**
+
+```typescript
+// Batch of 2000 tickers → 20,000 rows
+const dbChunk = processedData; // CPU work done sequentially
+
+// Split into 4 chunks of 5000 rows
+const chunks = chunkArray(dbChunk, 5000);
+
+// PARALLEL upserts (4 simultaneous DB connections)
+await Promise.all(
+  chunks.map((chunk, idx) =>
+    upsertDatosFinancieros(supabaseAdmin, chunk).then(() => {
+      console.log(`✓ Chunk ${idx + 1}/${chunks.length} completed`);
+    }),
+  ),
+);
+// Result: 4x faster writes, same memory footprint
+```
+
+**When to Apply:**
+
+- ✅ Bulk database operations (upserts, deletes)
+- ✅ Multiple independent API calls
+- ✅ File I/O operations (read/write multiple files)
+- ❌ NOT for stateful processing (metrics calculations, cache updates)
+- ❌ NOT for operations requiring sequential consistency
+
+**Prohibited:**
+
+```typescript
+// ❌ WRONG - Parallel ticker processing
+await Promise.all(
+  tickers.map(async (ticker) => {
+    const metrics = await calculateMetrics(ticker); // Race conditions
+    cache.set(ticker, metrics); // Shared state conflicts
+    return upsertSnapshot(ticker, metrics);
+  }),
+);
+```
+
+---
+
 ## Common Patterns
 
 ### Reading Snapshot Data
@@ -796,3 +880,6 @@ Before committing code, verify:
 - [ ] Temporal consistency maintained (no look-ahead bias)
 - [ ] Logs include required events (SNAPSHOT START, etc.)
 - [ ] Null propagates correctly (no default fallbacks)
+- [ ] **Parallelization: I/O operations parallelized (Promise.all), CPU processing sequential**
+- [ ] **Bulk writes: Chunked to respect Supabase limits (~5000 rows, ~3 MB per chunk)**
+- [ ] **Memory: Ticker batches processed sequentially to maintain constant memory footprint**

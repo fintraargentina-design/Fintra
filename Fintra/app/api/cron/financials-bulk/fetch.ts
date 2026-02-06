@@ -49,7 +49,7 @@ export async function fetchFinancialsBulk(apiKey: string, activeTickers: Set<str
   if (!existsSync(CACHE_DIR)) {
     await fs.mkdir(CACHE_DIR, { recursive: true });
   }
-  
+
   // Helper to fetch (with cache) and parse CSV
   const fetchCSV = async (endpointBase: string, year: number | null, period: string | null): Promise<any[]> => {
     const prefix = ENDPOINT_MAP[endpointBase] || endpointBase;
@@ -61,31 +61,46 @@ export async function fetchFinancialsBulk(apiKey: string, activeTickers: Set<str
         url += `&year=${year}&period=${period}`;
     }
 
-    // 1. Ensure File Exists (Download if needed)
-    if (!existsSync(filePath)) {
-      console.log(`[fmp-bulk-cache] MISS ${fileName} -> downloading`);
+    // 1. Check if file exists and is recent (Smart Cache)
+    let shouldDownload = true;
+    if (existsSync(filePath)) {
+      const stats = await fs.stat(filePath);
+      const hoursSinceMod = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60);
+      if (hoursSinceMod < 12) {
+        shouldDownload = false;
+        console.log(`[fmp-bulk-cache] HIT ${fileName} (Fresh: ${hoursSinceMod.toFixed(1)}h old)`);
+      } else {
+        console.log(`[fmp-bulk-cache] STALE ${fileName} (${hoursSinceMod.toFixed(1)}h old) -> Refreshing`);
+      }
+    } else {
+      console.log(`[fmp-bulk-cache] MISS ${fileName} -> Downloading`);
+    }
+
+    // 2. Download if needed
+    if (shouldDownload) {
       try {
         const res = await fetch(url);
         
         if (res.status === 429) {
           console.error(`[fmp-bulk-cache] FETCH FAILED ${fileName} (429) - Rate Limit Exceeded`);
-          return []; // Skip gracefully
-        }
-
-        if (!res.ok) {
+          // If we have a stale file, use it as fallback instead of failing
+          if (existsSync(filePath)) {
+            console.warn(`[fmp-bulk-cache] Fallback to stale file for ${fileName}`);
+          } else {
+            return []; // Skip if no file at all
+          }
+        } else if (!res.ok) {
           console.warn(`[fmp-bulk-cache] Failed to fetch ${url}: ${res.status} ${res.statusText}`);
           return [];
+        } else {
+          // Stream to file to avoid memory spike
+          const arrayBuffer = await res.arrayBuffer();
+          await fs.writeFile(filePath, Buffer.from(arrayBuffer));
         }
-
-        // Stream to file to avoid memory spike
-        const arrayBuffer = await res.arrayBuffer();
-        await fs.writeFile(filePath, Buffer.from(arrayBuffer));
       } catch (e) {
         console.error(`[fmp-bulk-cache] Error fetching ${url}:`, e);
-        return [];
+        if (!existsSync(filePath)) return [];
       }
-    } else {
-        console.log(`[fmp-bulk-cache] HIT ${fileName}`);
     }
 
     // 2. Parse from Disk with Streaming + Filtering

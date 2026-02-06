@@ -24,7 +24,9 @@ async function main() {
   let targetTicker: string | undefined;
   let years: number[] | undefined;
   let forceUpdate = false;
-  let batchSize: number = 50; // Default batch size
+  let batchSize: number = 2000; // Default batch size (2000 tickers × ~10 rows = 20000 rows → chunked into 5000-row batches)
+  let fullSync = false; // NEW: Full historical sync mode
+  let verbose = false;
 
   // Simple arg parsing
   for (let i = 0; i < args.length; i++) {
@@ -46,14 +48,27 @@ async function main() {
       }
     } else if (arg === "--batch-size") {
       const val = parseInt(args[++i], 10);
-      if (val >= 50 && val <= 500) {
+      if (val >= 50 && val <= 2000) {
         batchSize = val;
       } else {
-        console.error("❌ Error: --batch-size must be between 50 and 500");
+        console.error("❌ Error: --batch-size must be between 50 and 2000");
         process.exit(1);
       }
     } else if (arg === "--force") {
       forceUpdate = true;
+    } else if (arg === "--verbose") {
+      verbose = true;
+    } else if (arg === "--full") {
+      fullSync = true;
+      // Generate full year range from 2015 to current+1
+      const currentYear = new Date().getFullYear();
+      years = [];
+      for (let y = 2015; y <= currentYear + 1; y++) {
+        years.push(y);
+      }
+      console.log(
+        `🔄 FULL SYNC MODE: Will process years ${years[0]}-${years[years.length - 1]}`,
+      );
     } else if (!arg.startsWith("--") && !limit && !targetTicker && !years) {
       // Legacy support for plain limit argument if no flags used
       const val = parseInt(arg, 10);
@@ -62,14 +77,18 @@ async function main() {
   }
 
   console.log(`🚀 Running Financials Bulk...`);
+  console.log(
+    `   - Mode: ${fullSync ? "FULL SYNC (2015-present)" : "DAILY (mutable years only)"}`,
+  );
   console.log(`   - Limit: ${limit || "ALL"}`);
   console.log(`   - Offset: ${offset}`);
   console.log(`   - Ticker: ${targetTicker || "ALL"}`);
   console.log(
-    `   - Years: ${years ? years.join(", ") : "Default (2020-2026)"}`,
+    `   - Years: ${years ? years.join(", ") : "Auto (mutable years)"}`,
   );
   console.log(`   - Batch Size: ${batchSize} tickers`);
   console.log(`   - Force Update: ${forceUpdate}`);
+  console.log(`   - Verbose: ${verbose}`);
 
   try {
     await runFinancialsBulk(
@@ -80,6 +99,7 @@ async function main() {
       false,
       batchSize,
       offset,
+      verbose,
     );
     console.log("✅ Financials Bulk completed.");
   } catch (e) {

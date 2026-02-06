@@ -69,21 +69,36 @@ export async function runCompanyProfileBulk(limit?: number) {
 
   console.log(`✨ Prepared ${rows.length} profile rows for upsert.`);
 
-  // 4. Upsert in Batches
+  // 4. Upsert in Batches with Concurrency
   const BATCH_SIZE = 500;
+  const CONCURRENCY = 5; // Parallel requests
   let upserted = 0;
   
+  const batches = [];
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const batch = rows.slice(i, i + BATCH_SIZE);
-    
-    const { error } = await supabaseAdmin
-      .from('company_profile')
-      .upsert(batch, { onConflict: 'ticker', ignoreDuplicates: true });
+    batches.push(rows.slice(i, i + BATCH_SIZE));
+  }
 
-    if (error) {
-      console.error(`❌ Upsert error batch ${i}:`, error);
-    } else {
-      upserted += batch.length;
+  console.log(`⚡ Processing ${batches.length} batches with concurrency ${CONCURRENCY}...`);
+
+  for (let i = 0; i < batches.length; i += CONCURRENCY) {
+    const chunk = batches.slice(i, i + CONCURRENCY);
+    
+    await Promise.all(chunk.map(async (batch, idx) => {
+      const { error } = await supabaseAdmin
+        .from('company_profile')
+        .upsert(batch, { onConflict: 'ticker' }); // Allow updates!
+
+      if (error) {
+        console.error(`❌ Upsert error in batch group ${i}:`, error);
+      } else {
+        upserted += batch.length;
+      }
+    }));
+    
+    // Optional: Log progress every few chunks
+    if ((i + CONCURRENCY) % 20 === 0) {
+        console.log(`   Progress: ${Math.min(i + CONCURRENCY, batches.length)}/${batches.length} batches...`);
     }
   }
 

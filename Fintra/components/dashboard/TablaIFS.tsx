@@ -227,16 +227,16 @@ export default function TablaIFS({
             <TableHead className="h-9 px-3 py-1 text-[#a1a1aa] font-medium text-[11px] uppercase tracking-wider text-center w-[80px] whitespace-nowrap select-none">
               Competitive
             </TableHead>
-            <TableHead className="h-9 px-3 py-1 text-[#a1a1aa] font-medium text-[11px] uppercase tracking-wider text-center w-[100px] whitespace-nowrap select-none">
+            <TableHead className="h-9 px-3 py-1 text-[#a1a1aa] font-medium text-[11px] uppercase tracking-wider text-center w-[80px] whitespace-nowrap select-none">
               Stage
             </TableHead>
-            <TableHead className="h-9 px-3 py-1 text-[#a1a1aa] font-medium text-[11px] uppercase tracking-wider text-center w-[110px] whitespace-nowrap select-none">
+            <TableHead className="h-9 px-3 py-1 text-[#a1a1aa] font-medium text-[11px] uppercase tracking-wider text-center w-[80px] whitespace-nowrap select-none">
               F. H.
             </TableHead>
-            <TableHead className="h-9 px-3 py-1 text-[#a1a1aa] font-medium text-[11px] uppercase tracking-wider text-right w-[70px] whitespace-nowrap select-none">
+            <TableHead className="h-9 px-3 py-1 text-[#a1a1aa] font-medium text-[11px] uppercase tracking-wider text-right w-[60px] whitespace-nowrap select-none">
               EOD
             </TableHead>
-            <TableHead className="h-9 px-3 py-1 text-[#a1a1aa] font-medium text-[11px] uppercase tracking-wider text-right w-[80px] whitespace-nowrap select-none">
+            <TableHead className="h-9 px-3 py-1 text-[#a1a1aa] font-medium text-[11px] uppercase tracking-wider text-right w-[60px] whitespace-nowrap select-none">
               Mkt Cap
             </TableHead>
           </TableRow>
@@ -266,23 +266,23 @@ export default function TablaIFS({
                 const s = status?.toLowerCase() || "";
                 if (s.includes("early")) {
                   return {
-                    label: "[EARLY]",
+                    label: "EARLY",
                     className:
-                      "text-zinc-400 bg-zinc-500/10 border border-zinc-500/20",
+                      "text-zinc-400",
                   };
                 }
                 if (s.includes("developing")) {
                   return {
-                    label: "[DEVELOPING]",
+                    label: "DEVELOPING",
                     className:
-                      "text-orange-400 bg-orange-500/10 border border-orange-500/20",
+                      "text-orange-400",
                   };
                 }
                 if (s.includes("mature") || s.includes("established")) {
                   return {
-                    label: "[ESTABLISHED]",
+                    label: "ESTABLISHED",
                     className:
-                      "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20",
+                      "text-cyan-400",
                   };
                 }
                 return {

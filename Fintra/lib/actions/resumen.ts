@@ -73,7 +73,7 @@ export async function fetchResumenDataServer(ticker: string): Promise<ResumenDat
       fgos_score: num(d.fgos_score),
       fgos_confidence_label: str(d.fgos_confidence_label),
       fgos_status: str(d.fgos_status),
-      fgos_maturity: str(d.fgos_category),
+      fgos_maturity: str(d.fgos_maturity),
       fgos_confidence_percent: num(d.fgos_confidence),
       fgos_state: null, 
       fgos_components: d.fgos_components || null,

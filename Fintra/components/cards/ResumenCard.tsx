@@ -317,7 +317,9 @@ export default function ResumenCard({
     };
     const str = (s: any) => (typeof s === "string" ? s.trim() : undefined);
 
-    const baseData = resumen || stockBasicData || {};
+    // Only use resumen if it matches the current symbol to avoid stale data
+    const effectiveResumen = resumen?.ticker === currentSymbol ? resumen : null;
+    const baseData = effectiveResumen || stockBasicData || {};
 
     return {
       symbol: str(baseData.ticker || baseData.symbol) || currentSymbol,
@@ -348,22 +350,55 @@ export default function ResumenCard({
       if (!currentSymbol) return;
       setLoading(true);
       setError(null);
+
       try {
-        // Use Server Action to bypass RLS/Client limitations
-        const fetchedResumen = await fetchResumenDataServer(currentSymbol);
-        if (active && fetchedResumen) setResumen(fetchedResumen);
+        const data = await fetchResumenDataServer(currentSymbol);
+        if (active) {
+          setResumen(data);
+        }
       } catch (err) {
-        console.error("Error fetching resumen:", err);
-        if (active) setError("Error cargando resumen");
+        console.error("Error fetching resumen data:", err);
+        if (active) setError("Failed to load data");
       } finally {
         if (active) setLoading(false);
       }
     };
-    loadData();
+
+    if ((!resumen || resumen.ticker !== currentSymbol) && !isParentLoading) {
+      loadData();
+    }
+
     return () => {
       active = false;
     };
-  }, [currentSymbol]);
+  }, [currentSymbol, resumen, isParentLoading]);
+
+  // Helper for Stage Config (Same as TablaIFS)
+  const getStageConfig = (status: string | null | undefined) => {
+    const s = status?.toLowerCase() || "";
+    if (s.includes("early")) {
+      return {
+        label: "EARLY",
+        className: "text-zinc-400",
+      };
+    }
+    if (s.includes("developing")) {
+      return {
+        label: "DEVELOPING",
+        className: "text-orange-400",
+      };
+    }
+    if (s.includes("mature") || s.includes("established")) {
+      return {
+        label: "ESTABLISHED",
+        className: "text-cyan-400",
+      };
+    }
+    return null;
+  };
+
+  const stageStatus = resumen?.fgos_maturity || resumen?.fgos_status || null;
+  const stageConfig = getStageConfig(stageStatus);
 
   // Derived States for UI
   const ifsStatus = useMemo(() => {
@@ -468,7 +503,13 @@ export default function ResumenCard({
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 text-[10px] self-end pb-0.5">
+              <div className="flex flex-col items-end self-end">
+                {stageConfig && (
+                  <div className={`text-[10px] font-mono font-medium tracking-wide mb-0.5 ${stageConfig.className}`}>
+                    {stageConfig.label}
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 text-[10px] pb-0.5">
                 <span className="text-zinc-500">Sector:</span>
                 <span 
                   className="text-zinc-300 font-medium cursor-pointer hover:text-white transition-colors"
@@ -491,6 +532,7 @@ export default function ResumenCard({
                 </span>
               </div>
             </div>
+          </div>
 
             {/* ANALYTICAL ANCHOR CARDS */}
             <div className="grid grid-cols-3 gap-3">

@@ -156,9 +156,9 @@ export default function SnapshotTab({
   const sectorRankTotal = stockAnalysis?.sector_rank_total;
 
   return (
-    <div className="flex flex-col gap-4 p-2 bg-[#0e0e0e] mt-2 text-zinc-200 font-sans">
+    <div className="flex flex-col gap-4 p-2 bg-[#0e0e0e] mt-2 text-zinc-200 font-sans h-[calc(100vh-150px)]">
       {/* A & B: MARKET + ALPHA PANEL (SIDE BY SIDE) */}
-      <div className="flex flex-row gap-1 h-[320px]">
+      <div className="flex flex-row gap-1 flex-1 min-h-0">
         {/* A. VS MARKET (40%) */}
         <section className="flex flex-col w-[40%]">
           <SectionHeader
@@ -360,12 +360,12 @@ export default function SnapshotTab({
       </div>
 
       {/* C. PEERS */}
-      <section className="flex flex-col pt-1">
+      <section className="flex flex-col pt-1 flex-1 min-h-0">
         <SectionHeader
           title="Peers Analysis"
-          subtitle={`Rank Sectorial: #${sectorRank || "-"} de ${sectorRankTotal || "-"} • Click peer to compare in Alpha chart`}
+          subtitle={`Click peer to compare in Alpha chart • Snapshot Date: ${snapshotDate} • No Real-time Recalculation`}
         />
-        <div className="h-[350px]">
+        <div className="flex-1 h-full min-h-0">
           <PeersAnalysisPanel
             symbol={symbol}
             selectedPeer={selectedPeer}
@@ -373,14 +373,6 @@ export default function SnapshotTab({
           />
         </div>
       </section>
-
-      {/* Footer */}
-      <div className="pt-1 border-t border-[#222] mt-0.5">
-        <p className="text-[10px] text-zinc-600 font-mono text-center">
-          Source: fintra_snapshots • Snapshot Date: {snapshotDate} • No
-          Real-time Recalculation
-        </p>
-      </div>
     </div>
   );
 }

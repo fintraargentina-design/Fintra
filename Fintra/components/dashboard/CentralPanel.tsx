@@ -25,7 +25,7 @@ export default function CentralPanel({ selectedTicker, onStockSelect }: CentralP
         </div>
 
         {/* Historical Charts Section */}
-        <div className="w-full h-[350px] shrink-0 bg-[#0e0e0e] border-b border-[#222] relative">
+        <div className="w-full h-[300px] shrink-0 bg-[#0e0e0e] border-b border-[#222] relative">
            <ChartsTabHistoricos symbol={selectedTicker} isActive={true} />
         </div>
 

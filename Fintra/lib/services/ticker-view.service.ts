@@ -168,6 +168,7 @@ function buildStockDataFromSnapshot(
     // Extract Moat Band specifically from fgos_components if available
     fgos_category: snapshot?.fgos_components?.competitive_advantage?.band || '-',
     fgos_status: snapshot?.fgos_status || null,
+    fgos_maturity: snapshot?.fgos_maturity || null,
     valuation_status:
       market.valuation_status || snapshot?.valuation?.status || null,
     verdict_text: market.verdict_text || null,

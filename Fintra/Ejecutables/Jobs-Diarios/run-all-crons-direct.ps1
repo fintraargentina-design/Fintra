@@ -6,10 +6,18 @@
 # Ejecuta 22 scripts TypeScript directamente (sin servidor web)
 
 # Configuration
-$ScriptRoot = Split-Path -Parent $PSScriptRoot
+# Fix for PS2EXE compatibility - detect if running as .exe
+if ($MyInvocation.MyCommand.Path) {
+    $CurrentScriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
+} else {
+    $CurrentScriptPath = $PSScriptRoot
+}
+
+# Navigate to project root (2 levels up from Jobs-Diarios)
+$ScriptRoot = Split-Path -Parent $CurrentScriptPath
 $ScriptRoot = Split-Path -Parent $ScriptRoot
 $ScriptsDir = Join-Path $ScriptRoot "scripts\pipeline"
-$LogDir = Join-Path $PSScriptRoot "logs"
+$LogDir = Join-Path $CurrentScriptPath "logs"
 $Timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $LogFile = "$LogDir\cron-direct-$Timestamp.log"
 $ErrorFile = "$LogDir\cron-direct-$Timestamp.error.log"
@@ -97,14 +105,20 @@ Started: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
         # Change to project root and execute
         Push-Location $ScriptRoot
         
-        Write-Host "Executing: npx tsx $FullPath" -ForegroundColor DarkGray
+        # Force use of npx.cmd to avoid npx.ps1 execution policy issues
+        $npxCmd = "npx.cmd"
+        if (-not (Get-Command $npxCmd -ErrorAction SilentlyContinue)) {
+            $npxCmd = "npx"
+        }
+        
+        Write-Host "Executing: $npxCmd tsx $FullPath" -ForegroundColor DarkGray
         Write-Host ""
         
         # Create temp file for output
         $tempOut = [System.IO.Path]::GetTempFileName()
         
         # Execute with tee to show AND log
-        $command = "npx tsx `"$FullPath`" 2>&1 | Tee-Object -FilePath `"$tempOut`""
+        $command = "$npxCmd tsx `"$FullPath`" 2>&1 | Tee-Object -FilePath `"$tempOut`""
         Invoke-Expression $command
         $exitCode = $LASTEXITCODE
         

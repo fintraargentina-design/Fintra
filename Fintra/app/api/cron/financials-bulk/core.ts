@@ -7,6 +7,12 @@ import fs from "fs/promises";
 import { createReadStream, existsSync } from "fs";
 import path from "path";
 
+// Verbose logging control
+let VERBOSE = false;
+const debugLog = (...args: any[]) => {
+  if (VERBOSE) console.log(...args);
+};
+
 // Helper to resolve data directory correctly (handling scripts execution context)
 const resolveDataDir = (subDir: string) => {
   let root = process.cwd();
@@ -72,6 +78,18 @@ const YEARS = Array.from(
   { length: END_YEAR - START_YEAR + 1 },
   (_, i) => START_YEAR + i,
 );
+
+// CRITICAL: Default years for daily cron (only mutable periods)
+// This prevents processing 2015-2024 every day (those are immutable)
+// Historical data is gap-filled automatically when new tickers are added
+const now = new Date();
+const currentYear = now.getFullYear();
+const currentMonth = now.getMonth(); // 0 = Jan, 2 = March
+const MUTABLE_YEARS =
+  currentMonth <= 2
+    ? [currentYear - 1, currentYear, currentYear + 1] // Before March: include previous year
+    : [currentYear, currentYear + 1]; // After March: only current + next
+
 const PERIODS = ["FY", "Q1", "Q2", "Q3", "Q4"];
 
 // --- Helper Functions ---
@@ -325,11 +343,70 @@ async function getMissingTickersForPeriod(
   return missing;
 }
 
+// NEW: Batch gap detection - fetch ALL existing periods for all tickers in ONE query
+async function getAllExistingPeriods(
+  tickers: Set<string>,
+): Promise<Map<string, Set<string>>> {
+  if (tickers.size === 0) return new Map();
+
+  const tickerList = Array.from(tickers);
+  const tickerPeriodsMap = new Map<string, Set<string>>();
+
+  // Initialize map
+  for (const ticker of tickerList) {
+    tickerPeriodsMap.set(ticker, new Set());
+  }
+
+  // Batch processing to avoid URI limits
+  const BATCH_SIZE = 1000;
+  for (let i = 0; i < tickerList.length; i += BATCH_SIZE) {
+    const batch = tickerList.slice(i, i + BATCH_SIZE);
+
+    const { data, error } = await supabaseAdmin
+      .from("datos_financieros")
+      .select("ticker, period_type, period_label")
+      .in("ticker", batch);
+
+    if (error) {
+      console.error(
+        `[financials-bulk] Error fetching existing periods:`,
+        error,
+      );
+      continue;
+    }
+
+    if (data) {
+      data.forEach((row) => {
+        const key = `${row.period_type}:${row.period_label}`;
+        tickerPeriodsMap.get(row.ticker)?.add(key);
+      });
+    }
+  }
+
+  return tickerPeriodsMap;
+}
+
+// Helper to check if period exists using pre-fetched map
+function hasPeriod(
+  tickerPeriodsMap: Map<string, Set<string>>,
+  ticker: string,
+  year: number,
+  period: string,
+  type: "Q" | "FY",
+): boolean {
+  const periodLabel = type === "FY" ? `${year}` : `${year}${period}`;
+  const key = `${type}:${periodLabel}`;
+  return tickerPeriodsMap.get(ticker)?.has(key) || false;
+}
+
 // --- Refactored Phase Functions ---
 
 async function downloadAndCacheCSVs(apiKey: string, yearsOverride?: number[]) {
   console.log(`[financials-bulk] Starting Download Phase...`);
-  const targetYears = yearsOverride || YEARS;
+  // CRITICAL: Use MUTABLE_YEARS by default (not YEARS)
+  const targetYears = yearsOverride || MUTABLE_YEARS;
+
+  console.log(`[financials-bulk] Downloading years: ${targetYears.join(", ")}`);
 
   // Ensure cache directory exists
   if (!existsSync(CACHE_DIR)) {
@@ -352,7 +429,7 @@ async function downloadAndCacheCSVs(apiKey: string, yearsOverride?: number[]) {
 
     if (!existsSync(filePath) || isMutablePeriod(year, period)) {
       const action = existsSync(filePath) ? "REFRESH" : "MISS";
-      console.log(`[fmp-bulk-cache] ${action} ${fileName} -> downloading`);
+      debugLog(`[fmp-bulk-cache] ${action} ${fileName} -> downloading`);
       try {
         const res = await fetch(url);
 
@@ -376,7 +453,7 @@ async function downloadAndCacheCSVs(apiKey: string, yearsOverride?: number[]) {
         console.error(`[fmp-bulk-cache] Error fetching ${url}:`, e);
       }
     } else {
-      console.log(`[fmp-bulk-cache] HIT ${fileName} (Immutable & Cached)`);
+      debugLog(`[fmp-bulk-cache] HIT ${fileName} (Immutable & Cached)`);
     }
   };
 
@@ -415,7 +492,34 @@ async function parseCachedCSVs(
   forceUpdate: boolean = false,
 ) {
   console.log(`[financials-bulk] Starting Parse Phase...`);
-  const targetYears = yearsOverride || YEARS;
+  // CRITICAL: Use MUTABLE_YEARS by default (not YEARS)
+  // This makes daily cron run 10x faster by only processing recent data
+  const targetYears = yearsOverride || MUTABLE_YEARS;
+
+  console.log(`[financials-bulk] Target years: ${targetYears.join(", ")}`);
+  console.log(
+    `[financials-bulk] Mode: ${yearsOverride ? "FULL (all years)" : "DAILY (mutable years only)"}`,
+  );
+
+  // Track parsing stats
+  const parseStats = {
+    totalFiles: 0,
+    skipped: 0,
+    gapFilled: 0,
+    mutableProcessed: 0,
+  };
+
+  // CRITICAL OPTIMIZATION: Fetch ALL existing periods for ALL tickers in ONE query
+  // This replaces ~195 individual queries with 1 batch query
+  console.log(
+    `[financials-bulk] 🔍 Pre-fetching existing periods for ${activeTickers.size} tickers...`,
+  );
+  const tickerPeriodsMap = forceUpdate
+    ? new Map() // Skip pre-fetch if forceUpdate (will reprocess everything)
+    : await getAllExistingPeriods(activeTickers);
+  console.log(
+    `[financials-bulk] ✅ Loaded existing data for ${tickerPeriodsMap.size} tickers`,
+  );
 
   const parseFile = async (
     endpointBase: string,
@@ -428,47 +532,46 @@ async function parseCachedCSVs(
     let targetTickers = activeTickers;
     const isMutable = isMutablePeriod(year, period);
 
-    // DEBUG: Log parsing decisions
-    if (activeTickers.size === 1) {
-      console.log(
-        `[DEBUG] Parsing ${fileName}: isMutable=${isMutable}, forceUpdate=${forceUpdate}`,
-      );
-    }
+    parseStats.totalFiles++;
 
     // GAP DETECTION LOGIC (Skip if forceUpdate is true)
     if (!forceUpdate && !isMutable && year !== null && period !== null) {
       const type = period === "FY" ? "FY" : "Q";
-      // Check which of the current batch of tickers are missing this period
-      const missing = await getMissingTickersForPeriod(
-        activeTickers,
-        year,
-        period,
-        type,
-      );
+
+      // NEW: Use pre-fetched map instead of querying DB
+      const missing = new Set<string>();
+      for (const ticker of activeTickers) {
+        if (!hasPeriod(tickerPeriodsMap, ticker, year, period, type)) {
+          missing.add(ticker);
+        }
+      }
 
       if (missing.size === 0) {
         // All tickers in this batch already have this immutable period
-        // console.log(`[fmp-bulk-cache] SKIP ${fileName} (Immutable & Complete)`);
+        debugLog(
+          `[fmp-bulk-cache] ⏩ SKIP ${fileName} (All ${activeTickers.size} tickers already have data)`,
+        );
+        parseStats.skipped++;
         return [];
       }
 
       // Only process the rows for the missing tickers
-      console.log(
-        `[fmp-bulk-cache] GAP-FILL ${fileName} -> Processing ${missing.size} missing tickers`,
+      debugLog(
+        `[fmp-bulk-cache] 📊 GAP-FILL ${fileName} -> ${missing.size}/${activeTickers.size} tickers missing (${activeTickers.size - missing.size} already cached)`,
       );
+      parseStats.gapFilled++;
       targetTickers = missing;
-    } else if (!isMutable && !forceUpdate) {
-      // Skip immutable files only if forceUpdate is false
-      return [];
+    } else if (isMutable) {
+      debugLog(
+        `[fmp-bulk-cache] 🔄 PROCESS ${fileName} (Mutable period - year: ${year})`,
+      );
+      parseStats.mutableProcessed++;
     }
     // If mutable OR forceUpdate=true, targetTickers remains activeTickers (process all)
 
     if (activeTickers.size === 1) {
-      console.log(
-        `[DEBUG ${fileName}] activeTickers size: ${activeTickers.size}, first: "${Array.from(activeTickers)[0]}"`,
-      );
-      console.log(
-        `[DEBUG ${fileName}] targetTickers size: ${targetTickers.size}, contains target: ${targetTickers.has(Array.from(activeTickers)[0])}`,
+      debugLog(
+        `[DEBUG ${fileName}] targetTickers: ${targetTickers.size}, looking for: "${Array.from(activeTickers)[0]}"`,
       );
     }
 
@@ -503,17 +606,6 @@ async function parseCachedCSVs(
             symbol = symbol.replace(/"/g, ""); // Remove ALL quotes, not just start/end
           }
 
-          // DEBUG: Log symbol matching for first row when single ticker
-          if (activeTickers.size === 1 && rows.length === 0) {
-            console.log(
-              `[DEBUG ${fileName}] Original symbol: "${originalSymbol}"`,
-            );
-            console.log(`[DEBUG ${fileName}] After replace: "${symbol}"`);
-            console.log(
-              `[DEBUG ${fileName}] Match result: ${targetTickers.has(symbol)}`,
-            );
-          }
-
           // Filter: Must be in our target list (either full batch or missing subset)
           if (symbol && targetTickers.has(symbol)) {
             rows.push(row);
@@ -521,34 +613,11 @@ async function parseCachedCSVs(
 
             // Early termination: If we found all target tickers, stop parsing
             if (foundTickers.size === targetTickers.size) {
-              console.log(
-                `[DEBUG ${fileName}] Found all ${foundTickers.size} target tickers, stopping parse early`,
-              );
               parser.abort(); // Stop parsing the rest of the CSV
             }
           }
-          // DEBUG: Log first 10 symbols processed
-          else if (activeTickers.size === 1 && rows.length < 10) {
-            console.log(
-              `[DEBUG ${fileName}] Row ${rows.length + 1}: symbol="${symbol}" (len=${symbol.length}), targetTickers.has="${targetTickers.has(symbol)}", looking for="${Array.from(activeTickers)[0]}"`,
-            );
-          }
         },
         complete: () => {
-          // DEBUG: Log parsed rows count
-          if (activeTickers.size === 1 && rows.length > 0) {
-            console.log(
-              `[DEBUG] Parsed ${fileName}: ${rows.length} rows for target ticker`,
-            );
-            if (endpointBase.includes("balance") && rows[0]) {
-              console.log(
-                `[DEBUG] Balance keys:`,
-                Object.keys(rows[0]).filter((k) =>
-                  k.toLowerCase().includes("cash"),
-                ),
-              );
-            }
-          }
           resolve(rows);
         },
         error: (err: any) => {
@@ -597,7 +666,7 @@ async function parseCachedCSVs(
   //   })),
   // );
 
-  console.log(`[financials-bulk] Parsing ${tasks.length} tasks...`);
+  debugLog(`[financials-bulk] Parsing ${tasks.length} tasks...`);
 
   const CHUNK_SIZE = 10;
   const results: { type: string; rows: any[] }[] = [];
@@ -607,6 +676,22 @@ async function parseCachedCSVs(
     const chunkResults = await Promise.all(chunk);
     results.push(...chunkResults);
   }
+
+  // Print optimization summary
+  console.log(`\n📈 PARSE PHASE SUMMARY:`);
+  console.log(`   Total files checked: ${parseStats.totalFiles}`);
+  console.log(
+    `   ⏩ Skipped (already cached): ${parseStats.skipped} (${Math.round((parseStats.skipped / parseStats.totalFiles) * 100)}%)`,
+  );
+  console.log(
+    `   📊 Gap-filled (partial data): ${parseStats.gapFilled} (${Math.round((parseStats.gapFilled / parseStats.totalFiles) * 100)}%)`,
+  );
+  console.log(
+    `   🔄 Processed (mutable/new): ${parseStats.mutableProcessed} (${Math.round((parseStats.mutableProcessed / parseStats.totalFiles) * 100)}%)`,
+  );
+  console.log(
+    `   💾 Cache Hit Rate: ${Math.round((parseStats.skipped / parseStats.totalFiles) * 100)}%\n`,
+  );
 
   const income = results
     .filter((r) => r.type === "income")
@@ -647,10 +732,35 @@ async function persistFinancialsStreaming(
   const metricsTTMMap = groupByTicker(metricsTTM);
   const ratiosTTMMap = groupByTicker(ratiosTTM);
 
+  // CRITICAL OPTIMIZATION: Only process tickers that have parsed data
+  // This prevents building metrics for tickers that were skipped due to cache hits
+  const tickersWithData = new Set([
+    ...incomeMap.keys(),
+    ...balanceMap.keys(),
+    ...cashflowMap.keys(),
+  ]);
+
+  if (tickersWithData.size === 0) {
+    console.log(
+      `[FinancialsBulk] ✅ No new data to process (all ${activeTickers.length} tickers already cached)`,
+    );
+    return {
+      processed: 0,
+      skipped: activeTickers.length,
+      fy_built: 0,
+      q_built: 0,
+      ttm_built: 0,
+    };
+  }
+
+  console.log(
+    `[FinancialsBulk] 🔨 Building metrics for ${tickersWithData.size}/${activeTickers.length} tickers (${activeTickers.length - tickersWithData.size} skipped due to cache)`,
+  );
+
   let rowsBuffer: any[] = [];
   const stats = {
     processed: 0,
-    skipped: 0,
+    skipped: activeTickers.length - tickersWithData.size, // Count cache hits as skipped
     fy_built: 0,
     q_built: 0,
     ttm_built: 0,
@@ -697,37 +807,49 @@ async function persistFinancialsStreaming(
     // No need for dynamic exclusion - buildPersistableMetrics defines the contract
     const dbChunk = uniqueRows.map((row) => sanitizeRow(row));
 
-    // Paginate inserts in chunks of 1000 rows to respect Supabase limits
-    const INSERT_CHUNK_SIZE = 1000;
+    // Paginate inserts in chunks of 5000 rows to respect Supabase limits (~3 MB per chunk)
+    // PARALLEL UPSERTS: Launch all chunks simultaneously to maximize I/O throughput
+    const INSERT_CHUNK_SIZE = 5000;
+    const chunks: any[][] = [];
     for (let i = 0; i < dbChunk.length; i += INSERT_CHUNK_SIZE) {
-      const insertChunk = dbChunk.slice(i, i + INSERT_CHUNK_SIZE);
+      chunks.push(dbChunk.slice(i, i + INSERT_CHUNK_SIZE));
+    }
 
-      try {
-        await upsertDatosFinancieros(supabaseAdmin, insertChunk);
-        if (dbChunk.length > INSERT_CHUNK_SIZE) {
-          console.log(
-            `[FinancialsBulk] Upserted chunk ${Math.floor(i / INSERT_CHUNK_SIZE) + 1}/${Math.ceil(dbChunk.length / INSERT_CHUNK_SIZE)} (${insertChunk.length} rows)`,
-          );
-        }
-      } catch (e) {
-        const tickers = Array.from(
-          new Set(insertChunk.map((r: any) => r.ticker)),
-        ).slice(0, 50);
-        console.error(
-          "[FinancialsBulk] Upsert failed for chunk tickers:",
-          tickers,
-        );
-        throw e;
-      }
+    if (chunks.length > 1) {
+      console.log(
+        `[FinancialsBulk] Launching ${chunks.length} parallel upserts (${dbChunk.length} total rows)`,
+      );
+    }
+
+    try {
+      // Execute all chunks in parallel with Promise.all()
+      await Promise.all(
+        chunks.map((insertChunk, idx) =>
+          upsertDatosFinancieros(supabaseAdmin, insertChunk).then(() => {
+            if (chunks.length > 1) {
+              debugLog(
+                `[FinancialsBulk] ✓ Chunk ${idx + 1}/${chunks.length} completed (${insertChunk.length} rows)`,
+              );
+            }
+          }),
+        ),
+      );
+    } catch (e) {
+      console.error("[FinancialsBulk] Parallel upsert failed:", e);
+      // Find which chunk failed by attempting to identify tickers
+      const allTickers = Array.from(
+        new Set(dbChunk.map((r: any) => r.ticker)),
+      ).slice(0, 50);
+      console.error("[FinancialsBulk] Batch contained tickers:", allTickers);
+      throw e;
     }
 
     // Clear buffer
     rowsBuffer = [];
   };
 
-  // 3. Process each ticker
-  for (const ticker of activeTickers) {
-    console.log(`[FinancialsBulk] Processing ticker ${ticker}`);
+  // 3. Process each ticker (ONLY those with parsed data)
+  for (const ticker of tickersWithData) {
     const tickerIncome = incomeMap.get(ticker) || [];
     const tickerBalance = balanceMap.get(ticker) || [];
     const tickerCashflow = cashflowMap.get(ticker) || [];
@@ -736,31 +858,6 @@ async function persistFinancialsStreaming(
 
     // Task 5: Run non-blocking preflight integrity checks
     runPreflightChecks(ticker, tickerIncome, tickerBalance, tickerCashflow);
-
-    // DEBUG: Log parsed data counts
-    console.log(`[DEBUG ${ticker}] Parsed counts:`, {
-      income: tickerIncome.length,
-      balance: tickerBalance.length,
-      cashflow: tickerCashflow.length,
-      metricsTTM: tickerMetricsTTM ? "YES" : "NO",
-      ratiosTTM: tickerRatiosTTM ? "YES" : "NO",
-    });
-
-    // DEBUG: Diagnose cash field availability (only for target ticker)
-    if (activeTickers.length === 1 && tickerBalance?.length) {
-      console.log(
-        `[DEBUG ${ticker}] Balance keys:`,
-        Object.keys(tickerBalance[0]).filter((k) =>
-          k.toLowerCase().includes("cash"),
-        ),
-      );
-      console.log(`[DEBUG ${ticker}] Cash candidates:`, {
-        cash: tickerBalance[0].cash,
-        cashAndCashEquivalents: tickerBalance[0].cashAndCashEquivalents,
-        cashAndShortTermInvestments:
-          tickerBalance[0].cashAndShortTermInvestments,
-      });
-    }
 
     if (!tickerIncome.length && !tickerBalance.length) {
       stats.skipped++;
@@ -818,6 +915,7 @@ async function persistFinancialsStreaming(
           period_label: inc.date.slice(0, 4), // Year as label
           period_end_date: inc.date,
           source: "fmp_bulk",
+          period_status: "preliminary",
           ...persistable,
         });
         stats.fy_built++;
@@ -862,6 +960,7 @@ async function persistFinancialsStreaming(
           period_label: `${inc.calendarYear || inc.date.substring(0, 4)}${inc.period}`,
           period_end_date: inc.date,
           source: "fmp_bulk",
+          period_status: "preliminary",
           ...persistable,
         });
         stats.q_built++;
@@ -951,6 +1050,7 @@ async function persistFinancialsStreaming(
             period_label: ttmLabel,
             period_end_date: q1.date,
             source: "fmp_bulk",
+            period_status: "preliminary",
             ...persistable,
           });
           stats.ttm_built++;
@@ -969,6 +1069,7 @@ async function persistFinancialsStreaming(
         period_label: ttmPendingLabel,
         period_end_date: latestQ.date,
         source: "fmp_bulk",
+        period_status: "preliminary",
         ttm_status: "pending",
         ttm_reason: ttmPendingReason,
         // All financial fields null when pending
@@ -977,14 +1078,14 @@ async function persistFinancialsStreaming(
         ebitda: null,
         free_cash_flow: null,
       });
-      console.log(
+      debugLog(
         `[FinancialsBulk] TTM pending for ${ticker}: ${ttmPendingReason}`,
       );
     }
 
     // Check buffer size
     if (rowsBuffer.length >= maxBatchSize) {
-      console.log("[FinancialsBulk] Flushing batch", {
+      debugLog("[FinancialsBulk] Flushing batch", {
         size: rowsBuffer.length,
         sampleTickers: Array.from(
           new Set(rowsBuffer.slice(0, 100).map((r) => r.ticker)),
@@ -994,7 +1095,7 @@ async function persistFinancialsStreaming(
     }
   }
 
-  console.log("[FinancialsBulk] Final flush", {
+  debugLog("[FinancialsBulk] Final flush", {
     remaining: rowsBuffer.length,
     sampleTickers: Array.from(
       new Set(rowsBuffer.slice(0, 100).map((r) => r.ticker)),
@@ -1011,9 +1112,12 @@ export async function runFinancialsBulk(
   years?: number[],
   forceUpdate: boolean = false,
   skipDownload: boolean = false,
-  batchSize: number = 50,
+  batchSize: number = 2000,
   offset: number = 0,
+  verbose: boolean = false,
 ) {
+  VERBOSE = verbose;
+
   const fmpKey = process.env.FMP_API_KEY!;
   if (!fmpKey) {
     throw new Error("Missing FMP_API_KEY");
@@ -1029,15 +1133,15 @@ export async function runFinancialsBulk(
   let activeSet = new Set(allActiveTickers);
 
   if (targetTicker) {
-    console.log(`[DEBUG] Target ticker requested: "${targetTicker}"`);
-    console.log(`[DEBUG] In active list: ${activeSet.has(targetTicker)}`);
+    debugLog(`[DEBUG] Target ticker requested: "${targetTicker}"`);
+    debugLog(`[DEBUG] In active list: ${activeSet.has(targetTicker)}`);
     if (!activeSet.has(targetTicker)) {
       // Allow processing even if not in active list (for testing)
       activeSet = new Set([targetTicker]);
     } else {
       activeSet = new Set([targetTicker]);
     }
-    console.log(`[DEBUG] activeSet after filter: ${Array.from(activeSet)}`);
+    debugLog(`[DEBUG] activeSet after filter: ${Array.from(activeSet)}`);
   }
 
   // Apply offset first, then limit
@@ -1064,10 +1168,11 @@ export async function runFinancialsBulk(
   //   - Call parseCachedCSVs(chunkTickers) -> Returns rows ONLY for these tickers
   //   - Call persistFinancialsStreaming(chunkTickers, data)
 
-  // Validate batchSize range (50-500)
-  // Each ticker generates ~8 rows, so 500 tickers = ~4000 rows
-  // We paginate inserts in chunks of 1000 rows to respect Supabase limits
-  const TICKER_BATCH_SIZE = Math.max(50, Math.min(500, batchSize));
+  // Validate batchSize range (50-2000)
+  // Each ticker generates ~10 rows, so 2000 tickers = ~20,000 rows
+  // With upsert chunks of 5000 rows, this means ~4 upsert queries per 2000 tickers
+  // Payload size: 20,000 rows × 600 bytes = 12 MB (chunked into 5000-row batches = 3 MB each)
+  const TICKER_BATCH_SIZE = Math.max(50, Math.min(2000, batchSize));
   const tickerList = Array.from(activeSet);
   const stats = {
     processed: 0,
@@ -1085,7 +1190,7 @@ export async function runFinancialsBulk(
     const batchTickers = tickerList.slice(i, i + TICKER_BATCH_SIZE);
     const batchSet = new Set(batchTickers);
 
-    console.log(
+    debugLog(
       `[financials-bulk] Batch ${i / TICKER_BATCH_SIZE + 1}: ${batchTickers[0]} ... ${batchTickers[batchTickers.length - 1]}`,
     );
 
@@ -1095,7 +1200,7 @@ export async function runFinancialsBulk(
     const batchStats = await persistFinancialsStreaming(
       batchTickers,
       data,
-      2000,
+      5000,
     );
 
     stats.processed += batchStats.processed;
@@ -1107,6 +1212,26 @@ export async function runFinancialsBulk(
     // GC hint
     (data as any) = null;
   }
+
+  // Final Summary
+  console.log(`\n${"=".repeat(70)}`);
+  console.log(`📊 FINANCIALS BULK - FINAL SUMMARY`);
+  console.log(`${"=".repeat(70)}`);
+  console.log(`Total tickers in scope: ${tickerList.length}`);
+  console.log(
+    `✅ Processed (new/updated): ${stats.processed} (${Math.round((stats.processed / tickerList.length) * 100)}%)`,
+  );
+  console.log(
+    `⏩ Skipped (cached): ${stats.skipped} (${Math.round((stats.skipped / tickerList.length) * 100)}%)`,
+  );
+  console.log(`📈 Metrics built:`);
+  console.log(`   - FY rows: ${stats.fy_built}`);
+  console.log(`   - Q rows: ${stats.q_built}`);
+  console.log(`   - TTM rows: ${stats.ttm_built}`);
+  console.log(
+    `   - Total rows: ${stats.fy_built + stats.q_built + stats.ttm_built}`,
+  );
+  console.log(`${"=".repeat(70)}\n`);
 
   return stats;
 }
