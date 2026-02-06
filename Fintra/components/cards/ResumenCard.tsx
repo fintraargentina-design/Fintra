@@ -567,7 +567,7 @@ export default function ResumenCard({
 
               {/* 3. FUNDAMENTAL QUALITY */}
               <AnalyticalAnchorCard
-                title="Fundamental Quality"
+                title="Fundamental Healt"
                 values={
                   <FGOSCell
                     score={resumen?.fgos_score}

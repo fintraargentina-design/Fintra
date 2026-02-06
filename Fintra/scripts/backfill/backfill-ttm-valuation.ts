@@ -29,12 +29,12 @@
  */
 
 import { loadEnv } from "../utils/load-env";
-import { computeTTMv2, type QuarterTTMInput } from "@/lib/engine/ttm";
+import { computeTTMv2, type QuarterTTMInput } from "../../lib/engine/ttm";
 
 loadEnv();
 
 // OPERATIONAL SAFETY LIMITS
-const CONCURRENCY_LIMIT = 20; // Process 20 tickers in parallel
+const CONCURRENCY_LIMIT = 500; // Process 500 tickers in parallel
 const BATCH_SIZE = 500; // Fetch 500 tickers at a time (outer loop)
 const MAX_TICKERS_PER_RUN = 500; // Increased from 100
 
@@ -85,13 +85,12 @@ async function getAllActiveTickers(): Promise<string[]> {
   let from = 0;
   let to = PAGE_SIZE - 1;
 
-  process.stdout.write("   Scanning universe");
+  process.stdout.write("   Scanning fintra_active_stocks");
 
   while (true) {
     const { data, error } = await supabaseAdmin
-      .from("fintra_universe")
+      .from("fintra_active_stocks")
       .select("ticker")
-      .eq("is_active", true)
       .order("ticker", { ascending: true })
       .range(from, to);
 
@@ -516,7 +515,20 @@ async function main() {
 
     // Parallel processing in chunks
     for (let j = 0; j < pendingTickers.length; j += CONCURRENCY_LIMIT) {
-        const chunk = pendingTickers.slice(j, j + CONCURRENCY_LIMIT);
+        // Enforce user limit strictly before starting a new chunk
+        if (userLimit && grandTotalProcessed >= userLimit) {
+            break;
+        }
+
+        // Calculate actual chunk size respecting the remaining limit
+        let currentChunkSize = CONCURRENCY_LIMIT;
+        if (userLimit) {
+            const remaining = userLimit - grandTotalProcessed;
+            if (remaining <= 0) break;
+            currentChunkSize = Math.min(CONCURRENCY_LIMIT, remaining);
+        }
+
+        const chunk = pendingTickers.slice(j, j + currentChunkSize);
         
         const promises = chunk.map(async (ticker) => {
             try {

@@ -66,9 +66,8 @@ async function getActiveTickers(): Promise<string[]> {
   const { supabaseAdmin } = await import("@/lib/supabase-admin");
 
   const { data, error } = await supabaseAdmin
-    .from("fintra_universe")
+    .from("fintra_active_stocks")
     .select("ticker")
-    .eq("is_active", true)
     .order("ticker", { ascending: true });
 
   if (error) {

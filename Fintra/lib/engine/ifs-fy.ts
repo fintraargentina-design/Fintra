@@ -18,6 +18,7 @@
  * - No trend calculation or narrative inference
  * - Max 5 fiscal years (cap)
  * - Industry comparison required (not sector)
+ * - STRICT continuity required (no gaps)
  */
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
@@ -30,9 +31,10 @@ import type {
 
 /**
  * Calculate percentile rank of a value within a distribution
+ * Returns null if distribution is insufficient
  */
-function calculatePercentile(value: number, distribution: number[]): number {
-  if (distribution.length === 0) return 50; // Neutral if no peers
+function calculatePercentile(value: number, distribution: number[]): number | null {
+  if (distribution.length < 3) return null; // Requirement: peer group size >= 3
 
   const sorted = [...distribution].sort((a, b) => a - b);
   const rank = sorted.filter((v) => v <= value).length;
@@ -82,18 +84,41 @@ async function getFiscalYearData(
     .eq("ticker", ticker)
     .eq("period_type", "FY")
     .order("period_end_date", { ascending: false })
-    .limit(limit);
+    .limit(limit + 2); // Fetch a bit more to handle potential duplicates or gaps check
 
   if (error) {
     console.error(`[IQS] Error fetching FY data for ${ticker}:`, error);
     return [];
   }
 
-  return (data || []).map((row: any) => ({
-    ...row,
-    fiscal_year: new Date(row.period_end_date).getFullYear().toString(),
-    fiscal_date_ending: row.period_end_date,
-  })) as unknown as FiscalYearData[];
+  // Filter and map
+  const uniqueYears = new Set<string>();
+  const validRows: FiscalYearData[] = [];
+
+  for (const row of (data || [])) {
+    // 1. Basic Existence Check (Rule 3)
+    // We assume if row exists, statements existed. 
+    // But we strictly require roic and operating_margin per Rule 3.
+    if (row.roic === null || row.operating_margin === null) {
+      continue; // Invalid FY
+    }
+
+    const year = new Date(row.period_end_date).getFullYear().toString();
+    
+    // Deduplicate by year
+    if (uniqueYears.has(year)) continue;
+    uniqueYears.add(year);
+
+    validRows.push({
+      ...row,
+      fiscal_year: year,
+      fiscal_date_ending: row.period_end_date,
+    } as FiscalYearData);
+
+    if (validRows.length >= limit) break;
+  }
+
+  return validRows;
 }
 
 /**
@@ -149,7 +174,7 @@ async function getIndustryFYMetrics(
     }
   }
 
-  if (peerTickers.length === 0) {
+  if (peerTickers.length < 3) { // Rule 3: Peer group size >= 3
     return {
       roic_values: [],
       margin_values: [],
@@ -212,9 +237,9 @@ async function calculateFYPercentile(
   industry: string,
   ticker: string,
 ): Promise<number | null> {
-  // Require minimum fundamental data
+  // Require minimum fundamental data (Rule 3)
   if (fy.roic === null || fy.operating_margin === null) {
-    return null; // Cannot score without core profitability metrics
+    return null; 
   }
 
   // Get industry peer metrics for this fiscal year
@@ -233,40 +258,76 @@ async function calculateFYPercentile(
   }
 
   // Calculate percentile for each metric (industry-relative)
+  // Rule 6: Percentiles are RELATIVE
   const roic_pct = calculatePercentile(fy.roic, distributions.roic_values);
   const margin_pct = calculatePercentile(
     fy.operating_margin,
     distributions.margin_values,
   );
 
-  // Growth (optional, use 50th percentile if missing)
+  // If core metrics fail to rank (e.g. insufficient peers), abort
+  if (roic_pct === null || margin_pct === null) return null;
+
+  // Growth (Rule 4: exclude if missing, do not default)
   const growth_pct =
-    fy.revenue_cagr !== null && distributions.growth_values.length >= 3
+    fy.revenue_cagr !== null 
       ? calculatePercentile(fy.revenue_cagr, distributions.growth_values)
-      : 50;
+      : null;
 
   // Leverage (invert: lower is better)
-  const leverage_pct =
-    fy.debt_to_equity !== null && distributions.leverage_values.length >= 3
-      ? 100 -
-        calculatePercentile(fy.debt_to_equity, distributions.leverage_values)
-      : 50;
+  let leverage_pct: number | null = null;
+  if (fy.debt_to_equity !== null) {
+     const raw = calculatePercentile(fy.debt_to_equity, distributions.leverage_values);
+     if (raw !== null) leverage_pct = 100 - raw;
+  }
 
   // FCF (optional)
   const fcf_pct =
-    fy.fcf_margin !== null && distributions.fcf_values.length >= 3
+    fy.fcf_margin !== null
       ? calculatePercentile(fy.fcf_margin, distributions.fcf_values)
-      : 50;
+      : null;
 
-  // Weighted composite percentile
-  const composite =
-    roic_pct * 0.3 + // 30% - Return on capital
-    margin_pct * 0.25 + // 25% - Profitability
-    growth_pct * 0.2 + // 20% - Growth
-    leverage_pct * 0.15 + // 15% - Financial health (inverted)
-    fcf_pct * 0.1; // 10% - Cash generation
+  // Weighted composite percentile with Dynamic Weighting
+  // Base Weights:
+  // ROIC: 30
+  // Margin: 25
+  // Growth: 20
+  // Leverage: 15
+  // FCF: 10
+  // Total: 100
 
-  return composite;
+  let numerator = 0;
+  let denominator = 0;
+
+  // ROIC (Mandatory)
+  numerator += roic_pct * 30;
+  denominator += 30;
+
+  // Margin (Mandatory)
+  numerator += margin_pct * 25;
+  denominator += 25;
+
+  // Growth
+  if (growth_pct !== null) {
+    numerator += growth_pct * 20;
+    denominator += 20;
+  }
+
+  // Leverage
+  if (leverage_pct !== null) {
+    numerator += leverage_pct * 15;
+    denominator += 15;
+  }
+
+  // FCF
+  if (fcf_pct !== null) {
+    numerator += fcf_pct * 10;
+    denominator += 10;
+  }
+
+  if (denominator === 0) return null; // Should not happen given mandatory checks
+
+  return numerator / denominator;
 }
 
 /**
@@ -278,46 +339,92 @@ export async function calculateIFS_FY(
   ticker: string,
   industry: string,
 ): Promise<IQSResult | null> {
-  // 1. Fetch last 5 fiscal years
-  const fyData = await getFiscalYearData(ticker, 5);
+  // 1. Fetch recent fiscal years (fetch extra to handle potential gaps/invalid years)
+  // Rule 1: Only FY data. getFiscalYearData handles this.
+  const rawFyData = await getFiscalYearData(ticker, 8);
 
-  if (fyData.length === 0) {
-    return null; // No FY data available
+  if (rawFyData.length < 3) {
+    return null; // Rule 5: Minimum 3 consecutive FYs
   }
 
-  // 2. Calculate position for each FY
-  const fiscal_positions: IQSFiscalYearPosition[] = [];
-
-  // Process in chronological order (oldest first)
-  const fyDataChronological = [...fyData].reverse();
-
-  for (const fy of fyDataChronological) {
-    const percentile = await calculateFYPercentile(fy, industry, ticker);
-
-    if (percentile === null) {
-      continue; // Skip FY with insufficient data or peer group
+  // 2. Find the most recent VALID sequence of at least 3 consecutive years
+  // rawFyData is sorted descending (Newest -> Oldest)
+  
+  let bestSequence: IQSFiscalYearPosition[] = [];
+  let currentSequence: IQSFiscalYearPosition[] = [];
+  
+  // We need to check validity (Peers/Metrics) for each candidate year
+  // This might be expensive, so we process one by one
+  
+  for (let i = 0; i < rawFyData.length; i++) {
+    const fy = rawFyData[i];
+    
+    // Check Date Continuity with previous year in current sequence
+    if (currentSequence.length > 0) {
+      const prevYear = parseInt(currentSequence[currentSequence.length - 1].fiscal_year);
+      const thisYear = parseInt(fy.fiscal_year);
+      
+      if (prevYear - thisYear !== 1) {
+        // Continuity broken by date gap
+        // Check if current sequence is valid candidate
+        if (currentSequence.length >= 3) {
+          bestSequence = currentSequence; 
+          break; // Found a valid sequence (most recent one), stop looking
+        }
+        // Reset sequence
+        currentSequence = [];
+      }
     }
-
+    
+    // Validate Metric/Peer Suitability
+    // Rule 2: Evaluated against INDUSTRY peers for SAME fiscal year
+    const percentile = await calculateFYPercentile(fy, industry, ticker);
+    
+    if (percentile === null) {
+      // Invalid year (e.g. low peers, missing growth/margin)
+      // Continuity broken by data invalidity
+      if (currentSequence.length >= 3) {
+        bestSequence = currentSequence;
+        break; // Found a valid sequence, stop
+      }
+      currentSequence = []; // Reset
+      continue;
+    }
+    
+    // Valid year -> Add to sequence
     const position = classifyPosition(percentile);
-
-    fiscal_positions.push({
+    currentSequence.push({
       fiscal_year: fy.fiscal_year,
       position,
       percentile: Math.round(percentile),
     });
+    
+    // Optimization: If we have 5 years (max timeline), we can stop
+    if (currentSequence.length >= 5) {
+      bestSequence = currentSequence;
+      break;
+    }
+  }
+  
+  // Final check if loop finished without breaking
+  if (bestSequence.length === 0 && currentSequence.length >= 3) {
+    bestSequence = currentSequence;
+  }
+  
+  if (bestSequence.length < 3) {
+    return null; // No valid sequence found
   }
 
-  if (fiscal_positions.length === 0) {
-    return null; // Could not calculate any FY
-  }
-
-  // 3. Extract explicit fiscal year list
+  // 3. Prepare Result
+  // bestSequence is sorted Newest -> Oldest. 
+  // Output format requires Oldest -> Newest for arrays
+  const fiscal_positions = [...bestSequence].reverse();
   const fiscal_years = fiscal_positions.map((fp) => fp.fiscal_year);
 
   // 4. Calculate confidence (based ONLY on FY count, not trend)
   const confidence = calculateConfidence(fiscal_positions.length);
 
-  // 5. Get current FY (most recent)
+  // 5. Get current FY (most recent in the sequence)
   const current = fiscal_positions[fiscal_positions.length - 1];
 
   return {

@@ -47,7 +47,7 @@ export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
   // Strict rule: if not present in canonical path, use hyphen. DO NOT invent results.
   // We prioritize the deep JSONB path (Source of Truth) or the pre-processed field.
   // We explicitly IGNORE legacy columns like 'fgos_band' which might contain misplaced data (e.g. 'High' from confidence).
-  const fgosBand = row.fgos_components?.competitive_advantage?.band || row.fgos_category || '-';
+  const fgosBand = row.fgos_components?.competitive_advantage?.band || '-';
 
   // FGOS Details
   // Use fgos_maturity if available (Mature, Developing, etc.), fallback to fgos_status (computed/pending)

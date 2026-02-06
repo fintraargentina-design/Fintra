@@ -1,32 +1,60 @@
-import { loadEnv } from '../utils/load-env';
+import "tsconfig-paths/register";
+import { loadEnv } from "../utils/load-env";
 
 loadEnv();
 
+console.log("DEBUG: Script started");
+console.log("DEBUG: Loading runFinancialsBulk...");
+
 async function main() {
-  const { runFinancialsBulk } = await import('@/app/api/cron/financials-bulk/core');
-  
+  let runFinancialsBulk;
+  try {
+    const mod = await import("@/app/api/cron/financials-bulk/core");
+    runFinancialsBulk = mod.runFinancialsBulk;
+
+    console.log("DEBUG: runFinancialsBulk loaded successfully");
+  } catch (e) {
+    console.error("DEBUG: Failed to load module:", e);
+    process.exit(1);
+  }
+
   const args = process.argv.slice(2);
   let limit: number | undefined;
+  let offset: number = 0; // Default offset
   let targetTicker: string | undefined;
   let years: number[] | undefined;
+  let forceUpdate = false;
+  let batchSize: number = 50; // Default batch size
 
   // Simple arg parsing
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg === '--limit') {
+    if (arg === "--limit") {
       limit = parseInt(args[++i], 10);
-    } else if (arg === '--ticker') {
+    } else if (arg === "--offset") {
+      offset = parseInt(args[++i], 10);
+    } else if (arg === "--ticker") {
       targetTicker = args[++i];
-    } else if (arg === '--years') {
+    } else if (arg === "--years") {
       const yearStr = args[++i];
-      if (yearStr.includes('-')) {
-        const [start, end] = yearStr.split('-').map(y => parseInt(y, 10));
+      if (yearStr.includes("-")) {
+        const [start, end] = yearStr.split("-").map((y) => parseInt(y, 10));
         years = [];
         for (let y = start; y <= end; y++) years.push(y);
       } else {
-        years = yearStr.split(',').map(y => parseInt(y, 10));
+        years = yearStr.split(",").map((y) => parseInt(y, 10));
       }
-    } else if (!arg.startsWith('--') && !limit && !targetTicker && !years) {
+    } else if (arg === "--batch-size") {
+      const val = parseInt(args[++i], 10);
+      if (val >= 50 && val <= 500) {
+        batchSize = val;
+      } else {
+        console.error("❌ Error: --batch-size must be between 50 and 500");
+        process.exit(1);
+      }
+    } else if (arg === "--force") {
+      forceUpdate = true;
+    } else if (!arg.startsWith("--") && !limit && !targetTicker && !years) {
       // Legacy support for plain limit argument if no flags used
       const val = parseInt(arg, 10);
       if (!isNaN(val)) limit = val;
@@ -34,15 +62,28 @@ async function main() {
   }
 
   console.log(`🚀 Running Financials Bulk...`);
-  console.log(`   - Limit: ${limit || 'ALL'}`);
-  console.log(`   - Ticker: ${targetTicker || 'ALL'}`);
-  console.log(`   - Years: ${years ? years.join(', ') : 'Default (2020-2026)'}`);
+  console.log(`   - Limit: ${limit || "ALL"}`);
+  console.log(`   - Offset: ${offset}`);
+  console.log(`   - Ticker: ${targetTicker || "ALL"}`);
+  console.log(
+    `   - Years: ${years ? years.join(", ") : "Default (2020-2026)"}`,
+  );
+  console.log(`   - Batch Size: ${batchSize} tickers`);
+  console.log(`   - Force Update: ${forceUpdate}`);
 
   try {
-    await runFinancialsBulk(targetTicker, limit, years);
-    console.log('✅ Financials Bulk completed.');
+    await runFinancialsBulk(
+      targetTicker,
+      limit,
+      years,
+      forceUpdate,
+      false,
+      batchSize,
+      offset,
+    );
+    console.log("✅ Financials Bulk completed.");
   } catch (e) {
-    console.error('❌ Financials Bulk failed:', e);
+    console.error("❌ Financials Bulk failed:", e);
     process.exit(1);
   }
 }

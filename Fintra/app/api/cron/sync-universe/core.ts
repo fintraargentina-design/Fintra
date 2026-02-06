@@ -27,6 +27,19 @@ export async function runSyncUniverse(targetTicker?: string, limit?: number) {
     let rows = result.data; // Array of objects from CSV
     console.log(`📥 Perfiles recibidos: ${rows.length}`);
 
+    // CLEANUP: Filter invalid symbols and Deduplicate
+    // This prevents "ON CONFLICT DO UPDATE command cannot affect row a second time" error
+    const uniqueRowsMap = new Map();
+    for (const row of rows) {
+        if (!row.symbol) continue; // Skip rows without symbol
+        
+        if (!uniqueRowsMap.has(row.symbol)) {
+            uniqueRowsMap.set(row.symbol, row);
+        }
+    }
+    rows = Array.from(uniqueRowsMap.values());
+    console.log(`🧹 Perfiles únicos tras limpieza: ${rows.length}`);
+
     // FILTER if targetTicker
     if (targetTicker) {
         console.log(`🧪 DEBUG MODE: Filtering for ticker ${targetTicker}`);
