@@ -11,7 +11,11 @@ import {
   fetchSectorPerformanceHistory,
 } from "./fetchGrowthData";
 
-export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
+export async function runFmpBulk(
+  tickerParam?: string,
+  limitParam?: number,
+  batchSizeParam: number = 10,
+) {
   const fmpKey = process.env.FMP_API_KEY!;
 
   if (!fmpKey) {
@@ -28,17 +32,34 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
     // ─────────────────────────────────────────
     // DISTRIBUTED LOCK (Prevent Race Conditions)
     // ─────────────────────────────────────────
+    const { count: existingCount } = await supabase
+      .from("fintra_snapshots")
+      .select("*", { count: "exact", head: true })
+      .eq("snapshot_date", today);
+
+    const alreadyComplete = existingCount && existingCount >= 53000;
+
     // Acquire lock before checking/writing data
     const { withLock, getDailyLockName } = await import("@/lib/utils/dbLocks");
     const lockName = getDailyLockName("fmp-bulk");
 
     // If lock can't be acquired, another instance is running
+    // BUT allow incremental processing if data is incomplete
     const acquired = await import("@/lib/utils/dbLocks").then((m) =>
       m.tryAcquireLock(lockName),
     );
-    if (!acquired && !tickerParam) {
-      console.log(`⏭️  Another instance is already processing. Skipping.`);
+
+    if (!acquired && !tickerParam && alreadyComplete) {
+      console.log(
+        `⏭️  Another instance is already processing AND data is complete. Skipping.`,
+      );
       return { skipped: true, reason: "lock_held" };
+    }
+
+    if (!acquired && existingCount && existingCount < 53000) {
+      console.log(
+        `⚠️  Lock held but data incomplete (${existingCount} < 53K). Proceeding with incremental processing...`,
+      );
     }
 
     try {
@@ -46,19 +67,24 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
       // CURSOR (Data-based Idempotency)
       // ─────────────────────────────────────────
       // Check if snapshots exist for today
-      const { count } = await supabase
-        .from("fintra_snapshots")
-        .select("*", { count: "exact", head: true })
-        .eq("snapshot_date", today);
+      const hasDataToday = (existingCount || 0) > 0;
+      let processedTickers: string[] = [];
 
-      const hasDataToday = (count || 0) > 0;
-
-      // Bypass check if we are in test mode (ticker override)
+      // If data exists today, load processed tickers to avoid re-processing
       if (hasDataToday && !tickerParam) {
         console.log(
-          `✅ Snapshots already exist for ${today} (count=${count}). Skipping.`,
+          `ℹ️  Snapshots already exist for ${today} (count=${existingCount}). Loading processed tickers...`,
         );
-        return { skipped: true, date: today, count };
+
+        const { data: processedSnaps } = await supabase
+          .from("fintra_snapshots")
+          .select("ticker")
+          .eq("snapshot_date", today);
+
+        processedTickers = (processedSnaps || []).map((s: any) => s.ticker);
+        console.log(
+          `✅ Loaded ${processedTickers.length} already processed tickers`,
+        );
       }
 
       // ─────────────────────────────────────────
@@ -102,6 +128,29 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
       // Using helper to ensure only active 'stock' types are processed
       let allActiveTickers = await getActiveStockTickers(supabase);
 
+      // INCREMENTAL PROCESSING: Filter out already processed tickers
+      if (processedTickers.length > 0 && !tickerParam) {
+        const beforeFilter = allActiveTickers.length;
+        allActiveTickers = allActiveTickers.filter(
+          (t) => !processedTickers.includes(t),
+        );
+        console.log(
+          `🔄 INCREMENTAL MODE: Filtering ${beforeFilter} tickers → ${allActiveTickers.length} remaining (${processedTickers.length} already processed)`,
+        );
+
+        if (allActiveTickers.length === 0) {
+          console.log(
+            `✅ All tickers already processed for ${today}. Nothing to do.`,
+          );
+          return {
+            skipped: true,
+            date: today,
+            count: processedTickers.length,
+            reason: "all_complete",
+          };
+        }
+      }
+
       if (tickerParam) {
         console.log(
           `🧪 BULK TEST MODE — processing only ticker: ${tickerParam}`,
@@ -115,7 +164,7 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
       }
 
       if (!allActiveTickers.length) {
-        throw new Error("No active stocks");
+        throw new Error("No active stocks to process");
       }
 
       const tickers = limitParam
@@ -143,15 +192,31 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
       const sectorPerformanceMap =
         await fetchSectorPerformanceHistory(supabase);
 
+      // FASE 1 OPTIMIZATION: Prefetch industry performance and universe data
+      const { fetchIndustryPerformanceMap, fetchUniverseMap } =
+        await import("./fetchGrowthData");
+      const industryPerformanceMap =
+        await fetchIndustryPerformanceMap(supabase);
+      const universeMap = await fetchUniverseMap(supabase);
+      console.log(
+        `[PREFETCH] ✅ All reference data loaded (sectors, industries, universe)`,
+      );
+
       // Map tickers to buildSnapshot calls
-      const BATCH_SIZE = 10; // Reduced to 10 to prevent Access Violation / Memory issues
+      const BATCH_SIZE = batchSizeParam; // Default 10, or user override
       const snapshots: any[] = [];
       let relativeReturnNonNullCount = 0;
       let strategicStateNonNullCount = 0;
 
+      const logMemory = (label: string) => {
+        const used = process.memoryUsage().heapUsed / 1024 / 1024;
+        console.log(`🧠 Memory [${label}]: ${Math.round(used * 100) / 100} MB`);
+      };
+
       console.log(
         `🏗️ Building Snapshots for ${tickers.length} tickers in batches of ${BATCH_SIZE}...`,
       );
+      logMemory("Start");
 
       for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
         const batchTickers = tickers.slice(i, i + BATCH_SIZE);
@@ -222,6 +287,8 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
               valuationRows, // Valuation history for Sentiment
               benchmarkRows, // Benchmark performance (SPY)
               sectorPerformanceMap, // Sector Performance for Relative Return
+              industryPerformanceMap, // FASE 1: Industry Performance (prefetched)
+              universeMap, // FASE 1: Universe Map (prefetched)
             );
 
             const duration = Date.now() - startTime;
@@ -266,11 +333,13 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
 
         snapshots.push(...validSnapshots);
 
-        // FLUSH to DB every 500 snapshots to prevent memory overflow and data loss on stop
-        if (snapshots.length >= 500) {
+        // FLUSH to DB every 200 snapshots to prevent timeout and memory overflow
+        if (snapshots.length >= 200) {
           console.log(`💾 Flushing ${snapshots.length} snapshots to DB...`);
           await upsertSnapshots(supabase, snapshots);
           snapshots.length = 0; // Clear array
+          if (global.gc) global.gc(); // Aggressive GC after flush
+          logMemory("After Flush");
         }
 
         // Optional: Small breathing room for the event loop
@@ -278,6 +347,7 @@ export async function runFmpBulk(tickerParam?: string, limitParam?: number) {
           global.gc(); // Force GC if exposed
         }
         await new Promise((resolve) => setTimeout(resolve, 200));
+        logMemory(`End Batch ${batchIndex}`);
       }
 
       console.log(`💾 Upserting ${snapshots.length} snapshots...`);

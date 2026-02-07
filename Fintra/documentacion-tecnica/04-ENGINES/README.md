@@ -1,96 +1,59 @@
 # 04-ENGINES - Documentación de Motores de Análisis
 
-**Última actualización:** 6 de febrero de 2026
+**Última actualización:** 7 de febrero de 2026  
+**Consolidación:** 10 documentos → 4 documentos activos + archive
 
 ---
 
 ## 📋 Índice de Documentos
 
-### 🌟 Documento Maestro
+### ⭐ Documento Maestro Principal
 
-**[DOCUMENTACION_ENGINES_MASTER.md](./DOCUMENTACION_ENGINES_MASTER.md)** - Documentación completa y unificada de todos los engines de Fintra v2.0.
+**[FINTRA_SCORES_EXPLICACION.md](./FINTRA_SCORES_EXPLICACION.md)** - Documentación técnica completa de todos los scores de Fintra (2,315 líneas).
 
-**Contenido:**
+**Contenido (11 scores completos):**
 
-- Visión general de la arquitectura de engines
 - FGOS (Fintra Growth & Operations Score)
-- IFS Live (Industry Fit Score) - v1.2 con Industry Awareness
-- IQS (Industry Quality Score) - Scoring fiscal estructural
-- Valuation (Valoración Relativa)
-- Moat (Foso Competitivo)
-- Competitive Advantage (Ventaja Competitiva)
+- IFS (Industry Fit Score) - Momentum diario
+- IQS (Industry Quality Score) - Posición estructural anual
+- Competitive Advantage Score
+- Moat Score (Foso Competitivo)
+- Sentiment Score
+- Valuation Score (Relative)
+- Dividend Quality Score
+- Relative Return Score
+- Fintra Verdict (Integrador)
 - Quality Brakes (Frenos de Calidad)
-- Fundamentals Maturity (Madurez de Datos)
-- Pipeline de cálculo completo
-- Interacciones entre engines
-- Escenarios de análisis integrados
+- Arquitectura del sistema de scoring
+- Principios de diseño (Fintra no inventa datos, Pending no es error, etc.)
+- Pipeline de cálculo y validación
+
+**📌 Este es el documento técnico de referencia principal.**
 
 ---
 
-## 📚 Documentos Especializados
+## 📚 Documentos Complementarios
 
-### [DOCUMENTACION_IFS.md](./DOCUMENTACION_IFS.md)
+### [INFORME_CONCEPTOS_FUNDAMENTALES.md](./INFORME_CONCEPTOS_FUNDAMENTALES.md)
 
-**Tema:** IFS (Industry Fit Score) - Posición competitiva relativa diaria
+**Tema:** Resumen ejecutivo de conceptos para audiencia externa
 
-**Audiencia:** Desarrolladores que trabajan con momentum de mercado
-
-**Contenido clave:**
-
-- IFS Memory (modelo de memoria retrospectiva de 5 años)
-- Block voting system (Short, Mid, Long)
-- Pressure score (0-3)
-- Confidence calculation
-- Diferencias vs IQS
-
-**Cuándo consultar:**
-
-- Implementando features de posición competitiva
-- Debugging IFS Live calculations
-- Analizando momentum vs fundamentals divergence
-
----
-
-### [IQS_INFORME.md](./IQS_INFORME.md)
-
-**Tema:** IQS (Industry Quality Score) - Posición competitiva estructural anual
-
-**Audiencia:** Desarrolladores y analistas financieros
+**Audiencia:** No técnica, divulgación, contexto de análisis
 
 **Contenido clave:**
 
-- Arquitectura conceptual (IFS Live vs IQS)
-- Percentile-based ranking relativo a industria
-- Explicit fiscal year mapping
-- Algoritmo de cálculo paso a paso
-- Reglas de negocio (no invent data, explicit FY, industry not sector)
+- Valoración Relativa
+- Competitive Position (IFS/IQS)
+- Calidad Fundamental (Quality Brakes, FGOS, Competitive Advantage, Moat, Sentiment)
+- Cash Flow Quality (Dividend Quality, Relative Return)
+- Síntesis Integradora (Fintra Verdict)
+- Lenguaje simplificado para audiencia no técnica
 
 **Cuándo consultar:**
 
-- Implementando scoring fiscal year
-- Entendiendo separación temporal IFS/IQS
-- Debugging percentile calculations
-
----
-
-### [IQS_REFACTORING_COMPLETE.md](./IQS_REFACTORING_COMPLETE.md)
-
-**Tema:** Refactoring técnico de IQS (historial de cambios)
-
-**Audiencia:** Desarrolladores manteniendo IQS
-
-**Contenido clave:**
-
-- Migración de implementación inicial a producción
-- Decisiones técnicas y trade-offs
-- Optimizaciones de performance
-- Testing strategy
-
-**Cuándo consultar:**
-
-- Entendiendo decisiones de arquitectura pasadas
-- Planeando nuevos refactorings
-- Debugging issues relacionados con cambios históricos
+- Presentando Fintra a externos
+- Onboarding de analistas no técnicos
+- Documentación de alto nivel
 
 ---
 
@@ -116,63 +79,58 @@
 
 ---
 
-### [TTM_V2_REFACTORING_SUMMARY.md](./TTM_V2_REFACTORING_SUMMARY.md)
-
-**Tema:** TTM (Trailing Twelve Months) - Construcción y validación
-
-**Audiencia:** Desarrolladores trabajando con métricas TTM
-
-**Contenido clave:**
-
-- Construcción correcta de TTM (suma vs promedio)
-- Validación de 4 quarters
-- Temporal consistency (no look-ahead bias)
-- Migración de TTM v1 a v2
-
-**Cuándo consultar:**
-
-- Implementando cálculos de métricas TTM
-- Debugging discrepancias en datos TTM
-- Entendiendo reglas de agregación temporal
-
 ---
 
 ## 🔄 Flujo de Navegación Recomendado
 
 ### Para Desarrolladores Nuevos:
 
-1. **[DOCUMENTACION_ENGINES_MASTER.md](./DOCUMENTACION_ENGINES_MASTER.md)** → Visión completa del sistema
-2. **[TTM_V2_REFACTORING_SUMMARY.md](./TTM_V2_REFACTORING_SUMMARY.md)** → Entender construcción de métricas base
-3. **[QUALITY_BRAKES_GUIDE.md](./QUALITY_BRAKES_GUIDE.md)** → Sistema de alertas crítico
-4. Documentos especializados según feature asignado
+1. **[FINTRA_SCORES_EXPLICACION.md](./FINTRA_SCORES_EXPLICACION.md)** → Visión completa del sistema (11 scores)
+2. **[QUALITY_BRAKES_GUIDE.md](./QUALITY_BRAKES_GUIDE.md)** → Sistema de alertas crítico
+3. Consultar [archive/](./archive/) para contexto histórico si es necesario
 
 ### Para Analistas Financieros:
 
-1. **[DOCUMENTACION_ENGINES_MASTER.md](./DOCUMENTACION_ENGINES_MASTER.md)** → Sección "Interacciones entre Engines"
+1. **[INFORME_CONCEPTOS_FUNDAMENTALES.md](./INFORME_CONCEPTOS_FUNDAMENTALES.md)** → Resumen ejecutivo
 2. **[QUALITY_BRAKES_GUIDE.md](./QUALITY_BRAKES_GUIDE.md)** → Cómo interpretar alertas
-3. **[DOCUMENTACION_IFS.md](./DOCUMENTACION_IFS.md)** → IFS Memory y momentum analysis
+3. **[FINTRA_SCORES_EXPLICACION.md](./FINTRA_SCORES_EXPLICACION.md)** → Profundizar en scores específicos
 
 ### Para Debugging Específico:
 
-- **FGOS issues** → DOCUMENTACION_ENGINES_MASTER.md, sección FGOS
-- **IFS Live null** → DOCUMENTACION_IFS.md
-- **IQS pending** → IQS_INFORME.md
-- **Valuation divergence** → DOCUMENTACION_ENGINES_MASTER.md, sección Valuation
-- **TTM construction** → TTM_V2_REFACTORING_SUMMARY.md
+- **FGOS issues** → FINTRA_SCORES_EXPLICACION.md, sección FGOS
+- **IFS Live null** → FINTRA_SCORES_EXPLICACION.md, sección IFS
+- **IQS pending** → FINTRA_SCORES_EXPLICACION.md, sección IQS
+- **Valuation divergence** → FINTRA_SCORES_EXPLICACION.md, sección Valuation
 - **Quality Brakes logic** → QUALITY_BRAKES_GUIDE.md
+- **Contexto histórico** → [archive/](./archive/) o [archive/history/](./archive/history/)
 
 ---
 
 ## 📊 Estado de la Documentación
 
-| Documento                           | Estado      | Última Actualización | Prioridad de Lectura |
-| ----------------------------------- | ----------- | -------------------- | -------------------- |
-| **DOCUMENTACION_ENGINES_MASTER.md** | ✅ Completo | 2026-02-06           | 🔴 Alta              |
-| **DOCUMENTACION_IFS.md**            | ✅ Completo | 2026-02-02           | 🟡 Media             |
-| **IQS_INFORME.md**                  | ✅ Completo | 2026-02-02           | 🟡 Media             |
-| **IQS_REFACTORING_COMPLETE.md**     | ✅ Completo | 2026-02-02           | 🟢 Baja              |
-| **QUALITY_BRAKES_GUIDE.md**         | ✅ Completo | 2026-02-04           | 🔴 Alta              |
-| **TTM_V2_REFACTORING_SUMMARY.md**   | ✅ Completo | 2026-01-15           | 🟡 Media             |
+### Documentos Activos
+
+| Documento                              | Estado      | Última Actualización | Prioridad de Lectura |
+| -------------------------------------- | ----------- | -------------------- | -------------------- |
+| **FINTRA_SCORES_EXPLICACION.md** ⭐    | ✅ Completo | 2026-02-07           | 🔴 Alta              |
+| **INFORME_CONCEPTOS_FUNDAMENTALES.md** | ✅ Completo | 2026-02-07           | 🟡 Media             |
+| **QUALITY_BRAKES_GUIDE.md**            | ✅ Completo | 2026-02-04           | 🔴 Alta              |
+
+### Documentación Archivada
+
+Documentos históricos y versiones obsoletas disponibles en:
+
+- **[archive/](./archive/)** - Documentos técnicos obsoletos/redundantes:
+  - `DOCUMENTACION_ENGINES_MASTER.md` (obsoleto, superado por FINTRA_SCORES_EXPLICACION.md)
+  - `DOCUMENTACION_IFS.md` (redundante, incluido en FINTRA_SCORES)
+  - `IQS_INFORME.md` (redundante, incluido en FINTRA_SCORES)
+
+- **[archive/history/](./archive/history/)** - Changelogs y refactorings:
+  - `ACTUALIZACION_DOCUMENTACION_2026-02-06.md`
+  - `IQS_REFACTORING_COMPLETE.md`
+  - `TTM_V2_REFACTORING_SUMMARY.md`
+
+**Nota:** La documentación archivada se preserva para contexto histórico y no debe usarse para desarrollo activo
 
 ---
 
@@ -256,6 +214,26 @@ if (roic === null) {
 
 ---
 
-**Última revisión:** 6 de febrero de 2026  
-**Versión de engines:** v2.0  
-**Cobertura:** 8 engines activos + 6 engines en roadmap
+## 📦 Consolidación Completada
+
+**Fecha:** 7 de febrero de 2026  
+**Cambios:**
+
+- ✅ Consolidación de 10 documentos → 4 documentos activos
+- ✅ Eliminación de redundancias (IFS, IQS docs específicos)
+- ✅ Archivo de versiones obsoletas (DOCUMENTACION_ENGINES_MASTER.md)
+- ✅ Organización de historia en `/archive/history/`
+- ✅ Documento maestro actualizado: FINTRA_SCORES_EXPLICACION.md (11 scores)
+
+**Beneficios:**
+
+- Fuente única de verdad (Single Source of Truth)
+- Reducción de 60% en documentos activos
+- Eliminación de contenido duplicado
+- Estructura más clara y mantenible
+
+---
+
+**Última revisión:** 7 de febrero de 2026  
+**Versión de engines:** v4.0  
+**Cobertura:** 11 scores completos documentados

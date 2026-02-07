@@ -3,7 +3,7 @@
 export async function upsertSnapshots(supabase: any, rows: any[]) {
   if (rows.length === 0) return;
 
-  const CHUNK_SIZE = 500;
+  const CHUNK_SIZE = 100; // Reduced from 500 to avoid statement timeout
   for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
     const chunk = rows.slice(i, i + CHUNK_SIZE);
     await processSnapshotChunk(supabase, chunk);

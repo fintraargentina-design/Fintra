@@ -214,3 +214,76 @@ export async function fetchSectorPerformanceHistory(supabase: SupabaseClient) {
 
   return map;
 }
+
+/**
+ * Prefetch ALL industry_performance data globally to avoid N+1 queries
+ * Returns nested map: industry → window_code → latest data
+ */
+export async function fetchIndustryPerformanceMap(
+  supabase: SupabaseClient,
+): Promise<Map<string, Map<string, any>>> {
+  const today = new Date().toISOString().slice(0, 10);
+
+  console.log("[PREFETCH] Loading industry_performance...");
+
+  const { data, error } = await supabase
+    .from("industry_performance")
+    .select("industry, window_code, return_percent, performance_date")
+    .lte("performance_date", today)
+    .order("performance_date", { ascending: false });
+
+  if (error) {
+    console.error("❌ Error fetching industry performance:", error);
+    return new Map();
+  }
+
+  // Build nested map: industry → window_code → latest row
+  const industryMap = new Map<string, Map<string, any>>();
+
+  for (const row of data || []) {
+    if (!industryMap.has(row.industry)) {
+      industryMap.set(row.industry, new Map());
+    }
+
+    const windowMap = industryMap.get(row.industry)!;
+
+    // Keep only the latest entry per window_code (data is already ordered by date desc)
+    if (!windowMap.has(row.window_code)) {
+      windowMap.set(row.window_code, row);
+    }
+  }
+
+  console.log(
+    `[PREFETCH] ✅ Loaded ${industryMap.size} industries with performance data`,
+  );
+  return industryMap;
+}
+
+/**
+ * Prefetch ALL fintra_universe data globally to avoid N+1 queries
+ * Returns map: ticker → { sector, industry }
+ */
+export async function fetchUniverseMap(
+  supabase: SupabaseClient,
+): Promise<Map<string, { sector: string | null; industry: string | null }>> {
+  console.log("[PREFETCH] Loading fintra_universe...");
+
+  const { data, error } = await supabase
+    .from("fintra_universe")
+    .select("ticker, sector, industry");
+
+  if (error) {
+    console.error("❌ Error fetching universe:", error);
+    return new Map();
+  }
+
+  const universeMap = new Map(
+    data?.map((row: any) => [
+      row.ticker,
+      { sector: row.sector || null, industry: row.industry || null },
+    ]) || [],
+  );
+
+  console.log(`[PREFETCH] ✅ Loaded ${universeMap.size} tickers from universe`);
+  return universeMap;
+}

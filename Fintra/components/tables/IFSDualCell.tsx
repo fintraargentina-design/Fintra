@@ -90,7 +90,7 @@ Frequency: Daily snapshot"
 
       {/* IQS Pie */}
       {ifs_fy && ifs_fy.fiscal_positions.length > 0 ? (
-        <div className="relative group">
+        <div className="relative group/iqs">
           <IQSPie
             fiscal_positions={ifs_fy.fiscal_positions}
             size={config.pieSize}
@@ -100,7 +100,7 @@ Frequency: Daily snapshot"
           <div
             className="
               absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-              hidden group-hover:block
+              hidden group-hover/iqs:block
               bg-zinc-900 text-white text-xs rounded px-2 py-1.5
               whitespace-nowrap z-10 pointer-events-none
               shadow-lg border border-zinc-700

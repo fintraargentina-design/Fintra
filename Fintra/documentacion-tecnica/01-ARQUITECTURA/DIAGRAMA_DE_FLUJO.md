@@ -1,7 +1,7 @@
 # 📊 DIAGRAMA DE FLUJO - FINTRA
 
-**Última actualización:** 2026-02-04  
-**Versión:** 1.0  
+**Última actualización:** 2026-02-07  
+**Versión:** 1.1  
 **Propósito:** Visualización completa de la arquitectura y flujo de datos de Fintra
 
 ---
@@ -192,7 +192,7 @@
 │    ↳ industry_classification              │
 │    ↳ asset_industry_map                   │
 │                                            │
-│ 5. ttm-valuation-cron 🆕      [15-20 min] │
+│ 5. ttm-valuation-cron          [15-20 min]│
 │    ↳ datos_valuacion_ttm                  │
 │                                            │
 │ 6. master-benchmark            [10-15 min]│
@@ -244,7 +244,7 @@ fmp-bulk (L1)
     ├─→ industry-classification-sync (L2)
     │   └─→ industry-performance-aggregator (L3)
     │
-    ├─→ ttm-valuation-cron (L2) 🆕
+    ├─→ ttm-valuation-cron (L2)
     │   └─→ Usa: datos_financieros + prices_daily
     │
     ├─→ master-benchmark (L2)
@@ -574,16 +574,25 @@ COMPONENT (RSC)
                 │
                 │
     ┌───────────▼───────────┐
-    │ Cash & Shares         │
-    │ Backfills (PENDING)   │
+    │ Performance Windows   │
+    │ backfill-performance- │
+    │ windows.ts            │
     │                       │
-    │ backfill-cash-        │
-    │ equivalents.ts        │
-    │ ↳ Populates cash      │
-    │                       │
+    │ - Populates from      │
+    │   datos_performance   │
+    │ - 7 windows/ticker    │
+    │ - Adds alpha calc     │
+    └───────────┬───────────┘
+                │
+                │
+    ┌───────────▼───────────┐
+    │ Shares Outstanding    │
     │ backfill-shares-      │
-    │ outstanding.ts        │
-    │ ↳ Populates shares    │
+    │ from-ev.ts            │
+    │                       │
+    │ - Calculates shares   │
+    │   from EV formula     │
+    │ - Fills gaps in data  │
     └───────────────────────┘
 ```
 
@@ -592,23 +601,26 @@ COMPONENT (RSC)
 ```
 BACKFILLS (scripts/backfill/)
 │
-├─ backfill-ttm-valuation.ts 🆕
-│  └─ Status: ✅ OPERATIONAL (Feb 3)
+├─ backfill-ttm-valuation.ts ✅
+│  └─ Status: OPERATIONAL (TTM historical ratios)
 │
-├─ backfill-cash-equivalents.ts
-│  └─ Status: 🔴 PENDING (Not created)
+├─ backfill-performance-windows.ts ✅
+│  └─ Status: DISPONIBLE (Popula performance_windows)
 │
-├─ backfill-shares-outstanding.ts
-│  └─ Status: 🔴 PENDING (Not created)
+├─ backfill-shares-from-ev.ts ✅
+│  └─ Status: DISPONIBLE (Shares from EV calculation)
 │
-├─ backfill-ticker-full.ts
-│  └─ Status: ✅ WORKING (Price history)
+├─ backfill-ticker-full.ts ✅
+│  └─ Status: WORKING (Price history)
 │
-├─ backfill-sector-performance.ts
-│  └─ Status: ✅ WORKING
+├─ backfill-sector-performance.ts ✅
+│  └─ Status: WORKING
 │
-└─ backfill-industry-performance-historical.ts
-   └─ Status: ✅ WORKING
+├─ backfill-industry-performance-historical.ts ✅
+│  └─ Status: WORKING
+│
+└─ backfill-valuation-history.ts ✅
+   └─ Status: WORKING (Alternative valuation backfill)
 ```
 
 ---
@@ -629,7 +641,8 @@ LAYER 1: RAW DATA
 ├─ datos_financieros         (1.6M rows)
 │  └─ ticker, period_type, period_end_date
 │     revenue, ebitda, net_income, total_debt
-│     cash_and_equivalents 🆕, weighted_shares_out
+│     cash_and_equivalents, weighted_shares_out
+│     (cash viene directo de FMP, no requiere backfill)
 │
 ├─ prices_daily              (50M+ rows)
 │  └─ ticker, price_date, open, high, low, close, volume
@@ -638,7 +651,7 @@ LAYER 1: RAW DATA
    └─ ticker, ex_date, amount, type
 
 LAYER 2: PRE-CALCULATED
-├─ datos_valuacion_ttm 🆕    (1.6M target)
+├─ datos_valuacion_ttm           (1.6M target)
 │  └─ ticker, valuation_date, price
 │     revenue_ttm, ebitda_ttm, net_income_ttm
 │     eps_ttm, pe_ratio, ev_ebitda
@@ -653,8 +666,9 @@ LAYER 2: PRE-CALCULATED
 ├─ industry_performance      (10K rows)
 │  └─ industry, window, return_pct, rank
 │
-└─ performance_windows       (EMPTY - TO DO)
-   └─ ticker, window, return_pct
+└─ performance_windows       (Populated via backfill)
+   └─ ticker, window, return_pct, vs_sector, alpha
+      (7 windows × ~40K tickers = ~280K rows)
 
 LAYER 3: SNAPSHOTS
 └─ fintra_snapshots          (40K rows)
@@ -687,7 +701,7 @@ company_profiles (1)
     ├───→ datos_financieros (1:N)
     │     └─ Quarterly/Annual data
     │
-    ├───→ datos_valuacion_ttm (1:N) 🆕
+    ├───→ datos_valuacion_ttm (1:N)
     │     └─ TTM ratios historical
     │
     ├───→ prices_daily (1:N)
@@ -794,16 +808,37 @@ sector_benchmarks (1)
 
 ## 🔗 REFERENCIAS
 
+### Documentación Consolidada (Feb 2026)
+
+**04-ENGINES/** - Motores de Análisis
+
+- [README.md](04-ENGINES/README.md) - Índice principal
+- [FINTRA_SCORES_EXPLICACION.md](04-ENGINES/FINTRA_SCORES_EXPLICACION.md) - Documentación técnica completa (11 scores, 2,315 líneas)
+- [INFORME_CONCEPTOS_FUNDAMENTALES.md](04-ENGINES/INFORME_CONCEPTOS_FUNDAMENTALES.md) - Resumen ejecutivo
+- [QUALITY_BRAKES_GUIDE.md](04-ENGINES/QUALITY_BRAKES_GUIDE.md) - Frenos de calidad
+
+**05-CRON-JOBS/** - Ejecución y Orden
+
+- [README.md](05-CRON-JOBS/README.md) - Índice principal
+- [CRON_JOBS_MASTER_GUIDE.md](05-CRON-JOBS/CRON_JOBS_MASTER_GUIDE.md) - Guía completa de ejecución (consolidado)
+- [RUN-CRONS-README.md](05-CRON-JOBS/RUN-CRONS-README.md) - Scripts ejecutables
+
+**06-BACKFILLS/** - Scripts de Poblado Inicial
+
+- [README.md](06-BACKFILLS/README.md) - Índice y guía rápida
+- [00-BACKFILL_INSTRUCTIONS.md](06-BACKFILLS/00-BACKFILL_INSTRUCTIONS.md) - Catálogo completo de backfills
+- [TTM_HISTORICAL_VALUATION_IMPLEMENTATION.md](06-BACKFILLS/TTM_HISTORICAL_VALUATION_IMPLEMENTATION.md) - Implementación técnica
+
+**Otras Carpetas:**
+
 - [01-ARQUITECTURA/](01-ARQUITECTURA/) - Documentos de diseño
 - [03-DATA-PIPELINE/](03-DATA-PIPELINE/) - Detalles de ingesta
-- [04-ENGINES/](04-ENGINES/) - Lógica de scoring
-- [05-CRON-JOBS/](05-CRON-JOBS/) - Ejecución y orden
-- [06-BACKFILLS/](06-BACKFILLS/) - Scripts de backfill
 - [08-DATABASE/](08-DATABASE/) - Schema completo
 - [10-TROUBLESHOOTING/](10-TROUBLESHOOTING/) - Resolución de problemas
 
 ---
 
-**Última revisión:** 2026-02-04  
-**Versión:** 1.0  
+**Última revisión:** 2026-02-07  
+**Versión:** 1.1  
 **Mantenido por:** Fintra Engineering Team
+**Consolidación:** Feb 2026 (10 docs en 04-ENGINES → 4, 4 docs en 05-CRON-JOBS → 2)

@@ -1,120 +1,191 @@
-# 📚 Documentación Técnica de Fintra
+# 01-ARQUITECTURA - Documentación Arquitectónica
 
-**Actualizado:** 2026-02-03
-
-Esta carpeta contiene toda la documentación técnica del proyecto Fintra organizada por categorías.
-
----
-
-## 📋 Índice por Categoría
-
-### 🏗️ Arquitectura y Setup
-
-- [ARCHITECTURAL_STATUS_REPORT.md](ARCHITECTURAL_STATUS_REPORT.md) - Estado arquitectónico del sistema
-- [LOCAL_SETUP.md](LOCAL_SETUP.md) - Guía de instalación y configuración local
-- [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) - Lista de verificación para deployment
-
-### 🔄 Cron Jobs y Pipeline
-
-- [RUN-CRONS-README.md](RUN-CRONS-README.md) - Guía de ejecución de cron jobs
-- [CRON_EXECUTION_ORDER_CORRECTED.md](CRON_EXECUTION_ORDER_CORRECTED.md) - Orden correcto de ejecución (actualizado)
-- [CRON_EXECUTION_ORDER.md](CRON_EXECUTION_ORDER.md) - Orden original de ejecución
-- [EJECUCION_CRON_BACKFILL.md](EJECUCION_CRON_BACKFILL.md) - Guía de backfill de datos históricos
-- [INFORME_CRON_BACKFILL.md](INFORME_CRON_BACKFILL.md) - Informe de backfill completado
-- [00-BACKFILL_INSTRUCTIONS.md](00-BACKFILL_INSTRUCTIONS.md) - Instrucciones detalladas de backfill
-
-### 📊 TTM Valuation
-
-- [TTM_V2_REFACTORING_SUMMARY.md](TTM_V2_REFACTORING_SUMMARY.md) - Resumen de refactorización TTM v2
-- [TTM_VALUATION_IMPLEMENTATION_GUIDE.md](TTM_VALUATION_IMPLEMENTATION_GUIDE.md) - Guía de implementación TTM
-- [TTM_HISTORICAL_VALUATION_IMPLEMENTATION.md](TTM_HISTORICAL_VALUATION_IMPLEMENTATION.md) - Implementación de valuación histórica
-
-### 📈 Motores de Análisis
-
-- [DOCUMENTACION_IFS.md](DOCUMENTACION_IFS.md) - Documentación del motor IFS (Industry Financial Standing)
-- [IQS_INFORME.md](IQS_INFORME.md) - Informe del motor IQS (Industry Quality Score)
-- [IQS_REFACTORING_COMPLETE.md](IQS_REFACTORING_COMPLETE.md) - Refactorización completa de IQS
-
-### 🔍 Auditorías y Validaciones
-
-- [AUDITORIA_TECNICA_MASTER.md](AUDITORIA_TECNICA_MASTER.md) - Auditoría técnica maestra del sistema
-- [AUDITORIA_FINTRA_COMPLETA.md](AUDITORIA_FINTRA_COMPLETA.md) - Auditoría completa de Fintra
-- [AUDITORIA_ENGINES_COMPLETA_2026-02-02.md](AUDITORIA_ENGINES_COMPLETA_2026-02-02.md) - Auditoría de motores financieros
-- [AUDITORIA_IFS_RADIAL.md](AUDITORIA_IFS_RADIAL.md) - Auditoría específica del motor IFS
-- [AUDITORIA_CRON_BACKFILL.md](AUDITORIA_CRON_BACKFILL.md) - Auditoría de procesos de backfill
-- [RESUMEN_AUDITORIA.md](RESUMEN_AUDITORIA.md) - Resumen ejecutivo de auditorías
-- [COMO_VALIDAR_BASE_DATOS.md](COMO_VALIDAR_BASE_DATOS.md) - Guía de validación de base de datos
-
-### 🐛 Fixes y Correcciones
-
-- [SOLUCIONES_IMPLEMENTADAS.md](SOLUCIONES_IMPLEMENTADAS.md) - Registro de soluciones implementadas
-- [AUDIT_FIXES_REPORT.md](AUDIT_FIXES_REPORT.md) - Reporte de fixes post-auditoría
-- [INFORME_CORRECCIONES_COMPLETO.md](INFORME_CORRECCIONES_COMPLETO.md) - Informe completo de correcciones
-- [PROBLEMA_RELATIVERETURN1Y.md](PROBLEMA_RELATIVERETURN1Y.md) - Solución al problema de relative return
-
-### 🔧 Migraciones y Ejecutables
-
-- [INSTRUCCIONES_MIGRATION.md](INSTRUCCIONES_MIGRATION.md) - Guía de migraciones de base de datos
-- [MIGRATION_PERFORMANCE_WINDOWS.md](MIGRATION_PERFORMANCE_WINDOWS.md) - Migración de performance_windows
-- [README_EJECUTABLES.md](README_EJECUTABLES.md) - Documentación de scripts ejecutables
-- [README_EJECUTABLES_ORIGINAL.md](README_EJECUTABLES_ORIGINAL.md) - README original de ejecutables
-- [VERIFICACION_COMPLETADA.md](VERIFICACION_COMPLETADA.md) - Verificación de sistema completada
-
-### 📝 Changelog
-
-- [CHANGELOG.md](CHANGELOG.md) - Registro de cambios del proyecto
+**Última actualización:** 7 de febrero de 2026  
+**Consolidación:** Documentos arquitectónicos de alto nivel
 
 ---
 
-## 🎯 Documentos Clave por Rol
+## 📋 Índice de Documentos
 
-### Para Desarrolladores Backend
+### ⭐ Documentos Principales
 
-1. [ARCHITECTURAL_STATUS_REPORT.md](ARCHITECTURAL_STATUS_REPORT.md)
-2. [LOCAL_SETUP.md](LOCAL_SETUP.md)
-3. [CRON_EXECUTION_ORDER_CORRECTED.md](CRON_EXECUTION_ORDER_CORRECTED.md)
-4. [TTM_V2_REFACTORING_SUMMARY.md](TTM_V2_REFACTORING_SUMMARY.md)
+**[DIAGRAMA_DE_FLUJO.md](./DIAGRAMA_DE_FLUJO.md)** - Visualización completa del sistema Fintra
 
-### Para DevOps / Deployment
+**Contenido:**
 
-1. [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)
-2. [RUN-CRONS-README.md](RUN-CRONS-README.md)
-3. [00-BACKFILL_INSTRUCTIONS.md](00-BACKFILL_INSTRUCTIONS.md)
-4. [README_EJECUTABLES.md](README_EJECUTABLES.md)
+- Arquitectura general (Vista de alto nivel, Principios)
+- Flujo de datos completo (Pipeline de 3 capas)
+- Orden de ejecución de cron jobs (5 niveles, dependencias)
+- Engines de scoring (FGOS, IFS, IQS, integración)
+- Flujo frontend (Next.js, Server Actions, componentes)
+- Backfills y mantenimiento
+- Arquitectura de base de datos (Schema completo, relaciones)
+- Puntos críticos de integración
+- Decisiones arquitectónicas clave
 
-### Para Analistas Financieros
+**Audiencia:** Todos los roles técnicos (desarrolladores, DevOps, arquitectos)
 
-1. [DOCUMENTACION_IFS.md](DOCUMENTACION_IFS.md)
-2. [IQS_INFORME.md](IQS_INFORME.md)
-3. [TTM_VALUATION_IMPLEMENTATION_GUIDE.md](TTM_VALUATION_IMPLEMENTATION_GUIDE.md)
+**Cuándo consultar:**
 
-### Para QA / Testing
-
-1. [AUDITORIA_TECNICA_MASTER.md](AUDITORIA_TECNICA_MASTER.md)
-2. [COMO_VALIDAR_BASE_DATOS.md](COMO_VALIDAR_BASE_DATOS.md)
-3. [VERIFICACION_COMPLETADA.md](VERIFICACION_COMPLETADA.md)
-
----
-
-## 📌 Convenciones de Nomenclatura
-
-- `AUDITORIA_*.md` - Reportes de auditoría técnica
-- `INFORME_*.md` - Informes de procesos completados
-- `TTM_*.md` - Documentación del sistema TTM Valuation
-- `IQS_*.md` - Documentación del motor IQS
-- `CRON_*.md` - Documentación de cron jobs y pipeline
-- `MIGRATION_*.md` - Guías de migración de datos
+- Primera vez trabajando con Fintra
+- Necesitas entender el flujo completo del sistema
+- Debugging de dependencias entre componentes
+- Documentando cambios arquitectónicos
 
 ---
 
-## 🔄 Última Actualización
+**[ARCHITECTURAL_STATUS_REPORT.md](./ARCHITECTURAL_STATUS_REPORT.md)** - Reporte de estado arquitectónico
 
-**Fecha:** 2026-02-03  
-**Archivos:** 32 documentos técnicos  
-**Estado:** ✅ Todos los documentos movidos y organizados
+**Contenido:**
+
+- Estado actual de la arquitectura (capas de datos)
+- Issues resueltos recientemente (violaciones detectadas y corregidas)
+- Gaps conocidos y esperados (performance_windows, datos faltantes)
+- Determinismo y auditabilidad
+- Validación de integridad arquitectónica
+
+**Fecha:** 2 de febrero de 2026  
+**Audiencia:** Arquitectos, tech leads
+
+**Cuándo consultar:**
+
+- Validando integridad del sistema
+- Debugging de problemas de datos faltantes
+- Revisión de principios arquitectónicos (no inventar datos, pending no es error)
+- Auditorías de calidad
 
 ---
 
-## 📞 Contacto
+**[ESCALABILIDAD_20K_USUARIOS.md](./ESCALABILIDAD_20K_USUARIOS.md)** - Plan de escalabilidad
 
-Para dudas sobre la documentación, contactar al equipo de desarrollo de Fintra.
+**Contenido:**
+
+- Análisis del estado actual (~2K usuarios concurrentes)
+- Objetivo: 20K usuarios concurrentes con latencia <500ms
+- Fortalezas arquitectónicas existentes
+- Bottlenecks identificados (DB queries, bundle size, crons)
+- Plan de optimización por fases (corto, mediano, largo plazo)
+- Estimaciones de costos (Supabase, Vercel, infraestructura)
+- Métricas y monitoreo
+- Plan de pruebas de carga
+
+**Fecha:** 6 de febrero de 2026  
+**Audiencia:** Arquitectos, product managers, DevOps
+
+**Cuándo consultar:**
+
+- Planeando crecimiento del sistema
+- Debugging de problemas de performance
+- Decisiones de infraestructura
+- Estimaciones de ROI técnico
+
+---
+
+**[PARALLELIZATION_PATTERNS.md](./PARALLELIZATION_PATTERNS.md)** - Patrones de paralelización
+
+**Contenido:**
+
+- Filosofía core: "Parallelize I/O, Keep CPU Sequential"
+- Cuándo paralelizar (database writes, API calls, file I/O)
+- Cuándo NO paralelizar (stateful processing, sequential logic)
+- Patrones implementados en Fintra:
+  - Financials bulk ingestion (~3 min con chunks paralelos)
+  - TTM valuation backfill (batches secuenciales + writes paralelos)
+  - Sector benchmarks (sequential processing + batch upserts)
+- Anti-patrones y errores comunes
+- Guías de debugging (logs, memory profiling)
+
+**Fecha:** 6 de febrero de 2026  
+**Audiencia:** Desarrolladores backend, optimizadores de performance
+
+**Cuándo consultar:**
+
+- Implementando nuevos cron jobs o backfills
+- Optimizando performance de pipelines
+- Debugging de memory leaks o race conditions
+- Revisión de código para PRs de pipeline
+
+---
+
+## 🎯 Flujo de Lectura Recomendado
+
+### Para Nuevos Desarrolladores
+
+1. **[DIAGRAMA_DE_FLUJO.md](./DIAGRAMA_DE_FLUJO.md)** - Empezar aquí para entender el big picture
+2. **[ARCHITECTURAL_STATUS_REPORT.md](./ARCHITECTURAL_STATUS_REPORT.md)** - Entender estado actual y principios
+3. **[PARALLELIZATION_PATTERNS.md](./PARALLELIZATION_PATTERNS.md)** - Antes de escribir código de pipeline
+
+### Para Troubleshooting
+
+1. **[ARCHITECTURAL_STATUS_REPORT.md](./ARCHITECTURAL_STATUS_REPORT.md)** - Verificar que el problema no sea un "gap esperado"
+2. **[DIAGRAMA_DE_FLUJO.md](./DIAGRAMA_DE_FLUJO.md)** - Revisar dependencias y flujos
+3. Consultar [10-TROUBLESHOOTING/](../10-TROUBLESHOOTING/) para problemas específicos
+
+### Para Optimización
+
+1. **[ESCALABILIDAD_20K_USUARIOS.md](./ESCALABILIDAD_20K_USUARIOS.md)** - Identificar bottlenecks prioritarios
+2. **[PARALLELIZATION_PATTERNS.md](./PARALLELIZATION_PATTERNS.md)** - Aplicar patrones correctos
+3. Medir impacto y documentar en CHANGELOG
+
+---
+
+## 📚 Documentación Relacionada
+
+**Complementa con:**
+
+- [04-ENGINES/](../04-ENGINES/) - Lógica de scoring (FGOS, IFS, IQS)
+- [05-CRON-JOBS/](../05-CRON-JOBS/) - Ejecución y orden de cron jobs
+- [06-BACKFILLS/](../06-BACKFILLS/) - Scripts de poblado inicial
+- [08-DATABASE/](../08-DATABASE/) - Schema completo de tablas
+
+---
+
+## 🔧 Principios Arquitectónicos de Fintra
+
+Estos principios están documentados en profundidad en los archivos de esta carpeta:
+
+1. **Fintra no inventa datos** → `NULL` > defaults
+2. **Single source of truth** → Cron jobs calculan 1 vez, clientes leen
+3. **Dual head** → Web y Desktop leen mismos snapshots
+4. **Fault tolerant** → Error en 1 ticker ≠ abort total
+5. **Point-in-time** → No look-ahead bias
+6. **Parallelize I/O, Sequential CPU** → Mantener estado predecible
+7. **Pending is not an error** → Representar datos faltantes honestamente
+
+Consulta [ARCHITECTURAL_STATUS_REPORT.md](./ARCHITECTURAL_STATUS_REPORT.md) para validación de estos principios.
+
+---
+
+## 📊 Métricas de Consolidación
+
+**Antes (documentacion-tecnica/ completa):**
+
+- ~50+ documentos dispersos en raíz y subcarpetas
+- README obsoleto con 32+ referencias incorrectas
+- Duplicados sin resolver (CRON_EXECUTION_ORDER.md × 2)
+- Documentos de arquitectura mezclados con operativos
+
+**Después (01-ARQUITECTURA/):**
+
+- 4 documentos arquitectónicos consolidados
+- README preciso y actualizado
+- Sin duplicados
+- Clara separación de responsabilidades
+
+**Total eliminado/movido:** 8+ docs reorganizados en esta consolidación
+
+---
+
+## 🔗 Enlaces Rápidos
+
+- [Raíz documentación](../)
+- [Diagrama de flujo completo](./DIAGRAMA_DE_FLUJO.md)
+- [Estado arquitectónico](./ARCHITECTURAL_STATUS_REPORT.md)
+- [Plan de escalabilidad](./ESCALABILIDAD_20K_USUARIOS.md)
+- [Patrones de paralelización](./PARALLELIZATION_PATTERNS.md)
+
+---
+
+**Última revisión:** 2026-02-07  
+**Mantenido por:** Fintra Engineering Team  
+**Consolidación:** Febrero 2026 (reorganización completa de documentación)

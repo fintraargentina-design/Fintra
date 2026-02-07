@@ -224,6 +224,11 @@ export async function buildSnapshot(
   valuationRows: any[] = [],
   benchmarkRows: any[] = [],
   allSectorPerformance: Map<string, any[]> = new Map(),
+  allIndustryPerformance: Map<string, Map<string, any>> = new Map(),
+  universeMap: Map<
+    string,
+    { sector: string | null; industry: string | null }
+  > = new Map(),
 ): Promise<FinancialSnapshot> {
   console.log("🧪 SNAPSHOT START", sym);
 
@@ -251,31 +256,22 @@ export async function buildSnapshot(
   let classificationStatus: "full" | "partial" | "missing" = "missing";
   let sectorSource: "canonical" | "profile_fallback" | undefined;
 
-  try {
-    // 1. PRIMARY (fintra_universe) - New Source of Truth
-    // asset_industry_map is currently empty and has schema issues, so we use universe.
-    const { data: universeRow } = await supabaseAdmin
-      .from("fintra_universe")
-      .select("sector, industry")
-      .eq("ticker", sym)
-      .maybeSingle();
+  // FASE 1 OPTIMIZATION: Use prefetched universe map instead of individual query
+  const universeRow = universeMap.get(sym);
 
-    if (universeRow && universeRow.sector) {
-      sector = universeRow.sector;
-      industry = universeRow.industry || null;
-      sectorSource = "canonical";
-      classificationStatus = "full";
-    }
-    // 2. FALLBACK (company_profile)
-    else if (profile && profile.sector) {
-      sector = profile.sector;
-      industry = profile.industry || null;
-      sectorSource = "profile_fallback";
-      classificationStatus = "full";
-    } else {
-      classificationStatus = "partial";
-    }
-  } catch {
+  if (universeRow && universeRow.sector) {
+    sector = universeRow.sector;
+    industry = universeRow.industry || null;
+    sectorSource = "canonical";
+    classificationStatus = "full";
+  }
+  // 2. FALLBACK (company_profile)
+  else if (profile && profile.sector) {
+    sector = profile.sector;
+    industry = profile.industry || null;
+    sectorSource = "profile_fallback";
+    classificationStatus = "full";
+  } else {
     classificationStatus = "partial";
   }
 
@@ -393,29 +389,17 @@ export async function buildSnapshot(
   const industryPerformanceData: { [K in IndustryWindowCode]?: number | null } =
     {};
 
+  // FASE 1 OPTIMIZATION: Use prefetched industry performance map instead of 7 queries per ticker
   if (industry) {
-    try {
-      // Strategy: Parallel queries per window to ensure we get the latest row for EACH window
-      // regardless of data density or sparsity. This avoids the "limit 100" trap.
-      const promises = INDUSTRY_WINDOW_CODES.map(async (code) => {
-        const { data } = await supabaseAdmin
-          .from("industry_performance")
-          .select("return_percent, performance_date")
-          .eq("industry", industry)
-          .eq("window_code", code)
-          .lte("performance_date", today)
-          .order("performance_date", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        return { code, data };
-      });
+    const industryWindowMap = allIndustryPerformance.get(industry);
 
-      const results = await Promise.all(promises);
-
+    if (industryWindowMap) {
       let presentCount = 0;
       let allUsedAreToday = true;
 
-      for (const { code, data } of results) {
+      for (const code of INDUSTRY_WINDOW_CODES) {
+        const data = industryWindowMap.get(code);
+
         if (data) {
           industryPerformanceData[code] =
             typeof data.return_percent === "number"
@@ -441,9 +425,8 @@ export async function buildSnapshot(
       } else {
         industryPerformanceStatus = "partial";
       }
-    } catch (err) {
-      console.warn(`⚠️ INDUSTRY PERFORMANCE ERROR [${sym}]:`, err);
-      industryPerformanceStatus = "partial";
+    } else {
+      industryPerformanceStatus = "missing";
     }
   }
 
