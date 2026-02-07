@@ -51,7 +51,9 @@ export function applyQualityBrakes(
   const confidence = Math.max(0, 100 - penalty);
 
   let adjustedScore = fgosScore;
-  if (confidence < 50) {
+  // Ajuste de umbral: Si la confianza baja de 85 (implica penalización >= 15), aplicamos castigo al score.
+  // Antes estaba en < 50, lo cual era inalcanzable (max penalización actual es 30).
+  if (confidence <= 85) {
     adjustedScore = Math.round(fgosScore * 0.9);
   }
 

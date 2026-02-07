@@ -13,7 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { incrementalTTMValuation } from "@/scripts/pipeline/incremental-ttm-valuation";
+import { incrementalTTMValuation } from "@/scripts/pipeline/04b-incremental-ttm-valuation";
 
 export const maxDuration = 300; // 5 minutes
 export const dynamic = "force-dynamic";

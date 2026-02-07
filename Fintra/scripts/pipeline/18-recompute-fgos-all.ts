@@ -5,7 +5,7 @@ loadEnv();
 async function main() {
     // Dynamic imports
     const { supabaseAdmin } = await import('@/lib/supabase-admin');
-    const { recomputeFGOSForTicker } = await import('@/lib/engine/fgos-recompute');
+    const { runRecomputeFGOSBulk } = await import('@/app/api/cron/recompute-fgos-bulk/core');
 
     const today = new Date().toISOString().slice(0, 10);
     console.log(`🚀 Starting FGOS Recompute for ALL sectors (Date: ${today})`);
@@ -48,29 +48,28 @@ async function main() {
     let pending = 0;
     let failed = 0;
 
-    const CHUNK_SIZE = 25; // Parallel processing limit
+    const CHUNK_SIZE = 50; // Increased for Bulk Processing
     const TOTAL = allTickers.length;
 
     for (let i = 0; i < TOTAL; i += CHUNK_SIZE) {
         const chunk = allTickers.slice(i, i + CHUNK_SIZE);
         
-        await Promise.all(chunk.map(async (ticker) => {
-            try {
-                const res: any = await recomputeFGOSForTicker(ticker, today);
-                
-                // Normalize status check
-                const status = res.fgos_status || res.status;
-                
-                if (status === 'computed') {
+        try {
+            const results = await runRecomputeFGOSBulk(chunk, today);
+            
+            results.forEach(res => {
+                if (res.status === 'computed') {
                     success++;
+                } else if (res.status === 'error') {
+                    failed++;
                 } else {
                     pending++;
                 }
-            } catch (err) {
-                // console.error(`❌ Error ${ticker}:`, err); // Too verbose for large sets
-                failed++;
-            }
-        }));
+            });
+        } catch (err) {
+            console.error(`❌ Critical Batch Error:`, err);
+            failed += chunk.length;
+        }
 
         // Progress bar
         const progress = Math.min(i + CHUNK_SIZE, TOTAL);

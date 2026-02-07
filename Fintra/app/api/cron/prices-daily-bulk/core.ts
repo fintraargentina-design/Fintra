@@ -173,26 +173,33 @@ export async function runPricesDailyBulk(opts: PricesDailyBulkOptions) {
 
         // Batch Upsert
         const BATCH_SIZE = 1000;
+        const chunks: any[][] = [];
         for (let i = 0; i < rowsToInsert.length; i += BATCH_SIZE) {
-            const batch = rowsToInsert.slice(i, i + BATCH_SIZE);
-            
-            const { data, error } = await supabaseAdmin
-                .from('prices_daily')
-                .upsert(batch, { onConflict: 'ticker,price_date', ignoreDuplicates: true })
-                .select('ticker'); // Select to count actual inserts
-            
-            if (error) {
-                log.push(`❌ Batch upsert error: ${error.message}`);
-                aggregateStats.errors += batch.length;
-            } else {
-                const insertedCount = data ? data.length : 0;
-                const duplicateCount = batch.length - insertedCount;
-                
-                aggregateStats.inserted += insertedCount;
-                aggregateStats.duplicates += duplicateCount;
-                aggregateStats.processed += batch.length;
-            }
+            chunks.push(rowsToInsert.slice(i, i + BATCH_SIZE));
         }
+
+        log.push(`Upserting ${rowsToInsert.length} rows in ${chunks.length} parallel chunks...`);
+
+        await Promise.all(
+            chunks.map(async (batch, idx) => {
+                const { data, error } = await supabaseAdmin
+                    .from('prices_daily')
+                    .upsert(batch, { onConflict: 'ticker,price_date', ignoreDuplicates: true })
+                    .select('ticker'); // Select to count actual inserts
+                
+                if (error) {
+                    log.push(`❌ Batch upsert error (chunk ${idx + 1}): ${error.message}`);
+                    aggregateStats.errors += batch.length;
+                } else {
+                    const insertedCount = data ? data.length : 0;
+                    const duplicateCount = batch.length - insertedCount;
+                    
+                    aggregateStats.inserted += insertedCount;
+                    aggregateStats.duplicates += duplicateCount;
+                    aggregateStats.processed += batch.length;
+                }
+            })
+        );
         
         log.push(`Finished ${targetDate}: ${aggregateStats.inserted} inserted, ${aggregateStats.duplicates} duplicates.`);
     }

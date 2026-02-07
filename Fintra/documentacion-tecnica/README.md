@@ -1,16 +1,72 @@
 # 📚 DOCUMENTACIÓN TÉCNICA - FINTRA
 
-**Última actualización:** 2026-02-04  
-**Versión:** 2.0 (Reorganizada)
+**Última actualización:** 2026-02-06  
+**Versión:** 2.1 (Auditoría Completa Febrero 2026)
 
 ---
 
 ## 🎯 INICIO RÁPIDO
 
 - **¿Primera vez aquí?** Lee [DIAGRAMA_DE_FLUJO.md](DIAGRAMA_DE_FLUJO.md)
+- **¿Estado del proyecto?** Ve a [ESTADO_ACTUAL_PROYECTO.md](ESTADO_ACTUAL_PROYECTO.md) ⭐ NUEVO
+- **¿Código deprecado?** Consulta [CODIGO_DEPRECADO.md](CODIGO_DEPRECADO.md) ⭐ NUEVO
+- **¿Mejoras pendientes?** Revisa [MEJORAS_PENDIENTES.md](MEJORAS_PENDIENTES.md) ⭐ NUEVO
 - **¿Necesitas ejecutar algo?** Ve a [05-CRON-JOBS/](05-CRON-JOBS/)
 - **¿Problemas técnicos?** Consulta [10-TROUBLESHOOTING/](10-TROUBLESHOOTING/)
-- **¿Tareas pendientes?** Revisa [11-PENDIENTES/](11-PENDIENTES/)
+
+---
+
+## 🆕 DOCUMENTOS NUEVOS (Febrero 2026)
+
+### [📍 ESTADO_ACTUAL_PROYECTO.md](ESTADO_ACTUAL_PROYECTO.md)
+
+**⭐ SNAPSHOT COMPLETO DEL SISTEMA**
+
+Contiene:
+
+- Métricas clave de performance
+- Estado de todos los cron jobs
+- Arquitectura actual del sistema
+- Issues conocidos y prioridades
+- Roadmap Q1 2026
+- Tech stack completo
+- Convenciones del proyecto
+
+**📖 Leer si:** Necesitas un overview completo del estado actual del sistema
+
+---
+
+### [🗑️ CODIGO_DEPRECADO.md](CODIGO_DEPRECADO.md)
+
+**Lista completa de código no usado y candidatos para eliminación**
+
+Contiene:
+
+- 38+ archivos temporales/deprecados identificados
+- Crons no funcionales (especialmente `fmp-batch`)
+- Scripts de testing legacy
+- Archivos backup obsoletos
+- ⚠️ **Credenciales expuestas** (acción inmediata requerida)
+- Plan de limpieza por fases
+
+**📖 Leer si:** Vas a hacer limpieza de código o refactoring
+
+---
+
+### [🚀 MEJORAS_PENDIENTES.md](MEJORAS_PENDIENTES.md)
+
+**Roadmap técnico de optimizaciones y mejoras**
+
+Contiene:
+
+- 38 mejoras identificadas por prioridad
+- Performance optimizations
+- Security improvements
+- Testing strategy
+- DevOps enhancements
+- Roadmap sugerido Q1-Q3 2026
+
+**📖 Leer si:** Planeas trabajar en optimizaciones o mejoras técnicas
 
 ---
 
@@ -72,13 +128,14 @@ Ingesta y transformación de datos
 
 Motores de scoring y análisis
 
+- `DOCUMENTACION_ENGINES_MASTER.md` ⭐⭐⭐ **NUEVO** - Documentación completa unificada de 8 engines
 - `QUALITY_BRAKES_GUIDE.md` ⭐ - Guía de Quality Brakes (Altman Z, Piotroski)
-- `DOCUMENTACION_IFS.md` - Industry Financial Standing
-- `IQS_INFORME.md` - Industry Quality Score
+- `DOCUMENTACION_IFS.md` - Industry Financial Standing (IFS Live v1.2)
+- `IQS_INFORME.md` - Industry Quality Score (scoring fiscal)
 - `IQS_REFACTORING_COMPLETE.md` - Refactor IQS (Feb 2)
 - `TTM_V2_REFACTORING_SUMMARY.md` - Refactor TTM (Feb 3)
 
-**📖 Leer si:** Necesitas entender cómo se calculan los scores
+**📖 Leer si:** Necesitas entender cómo se calculan los scores (FGOS, IFS, IQS, Valuation, Moat, CA, Quality Brakes)
 
 ---
 

@@ -1,9 +1,10 @@
 # ========================================
-# FINTRA - Run All 22 Cron Jobs Direct (VPS)
+# FINTRA - Run Complete Pipeline (22 Jobs)
 # ========================================
-# Version: 3.0 Direct Execution
-# Updated: 2026-02-03
-# Ejecuta 22 scripts TypeScript directamente (sin servidor web)
+# Version: 4.0 Pipeline Execution
+# Updated: 2026-02-07
+# Ejecuta 22 scripts TypeScript del pipeline secuencialmente
+# Jobs 01-19 (pipeline core) + healthcheck + FGOS engine + peers
 
 # Configuration
 # Fix for PS2EXE compatibility - detect if running as .exe
@@ -19,9 +20,9 @@ $ScriptRoot = Split-Path -Parent $ScriptRoot
 $ScriptsDir = Join-Path $ScriptRoot "scripts\pipeline"
 $LogDir = Join-Path $CurrentScriptPath "logs"
 $Timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-$LogFile = "$LogDir\cron-direct-$Timestamp.log"
-$ErrorFile = "$LogDir\cron-direct-$Timestamp.error.log"
-$SummaryFile = "$LogDir\cron-direct-$Timestamp.summary.log"
+$LogFile = "$LogDir\pipeline-$Timestamp.log"
+$ErrorFile = "$LogDir\pipeline-$Timestamp.error.log"
+$SummaryFile = "$LogDir\pipeline-$Timestamp.summary.log"
 $ErrorCount = 0
 
 # Fix console encoding for UTF-8
@@ -36,7 +37,7 @@ if (-not (Test-Path $LogDir)) {
 # Initialize logs
 @"
 =========================================
-FINTRA - Direct Cron Jobs Execution (VPS)
+FINTRA - Complete Pipeline Execution
 Started: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
 =========================================
 
@@ -60,7 +61,7 @@ Started: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
 
 Write-Host ""
 Write-Host "=========================================================================" -ForegroundColor Cyan
-Write-Host "[FINTRA] Starting Direct Cron Jobs Execution (VPS Mode)" -ForegroundColor Cyan
+Write-Host "[FINTRA] Starting Complete Pipeline Execution (22 Jobs)" -ForegroundColor Cyan
 Write-Host "=========================================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "LOG FILES:" -ForegroundColor Yellow
@@ -185,83 +186,182 @@ Check main log for details: $LogFile
 }
 
 # ========================================
-# PHASE 1: Master-All (10 crons automáticos)
+# PHASE 1: Foundation (Universe & Classifications)
 # ========================================
 Write-Host ""
 Write-Host ""
 Write-Host "#########################################################################" -ForegroundColor Magenta
 Write-Host "###                                                                     ###" -ForegroundColor Magenta
-Write-Host "###   PHASE 1: Master-All (10 Crons Automaticos)                      ###" -ForegroundColor Magenta
+Write-Host "###   PHASE 1: Foundation (Universe & Classifications)                ###" -ForegroundColor Magenta
 Write-Host "###                                                                     ###" -ForegroundColor Magenta
 Write-Host "#########################################################################" -ForegroundColor Magenta
 Write-Host ""
 
 Invoke-DirectScript -JobNum 1 -JobName "Sync Universe" -ScriptPath "01-sync-universe.ts"
-Invoke-DirectScript -JobNum 2 -JobName "Prices Daily Bulk" -ScriptPath "03-prices-daily-bulk.ts"
-Invoke-DirectScript -JobNum 3 -JobName "Financials Bulk" -ScriptPath "04-financials-bulk.ts"
-Invoke-DirectScript -JobNum 4 -JobName "Performance Bulk" -ScriptPath "13-performance-bulk.ts"
-Invoke-DirectScript -JobNum 5 -JobName "Sector Performance Aggregator" -ScriptPath "07-sector-performance-aggregator.ts"
-Invoke-DirectScript -JobNum 6 -JobName "Performance Windows Aggregator" -ScriptPath "run-performance-windows-aggregator.ts"
-Invoke-DirectScript -JobNum 7 -JobName "FMP Bulk Snapshots" -ScriptPath "16-fmp-bulk-snapshots.ts"
-Invoke-DirectScript -JobNum 8 -JobName "Sector Benchmarks" -ScriptPath "12-sector-benchmarks.ts"
-Invoke-DirectScript -JobNum 9 -JobName "Market State Bulk" -ScriptPath "14-market-state-bulk.ts"
+Invoke-DirectScript -JobNum 2 -JobName "Industry Classification Sync" -ScriptPath "02-industry-classification-sync.ts"
 
 # ========================================
-# PHASE 2: Agregadores de Industria (6 crons)
+# PHASE 2: Raw Data Ingestion
 # ========================================
 Write-Host ""
 Write-Host ""
 Write-Host "#########################################################################" -ForegroundColor Magenta
 Write-Host "###                                                                     ###" -ForegroundColor Magenta
-Write-Host "###   PHASE 2: Agregadores de Industria (6 crons)                     ###" -ForegroundColor Magenta
+Write-Host "###   PHASE 2: Raw Data Ingestion                                     ###" -ForegroundColor Magenta
 Write-Host "###                                                                     ###" -ForegroundColor Magenta
 Write-Host "#########################################################################" -ForegroundColor Magenta
 Write-Host ""
 
-Invoke-DirectScript -JobNum 10 -JobName "Industry Performance Aggregator" -ScriptPath "06-industry-performance-aggregator.ts"
-Invoke-DirectScript -JobNum 11 -JobName "Industry Performance Windows" -ScriptPath "09-industry-performance-windows-aggregator.ts"
-Invoke-DirectScript -JobNum 12 -JobName "Sector Performance Windows" -ScriptPath "08-sector-performance-windows-aggregator.ts"
-Invoke-DirectScript -JobNum 13 -JobName "Industry Benchmarks" -ScriptPath "run-industry-benchmarks-aggregator.ts"
-Invoke-DirectScript -JobNum 14 -JobName "Sector PE Aggregator" -ScriptPath "10-sector-pe-aggregator.ts"
-Invoke-DirectScript -JobNum 15 -JobName "Industry PE Aggregator" -ScriptPath "11-industry-pe-aggregator.ts"
+Invoke-DirectScript -JobNum 3 -JobName "Prices Daily Bulk" -ScriptPath "03-prices-daily-bulk.ts"
+Invoke-DirectScript -JobNum 4 -JobName "Financials Bulk (CRITICAL)" -ScriptPath "04-financials-bulk.ts"
+Invoke-DirectScript -JobNum 5 -JobName "Incremental TTM Valuation" -ScriptPath "04b-incremental-ttm-valuation.ts"
+Invoke-DirectScript -JobNum 6 -JobName "Company Profile Bulk" -ScriptPath "05-company-profile-bulk.ts"
 
 # ========================================
-# PHASE 3: Datos Complementarios (5 crons)
+# PHASE 3: Performance Aggregations
 # ========================================
 Write-Host ""
 Write-Host ""
 Write-Host "#########################################################################" -ForegroundColor Magenta
 Write-Host "###                                                                     ###" -ForegroundColor Magenta
-Write-Host "###   PHASE 3: Datos Complementarios (5 crons)                        ###" -ForegroundColor Magenta
+Write-Host "###   PHASE 3: Performance Aggregations                               ###" -ForegroundColor Magenta
 Write-Host "###                                                                     ###" -ForegroundColor Magenta
 Write-Host "#########################################################################" -ForegroundColor Magenta
 Write-Host ""
 
-Invoke-DirectScript -JobNum 16 -JobName "FMP Peers Bulk" -ScriptPath "run-peers-cron.ts"
-Invoke-DirectScript -JobNum 17 -JobName "Dividends Bulk V2" -ScriptPath "15-dividends-bulk-v2.ts"
-Invoke-DirectScript -JobNum 18 -JobName "TTM Valuation Incremental" -ScriptPath "incremental-ttm-valuation.ts"
-Invoke-DirectScript -JobNum 19 -JobName "Company Profile Bulk" -ScriptPath "05-company-profile-bulk.ts"
-Invoke-DirectScript -JobNum 20 -JobName "Compute Global Ranks" -ScriptPath "run-master-cron.ts"
+Invoke-DirectScript -JobNum 7 -JobName "Industry Performance Aggregator (1D)" -ScriptPath "06-industry-performance-aggregator.ts"
+Invoke-DirectScript -JobNum 8 -JobName "Sector Performance Aggregator (1D)" -ScriptPath "07-sector-performance-aggregator.ts"
+Invoke-DirectScript -JobNum 9 -JobName "Sector Performance Windows" -ScriptPath "08-sector-performance-windows-aggregator.ts"
+Invoke-DirectScript -JobNum 10 -JobName "Industry Performance Windows" -ScriptPath "09-industry-performance-windows-aggregator.ts"
 
 # ========================================
-# PHASE 4: SEC Filings (2 crons - Opcional)
+# PHASE 4: Valuation Aggregations
 # ========================================
 Write-Host ""
 Write-Host ""
 Write-Host "#########################################################################" -ForegroundColor Magenta
 Write-Host "###                                                                     ###" -ForegroundColor Magenta
-Write-Host "###   PHASE 4: SEC Filings (2 crons - Opcional)                       ###" -ForegroundColor Magenta
+Write-Host "###   PHASE 4: Valuation Aggregations                                 ###" -ForegroundColor Magenta
 Write-Host "###                                                                     ###" -ForegroundColor Magenta
 Write-Host "#########################################################################" -ForegroundColor Magenta
 Write-Host ""
 
-Write-Host "⚠️  SEC Filings scripts not yet implemented in pipeline folder" -ForegroundColor Yellow
-Write-Host "   Skipping Job 21: SEC 10-K Ingest" -ForegroundColor Gray
-Write-Host "   Skipping Job 22: SEC 8-K Ingest" -ForegroundColor Gray
+Invoke-DirectScript -JobNum 11 -JobName "Sector PE Aggregator" -ScriptPath "10-sector-pe-aggregator.ts"
+Invoke-DirectScript -JobNum 12 -JobName "Industry PE Aggregator" -ScriptPath "11-industry-pe-aggregator.ts"
+
+# ========================================
+# PHASE 5: Benchmarks (CRITICAL for Engines)
+# ========================================
+Write-Host ""
+Write-Host ""
+Write-Host "#########################################################################" -ForegroundColor Magenta
+Write-Host "###                                                                     ###" -ForegroundColor Magenta
+Write-Host "###   PHASE 5: Benchmarks (CRITICAL for Engines)                      ###" -ForegroundColor Magenta
+Write-Host "###                                                                     ###" -ForegroundColor Magenta
+Write-Host "#########################################################################" -ForegroundColor Magenta
 Write-Host ""
 
-# Invoke-DirectScript -JobNum 21 -JobName "SEC 10-K Ingest" -ScriptPath "sec-10k-ingest.ts"
-# Invoke-DirectScript -JobNum 22 -JobName "SEC 8-K Ingest" -ScriptPath "sec-8k-ingest.ts"
+Invoke-DirectScript -JobNum 13 -JobName "Sector Benchmarks (CRITICAL)" -ScriptPath "12-sector-benchmarks.ts"
+Invoke-DirectScript -JobNum 14 -JobName "Industry Benchmarks Aggregator" -ScriptPath "12b-industry-benchmarks-aggregator.ts"
+
+# ========================================
+# PHASE 6: Performance Relative
+# ========================================
+Write-Host ""
+Write-Host ""
+Write-Host "#########################################################################" -ForegroundColor Magenta
+Write-Host "###                                                                     ###" -ForegroundColor Magenta
+Write-Host "###   PHASE 6: Performance Relative                                   ###" -ForegroundColor Magenta
+Write-Host "###                                                                     ###" -ForegroundColor Magenta
+Write-Host "#########################################################################" -ForegroundColor Magenta
+Write-Host ""
+
+Invoke-DirectScript -JobNum 15 -JobName "Performance Bulk (Alpha Calculation)" -ScriptPath "13-performance-bulk.ts"
+Invoke-DirectScript -JobNum 16 -JobName "Performance Windows Aggregator" -ScriptPath "13b-performance-windows-aggregator.ts"
+
+# ========================================
+# PHASE 7: Market State Consolidation
+# ========================================
+Write-Host ""
+Write-Host ""
+Write-Host "#########################################################################" -ForegroundColor Magenta
+Write-Host "###                                                                     ###" -ForegroundColor Magenta
+Write-Host "###   PHASE 7: Market State Consolidation                             ###" -ForegroundColor Magenta
+Write-Host "###                                                                     ###" -ForegroundColor Magenta
+Write-Host "#########################################################################" -ForegroundColor Magenta
+Write-Host ""
+
+Invoke-DirectScript -JobNum 17 -JobName "Market State Bulk (CRITICAL)" -ScriptPath "14-market-state-bulk.ts"
+
+# ========================================
+# PHASE 8: Dividends (Parallel Track)
+# ========================================
+Write-Host ""
+Write-Host ""
+Write-Host "#########################################################################" -ForegroundColor Magenta
+Write-Host "###                                                                     ###" -ForegroundColor Magenta
+Write-Host "###   PHASE 8: Dividends (Parallel Track)                             ###" -ForegroundColor Magenta
+Write-Host "###                                                                     ###" -ForegroundColor Magenta
+Write-Host "#########################################################################" -ForegroundColor Magenta
+Write-Host ""
+
+Invoke-DirectScript -JobNum 18 -JobName "Dividends Bulk V2" -ScriptPath "15-dividends-bulk-v2.ts"
+
+# ========================================
+# PHASE 9: FMP Snapshots (Skeleton)
+# ========================================
+Write-Host ""
+Write-Host ""
+Write-Host "#########################################################################" -ForegroundColor Magenta
+Write-Host "###                                                                     ###" -ForegroundColor Magenta
+Write-Host "###   PHASE 9: FMP Snapshots (Skeleton)                               ###" -ForegroundColor Magenta
+Write-Host "###                                                                     ###" -ForegroundColor Magenta
+Write-Host "#########################################################################" -ForegroundColor Magenta
+Write-Host ""
+
+Invoke-DirectScript -JobNum 19 -JobName "FMP Bulk Snapshots" -ScriptPath "16-fmp-bulk-snapshots.ts"
+
+# ========================================
+# PHASE 10: Validation
+# ========================================
+Write-Host ""
+Write-Host ""
+Write-Host "#########################################################################" -ForegroundColor Magenta
+Write-Host "###                                                                     ###" -ForegroundColor Magenta
+Write-Host "###   PHASE 10: Validation                                            ###" -ForegroundColor Magenta
+Write-Host "###                                                                     ###" -ForegroundColor Magenta
+Write-Host "#########################################################################" -ForegroundColor Magenta
+Write-Host ""
+
+Invoke-DirectScript -JobNum 20 -JobName "Healthcheck Snapshots" -ScriptPath "17-healthcheck-snapshots.ts"
+
+# ========================================
+# PHASE 11: Engines (Core Scoring)
+# ========================================
+Write-Host ""
+Write-Host ""
+Write-Host "#########################################################################" -ForegroundColor Magenta
+Write-Host "###                                                                     ###" -ForegroundColor Magenta
+Write-Host "###   PHASE 11: Engines (Core Scoring)                                ###" -ForegroundColor Magenta
+Write-Host "###                                                                     ###" -ForegroundColor Magenta
+Write-Host "#########################################################################" -ForegroundColor Magenta
+Write-Host ""
+
+Invoke-DirectScript -JobNum 21 -JobName "Recompute FGOS All (ENGINE CRITICAL)" -ScriptPath "18-recompute-fgos-all.ts"
+
+# ========================================
+# PHASE 12: Peers (Independent)
+# ========================================
+Write-Host ""
+Write-Host ""
+Write-Host "#########################################################################" -ForegroundColor Magenta
+Write-Host "###                                                                     ###" -ForegroundColor Magenta
+Write-Host "###   PHASE 12: Peers (Independent)                                   ###" -ForegroundColor Magenta
+Write-Host "###                                                                     ###" -ForegroundColor Magenta
+Write-Host "#########################################################################" -ForegroundColor Magenta
+Write-Host ""
+
+Invoke-DirectScript -JobNum 22 -JobName "Peers Bulk" -ScriptPath "19-peers-bulk.ts"
 
 # ========================================
 # Summary
@@ -296,15 +396,29 @@ Write-Host ""
 Write-Host ""
 Write-Host "#########################################################################" -ForegroundColor Green
 Write-Host "###                                                                     ###" -ForegroundColor Green
-Write-Host "###   ALL CRON JOBS COMPLETED                                         ###" -ForegroundColor Green
+Write-Host "###   ALL PIPELINE JOBS COMPLETED                                     ###" -ForegroundColor Green
 Write-Host "###                                                                     ###" -ForegroundColor Green
 Write-Host "#########################################################################" -ForegroundColor Green
 Write-Host ""
 Write-Host "=========================================================================" -ForegroundColor Cyan
 Write-Host "EXECUTION SUMMARY" -ForegroundColor Yellow
 Write-Host "=========================================================================" -ForegroundColor Cyan
-Write-Host "  Total Jobs: 20 crons (22 total, 2 SEC skipped)" -ForegroundColor White
+Write-Host "  Total Pipeline Jobs: 22 (01-19 + healthcheck + FGOS + peers)" -ForegroundColor White
 Write-Host "  Total Errors: $ErrorCount" -ForegroundColor $(if ($ErrorCount -gt 0) { "Red" } else { "Green" })
+Write-Host ""
+Write-Host "PIPELINE PHASES EXECUTED:" -ForegroundColor Yellow
+Write-Host "  Phase  1: Foundation (Universe & Classifications)" -ForegroundColor Gray
+Write-Host "  Phase  2: Raw Data Ingestion (Prices, Financials, TTM, Profiles)" -ForegroundColor Gray
+Write-Host "  Phase  3: Performance Aggregations (1D + Multi-period)" -ForegroundColor Gray
+Write-Host "  Phase  4: Valuation Aggregations (P/E Sector/Industry)" -ForegroundColor Gray
+Write-Host "  Phase  5: Benchmarks (CRITICAL - Sector + Industry percentiles)" -ForegroundColor Gray
+Write-Host "  Phase  6: Performance Relative (Alpha calculations)" -ForegroundColor Gray
+Write-Host "  Phase  7: Market State Consolidation" -ForegroundColor Gray
+Write-Host "  Phase  8: Dividends" -ForegroundColor Gray
+Write-Host "  Phase  9: FMP Snapshots (Skeleton)" -ForegroundColor Gray
+Write-Host "  Phase 10: Validation (Healthcheck)" -ForegroundColor Gray
+Write-Host "  Phase 11: Engines (FGOS Scoring)" -ForegroundColor Gray
+Write-Host "  Phase 12: Peers" -ForegroundColor Gray
 Write-Host ""
 Write-Host "LOG FILES GENERATED:" -ForegroundColor Yellow
 Write-Host "  [1] Main Log:    $LogFile" -ForegroundColor Gray
@@ -316,7 +430,7 @@ if ($ErrorCount -gt 0) {
     Write-Host "⚠️  WARNING: $ErrorCount job(s) failed! Check error log for details." -ForegroundColor Red
     Write-Host "  Error log: $ErrorFile" -ForegroundColor Gray
 } else {
-    Write-Host "✅ SUCCESS: All jobs completed without errors!" -ForegroundColor Green
+    Write-Host "✅ SUCCESS: All pipeline jobs completed without errors!" -ForegroundColor Green
 }
 
 Write-Host "=========================================================================" -ForegroundColor Cyan

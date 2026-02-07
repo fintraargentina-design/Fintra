@@ -63,9 +63,6 @@ export async function runPeersBulk(targetTicker?: string, limit: number = Infini
 
   if (targetTicker) {
     console.log(`[PeersBulk] Filtering for single ticker: ${targetTicker}`);
-    // If targetTicker is set, we ONLY process that one
-    // But we need the map to be ready.
-    // Actually, we can just filter the relations generation
   }
 
   // 5. Build relations
@@ -125,21 +122,35 @@ export async function runPeersBulk(targetTicker?: string, limit: number = Infini
     processedTickers++;
   }
 
-  // 6. Upsert idempotente
-  if (relations.length > 0) {
-    console.log(
-      `[PeersBulk] Built ${relations.length} relations for ${tickersWithPeers} tickers (avg raw peers per ticker: ${tickersWithPeers ? (totalRawPeers / tickersWithPeers).toFixed(2) : 0})`
-    );
-    const { error: upsertError } = await supabase
-      .from('stock_peers')
-      .upsert(relations, {
-        onConflict: 'ticker,peer_ticker',
-      });
+  // 6. Upsert idempotente (CHUNKED PARALLEL)
+    if (relations.length > 0) {
+      console.log(
+        `[PeersBulk] Built ${relations.length} relations for ${tickersWithPeers} tickers (avg raw peers per ticker: ${tickersWithPeers ? (totalRawPeers / tickersWithPeers).toFixed(2) : 0})`
+      );
 
-    if (upsertError) {
-      throw upsertError;
+      const CHUNK_SIZE = 5000;
+      const chunks = [];
+      for (let i = 0; i < relations.length; i += CHUNK_SIZE) {
+        chunks.push(relations.slice(i, i + CHUNK_SIZE));
+      }
+
+      console.log(`[PeersBulk] Upserting ${relations.length} rows in ${chunks.length} parallel chunks...`);
+
+      await Promise.all(
+        chunks.map(async (chunk, idx) => {
+          const { error: upsertError } = await supabase
+            .from('stock_peers')
+            .upsert(chunk, {
+              onConflict: 'ticker,peer_ticker',
+            });
+
+          if (upsertError) {
+            console.error(`[PeersBulk] Error upserting chunk ${idx + 1}/${chunks.length}:`, upsertError);
+            throw upsertError;
+          }
+        })
+      );
     }
-  }
 
   return {
     status: 'ok',
@@ -250,24 +261,27 @@ export async function runPeersBulkFromFile(
     );
 
     const CHUNK_SIZE = 5000;
+    const chunks = [];
     for (let i = 0; i < relations.length; i += CHUNK_SIZE) {
-      const chunk = relations.slice(i, i + CHUNK_SIZE);
-      const chunkIndex = Math.floor(i / CHUNK_SIZE) + 1;
-      const totalChunks = Math.ceil(relations.length / CHUNK_SIZE);
-      
-      console.log(`[PeersBulkFromFile] Upserting chunk ${chunkIndex}/${totalChunks} (${chunk.length} rows)...`);
-      
-      const { error: upsertError } = await supabase
-        .from('stock_peers')
-        .upsert(chunk, {
-          onConflict: 'ticker,peer_ticker',
-        });
-
-      if (upsertError) {
-        console.error(`[PeersBulkFromFile] Error upserting chunk ${chunkIndex}:`, upsertError);
-        throw upsertError;
-      }
+      chunks.push(relations.slice(i, i + CHUNK_SIZE));
     }
+
+    console.log(`[PeersBulkFromFile] Upserting ${relations.length} rows in ${chunks.length} parallel chunks...`);
+
+    await Promise.all(
+      chunks.map(async (chunk, idx) => {
+        const { error: upsertError } = await supabase
+          .from('stock_peers')
+          .upsert(chunk, {
+            onConflict: 'ticker,peer_ticker',
+          });
+
+        if (upsertError) {
+          console.error(`[PeersBulkFromFile] Error upserting chunk ${idx + 1}/${chunks.length}:`, upsertError);
+          throw upsertError;
+        }
+      })
+    );
   }
 
   return {

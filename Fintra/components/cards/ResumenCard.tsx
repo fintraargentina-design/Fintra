@@ -469,39 +469,37 @@ export default function ResumenCard({
           <div className="max-w-full mx-auto flex flex-col gap-3">
             {/* --- HEADER: Ticker & Name --- */}
             <div className="flex items-center justify-between pb-2 border-b border-[#222]">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-md bg-transparent flex items-center justify-center overflow-hidden p-0.5 relative">
-                  {data.logo_url ? (
-                    <Image
-                      src={data.logo_url}
-                      alt={data.symbol}
-                      width={44}
-                      height={44}
-                      className="object-contain"
-                      unoptimized
-                    />
-                  ) : (
-                    <span className="text-xs font-medium text-[#666]">
-                      {data.symbol.slice(0, 2)}
-                    </span>
+              <div className="flex flex-col gap-0">
+                <div className="flex items-center gap-2">
+                  {data.logo_url && (
+                    <div className="w-11 h-11 rounded-md bg-transparent flex items-center justify-center overflow-hidden p-0 relative">
+                      <Image
+                        src={data.logo_url}
+                        alt={data.symbol}
+                        width={35}
+                        height={35}
+                        className="object-contain"
+                        unoptimized
+                      />
+                    </div>
                   )}
-                </div>
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-[18px] font-semibold text-[#EDEDED] tracking-tight leading-none">
-                      {data.symbol}
-                    </h1>
-                    <div
-                      className="text-[#666] hover:text-[#EDEDED] transition-colors cursor-pointer p-0.5 rounded hover:bg-[#1A1A1A]"
-                      onClick={() => setShowCompanyInfo(true)}
-                    >
-                      <Info size={12} />
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-[18px] font-semibold text-[#EDEDED] tracking-tight leading-none">
+                        {data.symbol}
+                      </h1>
+                      <div
+                        className="text-[#666] hover:text-[#EDEDED] transition-colors cursor-pointer p-0.5 rounded hover:bg-[#1A1A1A]"
+                        onClick={() => setShowCompanyInfo(true)}
+                      >
+                        <Info size={12} />
+                      </div>
                     </div>
                   </div>
-                  <span className="text-[11px] text-[#888] font-medium truncate max-w-[300px]">
-                    {data.name}
-                  </span>
                 </div>
+                <span className="text-[11px] text-[#888] font-medium truncate max-w-[300px]">
+                  {data.name}
+                </span>
               </div>
               <div className="flex flex-col items-end self-end">
                 {stageConfig && (

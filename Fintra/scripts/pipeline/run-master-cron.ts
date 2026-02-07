@@ -48,8 +48,8 @@ async function main() {
 
 		// 4b. TTM Valuation Incremental
 		console.log('\n--- 4b. TTM Valuation Incremental ---');
-		const { runTTMValuationCron } = await import('@/scripts/pipeline/ttm-valuation-cron');
-		await runTTMValuationCron();
+		const { incrementalTTMValuation } = await import('@/scripts/pipeline/04b-incremental-ttm-valuation');
+		await incrementalTTMValuation();
 
 		// 5. Company Profile Bulk
 		console.log('\n--- 5. Company Profile Bulk ---');
@@ -83,9 +83,19 @@ async function main() {
 		console.log('\n--- 12. Sector Benchmarks ---');
 		await runSectorBenchmarks();
 
+		// 12b. Industry Benchmarks Aggregator (Alpha Calculation)
+		console.log('\n--- 12b. Industry Benchmarks Aggregator (Alpha Calculation) ---');
+		const { runIndustryBenchmarksAggregator } = await import('@/app/api/cron/industry-benchmarks-aggregator/core');
+		await runIndustryBenchmarksAggregator();
+
 		// 13. Performance Bulk (ticker)
 		console.log('\n--- 13. Performance Bulk (ticker) ---');
 		await runPerformanceBulk(undefined, LIMIT);
+
+		// 13b. Performance Windows Aggregator (Alpha Calculation)
+		console.log('\n--- 13b. Performance Windows Aggregator (Alpha Calculation) ---');
+		const { runPerformanceWindowsAggregator } = await import('@/app/api/cron/performance-windows-aggregator/core');
+		await runPerformanceWindowsAggregator();
 
 		// 14. Market State Bulk
 		console.log('\n--- 14. Market State Bulk ---');
@@ -141,26 +151,34 @@ async function main() {
 		console.log(`📋 Found ${allTickers.length} snapshots for today.`);
 
 		if (allTickers.length > 0) {
+			const { runRecomputeFGOSBulk } = await import('@/app/api/cron/recompute-fgos-bulk/core');
+			
+			const CHUNK_SIZE = 50; // Increased for Bulk Processing
+			const TOTAL = allTickers.length;
+			
 			let success = 0;
 			let pending = 0;
 			let failed = 0;
-
-			const CHUNK_SIZE = 25;
-			const TOTAL = allTickers.length;
-
+			
 			for (let i = 0; i < TOTAL; i += CHUNK_SIZE) {
 				const chunk = allTickers.slice(i, i + CHUNK_SIZE);
 				
-				await Promise.all(chunk.map(async (ticker) => {
-					try {
-						const res: any = await recomputeFGOSForTicker(ticker, today);
-						const status = res.fgos_status || res.status;
-						if (status === 'computed') success++;
-						else pending++;
-					} catch (err) {
-						failed++;
-					}
-				}));
+				try {
+					const results = await runRecomputeFGOSBulk(chunk, today);
+					
+					results.forEach(res => {
+						if (res.status === 'computed') {
+							success++;
+						} else if (res.status === 'error') {
+							failed++;
+						} else {
+							pending++;
+						}
+					});
+				} catch (err) {
+					console.error(`❌ Critical Batch Error:`, err);
+					failed += chunk.length;
+				}
 
 				const progress = Math.min(i + CHUNK_SIZE, TOTAL);
 				const percent = ((progress / TOTAL) * 100).toFixed(1);
@@ -170,6 +188,11 @@ async function main() {
 		} else {
 			console.log('⚠️ No snapshots found for FGOS recompute.');
 		}
+
+		// 19. Peers Bulk
+		console.log('\n--- 19. Peers Bulk ---');
+		const { runPeersBulk } = await import('@/app/api/cron/fmp-peers-bulk/core');
+		await runPeersBulk(undefined, LIMIT);
 
 		console.log('\n✅ Master Cron (ALL) Finished Successfully');
     } catch (error) {

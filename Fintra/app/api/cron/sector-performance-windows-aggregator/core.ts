@@ -1,18 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
-const WINDOW_CONFIG: { code: string; days?: number }[] = [
-  // Excluded from structural calculations by canonical window policy (Phase 9)
-  // { code: '1W', days: 5 },
-  { code: '1M', days: 21 },
-  { code: '3M', days: 63 },
-  { code: '6M', days: 126 },
-  // { code: 'YTD' }, // Excluded (Phase 9)
-  { code: '1Y', days: 252 },
-  { code: '2Y', days: 504 },
-  { code: '3Y', days: 756 },
-  { code: '5Y', days: 1260 },
-];
-
 type SectorDailyRow = {
   sector: string;
   performance_date: string;

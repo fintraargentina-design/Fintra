@@ -7,7 +7,7 @@
     "dev": "set NODE_OPTIONS=--max-old-space-size=12288 && next dev",
     "lint": "npx eslint .",
     "start": "next start",
-    "cron:ttm": "tsx scripts/pipeline/ttm-valuation-cron.ts"
+    "cron:ttm": "tsx scripts/pipeline/04b-incremental-ttm-valuation.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

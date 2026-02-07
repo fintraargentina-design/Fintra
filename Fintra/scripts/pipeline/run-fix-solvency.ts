@@ -6,7 +6,8 @@ async function main() {
 	// Dynamic imports to ensure env vars are loaded first
 	const { runFinancialsBulk } = await import('@/app/api/cron/financials-bulk/core');
 	const { runFmpBulk } = await import('@/app/api/cron/fmp-bulk/core');
-	const { recomputeFGOSForTicker } = await import('@/lib/engine/fgos-recompute');
+	// OPTIMIZATION: Use Bulk Core instead of individual ticker recompute
+	const { runRecomputeFGOSBulk } = await import('@/app/api/cron/recompute-fgos-bulk/core');
 	const { supabaseAdmin } = await import('@/lib/supabase-admin');
 
     // Parse limit from CLI args, default to 0 (ALL)
@@ -112,22 +113,25 @@ async function main() {
 			let pending = 0;
 			let failed = 0;
 
-			const CHUNK_SIZE = 25;
+			const CHUNK_SIZE = 50; // Increased chunk size for vectorized bulk processing
 			const TOTAL = allTickers.length;
 
 			for (let i = 0; i < TOTAL; i += CHUNK_SIZE) {
 				const chunk = allTickers.slice(i, i + CHUNK_SIZE);
+				
+				try {
+					const results = await runRecomputeFGOSBulk(chunk, today);
+					
+					results.forEach(res => {
+						if (res.status === 'computed') success++;
+						else if (res.status === 'pending') pending++;
+						else failed++;
+					});
 
-				await Promise.all(chunk.map(async (ticker) => {
-					try {
-						const res: any = await recomputeFGOSForTicker(ticker, today);
-						const status = res.fgos_status || res.status;
-						if (status === 'computed') success++;
-						else pending++;
-					} catch (err) {
-						failed++;
-					}
-				}));
+				} catch (err) {
+					console.error(`Error in bulk chunk ${i}:`, err);
+					failed += chunk.length;
+				}
 
 				const progress = Math.min(i + CHUNK_SIZE, TOTAL);
 				const percent = ((progress / TOTAL) * 100).toFixed(1);

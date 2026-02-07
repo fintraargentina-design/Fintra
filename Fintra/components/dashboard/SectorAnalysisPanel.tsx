@@ -126,28 +126,8 @@ export default function SectorAnalysisPanel({
           </div>
         )}
 
-        <div className="flex-1 overflow-hidden">
-          <TablaIFS
-            data={tableStocks}
-            isLoading={loading}
-            isFetchingMore={isFetchingMore}
-            onRowClick={onStockSelect}
-            onRowHover={handleRowHover}
-            selectedTicker={selectedTicker}
-            onScroll={(e) => {
-              const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-              if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMore) {
-                fetchMore();
-              }
-            }}
-            scrollRef={scrollContainerRef}
-            emptyMessage={error || "No stocks found for this sector."}
-            selectionVariant="secondary"
-          />
-        </div>
-
-        {/* Footer / Status Bar */}
-        <div className="h-7 border-t border-[#2a2a2a] bg-[#0e0e0e] flex items-center justify-between px-3 text-[10px] text-zinc-500 select-none">
+        {/* Footer / Status Bar moved to top */}
+        <div className="h-7 border-b border-[#2a2a2a] bg-[#0e0e0e] flex items-center justify-between px-3 text-[10px] text-zinc-500 select-none">
           <div className="flex items-center gap-2">
             <span>
                 {tableStocks.length}
@@ -172,6 +152,26 @@ export default function SectorAnalysisPanel({
               </span>
             </div>
           </div>
+        </div>
+
+        <div className="flex-1 overflow-hidden">
+          <TablaIFS
+            data={tableStocks}
+            isLoading={loading}
+            isFetchingMore={isFetchingMore}
+            onRowClick={onStockSelect}
+            onRowHover={handleRowHover}
+            selectedTicker={selectedTicker}
+            onScroll={(e) => {
+              const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+              if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMore) {
+                fetchMore();
+              }
+            }}
+            scrollRef={scrollContainerRef}
+            emptyMessage={error || "No stocks found for this sector."}
+            selectionVariant="secondary"
+          />
         </div>
       </div>
     </div>

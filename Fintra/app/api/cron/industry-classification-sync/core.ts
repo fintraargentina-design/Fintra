@@ -180,19 +180,29 @@ export async function runIndustryClassificationSync() {
       conflict: string,
     ) => {
       const CHUNK = 1000;
+      const chunks: T[][] = [];
       for (let i = 0; i < rows.length; i += CHUNK) {
-        const batch = rows.slice(i, i + CHUNK);
-        const { error } = await supabase
-          .from(table)
-          .upsert(batch as any, { onConflict: conflict });
-        if (error) {
-          console.error(
-            `[${CRON_NAME}] Upsert error on ${table}:`,
-            error.message,
-          );
-          throw error;
-        }
+        chunks.push(rows.slice(i, i + CHUNK));
       }
+
+      console.log(
+        `[${CRON_NAME}] Upserting ${rows.length} rows into ${table} in ${chunks.length} parallel chunks...`,
+      );
+
+      await Promise.all(
+        chunks.map(async (batch, idx) => {
+          const { error } = await supabase
+            .from(table)
+            .upsert(batch as any, { onConflict: conflict });
+          if (error) {
+            console.error(
+              `[${CRON_NAME}] Upsert error on ${table} (chunk ${idx + 1}/${chunks.length}):`,
+              error.message,
+            );
+            throw error;
+          }
+        }),
+      );
     };
 
     if (industriesToUpsert.length > 0) {
