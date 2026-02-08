@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { getValuationHistory } from "@/lib/services/ticker-view.service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -85,24 +85,15 @@ export async function GET(req: Request) {
 
     const targetDates = {
       TTM: today,
-      TTM_1A: minusYears(today, 1),
-      TTM_3A: minusYears(today, 3),
-      TTM_5A: minusYears(today, 5),
     } as const;
 
-    const { data: valuationsData, error: valError } = await supabase
-      .from("datos_valuacion")
-      .select("valuation_date, denominator_type, pe_ratio, pe_forward, peg_ratio, price_to_book, price_to_sales, price_to_fcf, ev_ebitda, dividend_yield")
-      .eq("ticker", ticker)
-      .eq("denominator_type", "TTM")
-      .lte("valuation_date", toDateString(today))
-      .order("valuation_date", { ascending: false });
-
-    if (valError) {
-      throw new Error(`Valuation error for ${ticker}: ${valError.message}`);
-    }
-
-    const valuations = (valuationsData || []) as any[];
+    // Fetch from service (returns ascending)
+    const valuationsAsc = await getValuationHistory(ticker);
+    
+    // Sort descending for the snapshot picker logic
+    const valuations = [...valuationsAsc].sort((a, b) => 
+      new Date(b.valuation_date).getTime() - new Date(a.valuation_date).getTime()
+    );
 
     const pickSnapshot = (target: Date) => {
       if (!valuations.length) return null;
@@ -114,13 +105,10 @@ export async function GET(req: Request) {
       return null;
     };
 
-    const snapshotLabels = ["TTM", "TTM_1A", "TTM_3A", "TTM_5A"] as const;
+    const snapshotLabels = ["TTM"] as const;
 
     const snapshots: Record<(typeof snapshotLabels)[number], any | null> = {
       TTM: pickSnapshot(targetDates.TTM),
-      TTM_1A: pickSnapshot(targetDates.TTM_1A),
-      TTM_3A: pickSnapshot(targetDates.TTM_3A),
-      TTM_5A: pickSnapshot(targetDates.TTM_5A),
     };
 
     const yearsList: YearGroup[] = [

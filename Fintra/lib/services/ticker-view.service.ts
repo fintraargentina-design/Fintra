@@ -8,6 +8,85 @@ import { StockEcosystem } from "@/lib/fmp/types";
 import { buildFGOSState } from "@/lib/engine/fgos-state";
 import { FinancialSnapshot } from "@/lib/engine/types";
 
+export interface DividendHistory {
+  ticker: string;
+  year: number;
+  dividend_per_share: number;
+  dividend_yield: number;
+  payments_count: number;
+  payout_eps: number;
+  payout_fcf: number;
+  has_dividend: boolean;
+  is_growing: boolean;
+  is_stable: boolean;
+  dividend_cash_paid: number;
+  fiscal_year_end_date: string;
+}
+
+export interface FinancialHistory {
+  ticker: string;
+  period_type: string;
+  period_label: string;
+  period_end_date: string;
+  revenue: number;
+  net_income: number;
+  gross_margin: number;
+  operating_margin: number;
+  net_margin: number;
+  roe: number;
+  roic: number;
+  free_cash_flow: number;
+  fcf_margin: number;
+  total_debt: number;
+  debt_to_equity: number;
+  current_ratio: number;
+  book_value_per_share: number;
+  revenue_cagr: number;
+  earnings_cagr: number;
+  equity_cagr: number;
+  wacc: number;
+  interest_coverage: number;
+  ebitda: number;
+  ebitda_margin: number;
+  total_equity: number;
+  capex: number;
+  invested_capital: number;
+  weighted_shares_out: number;
+  cash_and_equivalents: number;
+}
+
+export interface ValuationHistory {
+  ticker: string;
+  valuation_date: string;
+  fiscal_year: number;
+  fiscal_quarter: number;
+  price: number;
+  revenue_ttm: number;
+  ebitda_ttm: number;
+  net_income_ttm: number;
+  eps_ttm: number;
+  free_cash_flow_ttm: number;
+  pe_ratio: number;
+  ev_ebitda: number;
+  price_to_sales: number;
+  price_to_fcf: number;
+  market_cap: number;
+  enterprise_value: number;
+  net_debt: number;
+}
+
+export interface PerformanceHistory {
+  ticker: string;
+  performance_date: string;
+  window_code: string;
+  return_percent: number;
+  absolute_return: number;
+  volatility: number;
+  max_drawdown: number;
+  benchmark_ticker: string | null;
+  relative_return: number | null;
+}
+
 export interface TickerFullView {
   stockBasicData: StockData | null;
   stockAnalysis: StockAnalysis | null;
@@ -16,6 +95,11 @@ export interface TickerFullView {
   financialSnapshot: FinancialSnapshot | null;
   stockRatios: any;
   stockMetrics: any;
+  // Historical data arrays
+  dividendHistory?: DividendHistory[];
+  financialHistory?: FinancialHistory[];
+  valuationHistory?: ValuationHistory[];
+  performanceHistory?: PerformanceHistory[];
 }
 
 /**
@@ -166,7 +250,8 @@ function buildStockDataFromSnapshot(
       market.fgos_confidence_percent || snapshot?.fgos_confidence || null,
     fgos_confidence_label: market.fgos_confidence_label || null,
     // Extract Moat Band specifically from fgos_components if available
-    fgos_category: snapshot?.fgos_components?.competitive_advantage?.band || '-',
+    fgos_category:
+      snapshot?.fgos_components?.competitive_advantage?.band || "-",
     fgos_status: snapshot?.fgos_status || null,
     fgos_maturity: snapshot?.fgos_maturity || null,
     valuation_status:
@@ -175,10 +260,7 @@ function buildStockDataFromSnapshot(
     strategy_state: market.strategy_state || snapshot?.strategy_state || null,
 
     // Structural Profile & Complex objects
-    ifs: snapshot?.ifs || (snapshot?.ifs_position ? {
-      position: snapshot.ifs_position,
-      pressure: 0
-    } : null),
+    ifs: snapshot?.ifs || null,
     ifs_fy: snapshot?.ifs_fy || null,
     fgos_components: snapshot?.fgos_components || null,
     raw_profile_structural: snapshot?.profile_structural || null,
@@ -301,5 +383,99 @@ export async function getTickerFullView(
     financialSnapshot: snapshot as unknown as FinancialSnapshot,
     stockRatios,
     stockMetrics,
+    dividendHistory: [],
+    financialHistory: [],
+    valuationHistory: [],
+    performanceHistory: [],
   };
+}
+
+// --- Historical Data Fetching Functions ---
+
+/**
+ * Fetch dividend history from datos_dividendos
+ */
+export async function getDividendHistory(
+  ticker: string,
+): Promise<DividendHistory[]> {
+  const { data, error } = await supabase
+    .from("datos_dividendos")
+    .select("*")
+    .eq("ticker", ticker.toUpperCase())
+    .order("year", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching dividend history:", error);
+    return [];
+  }
+
+  return data as DividendHistory[];
+}
+
+/**
+ * Fetch financial history from datos_financieros
+ */
+export async function getFinancialHistory(
+  ticker: string,
+  periodType?: "annual" | "quarterly" | "ttm",
+): Promise<FinancialHistory[]> {
+  let query = supabase
+    .from("datos_financieros")
+    .select("*")
+    .eq("ticker", ticker.toUpperCase());
+
+  if (periodType) {
+    query = query.eq("period_type", periodType);
+  }
+
+  const { data, error } = await query.order("period_end_date", {
+    ascending: true,
+  });
+
+  if (error) {
+    console.error("Error fetching financial history:", error);
+    return [];
+  }
+
+  return data as FinancialHistory[];
+}
+
+/**
+ * Fetch valuation history from datos_valuacion_ttm
+ */
+export async function getValuationHistory(
+  ticker: string,
+): Promise<ValuationHistory[]> {
+  const { data, error } = await supabase
+    .from("datos_valuacion_ttm")
+    .select("*")
+    .eq("ticker", ticker.toUpperCase())
+    .order("valuation_date", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching valuation history:", error);
+    return [];
+  }
+
+  return data as ValuationHistory[];
+}
+
+/**
+ * Fetch performance history from datos_performance
+ */
+export async function getPerformanceHistory(
+  ticker: string,
+): Promise<PerformanceHistory[]> {
+  const { data, error } = await supabase
+    .from("datos_performance")
+    .select("*")
+    .eq("ticker", ticker.toUpperCase())
+    .order("performance_date", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching performance history:", error);
+    return [];
+  }
+
+  return data as PerformanceHistory[];
 }

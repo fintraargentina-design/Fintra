@@ -22,15 +22,18 @@ export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
   // Strict mapping from fintra_snapshots flat columns or JSONB structures
 
   // IFS Construction
-  const rawIfs = row.ifs || {};
-  const position = rawIfs.position || row.ifs_position;
-  const pressure = rawIfs.pressure ?? 0;
+  const rawIfs = row.ifs || null;
 
   let ifsData: IFSData | null = null;
-  if (position) {
+  if (rawIfs && rawIfs.position) {
     ifsData = {
-      position: position,
-      pressure: Number(pressure),
+      position: rawIfs.position,
+      pressure: rawIfs.pressure ?? 0,
+      confidence: rawIfs.confidence_label?.toLowerCase() as
+        | "low"
+        | "medium"
+        | "high"
+        | undefined,
     };
   }
 
@@ -47,13 +50,14 @@ export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
   // Strict rule: if not present in canonical path, use hyphen. DO NOT invent results.
   // We prioritize the deep JSONB path (Source of Truth) or the pre-processed field.
   // We explicitly IGNORE legacy columns like 'fgos_band' which might contain misplaced data (e.g. 'High' from confidence).
-  const fgosBand = row.fgos_components?.competitive_advantage?.band || '-';
+  const fgosBand = row.fgos_components?.competitive_advantage?.band || "-";
 
   // FGOS Details
   // Use fgos_maturity if available (Mature, Developing, etc.), fallback to fgos_status (computed/pending)
   const fgosStatus = row.fgos_maturity || row.fgos_status || null;
   const sentimentBand = row.fgos_components?.sentiment_details?.band || null;
-  const qualityBrakes = row.quality_brakes || row.fgos_components?.quality_brakes || null; // Check for quality penalties
+  const qualityBrakes =
+    row.quality_brakes || row.fgos_components?.quality_brakes || null; // Check for quality penalties
 
   // Sector Rank
   const sectorRank = row.sector_rank ?? marketPosition.sector_rank ?? null;
@@ -88,7 +92,8 @@ export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
   const alphaVsSector1Y = row.alpha_vs_sector_1y ?? null;
 
   // Extract company name for display
-  const companyName = row.company_name || profileStructural.identity?.name || null;
+  const companyName =
+    row.company_name || profileStructural.identity?.name || null;
 
   return {
     ticker: row.ticker,
@@ -104,9 +109,7 @@ export const mapSnapshotToStockData = (row: any): EnrichedStockData => {
     ifs: ifsData,
     ifs_fy: row.ifs_fy || null, // IQS - Industry Quality Score
     strategyState:
-      row.strategy_state ||
-      row.market_position?.strategy_state ||
-      null,
+      row.strategy_state || row.market_position?.strategy_state || null,
     priceEod,
     ytdReturn,
     relativeReturn1Y,
@@ -148,12 +151,12 @@ const getMarketCapCategory = (marketCap: number): string => {
   const billion = 1_000_000_000;
   const million = 1_000_000;
 
-  if (marketCap >= 200 * billion) return 'Mega-Cap';
-  if (marketCap >= 10 * billion) return 'Large-Cap';
-  if (marketCap >= 2 * billion) return 'Mid-Cap';
-  if (marketCap >= 300 * million) return 'Small-Cap';
-  if (marketCap >= 50 * million) return 'Micro-Cap';
-  return 'Nano-Cap';
+  if (marketCap >= 200 * billion) return "Mega-Cap";
+  if (marketCap >= 10 * billion) return "Large-Cap";
+  if (marketCap >= 2 * billion) return "Mid-Cap";
+  if (marketCap >= 300 * million) return "Small-Cap";
+  if (marketCap >= 50 * million) return "Micro-Cap";
+  return "Nano-Cap";
 };
 
 export const sortStocksBySnapshot = (
@@ -267,22 +270,19 @@ export default function TablaIFS({
                 if (s.includes("early")) {
                   return {
                     label: "EARLY",
-                    className:
-                      "text-zinc-400",
+                    className: "text-zinc-400",
                   };
                 }
                 if (s.includes("developing")) {
                   return {
                     label: "DEVELOPING",
-                    className:
-                      "text-orange-400",
+                    className: "text-orange-400",
                   };
                 }
                 if (s.includes("mature") || s.includes("established")) {
                   return {
                     label: "ESTABLISHED",
-                    className:
-                      "text-cyan-400",
+                    className: "text-cyan-400",
                   };
                 }
                 return {
@@ -322,9 +322,7 @@ export default function TablaIFS({
                   <TableCell className="px-1 py-1">
                     <div className="flex justify-center opacity-80 group-hover:opacity-100 transition-opacity">
                       {stock.sectorValuationStatus ? (
-                        <ValuationSignal
-                          status={stock.sectorValuationStatus}
-                        />
+                        <ValuationSignal status={stock.sectorValuationStatus} />
                       ) : (
                         <span className="text-[#666] text-xs font-mono">—</span>
                       )}
@@ -351,12 +349,12 @@ export default function TablaIFS({
 
                   <TableCell className="px-3 py-1">
                     <FGOSCell
-          score={stock.fgosScore}
-          status={stock.fgosStatus}
-          sentiment={stock.sentimentBand}
-          band={stock.fgosBand}
-          hasPenalty={stock.qualityBrakes?.applied ?? false}
-        />
+                      score={stock.fgosScore}
+                      status={stock.fgosStatus}
+                      sentiment={stock.sentimentBand}
+                      band={stock.fgosBand}
+                      hasPenalty={stock.qualityBrakes?.applied ?? false}
+                    />
                   </TableCell>
 
                   <TableCell className="px-3 py-1 text-right">

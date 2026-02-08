@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
 
@@ -14,6 +14,16 @@ import FGOSRadarChart from "@/components/charts/FGOSRadarChart";
 
 import type { StockEcosystem } from "@/lib/fmp/types";
 import type { StockData, StockAnalysis, StockPerformance } from "@/lib/stockQueries";
+import { 
+  getFinancialHistory, 
+  getValuationHistory, 
+  getPerformanceHistory, 
+  getDividendHistory,
+  FinancialHistory,
+  ValuationHistory,
+  PerformanceHistory,
+  DividendHistory
+} from "@/lib/services/ticker-view.service";
 
 interface TickerExpandidoViewProps {
   ticker: string;
@@ -46,6 +56,76 @@ export default function TickerExpandidoView({
   onStockSearch,
   showOpenNewWindowButton = true,
 }: TickerExpandidoViewProps) {
+  const [financialData, setFinancialData] = useState<FinancialHistory[]>([]);
+  const [valuationData, setValuationData] = useState<ValuationHistory[]>([]);
+  const [performanceData, setPerformanceData] = useState<PerformanceHistory[]>([]);
+  const [dividendData, setDividendData] = useState<DividendHistory[]>([]);
+
+  const [peerFinancialData, setPeerFinancialData] = useState<FinancialHistory[]>([]);
+  const [peerValuationData, setPeerValuationData] = useState<ValuationHistory[]>([]);
+  const [peerPerformanceData, setPeerPerformanceData] = useState<PerformanceHistory[]>([]);
+  const [peerDividendData, setPeerDividendData] = useState<DividendHistory[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchData = async () => {
+      try {
+        const [fin, val, perf, div] = await Promise.all([
+            getFinancialHistory(ticker),
+            getValuationHistory(ticker),
+            getPerformanceHistory(ticker),
+            getDividendHistory(ticker)
+        ]);
+        
+        if (mounted) {
+            setFinancialData(fin);
+            setValuationData(val);
+            setPerformanceData(perf);
+            setDividendData(div);
+        }
+      } catch (error) {
+        console.error("Error fetching service data:", error);
+      }
+    };
+
+    fetchData();
+    return () => { mounted = false; };
+  }, [ticker]);
+
+  useEffect(() => {
+    if (!selectedCompetitor) {
+        setPeerFinancialData([]);
+        setPeerValuationData([]);
+        setPeerPerformanceData([]);
+        setPeerDividendData([]);
+        return;
+    }
+    
+    let mounted = true;
+    const fetchPeerData = async () => {
+      try {
+        const [fin, val, perf, div] = await Promise.all([
+            getFinancialHistory(selectedCompetitor),
+            getValuationHistory(selectedCompetitor),
+            getPerformanceHistory(selectedCompetitor),
+            getDividendHistory(selectedCompetitor)
+        ]);
+        
+        if (mounted) {
+            setPeerFinancialData(fin);
+            setPeerValuationData(val);
+            setPeerPerformanceData(perf);
+            setPeerDividendData(div);
+        }
+      } catch (error) {
+        console.error("Error fetching peer service data:", error);
+      }
+    };
+
+    fetchPeerData();
+    return () => { mounted = false; };
+  }, [selectedCompetitor]);
+
   const comparedSymbolsList = useMemo(
     () => (selectedCompetitor ? [selectedCompetitor] : []),
     [selectedCompetitor]
@@ -139,6 +219,8 @@ export default function TickerExpandidoView({
                 peerTicker={selectedCompetitor}
                 defaultExpanded={true}
                 hideExpandButton={true}
+                data={financialData}
+                peerData={peerFinancialData}
               />
             </div>
             <div className="border-b border-zinc-800 last:border-0">
@@ -147,6 +229,8 @@ export default function TickerExpandidoView({
                 peerTicker={selectedCompetitor}
                 defaultExpanded={true}
                 hideExpandButton={true}
+                data={valuationData}
+                peerData={peerValuationData}
               />
             </div>
             <div className="border-b border-zinc-800 last:border-0">
@@ -154,6 +238,8 @@ export default function TickerExpandidoView({
                 symbol={ticker}
                 peerTicker={selectedCompetitor}
                 defaultExpanded={true}
+                data={performanceData}
+                peerData={peerPerformanceData}
               />
             </div>
             <div className="border-b border-zinc-800 last:border-0">
@@ -161,6 +247,8 @@ export default function TickerExpandidoView({
                 symbol={ticker}
                 peerTicker={selectedCompetitor}
                 defaultExpanded={true}
+                data={dividendData}
+                peerData={peerDividendData}
               />
             </div>
           </div>

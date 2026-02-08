@@ -1,9 +1,8 @@
 "use client";
 // fintra/components/cards/DesempenoCard.tsx
 
-import { useState, useEffect } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { FintraLoader } from "@/components/ui/FintraLoader";
+import { PerformanceHistory } from "@/lib/services/ticker-view.service";
+import { useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -12,209 +11,122 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getHeatmapColor, HeatmapDirection } from "@/lib/ui/heatmap";
+import { cn } from "@/lib/utils";
 
-// --- CONSTANTS ---
-const CORE_METRICS = [
-  "Total Return"
-];
+export interface DesempenoCardProps {
+  symbol: string;
+  scrollRef?: React.RefObject<HTMLDivElement | null>;
+  peerTicker?: string | null;
+  defaultExpanded?: boolean;
+  data?: PerformanceHistory[];
+  peerData?: PerformanceHistory[];
+  // Legacy props
+  highlightedMetrics?: string[] | null;
+}
 
-// --- TYPES (Same as FundamentalCard/ValoracionCard) ---
-type TimelineResponse = {
-  ticker: string;
-  currency: string;
-  years: {
-    year: number;
-    tone: "light" | "dark";
-    columns: string[];
-  }[];
-  metrics: {
-    key: string;
-    label: string;
-    unit: string;
-    category: string;
-    priority: "A" | "B" | "C";
-    heatmap: {
-      direction: "higher_is_better" | "lower_is_better";
-      scale: "relative_row";
-    };
-    values: {
-      [periodLabel: string]: {
-        value: number | null;
-        display: string | null;
-        normalized: number | null;
-        period_type: "Q" | "TTM" | "FY" | null;
-        period_end_date?: string;
-      };
-    };
-  }[];
-};
+export default function DesempenoCard({
+  symbol,
+  scrollRef,
+  peerTicker,
+  defaultExpanded = false,
+  data,
+  peerData,
+}: DesempenoCardProps) {
+  // If no data, show S/D
+  if (!data || data.length === 0) {
+    return (
+      <div className="w-full h-full flex flex-col bg-tarjetas border border-zinc-800 rounded p-4 items-center justify-center min-h-[200px]">
+        <span className="text-zinc-500 text-sm">S/D</span>
+      </div>
+    );
+  }
 
-export default function DesempenoCard({ symbol, scrollRef, peerTicker, highlightedMetrics, defaultExpanded = false }: { symbol: string; scrollRef?: React.RefObject<HTMLDivElement | null>; peerTicker?: string | null; highlightedMetrics?: string[] | null; defaultExpanded?: boolean }) {
-  const [data, setData] = useState<TimelineResponse | null>(null);
-  const [peerData, setPeerData] = useState<TimelineResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  // Helper to format percentage with color
+  const formatPercent = (val: number | undefined | null) => {
+    if (val === undefined || val === null) return "S/D";
+    const colorClass = val > 0 ? "text-green-500" : val < 0 ? "text-red-500" : "text-zinc-300";
+    return <span className={colorClass}>{val.toFixed(2)}%</span>;
+  };
 
-  // Fetch peer data when selected
-  useEffect(() => {
-    if (!peerTicker) {
-        setPeerData(null);
-        return;
-    }
-    
-    let mounted = true;
-    const fetchPeer = async () => {
-        try {
-            const res = await fetch(`/api/analysis/performance-timeline?ticker=${peerTicker}`);
-            if (res.ok) {
-                const json = await res.json();
-                if (mounted) setPeerData(json);
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    };
-    
-    fetchPeer();
-    return () => { mounted = false; };
-  }, [peerTicker]);
+  // Helper to format currency/absolute return
+  const formatCurrency = (val: number | undefined | null) => {
+     if (val === undefined || val === null) return "S/D";
+     const colorClass = val > 0 ? "text-green-500" : val < 0 ? "text-red-500" : "text-zinc-300";
+     return <span className={colorClass}>${val.toFixed(2)}</span>;
+  };
 
-  useEffect(() => {
-    let mounted = true;
-    
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/analysis/performance-timeline?ticker=${symbol}`);
-        if (!res.ok) {
-            console.error("Failed to fetch performance timeline");
-            return;
-        }
-        const json = await res.json();
-        
-        if (mounted) {
-            setData(json);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    fetchData();
-
-    return () => { mounted = false; };
-  }, [symbol]);
-
-  // Filter for performance metrics
-  const performanceMetrics = data?.metrics?.filter(m => m.category === "performance") || [];
-
-  const visibleMetrics = performanceMetrics.filter(metric => {
-    if (expanded) return true;
-    return CORE_METRICS.includes(metric.label);
-  });
+  // Sort windows in logical order
+  const windowOrder = ["1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y", "10Y"];
   
-  // Identify the performance columns (year 9999 or implicit from values)
-  // The backend sends a specific year group for performance (usually 9999)
-  const perfYearGroup = data?.years?.find(y => y.year === 9999);
-  const columns = perfYearGroup?.columns || [];
+  const sortedData = useMemo(() => {
+    if (!data) return [];
+    return [...data].sort((a, b) => {
+        const idxA = windowOrder.indexOf(a.window_code);
+        const idxB = windowOrder.indexOf(b.window_code);
+        // Put unknown windows at the end
+        const valA = idxA === -1 ? 999 : idxA;
+        const valB = idxB === -1 ? 999 : idxB;
+        return valA - valB;
+    });
+  }, [data]);
+
+  // Create a map for peer data for easy lookup by window_code
+  const peerMap = useMemo(() => {
+    if (!peerData) return new Map<string, PerformanceHistory>();
+    const map = new Map<string, PerformanceHistory>();
+    peerData.forEach(p => map.set(p.window_code, p));
+    return map;
+  }, [peerData]);
 
   return (
-    <div className="w-full h-full flex flex-col bg-tarjetas rounded-none overflow-hidden mt-0">
-      {/* <div className="px-1 py-1 bg-white/[0.02] shrink-0">
-        <h4 className="text-xs font-medium text-gray-400 text-center">
-          Desempeño de <span className="text-[#FFA028]">{symbol}</span>
-        </h4>
-      </div> */}
-
-		<div
-			ref={scrollRef as React.RefObject<HTMLDivElement | null>}
-			className="flex-1 p-0 overflow-x-auto overflow-y-hidden scrollbar-on-hover"
-		>
-			<Table className="min-w-max text-sm border-collapse">
-		  	<TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
-		  	  <TableRow className="border-zinc-800 hover:bg-[#1D1D1D] bg-[#1D1D1D] border-b-0">
-		  		<TableHead className="px-2 text-gray-300 text-[10px] h-5 w-[150px] text-left sticky left-0 z-20 bg-[#1D1D1D]">Desempeño</TableHead>
-              {columns.flatMap((col, perfYearIndex) => [
-                <TableHead 
-                  key={col} 
-                  className={`px-2 text-gray-300 text-[10px] h-5 text-center whitespace-nowrap ${perfYearIndex % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
-                >
-                  {col}
-                </TableHead>,
-                peerTicker && (
-                    <TableHead
-                      key={`${col}-peer`}
-                      className={`px-2 text-[#FFFFFF] border-x border-[#002D72] font-bold text-[10px] h-5 text-center whitespace-nowrap ${perfYearIndex % 2 === 0 ? 'bg-[#002D72]' : 'bg-[#002D72]'}`}
-                    >
-                        {`${peerTicker}_${col}`}
-                    </TableHead>
-                )
-              ])}
+    <div 
+      ref={scrollRef}
+      className="w-full flex flex-col bg-tarjetas border border-zinc-800 rounded overflow-hidden"
+    >
+      <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
+        <h3 className="font-semibold text-zinc-100">Rendimiento</h3>
+      </div>
+      
+      <div className="p-0 overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent border-zinc-800">
+              <TableHead className="w-[100px] text-zinc-400">Periodo</TableHead>
+              <TableHead className="text-right text-zinc-400">Retorno %</TableHead>
+              <TableHead className="text-right text-zinc-400">Retorno Abs.</TableHead>
+              {peerTicker && (
+                 <TableHead className="text-right text-zinc-400 border-l border-zinc-800">
+                    {peerTicker} %
+                 </TableHead>
+              )}
             </TableRow>
           </TableHeader>
-		  	<TableBody>
-            {loading ? (
-               <TableRow>
-                 <TableCell colSpan={100} className="text-center py-8 text-xs text-gray-500">
-                   <FintraLoader size={16} className="mr-2 inline-block align-middle"/> <span className="align-middle">Cargando desempeño...</span>
-                 </TableCell>
-               </TableRow>
-            ) : performanceMetrics.length === 0 ? (
-                <TableRow>
-                    <TableCell colSpan={100} className="text-center py-8 text-xs text-gray-500">
-                        -
-                    </TableCell>
-                </TableRow>
-            ) : (
-              performanceMetrics.map((metric) => {
-                const isHighlighted = highlightedMetrics?.includes(metric.label);
+          <TableBody>
+            {sortedData.map((item) => {
+                const peerItem = peerMap.get(item.window_code);
+                
                 return (
-                  <TableRow 
-                    key={metric.key} 
-                    className={`border-zinc-800 border-b transition-all duration-300 ${isHighlighted ? 'bg-[#FFA028]/10 border-l-2 border-l-[#FFA028] shadow-[inset_0_0_20px_rgba(255,160,40,0.05)]' : 'hover:bg-white/5 border-l-2 border-l-transparent'}`}
-                  >
-			  	<TableCell className="font-bold text-gray-200 px-2 py-0 text-[10px] h-6 w-[120px] border-r border-zinc-800 sticky left-0 z-10 bg-[#0A0A0A]">
-                    {metric.label}
-                  </TableCell>
-                  {columns.flatMap((col, perfYearIndex) => {
-                      const cellData = metric.values[col];
-                      const direction: HeatmapDirection = metric.heatmap.direction === "lower_is_better" 
-                            ? "negative" 
-                            : "positive";
-                      
-                      // Peer Data
-                      const peerMetric = peerData?.metrics?.find(m => m.key === metric.key);
-                      const peerCellData = peerMetric?.values?.[col];
-
-                      return [
-                          <TableCell 
-                              key={col}
-                              className={`text-center px-2 py-0 text-[10px] font-medium text-white h-6 border-x border-zinc-800/50 ${perfYearIndex % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
-                              style={{ backgroundColor: getHeatmapColor(cellData?.normalized ?? null, direction) }}
-                          >
-                              {cellData?.display ?? "-"}
-                          </TableCell>,
-                          peerTicker && (
-                              <TableCell 
-                                  key={`${col}-peer`}
-                                  className={`text-center px-2 py-0 text-[10px] font-bold text-[#FFFFFF] h-6 border-x border-[#002D72] ${perfYearIndex % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
-                                  style={{ backgroundColor: getHeatmapColor(peerCellData?.normalized ?? null, direction) }}
-                              >
-                                  {peerCellData?.display ?? "-"}
-                              </TableCell>
-                          )
-                      ];
-                  })}
-                </TableRow>
+                    <TableRow key={item.window_code} className="hover:bg-zinc-800/50 border-zinc-800">
+                        <TableCell className="font-medium text-zinc-200">
+                            {item.window_code}
+                        </TableCell>
+                        <TableCell className="text-right">
+                            {formatPercent(item.return_percent)}
+                        </TableCell>
+                         <TableCell className="text-right">
+                            {formatCurrency(item.absolute_return)}
+                        </TableCell>
+                        {peerTicker && (
+                            <TableCell className="text-right border-l border-zinc-800">
+                                {peerItem ? formatPercent(peerItem.return_percent) : <span className="text-zinc-600">-</span>}
+                            </TableCell>
+                        )}
+                    </TableRow>
                 );
-              })
-            )}
+            })}
           </TableBody>
-			</Table>
-		  </div>
+        </Table>
+      </div>
     </div>
   );
 }

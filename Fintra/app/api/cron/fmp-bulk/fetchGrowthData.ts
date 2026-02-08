@@ -14,6 +14,7 @@ export async function fetchFinancialHistory(
 ) {
   if (!tickers.length) return new Map<string, any[]>();
 
+  // FIX EGRESS: Limit to 5000 rows max (prevents unbounded queries)
   const { data, error } = await supabase
     .from("datos_financieros")
     .select(
@@ -21,7 +22,8 @@ export async function fetchFinancialHistory(
     )
     .in("ticker", tickers)
     .in("period_type", ["FY", "Q", "TTM"]) // Fetch all types for Moat
-    .order("period_end_date", { ascending: false });
+    .order("period_end_date", { ascending: false })
+    .limit(5000);
 
   if (error) {
     console.error("❌ Error fetching financial history:", error);
@@ -44,8 +46,9 @@ export async function fetchValuationHistory(
 ) {
   if (!tickers.length) return new Map<string, any[]>();
 
+  // FIX EGRESS: Limit to 1000 rows max (prevents unbounded queries)
   // Fetching last 5 years of valuation data might be heavy if daily.
-  // For now, we fetch the last 100 records per ticker to try to catch some history if available.
+  // For now, we fetch the last 1000 records to catch some history if available.
   // Ideally, we would filter by specific dates (today, -1Y, -3Y, -5Y).
   const { data, error } = await supabase
     .from("datos_valuacion")
@@ -53,7 +56,8 @@ export async function fetchValuationHistory(
       "ticker, valuation_date, pe_ratio, ev_ebitda, price_to_fcf, price_to_sales",
     )
     .in("ticker", tickers)
-    .order("valuation_date", { ascending: false });
+    .order("valuation_date", { ascending: false })
+    .limit(1000);
 
   if (error) {
     console.error("❌ Error fetching valuation history:", error);
@@ -226,11 +230,49 @@ export async function fetchIndustryPerformanceMap(
 
   console.log("[PREFETCH] Loading industry_performance...");
 
+  // FIX EGRESS + ROBUSTNESS: Use same fallback pattern as sector_performance
+  // 1. Get the most recent date available (tolerant to cron delays/holidays)
+  const { data: latestDateRow } = await supabase
+    .from("industry_performance")
+    .select("performance_date")
+    .order("performance_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const targetDate = latestDateRow?.performance_date;
+
+  if (!targetDate) {
+    console.warn("⚠️ No industry performance data found in DB.");
+    return new Map();
+  }
+
+  // Calculate age of data
+  const dataAge =
+    targetDate !== today
+      ? Math.ceil(
+          (new Date(today).getTime() - new Date(targetDate).getTime()) /
+            (1000 * 60 * 60 * 24),
+        )
+      : 0;
+
+  // Log if using fallback data (older than today)
+  if (targetDate !== today) {
+    console.warn(
+      `[PREFETCH] industry_performance: Using fallback data from ${targetDate} ` +
+        `(requested ${today}, age: ${dataAge} days)`,
+    );
+  } else {
+    console.log(
+      `[PREFETCH] industry_performance: Using exact match for ${today}`,
+    );
+  }
+
+  // 2. Query with exact date match (efficient, no egress explosion)
   const { data, error } = await supabase
     .from("industry_performance")
     .select("industry, window_code, return_percent, performance_date")
-    .lte("performance_date", today)
-    .order("performance_date", { ascending: false });
+    .eq("performance_date", targetDate)
+    .order("industry", { ascending: true });
 
   if (error) {
     console.error("❌ Error fetching industry performance:", error);
@@ -268,22 +310,53 @@ export async function fetchUniverseMap(
 ): Promise<Map<string, { sector: string | null; industry: string | null }>> {
   console.log("[PREFETCH] Loading fintra_universe...");
 
-  const { data, error } = await supabase
-    .from("fintra_universe")
-    .select("ticker, sector, industry");
+  // CRITICAL: Supabase has server-side max-rows limit (usually 1000)
+  // Must paginate explicitly to load all ~90k tickers
+  const PAGE_SIZE = 1000; // Server max
+  const allRows: any[] = [];
+  let page = 0;
+  let hasMore = true;
 
-  if (error) {
-    console.error("❌ Error fetching universe:", error);
-    return new Map();
+  while (hasMore) {
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    const { data, error } = await supabase
+      .from("fintra_universe")
+      .select("ticker, sector, industry")
+      .range(from, to)
+      .order("ticker", { ascending: true }); // Ensure consistent pagination
+
+    if (error) {
+      console.error(
+        `❌ Error fetching universe (page ${page}, rows ${from}-${to}):`,
+        error,
+      );
+      break;
+    }
+
+    if (data && data.length > 0) {
+      allRows.push(...data);
+      hasMore = data.length === PAGE_SIZE; // Continue if page is full
+      page++;
+
+      if (page % 10 === 0) {
+        console.log(`[PREFETCH] ...loaded ${allRows.length} tickers so far`);
+      }
+    } else {
+      hasMore = false;
+    }
   }
 
   const universeMap = new Map(
-    data?.map((row: any) => [
+    allRows.map((row: any) => [
       row.ticker,
       { sector: row.sector || null, industry: row.industry || null },
-    ]) || [],
+    ]),
   );
 
-  console.log(`[PREFETCH] ✅ Loaded ${universeMap.size} tickers from universe`);
+  console.log(
+    `[PREFETCH] ✅ Loaded ${universeMap.size} tickers from universe (${page} pages)`,
+  );
   return universeMap;
 }

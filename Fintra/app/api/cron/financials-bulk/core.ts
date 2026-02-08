@@ -468,11 +468,9 @@ async function downloadAndCacheCSVs(apiKey: string, yearsOverride?: number[]) {
     }
   }
 
-  // TTM Bulk
-  // TEMP: Skip TTM downloads/parsing due to timeout issues
-  // TODO: Investigate TTM parsing performance issue
-  // tasks.push(fetchFile("key-metrics-ttm-bulk", null, null));
-  // tasks.push(fetchFile("ratios-ttm-bulk", null, null));
+  // TTM Bulk (re-enabled with timeout handling)
+  tasks.push(fetchFile("key-metrics-ttm-bulk", null, null));
+  tasks.push(fetchFile("ratios-ttm-bulk", null, null));
 
   // Execute in chunks with delay and retry
   const CHUNK_SIZE = 5; // Reduced from 10 to be safer
@@ -594,8 +592,8 @@ async function parseCachedCSVs(
         quoteChar: '"', // Explicitly tell Papa to handle quotes
         escapeChar: '"',
         transformHeader: (header: string) => {
-          // Remove quotes from header names (FMP CSVs have "columnName" format)
-          return header.replace(/^"|"$/g, "");
+          // Remove ALL quotes from header names (FMP CSVs have "columnName" format)
+          return header.replace(/"/g, "");
         },
         step: (results: any, parser: any) => {
           const row = results.data;

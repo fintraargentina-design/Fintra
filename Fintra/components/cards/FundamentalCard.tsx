@@ -1,246 +1,166 @@
 "use client";
 // fintra/components/cards/FundamentalCard.tsx
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { FintraLoader } from "@/components/ui/FintraLoader";
-import { getHeatmapColor, HeatmapDirection } from "@/lib/ui/heatmap";
+import { FinancialHistory } from "@/lib/services/ticker-view.service";
 
-// --- CONSTANTS ---
-const CORE_METRICS = [
-  "ROIC", 
-  "ROE", 
-  "Margen neto", 
-  "FCF Margin", 
-  "Crecimiento Ventas", 
-  "Crecimiento Beneficio"
+// --- METRICS DEFINITION ---
+const METRICS_CONFIG = [
+  { label: "Gross Margin", key: "gross_margin", format: (v: number) => `${v?.toFixed(2)}%` },
+  { label: "Operating Margin", key: "operating_margin", format: (v: number) => `${v?.toFixed(2)}%` },
+  { label: "Net Margin", key: "net_margin", format: (v: number) => `${v?.toFixed(2)}%` },
+  { label: "ROE", key: "roe", format: (v: number) => `${v?.toFixed(2)}%` },
+  { label: "ROIC", key: "roic", format: (v: number) => `${v?.toFixed(2)}%` },
+  { label: "Total Debt", key: "total_debt", format: (v: number) => formatLargeNumber(v) },
+  { label: "Debt/Equity", key: "debt_to_equity", format: (v: number) => v?.toFixed(2) },
+  { label: "Current Ratio", key: "current_ratio", format: (v: number) => v?.toFixed(2) },
+  { label: "Interest Coverage", key: "interest_coverage", format: (v: number) => v?.toFixed(2) },
+  { label: "Revenue", key: "revenue", format: (v: number) => formatLargeNumber(v) },
+  { label: "Net Income", key: "net_income", format: (v: number) => formatLargeNumber(v) },
+  { label: "Free Cash Flow", key: "free_cash_flow", format: (v: number) => formatLargeNumber(v) },
+  { label: "EBITDA", key: "ebitda", format: (v: number) => formatLargeNumber(v) },
+  { label: "Rev. CAGR", key: "revenue_cagr", format: (v: number) => `${v?.toFixed(2)}%` },
 ];
 
-// --- TYPES ---
-type TimelineResponse = {
-  ticker: string;
-  currency: string;
-  years: {
-    year: number;
-    tone: "light" | "dark";
-    columns: string[];
-  }[];
-  metrics: {
-    key: string;
-    label: string;
-    unit: string;
-    category: string;
-    priority: "A" | "B" | "C";
-    heatmap: {
-      direction: "higher_is_better" | "lower_is_better";
-      scale: "relative_row";
-    };
-    values: {
-      [periodLabel: string]: {
-        value: number | null;
-        display: string | null;
-        normalized: number | null;
-        period_type: "Q" | "TTM" | "FY" | null;
-        period_end_date?: string;
-      };
-    };
-  }[];
-};
+function formatLargeNumber(num: number): string {
+  if (num === null || num === undefined) return "-";
+  if (Math.abs(num) >= 1e9) {
+    return `$${(num / 1e9).toFixed(2)}B`;
+  }
+  if (Math.abs(num) >= 1e6) {
+    return `$${(num / 1e6).toFixed(2)}M`;
+  }
+  return `$${num.toLocaleString()}`;
+}
 
 export interface FundamentalCardProps {
   symbol: string;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
   peerTicker?: string | null;
-  highlightedMetrics?: string[] | null;
-  timelineData?: TimelineResponse | null;
   defaultExpanded?: boolean;
   hideExpandButton?: boolean;
+  data?: FinancialHistory[];
+  peerData?: FinancialHistory[];
+  // Legacy props (ignored but kept for type compatibility if needed)
+  highlightedMetrics?: string[] | null;
+  timelineData?: any;
 }
 
 export default function FundamentalCard({ 
   symbol, 
   scrollRef, 
   peerTicker, 
-  highlightedMetrics,
-  timelineData,
   defaultExpanded = false,
-  hideExpandButton = false
+  hideExpandButton = false,
+  data = [],
+  peerData = []
 }: FundamentalCardProps) {
-  const [internalData, setInternalData] = useState<TimelineResponse | null>(null);
-  const [peerData, setPeerData] = useState<TimelineResponse | null>(null);
-  const [internalLoading, setInternalLoading] = useState(true);
   const [expanded, setExpanded] = useState(defaultExpanded);
-
-  const isControlled = timelineData !== undefined;
-  const data = isControlled ? timelineData : internalData;
-  const loading = isControlled ? !data : internalLoading;
-
-  const years = data?.years ?? [];
-  const sortedYears = React.useMemo(() => {
-    return [...years].sort((a, b) => Number(a.year) - Number(b.year));
-  }, [years]);
-
   const localRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = scrollRef || localRef;
 
+  // Scroll to right on load
   useEffect(() => {
-    if (!loading && scrollContainerRef.current) {
-        // Small timeout to ensure rendering is complete
+    if (data.length > 0 && scrollContainerRef.current) {
         setTimeout(() => {
             if (scrollContainerRef.current) {
                 scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
             }
         }, 0);
     }
-  }, [loading, sortedYears]);
+  }, [data]);
 
-  // Fetch peer data when selected
-  useEffect(() => {
-    if (!peerTicker) {
-        setPeerData(null);
-        return;
-    }
-    
-    let mounted = true;
-    const fetchPeer = async () => {
-        try {
-            const res = await fetch(`/api/analysis/fundamentals-timeline?ticker=${peerTicker}`);
-            if (res.ok) {
-                const json = await res.json();
-                if (mounted) setPeerData(json);
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    };
-    
-    fetchPeer();
-    return () => { mounted = false; };
-  }, [peerTicker]);
+  if (!data || data.length === 0) {
+    return (
+      <div className="w-full h-full flex flex-col bg-tarjetas border border-zinc-800 rounded p-4 items-center justify-center">
+        <span className="text-zinc-500 text-sm">S/D</span>
+      </div>
+    );
+  }
 
-  useEffect(() => {
-    let mounted = true;
-    
-    const fetchData = async () => {
-      if (isControlled) return;
+  // Sort periods
+  const periods = [...data].sort((a, b) => new Date(a.period_end_date).getTime() - new Date(b.period_end_date).getTime());
 
-      setInternalLoading(true);
-      try {
-        const res = await fetch(`/api/analysis/fundamentals-timeline?ticker=${symbol}`);
-        if (!res.ok) {
-            // Silently fail or log? The existing code logged error.
-            console.error("Failed to fetch fundamentals timeline");
-            return;
-        }
-        const json = await res.json();
-        
-        if (mounted) {
-            setInternalData(json);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (mounted) setInternalLoading(false);
-      }
-    };
-    
-    fetchData();
-    return () => { mounted = false; };
-  }, [symbol, isControlled]);
+  // Helper to find peer value for the same period
+  const getPeerValue = (periodLabel: string, key: string) => {
+    if (!peerData) return null;
+    const peerPeriod = peerData.find(p => p.period_label === periodLabel);
+    return peerPeriod ? (peerPeriod as any)[key] : null;
+  };
 
-  // Filter metrics based on expanded state
-  const visibleMetrics = data?.metrics?.filter(metric => {
-    if (expanded) return true;
-    return CORE_METRICS.includes(metric.label);
-  }) || [];
+  const visibleMetrics = expanded ? METRICS_CONFIG : METRICS_CONFIG.slice(0, 5); // Show first 5 if collapsed
 
   return (
-		<div className="w-full h-full flex flex-col bg-tarjetas overflow-hidden">
-			<div
-				ref={scrollContainerRef}
-				className="flex-1 overflow-x-auto overflow-y-hidden"
-			>
-		<Table className="min-w-max text-sm ">
+    <div className="w-full h-full flex flex-col bg-tarjetas overflow-hidden">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-x-auto overflow-y-hidden scrollbar-thin"
+      >
+        <Table className="min-w-max text-sm border-collapse">
           <TableHeader className="bg-[#1D1D1D] sticky top-0 z-10">
-            <TableRow className=" hover:bg-[#1D1D1D] bg-[#1D1D1D] ">
-              <TableHead className="border-2 border-zinc-800 px-0 text-gray-300 text-[10px] h-5 w-[150px] font-light font-nano text-left  left-0 z-20 bg-[#1D1D1D]">Fundamentales</TableHead>
-              {sortedYears.map((year, yearIdx) => (
-                year.columns.flatMap(col => [
-                  <TableHead
-                    key={col}
-                    className={`border-2 border-zinc-800 px-2 text-gray-300 text-[10px] h-5 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
-                  >
-                    {col}
-                  </TableHead>,
-                  peerTicker && (
-                    <TableHead
-                      key={`${col}-peer`}
-                      className={`border-2 border-zinc-800 px-0 text-[#ffffff]  font-bold text-[10px] h-5 text-center whitespace-nowrap ${yearIdx % 2 === 0 ? 'bg-[#002D72]' : 'bg-[#002D72]'}`}
-                    >
-                      {`${peerTicker}_${col}`}
+            <TableRow className="bg-[#1D1D1D] hover:bg-[#1D1D1D] border-b-0">
+              <TableHead className="px-2 text-gray-300 text-[10px] h-5 w-[120px] font-light font-nano text-left sticky left-0 z-20 bg-[#1D1D1D] border-r border-zinc-800">
+                Fundamentales
+              </TableHead>
+              {periods.map((period, idx) => (
+                <React.Fragment key={period.period_label}>
+                  <TableHead className={`px-2 text-gray-300 text-[10px] h-5 text-center whitespace-nowrap ${idx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}>
+                    {period.period_label}
+                  </TableHead>
+                  {peerTicker && (
+                    <TableHead className={`px-2 text-[#ffffff] font-bold text-[10px] h-5 text-center whitespace-nowrap border-l border-[#002D72] ${idx % 2 === 0 ? 'bg-[#002D72]' : 'bg-[#002D72]'}`}>
+                      {peerTicker}
                     </TableHead>
-                  ),
-                ])
+                  )}
+                </React.Fragment>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
-               <TableRow>
-                 <TableCell colSpan={100} className="text-center py-8 text-xs text-gray-500">
-                   <FintraLoader size={16} className="mr-2 inline-block align-middle"/> <span className="align-middle">Cargando fundamentales...</span>
-                 </TableCell>
-               </TableRow>
-            ) : (
-              visibleMetrics.map((metric) => {
-                const isHighlighted = highlightedMetrics?.includes(metric.label);
-                return (
-                  <TableRow 
-                    key={metric.key} 
-                    className={`transition-all duration-300 ${isHighlighted ? 'bg-[#FFA028]/10 border-l-2 border-l-[#FFA028] ' : 'hover:bg-white/5 '}`}
-                  >
-                  <TableCell className="font-light text-gray-200 px-0 py-0 text-[10px] h-6 w-[100px] sticky left-0 z-10 bg-[#1D1D1D]">
-                    {metric.label}
-                  </TableCell>
-                  {sortedYears.map((year, yearIdx) => (
-                    year.columns.flatMap(col => {
-                        const cellData = metric.values[col];
-                        const direction: HeatmapDirection = metric.heatmap.direction === "lower_is_better" 
-                            ? "negative" 
-                            : "positive";
-                            
-                        // Peer Data
-                        const peerMetric = peerData?.metrics?.find(m => m.key === metric.key);
-                        const peerCellData = peerMetric?.values?.[col];
-
-                        return [
-                            <TableCell 
-                                key={col}
-                                className={`text-center px-0 py-0 text-[10px] font-medium text-white h-6 border-x border-zinc-800/50 ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
-                                style={{ backgroundColor: getHeatmapColor(cellData?.normalized ?? null, direction) }}
-                            >
-                                {cellData?.display ?? "-"}
-                            </TableCell>,
-                            peerTicker && (
-                                <TableCell 
-                                    key={`${col}-peer`}
-                                    className={`text-center px-2 py-0 text-[10px] font-bold text-[#FFFFFF] h-6 border-x border-[#002D72] ${yearIdx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}
-                                    style={{ backgroundColor: getHeatmapColor(peerCellData?.normalized ?? null, direction) }}
-                                >
-                                    {peerCellData?.display ?? "-"}
-                                </TableCell>
-                            )
-                        ];
-                    })
-                  ))}
-                </TableRow>
-                );
-              })
-            )}
+            {visibleMetrics.map((metric) => (
+              <TableRow key={metric.key} className="hover:bg-white/5 border-b border-zinc-800 last:border-0">
+                <TableCell className="font-light text-gray-200 px-2 py-1 text-[10px] h-6 w-[120px] sticky left-0 z-10 bg-[#1D1D1D] border-r border-zinc-800">
+                  {metric.label}
+                </TableCell>
+                {periods.map((period, idx) => {
+                  const val = (period as any)[metric.key];
+                  const peerVal = getPeerValue(period.period_label, metric.key);
+                  
+                  return (
+                    <React.Fragment key={`${metric.key}-${period.period_label}`}>
+                      <TableCell className={`text-center px-2 py-1 text-[10px] font-medium text-white h-6 ${idx % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.05]'}`}>
+                        {val !== null && val !== undefined ? metric.format(val) : "-"}
+                      </TableCell>
+                      {peerTicker && (
+                        <TableCell className={`text-center px-2 py-1 text-[10px] font-bold text-white h-6 border-l border-[#002D72] ${idx % 2 === 0 ? 'bg-[#002D72]/50' : 'bg-[#002D72]/50'}`}>
+                          {peerVal !== null && peerVal !== undefined ? metric.format(peerVal) : "-"}
+                        </TableCell>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </TableRow>
+            ))}
           </TableBody>
-			</Table>
-		  </div>     
+        </Table>
+      </div>
+      
+      {!hideExpandButton && (
+        <div className="bg-transparent border-t border-zinc-800 p-1 flex justify-center shrink-0">
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-white transition-colors uppercase tracking-wider font-medium"
+          >
+            {expanded ? (
+              <><ChevronUp className="w-3 h-3" /> Menos</>
+            ) : (
+              <>Ver más <ChevronDown className="w-3 h-3" /></>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

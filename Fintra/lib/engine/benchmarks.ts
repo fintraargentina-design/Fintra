@@ -1,31 +1,30 @@
-
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { SectorBenchmark } from "./types";
 
 // Mandatory metrics that MUST be present for FGOS
 export const BENCHMARK_METRICS = [
   // Growth (Source: Snapshot/Fundamentals)
-  'revenue_cagr', 
-  'earnings_cagr', 
-  'fcf_cagr',
-  
+  "revenue_cagr",
+  "earnings_cagr",
+  "fcf_cagr",
+
   // Profitability (Source: Financials)
-  'roic', 
-  'operating_margin', 
-  'net_margin',
-  
+  "roic",
+  "operating_margin",
+  "net_margin",
+
   // Efficiency (Source: Financials)
-  'fcf_margin', 
+  "fcf_margin",
   // 'roic' is also used here but already listed
-  
+
   // Solvency (Source: Financials)
-  'debt_to_equity', 
-  'interest_coverage',
-  
+  "debt_to_equity",
+  "interest_coverage",
+
   // Valuation (Source: Snapshot/Valuation)
-  'pe_ratio', 
-  'ev_ebitda', 
-  'price_to_fcf'
+  "pe_ratio",
+  "ev_ebitda",
+  "price_to_fcf",
 ] as const;
 
 export type BenchmarkMetric = (typeof BENCHMARK_METRICS)[number];
@@ -36,42 +35,60 @@ const CACHE: Record<string, Record<string, SectorBenchmark>> = {};
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 const CACHE_TIMESTAMP: Record<string, number> = {};
 
-export async function getBenchmarksForSector(sector: string, snapshotDate: string, allowFallback: boolean = true): Promise<Record<string, SectorBenchmark> | null> {
+export async function getBenchmarksForSector(
+  sector: string,
+  snapshotDate: string,
+  allowFallback: boolean = true,
+): Promise<Record<string, SectorBenchmark> | null> {
   if (!sector) return null;
   const cleanSector = sector.trim();
   const cacheKey = `${cleanSector}_${snapshotDate}_${allowFallback}`;
 
   // Check Cache
   const now = Date.now();
-  if (CACHE[cacheKey] && CACHE_TIMESTAMP[cacheKey] && (now - CACHE_TIMESTAMP[cacheKey] < CACHE_TTL_MS)) {
+  if (
+    CACHE[cacheKey] &&
+    CACHE_TIMESTAMP[cacheKey] &&
+    now - CACHE_TIMESTAMP[cacheKey] < CACHE_TTL_MS
+  ) {
     return CACHE[cacheKey];
   }
 
   try {
     // 1. Resolve effective AS-OF date
     const { data: dateData, error: dateError } = await supabaseAdmin
-      .from('sector_benchmarks')
-      .select('snapshot_date')
-      .eq('sector', cleanSector)
-      .lte('snapshot_date', snapshotDate)
-      .order('snapshot_date', { ascending: false })
+      .from("sector_benchmarks")
+      .select("snapshot_date")
+      .eq("sector", cleanSector)
+      .lte("snapshot_date", snapshotDate)
+      .order("snapshot_date", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (dateError) {
-        console.error(`Error resolving benchmark date for ${cleanSector} <= ${snapshotDate}:`, dateError);
-        return null;
+      console.error(
+        `Error resolving benchmark date for ${cleanSector} <= ${snapshotDate}:`,
+        dateError,
+      );
+      return null;
     }
 
     if (!dateData) {
       // Fallback to General if specific sector not found (only if allowed)
-      if (allowFallback && cleanSector !== 'General') {
-          const general = await getBenchmarksForSector('General', snapshotDate, true);
-          if (general) {
-              CACHE[cacheKey] = general;
-              CACHE_TIMESTAMP[cacheKey] = now;
-              return general;
-          }
+      if (allowFallback && cleanSector !== "General") {
+        console.warn(
+          `⚠️ BENCHMARK FALLBACK: Sector '${cleanSector}' → 'General' (date: ${snapshotDate})`,
+        );
+        const general = await getBenchmarksForSector(
+          "General",
+          snapshotDate,
+          true,
+        );
+        if (general) {
+          CACHE[cacheKey] = general;
+          CACHE_TIMESTAMP[cacheKey] = now;
+          return general;
+        }
       }
       return null;
     }
@@ -80,14 +97,17 @@ export async function getBenchmarksForSector(sector: string, snapshotDate: strin
 
     // 2. Fetch benchmarks for the resolved date
     const { data, error } = await supabaseAdmin
-      .from('sector_benchmarks')
-      .select('*')
-      .eq('sector', cleanSector)
-      .eq('snapshot_date', resolvedDate);
+      .from("sector_benchmarks")
+      .select("*")
+      .eq("sector", cleanSector)
+      .eq("snapshot_date", resolvedDate);
 
     if (error) {
-        console.error(`Error fetching benchmarks for ${cleanSector} on ${resolvedDate}:`, error);
-        return null;
+      console.error(
+        `Error fetching benchmarks for ${cleanSector} on ${resolvedDate}:`,
+        error,
+      );
+      return null;
     }
 
     if (!data || data.length === 0) {
@@ -96,7 +116,7 @@ export async function getBenchmarksForSector(sector: string, snapshotDate: strin
 
     // Optional: Log resolution if it differs (debug purposes, low noise)
     if (resolvedDate !== snapshotDate) {
-        // console.log(`[Benchmarks] Resolved ${cleanSector}: requested ${snapshotDate} -> found ${resolvedDate}`);
+      // console.log(`[Benchmarks] Resolved ${cleanSector}: requested ${snapshotDate} -> found ${resolvedDate}`);
     }
 
     const benchmarks: Record<string, SectorBenchmark> = {};
@@ -111,10 +131,10 @@ export async function getBenchmarksForSector(sector: string, snapshotDate: strin
         p75: row.p75,
         p90: row.p90,
         sample_size: row.sample_size,
-        confidence: row.confidence as 'low' | 'medium' | 'high',
+        confidence: row.confidence as "low" | "medium" | "high",
         median: row.median,
         trimmed_mean: row.trimmed_mean,
-        uncertainty_range: row.uncertainty_range
+        uncertainty_range: row.uncertainty_range,
       };
     }
 
@@ -127,9 +147,11 @@ export async function getBenchmarksForSector(sector: string, snapshotDate: strin
     CACHE_TIMESTAMP[cacheKey] = now;
 
     return benchmarks;
-
   } catch (err) {
-    console.error(`Unexpected error fetching benchmarks for ${cleanSector}:`, err);
+    console.error(
+      `Unexpected error fetching benchmarks for ${cleanSector}:`,
+      err,
+    );
     return null;
   }
 }

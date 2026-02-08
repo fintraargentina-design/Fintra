@@ -80,20 +80,6 @@ export function deriveFinancialMetrics(params: {
   const totalCurrentLiabilities = balance.totalCurrentLiabilities;
   const cashAndCashEquivalents = balance.cashAndCashEquivalents;
 
-  // DEBUG: ALWAYS log balance keys to diagnose parsing
-  if (balance && Object.keys(balance).length > 0) {
-    const keys = Object.keys(balance).slice(0, 20);
-    console.log("[DEBUG deriveFinancialMetrics] balance keys sample:", keys);
-    console.log(
-      "[DEBUG deriveFinancialMetrics] cashAndCashEquivalents value:",
-      cashAndCashEquivalents,
-    );
-    console.log(
-      "[DEBUG deriveFinancialMetrics] Check quoted key:",
-      balance['"cashAndCashEquivalents"'],
-    );
-  }
-
   // DEBUG: Log balance keys if cash is undefined
   if (
     cashAndCashEquivalents === undefined &&

@@ -76,12 +76,30 @@ export async function runFmpBulk(
           `ℹ️  Snapshots already exist for ${today} (count=${existingCount}). Loading processed tickers...`,
         );
 
-        const { data: processedSnaps } = await supabase
-          .from("fintra_snapshots")
-          .select("ticker")
-          .eq("snapshot_date", today);
+        // CRITICAL FIX: Load ALL processed tickers with pagination
+        processedTickers = [];
+        let page = 0;
+        const PAGE_SIZE = 1000;
 
-        processedTickers = (processedSnaps || []).map((s: any) => s.ticker);
+        while (true) {
+          const from = page * PAGE_SIZE;
+          const to = from + PAGE_SIZE - 1;
+
+          const { data: processedSnaps } = await supabase
+            .from("fintra_snapshots")
+            .select("ticker")
+            .eq("snapshot_date", today)
+            .range(from, to);
+
+          if (!processedSnaps || processedSnaps.length === 0) break;
+
+          processedTickers.push(...processedSnaps.map((s: any) => s.ticker));
+
+          if (processedSnaps.length < PAGE_SIZE) break;
+
+          page++;
+        }
+
         console.log(
           `✅ Loaded ${processedTickers.length} already processed tickers`,
         );

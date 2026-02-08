@@ -524,8 +524,10 @@ export async function buildSnapshot(
   // Build Sentiment Timeline for FGOS (and Verdict)
   const sentimentTimeline = buildSentimentTimeline(valuationRows);
 
-  const fgos = sector
-    ? await calculateFGOSFromData(
+  let fgos = null;
+  if (sector) {
+    try {
+      fgos = await calculateFGOSFromData(
         sym,
         profile ?? {},
         ratios ?? {},
@@ -536,8 +538,13 @@ export async function buildSnapshot(
         financialHistory.length > 0 ? financialHistory : null, // Moat
         sentimentTimeline, // Sentiment
         today,
-      )
-    : null;
+      );
+    } catch (error: any) {
+      console.error(`[${sym}] FGOS CALCULATION FAILED:`, error.message);
+      // Continue with snapshot creation - DO NOT throw
+      fgos = null;
+    }
+  }
 
   const fgosStatus =
     fgos && typeof fgos.fgos_score === "number" ? "computed" : "pending";

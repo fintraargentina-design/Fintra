@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { getFinancialHistory } from "@/lib/services/ticker-view.service";
 import { 
   PeriodType, 
   ValueItem, 
@@ -114,17 +114,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const { data: financialsData, error: finError } = await supabase
-      .from("datos_financieros")
-      .select("*")
-      .eq("ticker", ticker)
-      .order("period_end_date", { ascending: true });
-
-    if (finError) {
-      throw new Error(`Financials error for ${ticker}: ${finError.message}`);
-    }
-
-    const financials = financialsData || [];
+    const financials = await getFinancialHistory(ticker);
 
     const sortedPeriods = identifyFinancialPeriods(financials);
 

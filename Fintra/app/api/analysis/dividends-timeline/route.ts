@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { getDividendHistory } from "@/lib/services/ticker-view.service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -103,13 +103,8 @@ export async function GET(req: Request) {
   }
 
   try {
-    const { data: rows, error } = await supabase
-      .from('datos_dividendos')
-      .select('*')
-      .eq('ticker', ticker)
-      .order('year', { ascending: true });
+    const rows = await getDividendHistory(ticker);
 
-    if (error) throw new Error(error.message);
     if (!rows) return NextResponse.json({ ticker, currency: "USD", years: [], metrics: [] });
 
     // 1. Build Years Structure

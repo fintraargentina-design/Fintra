@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
-import { subDays, subMonths, subYears, startOfYear, format } from "date-fns";
+import { getPerformanceHistory, PerformanceHistory } from "@/lib/services/ticker-view.service";
 import { 
-  PerformanceTimelineResponse, 
   Metric, 
   ValueItem, 
   YearGroup 
@@ -12,35 +10,17 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const WINDOWS = [
-  { code: "1D", days: 1 },
-  { code: "1W", days: 7 },
-  { code: "1M", months: 1 },
-  { code: "3M", months: 3 },
-  { code: "6M", months: 6 },
-  { code: "YTD", isYTD: true },
-  { code: "1Y", years: 1 },
-  { code: "3Y", years: 3 },
-  { code: "5Y", years: 5 },
-  { code: "10Y", years: 10 },
+  { code: "1D" },
+  { code: "1W" },
+  { code: "1M" },
+  { code: "3M" },
+  { code: "6M" },
+  { code: "YTD" },
+  { code: "1Y" },
+  { code: "3Y" },
+  { code: "5Y" },
+  { code: "10Y" },
 ] as const;
-
-function subtractDate(dateStr: string, opts: { days?: number; months?: number; years?: number; isYTD?: boolean }): string {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const date = new Date(y, m - 1, d); // Construct date in local time
-
-  let result = date;
-  if (opts.isYTD) {
-    result = startOfYear(date);
-  } else if (opts.days) {
-    result = subDays(date, opts.days);
-  } else if (opts.months) {
-    result = subMonths(date, opts.months);
-  } else if (opts.years) {
-    result = subYears(date, opts.years);
-  }
-  
-  return format(result, 'yyyy-MM-dd');
-}
 
 function formatDisplay(value: number | null): string | null {
   if (value === null || value === undefined) return "—";
@@ -57,56 +37,33 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Fetch prices_daily (limit 4000 to cover >10 years of trading days)
-    const { data: prices, error } = await supabase
-      .from("prices_daily")
-      .select("price_date, adj_close")
-      .eq("ticker", ticker)
-      .order("price_date", { ascending: false })
-      .limit(4000);
-
-    if (error) throw new Error(error.message);
-
-    const priceHistory = prices || [];
+    // Fetch performance history from service
+    const perfRows = await getPerformanceHistory(ticker);
     
-    if (priceHistory.length === 0) {
-      return NextResponse.json({
-        ticker,
-        currency: "USD",
-        years: [],
-        metrics: [],
-      });
-    }
-
-    const latest = priceHistory[0];
-    const latestDate = latest.price_date;
-    const latestPrice = Number(latest.adj_close);
+    // Map window_code -> latest row
+    // Since rows are ordered by date ascending, the last entry for a window is the latest.
+    const latestPerfMap = new Map<string, PerformanceHistory>();
+    perfRows.forEach(row => {
+        latestPerfMap.set(row.window_code, row);
+    });
 
     const valuesObj: Record<string, ValueItem> = {};
     const columns: string[] = [];
 
     for (const w of WINDOWS) {
-        const targetDate = subtractDate(latestDate, w);
-        
-        // Find closest previous trading day: first row where date <= targetDate
-        const startRow = priceHistory.find(p => p.price_date <= targetDate);
-        
         columns.push(w.code);
+        const row = latestPerfMap.get(w.code);
 
-        if (startRow && startRow.adj_close !== null) {
-            const startPrice = Number(startRow.adj_close);
-            if (startPrice !== 0) {
-                const ret = ((latestPrice / startPrice) - 1) * 100;
-                valuesObj[w.code] = {
-                    value: ret,
-                    display: formatDisplay(ret),
-                    normalized: null, // Neutral color
-                    period_type: null,
-                    period_end_date: latestDate
-                };
-            } else {
-                 valuesObj[w.code] = { value: null, display: "—", normalized: null, period_type: null };
-            }
+        if (row && row.return_percent !== null) {
+             // Assuming DB stores decimal (e.g. 0.05 for 5%), and we want 5.0 for display
+             const val = Number(row.return_percent) * 100;
+             valuesObj[w.code] = {
+                 value: val,
+                 display: formatDisplay(val),
+                 normalized: null,
+                 period_type: null,
+                 period_end_date: row.performance_date
+             };
         } else {
              valuesObj[w.code] = { value: null, display: "—", normalized: null, period_type: null };
         }
